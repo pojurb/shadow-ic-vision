@@ -25,9 +25,10 @@
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
 | **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
 | **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
-| **P6** Composition (portfolio cross-analysis) | ⬜ |
-| **P7** Guardrails + eval harness | ⬜ |
-| **P8** Polish, export/import, Vercel cutover | ⬜ |
+| **P6** Multi-provider BYOK + thin backend | ⬜ NEXT — see decision note |
+| **P7** Composition (portfolio cross-analysis) | ⬜ |
+| **P8** Guardrails + eval harness | ⬜ |
+| **P9** Polish, export/import, Vercel cutover | ⬜ |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
@@ -70,13 +71,29 @@ drop-structured-output):
 are built to the documented spec but have not been exercised against the real API (no key in this env).
 First live run with a link/web-research analysis is the thing to watch — it runs in the user's browser.
 
+### P6 — Multi-provider BYOK + thin backend (decision 2026-05-30)
+**BYOK means any provider's key, not Anthropic-only.** The user brings any key (Anthropic / OpenAI / …)
+and uses that model as the brain with all the capabilities it has. Per capability: native if the model
+supports it, else an app-provided fallback tool. Web fetch/search can't be a browser-only fallback
+(browser **CORS** blocks cross-site fetch), so a **thin backend** (Next.js route handlers in this same
+app) provides them. Provider/model calls stay **direct from the browser** so the BYOK key never leaves
+the user's machine; the backend only handles the web-tool fallback. This **supersedes** the "native Claude
+blocks / no backend" decisions below (P5a/P5b code becomes the first provider adapter). Full rationale +
+confirmed sub-decisions: saved memory `multi-provider-byok`.
+- **Providers first:** Anthropic (done) + OpenAI. **Search fallback:** Tavily via operator `.env.local` key.
+- **Sequence:** (1) `AIProvider` seam + capability map + Anthropic adapter, behavior-preserving → (2) OpenAI
+  adapter (+ pdf.js text fallback) → (3) thin backend `/api/web-fetch` + `/api/web-search` + client tool loop
+  → (4) capability-aware wiring + Settings (per-provider keys) + revise `DATA_MODEL.md`.
+
 ## Key decisions
-- **Local-first BYOK** now; architected for multi-user later (async repo + AI-client seams).
+- **Multi-provider BYOK** (any provider key); thin backend for web-tool fallback. **Supersedes the two
+  Anthropic-specific lines below** — kept for history. See `### P6` and memory `multi-provider-byok`.
 - **Stack:** Next.js (App Router) + TypeScript; ported industrial-grunge CSS; Dexie (IndexedDB).
 - **Analysis is the core object**; Ledger is a derived view; Portfolio is first-class for composition.
 - **Numbers are deterministic** (`computeMetrics`), locked into the AI prompt as facts (no numeric hallucination).
-- Attachments v1: **PDF + image** (native Claude blocks). Links + web research via Anthropic
-  `web_fetch` / `web_search` server tools (no CORS, no backend).
+- ~~Attachments v1: **PDF + image** (native Claude blocks). Links + web research via Anthropic
+  `web_fetch` / `web_search` server tools (no CORS, no backend).~~ → generalized in P6 (native where the
+  model supports it, app/backend fallback otherwise).
 
 ---
 

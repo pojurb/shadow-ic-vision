@@ -1,5 +1,11 @@
 # Data Model — AI Investment Workspace
 
+> ⚠️ **Partially superseded (2026-05-30).** BYOK is now **multi-provider**, not Anthropic-only, with a
+> **thin backend** for web-tool fallback. The lines below about "native Claude blocks" and Anthropic
+> server tools / "no backend" describe the v1 Anthropic path only — they are generalized in P6
+> (native where the model supports it, app/backend fallback otherwise). See `PROGRESS.md` § P6 and saved
+> memory `multi-provider-byok` for the current architecture. The Analysis/Dexie/repo model below is unchanged.
+
 The product evolves from a single-screen cockpit into an **analysis workspace** (IDE-like:
 saved documents, history, chat, droppable context, composition). The unit of work is an
 **Analysis**; everything else (ledger, history, portfolio) derives from it.
