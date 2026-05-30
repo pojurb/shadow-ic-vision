@@ -107,7 +107,11 @@ confirmed sub-decisions: saved memory `multi-provider-byok`.
    npm test         # finance engine tests
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
-   the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo` /
-   `ai-pm-portfolio-workspace`). Next task: **P5** (context sources — PDF/image attachments + links).
-   To run live AI: open ⚙ SETTINGS in the app, paste an Anthropic key, pick a model, then ⚡ RUN AI.
-4. Everything is committed **and pushed** to `origin/main`, so it also survives disk loss.
+   the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo`,
+   `multi-provider-byok`). **Next: smoke-test the Anthropic path live** (open ⚙ SETTINGS, paste an
+   Anthropic key, pick a model, ⚡ RUN AI — the whole P4→P6.1 AI layer is built but unverified against
+   a real API), **then P6.2** (OpenAI adapter + pdf.js PDF fallback). P6.3 = thin backend
+   (`/api/web-fetch` + `/api/web-search` via Tavily). P6.4 = capability wiring + per-provider keys +
+   revise `DATA_MODEL.md`. Open tasks for P6.2–6.4 are tracked in the task list.
+4. **Committed to `main` (local), NOT pushed.** `git log` shows P4 / P5a / P5b / docs / P6.1. Push when
+   ready: `git push origin main`.
