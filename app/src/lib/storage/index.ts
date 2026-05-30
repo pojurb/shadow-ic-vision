@@ -3,6 +3,7 @@
  * is the seam that lets a DB-backed, multi-user implementation drop in later
  * without touching the UI.
  */
+import type { ProviderId } from "@/lib/ai/types";
 
 export type DecisionAction = "APPROVE" | "HOLD" | "REJECT";
 
@@ -16,7 +17,9 @@ export interface LedgerEntry {
 }
 
 export interface Settings {
-  /** Anthropic API key — never leaves the browser in the local-first model. */
+  /** Selected AI provider. */
+  provider: ProviderId;
+  /** Provider API key — never leaves the browser in the local-first model. */
   apiKey: string;
   /** Selected model id for the debate. */
   model: string;
@@ -33,7 +36,7 @@ export interface AppStorage {
 const LEDGER_KEY = "jp_ledger";
 const SETTINGS_KEY = "jp_settings";
 
-export const DEFAULT_SETTINGS: Settings = { apiKey: "", model: "claude-opus-4-8" };
+export const DEFAULT_SETTINGS: Settings = { provider: "anthropic", apiKey: "", model: "claude-opus-4-8" };
 
 function readJSON<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;

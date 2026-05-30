@@ -1,0 +1,40 @@
+/**
+ * Anthropic adapter — the first AIProvider. Wraps the existing raw-fetch wire
+ * logic (client/analyze/chat) behind the provider interface and owns the
+ * research→debate orchestration. Claude supports every capability natively.
+ */
+import type { AIProvider, AnalysisRequest, ChatRequest, Capabilities } from "../types";
+import type { DebateOutput } from "../schemas";
+import { MODELS } from "../client";
+import { runAnalysis, runResearch, needsResearch } from "../analyze";
+import { streamChat } from "../chat";
+
+const NATIVE: Capabilities = {
+  vision: true,
+  pdfNative: true,
+  webFetchNative: true,
+  webSearchNative: true,
+};
+
+export const anthropicProvider: AIProvider = {
+  id: "anthropic",
+  label: "Anthropic (Claude)",
+  models: MODELS,
+  capabilities: () => NATIVE,
+
+  async runAnalysis({ apiKey, model, analysis, onPhase }: AnalysisRequest): Promise<DebateOutput> {
+    // Two-pass when there are links / web research: free-form research with native
+    // web tools, then the structured debate using the notes as qualitative context.
+    let notes: string | undefined;
+    if (needsResearch(analysis)) {
+      onPhase?.("research");
+      notes = await runResearch(apiKey, model, analysis);
+    }
+    onPhase?.("debate");
+    return runAnalysis(apiKey, model, analysis, notes);
+  },
+
+  streamChat({ apiKey, model, analysis, userText, onDelta }: ChatRequest): Promise<string> {
+    return streamChat({ apiKey, model, analysis, userText, onDelta });
+  },
+};

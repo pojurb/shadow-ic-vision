@@ -11,7 +11,7 @@ import {
   createAnalysis,
 } from "@/lib/repo";
 import type { Analysis } from "@/lib/domain/types";
-import { storage, type Settings } from "@/lib/storage";
+import { storage, DEFAULT_SETTINGS, type Settings } from "@/lib/storage";
 import Library from "./Library";
 import AnalysisView from "./AnalysisView";
 import SettingsModal from "./Settings";
@@ -20,7 +20,7 @@ export default function Workspace() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [active, setActive] = useState<Analysis | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ apiKey: "", model: "claude-opus-4-8" });
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -106,6 +106,7 @@ export default function Workspace() {
           <AnalysisView
             analysis={active}
             onChange={handleChange}
+            provider={settings.provider}
             apiKey={settings.apiKey}
             model={settings.model}
             onNeedSettings={() => setShowSettings(true)}

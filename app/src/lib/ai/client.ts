@@ -7,6 +7,7 @@
  * be bundled for the browser. The `anthropic-dangerous-direct-browser-access`
  * header is the documented way to allow direct browser calls (CORS-enabled).
  */
+import type { ModelOption } from "./types";
 
 export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
@@ -26,11 +27,6 @@ export async function errorMessage(res: Response): Promise<string> {
   } catch {
     return `HTTP ${res.status}`;
   }
-}
-
-export interface ModelOption {
-  id: string;
-  label: string;
 }
 
 export const MODELS: ModelOption[] = [

@@ -5,8 +5,8 @@ import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSou
 import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
 import { putBlob, deleteBlob } from "@/lib/repo";
-import { runAnalysis, runResearch, needsResearch } from "@/lib/ai/analyze";
-import { streamChat } from "@/lib/ai/chat";
+import { getProvider } from "@/lib/ai/registry";
+import type { ProviderId } from "@/lib/ai/types";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import type { Vertical } from "@/data/presets";
 
@@ -74,12 +74,14 @@ function chartFor(vertical: Vertical, p: AssetParameters) {
 export default function AnalysisView({
   analysis,
   onChange,
+  provider,
   apiKey,
   model,
   onNeedSettings,
 }: {
   analysis: Analysis;
   onChange: (next: Analysis) => void;
+  provider: ProviderId;
   apiKey: string;
   model: string;
   onNeedSettings: () => void;
@@ -143,15 +145,14 @@ export default function AnalysisView({
     setRunning(true);
     setAiError(null);
     try {
-      // Pass 1 (only when there are links / web research): free-form research with
-      // web tools. Pass 2: structured debate, with the notes as qualitative context.
-      let notes: string | undefined;
-      if (needsResearch(analysis)) {
-        setRunPhase("research");
-        notes = await runResearch(apiKey, model, analysis);
-      }
-      setRunPhase("debate");
-      const out = await runAnalysis(apiKey, model, analysis, notes);
+      // The provider orchestrates the research + structured-debate passes and
+      // reports phase changes (RESEARCHING… → DEBATING…) via onPhase.
+      const out = await getProvider(provider).runAnalysis({
+        apiKey,
+        model,
+        analysis,
+        onPhase: setRunPhase,
+      });
       update({
         debate: { confidence: out.confidence, bull: out.bull, bear: out.bear },
         advisory: out.advisory,
@@ -176,7 +177,7 @@ export default function AnalysisView({
     setChatBusy(true);
     setAiError(null);
     try {
-      const full = await streamChat({
+      const full = await getProvider(provider).streamChat({
         apiKey,
         model,
         analysis,
