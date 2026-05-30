@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { Analysis, AssetParameters, DecisionAction, ChatMessage } from "@/lib/domain/types";
+import { useRef, useState } from "react";
+import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSource } from "@/lib/domain/types";
 import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
+import { putBlob, deleteBlob } from "@/lib/repo";
 import { runAnalysis } from "@/lib/ai/analyze";
 import { streamChat } from "@/lib/ai/chat";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
@@ -93,8 +94,46 @@ export default function AnalysisView({
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (patch: Partial<Analysis>) => onChange({ ...analysis, ...patch });
+
+  async function addFiles(files: FileList | null) {
+    if (!files) return;
+    const additions: ContextSource[] = [];
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      if (!isImage && !isPdf) continue; // v1: PDF + image only (native Claude blocks)
+      const blobId = await putBlob(file);
+      additions.push({
+        id: crypto.randomUUID(),
+        kind: "file",
+        name: file.name,
+        mime: file.type,
+        fileKind: isImage ? "image" : "pdf",
+        blobId,
+        createdAt: Date.now(),
+      });
+    }
+    if (additions.length) update({ sources: [...analysis.sources, ...additions] });
+  }
+
+  function addLink() {
+    const raw = linkDraft.trim();
+    if (!raw) return;
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    update({
+      sources: [...analysis.sources, { id: crypto.randomUUID(), kind: "link", url, createdAt: Date.now() }],
+    });
+    setLinkDraft("");
+  }
+
+  async function removeSource(s: ContextSource) {
+    if (s.kind === "file") await deleteBlob(s.blobId);
+    update({ sources: analysis.sources.filter((x) => x.id !== s.id) });
+  }
 
   const isLive = !!analysis.model && analysis.model !== "seed";
 
@@ -352,6 +391,68 @@ export default function AnalysisView({
           </div>
         </section>
       </div>
+
+      <section className="panel context-panel">
+        <div className="panel-header">
+          <span className="panel-title">CONTEXT SOURCES</span>
+          <label className="web-toggle">
+            <input
+              type="checkbox"
+              checked={analysis.allowWebSearch}
+              onChange={(e) => update({ allowWebSearch: e.target.checked })}
+            />
+            WEB RESEARCH
+          </label>
+        </div>
+        <div className="panel-body">
+          <div className="source-add-row">
+            <button className="source-add-btn" onClick={() => fileInputRef.current?.click()}>
+              + FILE (PDF / IMAGE)
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              hidden
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              className="meta-input source-link-input"
+              placeholder="paste a URL…"
+              value={linkDraft}
+              onChange={(e) => setLinkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addLink();
+                }
+              }}
+            />
+            <button className="source-add-btn" onClick={addLink}>+ LINK</button>
+          </div>
+          {analysis.sources.length === 0 ? (
+            <div className="source-empty">
+              No context attached. Add a PDF/image or a link to ground the AI in source material.
+            </div>
+          ) : (
+            <div className="source-list">
+              {analysis.sources.map((s) => (
+                <div key={s.id} className="source-chip">
+                  <span className="source-kind">
+                    {s.kind === "file" ? (s.fileKind === "image" ? "🖼" : "📄") : "🔗"}
+                  </span>
+                  <span className="source-name">{s.kind === "file" ? s.name : s.url}</span>
+                  <button className="source-remove" onClick={() => removeSource(s)} title="Remove">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="panel chat-panel">
         <div className="panel-header">

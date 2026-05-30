@@ -4,6 +4,7 @@
  */
 import { ANTHROPIC_URL, anthropicHeaders, errorMessage } from "./client";
 import { CHAT_SYSTEM, chatContextPreamble } from "./prompts";
+import { buildFileBlocks } from "./content";
 import type { Analysis, ChatMessage } from "@/lib/domain/types";
 
 export async function streamChat(opts: {
@@ -17,6 +18,12 @@ export async function streamChat(opts: {
 
   const history = analysis.chat.map((m: ChatMessage) => ({ role: m.role, content: m.content }));
 
+  const fileBlocks = await buildFileBlocks(analysis.sources);
+  const preamble = chatContextPreamble(analysis);
+  const preambleContent = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: preamble }]
+    : preamble;
+
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: anthropicHeaders(apiKey),
@@ -26,7 +33,7 @@ export async function streamChat(opts: {
       stream: true,
       system: CHAT_SYSTEM,
       messages: [
-        { role: "user", content: chatContextPreamble(analysis) },
+        { role: "user", content: preambleContent },
         { role: "assistant", content: "Understood — I have the locked figures and the prior bull/bear debate in mind. Ask away." },
         ...history,
         { role: "user", content: userText },

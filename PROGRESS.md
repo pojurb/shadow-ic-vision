@@ -23,7 +23,8 @@
 | **P3a** Data layer: domain types + Dexie repo + `computeMetrics` | ✅ build clean |
 | **P3b** Library sidebar + analysis-backed cockpit + tags/folders | ✅ |
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
-| **P5** Context sources (PDF/image, links, web research) | ⬜ NEXT |
+| **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
+| **P5b** Live `web_fetch` / `web_search` server tools | ⬜ NEXT — see design note |
 | **P6** Composition (portfolio cross-analysis) | ⬜ |
 | **P7** Guardrails + eval harness | ⬜ |
 | **P8** Polish, export/import, Vercel cutover | ⬜ |
@@ -43,6 +44,26 @@ Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `
 - API shapes spot-checked against the current Anthropic spec (structured-output param, SSE event names).
   Prompt caching was intentionally **not** used — payloads are far below the ~4096-token cacheable
   minimum, so `cache_control` would be an inert no-op.
+
+### P5a — context sources, as built
+- `lib/ai/content.ts` — `buildFileBlocks()` reads each file source's blob and emits a native
+  `image` block (base64) or `document` block (PDF base64). Wired into both `analyze` and `chat`
+  as the leading content blocks before the grounding text.
+- `prompts.ts` — `attachedContextText()` lists attached files/links + web-research intent so the
+  model is oriented (file bytes still travel as real content blocks).
+- `AnalysisView.tsx` — CONTEXT SOURCES panel: add/remove PDF+image files and links, WEB RESEARCH
+  toggle. Blob bytes persist immediately via `putBlob`; source metadata rides the debounced save.
+
+### ⚠️ P5b design tension to resolve before building
+The locked data model wants `web_fetch` (links) and `web_search` (web research) **during analysis**.
+But the analysis call uses **structured outputs** (`output_config.format`), and structured outputs are
+**incompatible with citations**, which the web tools emit → the combined request would 400. So web tools
+can't sit on the structured-output analyze path as-is. Options (pick before P5b):
+- **A** — web tools only on the *chat* path (free-form, no schema); analysis stays structured. Simplest.
+- **B** — analysis does a free-form web-tool pass, then a second structured pass to format the debate.
+- **C** — drop structured output for the debate; parse JSON from a free-form response by hand.
+P5b also needs `pause_turn` handling in the streamed SSE loop (server-tool continuation), which is the
+one part that really wants a live API key to verify — flagging since this runs in the user's browser.
 
 ## Key decisions
 - **Local-first BYOK** now; architected for multi-user later (async repo + AI-client seams).

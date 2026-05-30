@@ -43,12 +43,30 @@ export function groundingText(a: Analysis): string {
   ].join("\n");
 }
 
+/**
+ * Summary of attached context (files + links). File bytes are sent as native
+ * content blocks alongside the text; this just orients the model and surfaces
+ * links/web-research intent. Returns "" when nothing is attached.
+ */
+export function attachedContextText(a: Analysis): string {
+  const lines: string[] = [];
+  for (const s of a.sources) {
+    if (s.kind === "file") lines.push(`- ${s.fileKind}: ${s.name} (attached as a content block)`);
+    else lines.push(`- link: ${s.url}${s.title ? ` — ${s.title}` : ""}`);
+  }
+  if (a.allowWebSearch) lines.push(`- web research: enabled (search the web when it would sharpen the thesis)`);
+  if (lines.length === 0) return "";
+  return [`Attached context:`, ...lines].join("\n");
+}
+
 export function buildAnalysisUserPrompt(a: Analysis): string {
   return [
     groundingText(a),
-    ``,
+    attachedContextText(a),
     `Produce the red-team debate (2-3 bull, 2-3 bear), the 3 advisory lenses, and a confidence score, grounded strictly in the figures above.`,
-  ].join("\n");
+  ]
+    .filter((s) => s !== "")
+    .join("\n\n");
 }
 
 /** Text rendering of a completed debate, used to seed chat context. */
@@ -73,5 +91,7 @@ export function debateContext(a: Analysis): string {
 }
 
 export function chatContextPreamble(a: Analysis): string {
-  return [groundingText(a), ``, debateContext(a)].join("\n");
+  return [groundingText(a), attachedContextText(a), debateContext(a)]
+    .filter((s) => s !== "")
+    .join("\n\n");
 }

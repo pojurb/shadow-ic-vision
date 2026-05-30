@@ -5,6 +5,7 @@
 import { ANTHROPIC_URL, anthropicHeaders, errorMessage } from "./client";
 import { DEBATE_JSON_SCHEMA, type DebateOutput } from "./schemas";
 import { SYSTEM_PROMPT, buildAnalysisUserPrompt } from "./prompts";
+import { buildFileBlocks } from "./content";
 import type { Analysis } from "@/lib/domain/types";
 
 interface TextBlock {
@@ -17,6 +18,14 @@ export async function runAnalysis(
   model: string,
   analysis: Analysis,
 ): Promise<DebateOutput> {
+  const fileBlocks = await buildFileBlocks(analysis.sources);
+  const userText = buildAnalysisUserPrompt(analysis);
+  // Files (image/document blocks) precede the grounding text. Structured outputs
+  // are incompatible with citations, so web_fetch/web_search are not attached here.
+  const content = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: userText }]
+    : userText;
+
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: anthropicHeaders(apiKey),
@@ -24,7 +33,7 @@ export async function runAnalysis(
       model,
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildAnalysisUserPrompt(analysis) }],
+      messages: [{ role: "user", content }],
       output_config: { format: { type: "json_schema", schema: DEBATE_JSON_SCHEMA } },
     }),
   });
