@@ -24,7 +24,7 @@
 | **P3b** Library sidebar + analysis-backed cockpit + tags/folders | ✅ |
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
 | **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
-| **P5b** Live `web_fetch` / `web_search` server tools | ⬜ NEXT — see design note |
+| **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
 | **P6** Composition (portfolio cross-analysis) | ⬜ |
 | **P7** Guardrails + eval harness | ⬜ |
 | **P8** Polish, export/import, Vercel cutover | ⬜ |
@@ -54,16 +54,21 @@ Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `
 - `AnalysisView.tsx` — CONTEXT SOURCES panel: add/remove PDF+image files and links, WEB RESEARCH
   toggle. Blob bytes persist immediately via `putBlob`; source metadata rides the debounced save.
 
-### ⚠️ P5b design tension to resolve before building
-The locked data model wants `web_fetch` (links) and `web_search` (web research) **during analysis**.
-But the analysis call uses **structured outputs** (`output_config.format`), and structured outputs are
-**incompatible with citations**, which the web tools emit → the combined request would 400. So web tools
-can't sit on the structured-output analyze path as-is. Options (pick before P5b):
-- **A** — web tools only on the *chat* path (free-form, no schema); analysis stays structured. Simplest.
-- **B** — analysis does a free-form web-tool pass, then a second structured pass to format the debate.
-- **C** — drop structured output for the debate; parse JSON from a free-form response by hand.
-P5b also needs `pause_turn` handling in the streamed SSE loop (server-tool continuation), which is the
-one part that really wants a live API key to verify — flagging since this runs in the user's browser.
+### P5b — web tools via two-pass analysis, as built
+Resolved the structured-output ↔ citations conflict with **two passes** (chosen over chat-only and
+drop-structured-output):
+- **Pass 1 — `runResearch`** (`analyze.ts`): free-form call with `web_fetch_20260209` (when links are
+  attached) and `web_search_20260209` (when WEB RESEARCH is on). Drives the server-tool loop by
+  re-POSTing on `stop_reason: "pause_turn"` (round cap 6). Returns analyst notes. `RESEARCH_SYSTEM`
+  keeps numbers tied to the locked figures.
+- **Pass 2 — `runAnalysis`** (unchanged shape): structured `output_config.format` debate, now accepting
+  the pass-1 notes as **qualitative-only** context (the prompt forbids taking any number from them).
+- `needsResearch()` gates pass 1; `RUN AI` shows RESEARCHING… → DEBATING…. Skipped entirely when there
+  are no links and web research is off (one structured call, as before).
+
+⚠️ **Unverified without a live key.** The `pause_turn` continuation loop and the web-tool response shapes
+are built to the documented spec but have not been exercised against the real API (no key in this env).
+First live run with a link/web-research analysis is the thing to watch — it runs in the user's browser.
 
 ## Key decisions
 - **Local-first BYOK** now; architected for multi-user later (async repo + AI-client seams).

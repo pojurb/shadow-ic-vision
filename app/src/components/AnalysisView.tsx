@@ -5,7 +5,7 @@ import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSou
 import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
 import { putBlob, deleteBlob } from "@/lib/repo";
-import { runAnalysis } from "@/lib/ai/analyze";
+import { runAnalysis, runResearch, needsResearch } from "@/lib/ai/analyze";
 import { streamChat } from "@/lib/ai/chat";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import type { Vertical } from "@/data/presets";
@@ -89,6 +89,7 @@ export default function AnalysisView({
   const [notes, setNotes] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [running, setRunning] = useState(false);
+  const [runPhase, setRunPhase] = useState<"" | "research" | "debate">("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [pendingUser, setPendingUser] = useState<string | null>(null);
@@ -142,7 +143,15 @@ export default function AnalysisView({
     setRunning(true);
     setAiError(null);
     try {
-      const out = await runAnalysis(apiKey, model, analysis);
+      // Pass 1 (only when there are links / web research): free-form research with
+      // web tools. Pass 2: structured debate, with the notes as qualitative context.
+      let notes: string | undefined;
+      if (needsResearch(analysis)) {
+        setRunPhase("research");
+        notes = await runResearch(apiKey, model, analysis);
+      }
+      setRunPhase("debate");
+      const out = await runAnalysis(apiKey, model, analysis, notes);
       update({
         debate: { confidence: out.confidence, bull: out.bull, bear: out.bear },
         advisory: out.advisory,
@@ -152,6 +161,7 @@ export default function AnalysisView({
       setAiError(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
+      setRunPhase("");
     }
   }
 
@@ -320,7 +330,7 @@ export default function AnalysisView({
                 </span>
               )}
               <button className="run-ai-btn" onClick={runAI} disabled={running}>
-                {running ? "RUNNING…" : "⚡ RUN AI"}
+                {running ? (runPhase === "research" ? "RESEARCHING…" : "DEBATING…") : "⚡ RUN AI"}
               </button>
             </div>
           </div>

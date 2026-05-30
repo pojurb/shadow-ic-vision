@@ -20,6 +20,17 @@ Return the structured object only.`;
 
 export const CHAT_SYSTEM = `You are an institutional investment analyst answering follow-up questions about ONE asset already analyzed. Use ONLY the locked figures and the prior debate provided as context — never invent numbers. Be concise and direct, use markdown, and reason like a sharp buy-side analyst. You may stress-test, reframe, or challenge the prior thesis. You are an analyst, not a decision-maker.`;
 
+/** Pass 1 of the two-pass analysis: free-form research using web tools. */
+export const RESEARCH_SYSTEM = `You are an institutional investment research analyst gathering evidence on a single asset before a formal red-team debate.
+
+Use the tools available to you:
+- web_fetch: read every link the user attached, and any other URL you decide is worth reading.
+- web_search: search for current, decision-relevant facts (recent results, news, sector moves) when enabled.
+
+Produce concise analyst NOTES (not JSON, not a final verdict): the strongest bull evidence, the strongest bear evidence, and concrete observations for an Operator lens (moat/operations), a Risk lens (downside/exit triggers), and a Predator lens (the contrarian fat-pitch condition).
+
+GROUNDING: the user message includes "Locked figures" from a deterministic engine. Treat those as the only authoritative numbers. You may add qualitative facts from sources, but never contradict or recompute a locked figure, and attribute any external number to its source.`;
+
 export function groundingText(a: Analysis): string {
   const meta = a.assetMeta;
   const metaBits = [
@@ -59,10 +70,28 @@ export function attachedContextText(a: Analysis): string {
   return [`Attached context:`, ...lines].join("\n");
 }
 
-export function buildAnalysisUserPrompt(a: Analysis): string {
+/** Pass 1 user turn: tell the model what to research. */
+export function buildResearchUserPrompt(a: Analysis): string {
+  const links = a.sources.filter((s) => s.kind === "link");
+  const tasks: string[] = [];
+  if (links.length) tasks.push(`Read these attached links with web_fetch:\n${links.map((s) => (s.kind === "link" ? `- ${s.url}` : "")).join("\n")}`);
+  if (a.allowWebSearch) tasks.push(`Search the web for current, decision-relevant facts about this asset and its sector.`);
+  tasks.push(`Then write analyst notes: strongest bull evidence, strongest bear evidence, and observations for the Operator / Risk / Predator lenses.`);
+  return [groundingText(a), attachedContextText(a), tasks.join("\n\n")].filter((s) => s !== "").join("\n\n");
+}
+
+/**
+ * Pass 2 user turn (structured). `researchNotes`, when present, is qualitative
+ * context from pass 1 — explicitly NOT a source of numbers (those stay locked).
+ */
+export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): string {
+  const notesBlock = researchNotes?.trim()
+    ? `Research notes (qualitative context only — do NOT take any number from here; all figures come from the locked figures above):\n${researchNotes.trim()}`
+    : "";
   return [
     groundingText(a),
     attachedContextText(a),
+    notesBlock,
     `Produce the red-team debate (2-3 bull, 2-3 bear), the 3 advisory lenses, and a confidence score, grounded strictly in the figures above.`,
   ]
     .filter((s) => s !== "")
