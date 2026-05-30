@@ -21,15 +21,28 @@
 | **P2** Cockpit UI shell (React, deterministic calc) | ✅ runs at localhost:3000 |
 | Data model locked (`DATA_MODEL.md`) | ✅ |
 | **P3a** Data layer: domain types + Dexie repo + `computeMetrics` | ✅ build clean |
-| **P3b** Library sidebar + analysis-backed cockpit + tags/folders | ⬜ NEXT |
-| **P4** Live AI + chat (BYOK) — invoke `claude-api` skill | ⬜ |
-| **P5** Context sources (PDF/image, links, web research) | ⬜ |
+| **P3b** Library sidebar + analysis-backed cockpit + tags/folders | ✅ |
+| **P4** Live AI + chat (BYOK) | ✅ build clean |
+| **P5** Context sources (PDF/image, links, web research) | ⬜ NEXT |
 | **P6** Composition (portfolio cross-analysis) | ⬜ |
 | **P7** Guardrails + eval harness | ⬜ |
 | **P8** Polish, export/import, Vercel cutover | ⬜ |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
-`lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`.
+`lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
+`components/{Workspace,Library,AnalysisView,Settings}.tsx`, `lib/ai/{client,prompts,schemas,analyze,chat}.ts`.
+
+### P4 — live AI (BYOK), as built
+- `lib/ai/client.ts` — raw `fetch` to `api.anthropic.com` (no SDK — SDK pulls node-only deps that
+  can't bundle for the browser). Uses the `anthropic-dangerous-direct-browser-access` header. Model list.
+- `lib/ai/analyze.ts` — grounded red-team debate via **structured outputs** (`output_config.format`,
+  `json_schema`). Numbers come only from `computeMetrics`; the model may not invent figures.
+- `lib/ai/chat.ts` — streamed follow-up chat, manual SSE parse (`content_block_delta`/`text_delta`).
+- `Settings.tsx` — BYOK key (localStorage only, never leaves the browser) + model picker.
+- `AnalysisView.tsx` — ⚡ RUN AI button, LIVE/SEED badge, grounded chat panel.
+- API shapes spot-checked against the current Anthropic spec (structured-output param, SSE event names).
+  Prompt caching was intentionally **not** used — payloads are far below the ~4096-token cacheable
+  minimum, so `cache_control` would be an inert no-op.
 
 ## Key decisions
 - **Local-first BYOK** now; architected for multi-user later (async repo + AI-client seams).
@@ -52,5 +65,6 @@ Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
    the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo` /
-   `ai-pm-portfolio-workspace`). Next task: **P3b** (Library UI + analysis-backed cockpit).
+   `ai-pm-portfolio-workspace`). Next task: **P5** (context sources — PDF/image attachments + links).
+   To run live AI: open ⚙ SETTINGS in the app, paste an Anthropic key, pick a model, then ⚡ RUN AI.
 4. Everything is committed **and pushed** to `origin/main`, so it also survives disk loss.

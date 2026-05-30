@@ -11,17 +11,22 @@ import {
   createAnalysis,
 } from "@/lib/repo";
 import type { Analysis } from "@/lib/domain/types";
+import { storage, type Settings } from "@/lib/storage";
 import Library from "./Library";
 import AnalysisView from "./AnalysisView";
+import SettingsModal from "./Settings";
 
 export default function Workspace() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [active, setActive] = useState<Analysis | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [settings, setSettings] = useState<Settings>({ apiKey: "", model: "claude-opus-4-8" });
+  const [showSettings, setShowSettings] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     listAnalyses().then(setAnalyses);
+    setSettings(storage.getSettings());
   }, []);
 
   async function refresh() {
@@ -90,10 +95,21 @@ export default function Workspace() {
               <span className="status-text">LOCAL-FIRST · BYOK</span>
             </span>
           </div>
+          <div className="header-actions">
+            <button className="gear-btn" onClick={() => setShowSettings(true)}>
+              ⚙ SETTINGS{settings.apiKey ? "" : " ⚠"}
+            </button>
+          </div>
         </header>
 
         {active ? (
-          <AnalysisView analysis={active} onChange={handleChange} />
+          <AnalysisView
+            analysis={active}
+            onChange={handleChange}
+            apiKey={settings.apiKey}
+            model={settings.model}
+            onNeedSettings={() => setShowSettings(true)}
+          />
         ) : (
           <div className="workspace-empty">
             <div className="empty-card">
@@ -106,6 +122,9 @@ export default function Workspace() {
       </main>
 
       {showNew && <NewAnalysisDialog onPick={newFromPreset} onClose={() => setShowNew(false)} />}
+      {showSettings && (
+        <SettingsModal initial={settings} onSave={setSettings} onClose={() => setShowSettings(false)} />
+      )}
     </div>
   );
 }

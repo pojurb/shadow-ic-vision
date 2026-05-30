@@ -33,7 +33,7 @@ export interface AppStorage {
 const LEDGER_KEY = "jp_ledger";
 const SETTINGS_KEY = "jp_settings";
 
-export const DEFAULT_SETTINGS: Settings = { apiKey: "", model: "claude-sonnet-4-6" };
+export const DEFAULT_SETTINGS: Settings = { apiKey: "", model: "claude-opus-4-8" };
 
 function readJSON<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { Analysis, AssetParameters, DecisionAction } from "@/lib/domain/types";
+import type { Analysis, AssetParameters, DecisionAction, ChatMessage } from "@/lib/domain/types";
 import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
+import { runAnalysis } from "@/lib/ai/analyze";
+import { streamChat } from "@/lib/ai/chat";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import type { Vertical } from "@/data/presets";
 
@@ -71,16 +73,79 @@ function chartFor(vertical: Vertical, p: AssetParameters) {
 export default function AnalysisView({
   analysis,
   onChange,
+  apiKey,
+  model,
+  onNeedSettings,
 }: {
   analysis: Analysis;
   onChange: (next: Analysis) => void;
+  apiKey: string;
+  model: string;
+  onNeedSettings: () => void;
 }) {
   const [lens, setLens] = useState<Lens>("operator");
   const [action, setAction] = useState<DecisionAction>(analysis.decision?.action ?? "APPROVE");
   const [notes, setNotes] = useState("");
   const [tagDraft, setTagDraft] = useState("");
+  const [running, setRunning] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [chatBusy, setChatBusy] = useState(false);
 
   const update = (patch: Partial<Analysis>) => onChange({ ...analysis, ...patch });
+
+  const isLive = !!analysis.model && analysis.model !== "seed";
+
+  async function runAI() {
+    if (!apiKey) return onNeedSettings();
+    setRunning(true);
+    setAiError(null);
+    try {
+      const out = await runAnalysis(apiKey, model, analysis);
+      update({
+        debate: { confidence: out.confidence, bull: out.bull, bear: out.bear },
+        advisory: out.advisory,
+        model,
+      });
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function sendChat(e: React.SyntheticEvent) {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text || chatBusy) return;
+    if (!apiKey) return onNeedSettings();
+    setChatInput("");
+    setPendingUser(text);
+    setStreamingText("");
+    setChatBusy(true);
+    setAiError(null);
+    try {
+      const full = await streamChat({
+        apiKey,
+        model,
+        analysis,
+        userText: text,
+        onDelta: (d) => setStreamingText((p) => p + d),
+      });
+      const now = Date.now();
+      const userMsg: ChatMessage = { id: `${now}-u`, role: "user", content: text, createdAt: now };
+      const aiMsg: ChatMessage = { id: `${now}-a`, role: "assistant", content: full, kind: "answer", createdAt: now + 1 };
+      update({ chat: [...analysis.chat, userMsg, aiMsg] });
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPendingUser(null);
+      setStreamingText("");
+      setChatBusy(false);
+    }
+  }
 
   function setParam(key: keyof AssetParameters, value: number) {
     const parameters = { ...analysis.parameters, [key]: value } as AssetParameters;
@@ -201,16 +266,26 @@ export default function AnalysisView({
         <section className="panel debate-panel">
           <div className="panel-header">
             <span className="panel-title">
-              MULTI-AGENT RED TEAM DEBATE <span className="sim-badge" title="Seed content. Live LLM debate ships in the AI phase.">SEED</span>
+              MULTI-AGENT RED TEAM DEBATE{" "}
+              <span
+                className={`sim-badge${isLive ? " live" : ""}`}
+                title={isLive ? `Live AI output (${analysis.model})` : "Seed content — run AI to replace with a grounded live debate"}
+              >
+                {isLive ? "LIVE" : "SEED"}
+              </span>
             </span>
-            {analysis.debate && (
-              <div className="debate-control-header">
+            <div className="debate-control-header">
+              {analysis.debate && (
                 <span className="confidence-indicator">
-                  Confidence Score: <strong>{analysis.debate.confidence}%</strong>
+                  Confidence: <strong>{analysis.debate.confidence}%</strong>
                 </span>
-              </div>
-            )}
+              )}
+              <button className="run-ai-btn" onClick={runAI} disabled={running}>
+                {running ? "RUNNING…" : "⚡ RUN AI"}
+              </button>
+            </div>
           </div>
+          {aiError && <div className="ai-error">⚠ {aiError}</div>}
           <div className="panel-body split-debate-logs">
             <div className="debate-col bull-col">
               <div className="col-title bull-text">▲ BULL ADVOCATE</div>
@@ -277,6 +352,60 @@ export default function AnalysisView({
           </div>
         </section>
       </div>
+
+      <section className="panel chat-panel">
+        <div className="panel-header">
+          <span className="panel-title">DISCUSS WITH AI</span>
+          <span className="panel-subtitle">Grounded follow-up chat</span>
+        </div>
+        <div className="panel-body" style={{ padding: 0 }}>
+          <div className="chat-stream scrollable">
+            {analysis.chat.length === 0 && !pendingUser && (
+              <div className="chat-empty">
+                No messages yet. Run the analysis, then ask follow-ups grounded in the locked figures
+                — e.g. &quot;stress test at 8% rates&quot;, &quot;why is the bear wrong?&quot;.
+              </div>
+            )}
+            {analysis.chat.map((m) => (
+              <div key={m.id} className={`chat-msg ${m.role}`}>
+                <div className="chat-role">{m.role === "user" ? "You" : "Analyst"}</div>
+                {m.content}
+              </div>
+            ))}
+            {pendingUser && (
+              <>
+                <div className="chat-msg user">
+                  <div className="chat-role">You</div>
+                  {pendingUser}
+                </div>
+                <div className="chat-msg assistant">
+                  <div className="chat-role">Analyst</div>
+                  {streamingText || "…"}
+                </div>
+              </>
+            )}
+          </div>
+          <form className="chat-input-row" onSubmit={sendChat}>
+            <textarea
+              className="chat-input"
+              rows={2}
+              placeholder="Ask a grounded follow-up…"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendChat(e);
+                }
+              }}
+              disabled={chatBusy}
+            />
+            <button type="submit" className="commit-btn" disabled={chatBusy}>
+              {chatBusy ? "…" : "SEND"}
+            </button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
