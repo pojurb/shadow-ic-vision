@@ -226,3 +226,42 @@ export const VERTICAL_LABELS: Record<Vertical, string> = {
   startups: "VC Unit Economics & Runway Sandbox",
   conventional: "Conventional Business CapEx & BEP Calculator",
 };
+
+/** Short labels for menus / titles (the VERTICAL_LABELS above are too long for chips). */
+export const VERTICAL_SHORT: Record<Vertical, string> = {
+  stocks: "Stock",
+  startups: "Startup / VC",
+  conventional: "Conventional",
+};
+
+/**
+ * Neutral starting parameters for a blank entry in each vertical. Values are
+ * mid-range, round, and within the slider bounds so the deterministic engine
+ * computes cleanly (no divide-by-zero) before the user edits anything.
+ */
+export const BLANK_PARAMS: Record<Vertical, AssetParameters> = {
+  stocks: {
+    price: 5000,
+    eps: 500,
+    pb: 3,
+    roe: 15,
+    discountRate: 0.1,
+    terminalMult: 10,
+    invested: 5000,
+    cashflows: [500, 500, 500, 500, 500],
+  },
+  startups: {
+    cash: 10_000_000_000,
+    burn: 1_000_000_000,
+    cac: 500_000,
+    arpu: 200_000,
+    margin: 0.6,
+    churn: 0.05,
+  },
+  conventional: {
+    fixed: 200_000_000,
+    price: 50_000,
+    variable: 20_000,
+    invested: 500_000_000,
+  },
+};

@@ -317,6 +317,61 @@
   color: #64748b;
 }
 
+/* ---- New analysis: blank-first ---- */
+.new-analysis-body .label-text {
+  margin-top: 18px;
+}
+.new-analysis-body .label-text:first-child {
+  margin-top: 0;
+}
+.blank-start-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 16px 18px;
+  background: #0f1013;
+  border: 2px solid var(--cyan-active);
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-mono);
+}
+.blank-start-btn:hover {
+  background: #14161b;
+}
+.blank-start-title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--cyan-active);
+}
+.blank-start-hint {
+  font-size: 11px;
+  color: #94a3b8;
+}
+.example-disclosure {
+  margin-top: 16px;
+}
+.example-disclosure > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 8px 0;
+  list-style: none;
+  user-select: none;
+}
+.example-disclosure > summary:hover {
+  color: #cbd5e1;
+}
+.example-disclosure[open] > summary {
+  color: #cbd5e1;
+  margin-bottom: 4px;
+}
+
 /* ---- Settings ---- */
 .settings-field {
   margin-bottom: 16px;

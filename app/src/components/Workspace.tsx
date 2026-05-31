@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PRESETS, VERTICAL_LABELS, type Vertical, type AssetPreset } from "@/data/presets";
+import {
+  PRESETS,
+  BLANK_PARAMS,
+  VERTICAL_SHORT,
+  type Vertical,
+  type AssetPreset,
+} from "@/data/presets";
 import { computeMetrics } from "@/lib/finance/compute";
 import {
   listAnalyses,
@@ -70,6 +76,23 @@ export default function Workspace() {
     setShowNew(false);
   }
 
+  async function newBlank(vertical: Vertical) {
+    const parameters = { ...BLANK_PARAMS[vertical] };
+    const analysis = createAnalysis({
+      title: `New ${VERTICAL_SHORT[vertical]} Analysis`,
+      vertical,
+      assetName: "",
+      parameters,
+      metrics: computeMetrics(vertical, parameters),
+      // No seed debate — a blank entry starts empty and waits for ⚡ RUN AI.
+      model: "seed",
+    });
+    await saveAnalysis(analysis);
+    await refresh();
+    setActive(analysis);
+    setShowNew(false);
+  }
+
   async function remove(id: string) {
     await deleteAnalysis(id);
     if (active?.id === id) setActive(null);
@@ -122,7 +145,13 @@ export default function Workspace() {
         )}
       </main>
 
-      {showNew && <NewAnalysisDialog onPick={newFromPreset} onClose={() => setShowNew(false)} />}
+      {showNew && (
+        <NewAnalysisDialog
+          onBlank={newBlank}
+          onPick={newFromPreset}
+          onClose={() => setShowNew(false)}
+        />
+      )}
       {showSettings && (
         <SettingsModal initial={settings} onSave={setSettings} onClose={() => setShowSettings(false)} />
       )}
@@ -131,9 +160,11 @@ export default function Workspace() {
 }
 
 function NewAnalysisDialog({
+  onBlank,
   onPick,
   onClose,
 }: {
+  onBlank: (vertical: Vertical) => void;
   onPick: (preset: AssetPreset) => void;
   onClose: () => void;
 }) {
@@ -146,8 +177,8 @@ function NewAnalysisDialog({
           <span className="panel-title">NEW ANALYSIS</span>
           <button className="new-btn" onClick={onClose}>✕</button>
         </div>
-        <div className="panel-body">
-          <div className="label-text">1. Choose vertical</div>
+        <div className="panel-body new-analysis-body">
+          <div className="label-text">1. Choose category</div>
           <div className="vertical-selector-group">
             {(Object.keys(PRESETS) as Vertical[]).map((v, i) => (
               <button key={v} className={`selector-btn${v === vertical ? " active" : ""}`} onClick={() => setVertical(v)}>
@@ -156,15 +187,26 @@ function NewAnalysisDialog({
               </button>
             ))}
           </div>
-          <div className="label-text" style={{ marginTop: 12 }}>2. Start from a template — {VERTICAL_LABELS[vertical]}</div>
-          <div className="template-list">
-            {PRESETS[vertical].map((p) => (
-              <button key={p.id} className="template-item" onClick={() => onPick(p)}>
-                <strong>{p.name}</strong>
-                <span className="template-hint">seed confidence {p.seed.confidence}%</span>
-              </button>
-            ))}
-          </div>
+
+          <div className="label-text">2. Start</div>
+          <button className="blank-start-btn" onClick={() => onBlank(vertical)}>
+            <span className="blank-start-title">◉ START BLANK</span>
+            <span className="blank-start-hint">
+              Empty {VERTICAL_SHORT[vertical]} entry — name it and set your own numbers
+            </span>
+          </button>
+
+          <details className="example-disclosure">
+            <summary>○ Or load an example…</summary>
+            <div className="template-list">
+              {PRESETS[vertical].map((p) => (
+                <button key={p.id} className="template-item" onClick={() => onPick(p)}>
+                  <strong>{p.name}</strong>
+                  <span className="template-hint">seed confidence {p.seed.confidence}%</span>
+                </button>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
     </div>
