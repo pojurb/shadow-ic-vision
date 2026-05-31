@@ -19,8 +19,11 @@ export interface LedgerEntry {
 export interface Settings {
   /** Selected AI provider. */
   provider: ProviderId;
-  /** Provider API key — never leaves the browser in the local-first model. */
-  apiKey: string;
+  /**
+   * Per-provider API keys — each key lives only in the browser.
+   * Keyed by ProviderId so switching providers doesn't clobber the other key.
+   */
+  apiKeys: Record<ProviderId, string>;
   /** Selected model id for the debate. */
   model: string;
 }
@@ -36,7 +39,11 @@ export interface AppStorage {
 const LEDGER_KEY = "jp_ledger";
 const SETTINGS_KEY = "jp_settings";
 
-export const DEFAULT_SETTINGS: Settings = { provider: "anthropic", apiKey: "", model: "claude-opus-4-8" };
+export const DEFAULT_SETTINGS: Settings = {
+  provider: "anthropic",
+  apiKeys: { anthropic: "", openai: "" },
+  model: "claude-opus-4-8",
+};
 
 function readJSON<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -70,7 +77,19 @@ export const storage: AppStorage = {
     writeJSON(LEDGER_KEY, []);
   },
   getSettings() {
-    return { ...DEFAULT_SETTINGS, ...readJSON<Partial<Settings>>(SETTINGS_KEY, {}) };
+    // Read with a loose type to handle the legacy single-apiKey format.
+    type Persisted = Partial<Settings> & { apiKey?: string };
+    const raw = readJSON<Persisted>(SETTINGS_KEY, {});
+    const base: Settings = {
+      ...DEFAULT_SETTINGS,
+      apiKeys: { ...DEFAULT_SETTINGS.apiKeys },
+    };
+    if (raw.provider) base.provider = raw.provider;
+    if (raw.model) base.model = raw.model;
+    if (raw.apiKeys) base.apiKeys = { ...base.apiKeys, ...raw.apiKeys };
+    // Legacy migration: single apiKey → anthropic slot.
+    if (raw.apiKey && !raw.apiKeys?.anthropic) base.apiKeys.anthropic = raw.apiKey;
+    return base;
   },
   saveSettings(settings) {
     writeJSON(SETTINGS_KEY, settings);

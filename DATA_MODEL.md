@@ -1,11 +1,5 @@
 # Data Model — AI Investment Workspace
 
-> ⚠️ **Partially superseded (2026-05-30).** BYOK is now **multi-provider**, not Anthropic-only, with a
-> **thin backend** for web-tool fallback. The lines below about "native Claude blocks" and Anthropic
-> server tools / "no backend" describe the v1 Anthropic path only — they are generalized in P6
-> (native where the model supports it, app/backend fallback otherwise). See `PROGRESS.md` § P6 and saved
-> memory `multi-provider-byok` for the current architecture. The Analysis/Dexie/repo model below is unchanged.
-
 The product evolves from a single-screen cockpit into an **analysis workspace** (IDE-like:
 saved documents, history, chat, droppable context, composition). The unit of work is an
 **Analysis**; everything else (ledger, history, portfolio) derives from it.
@@ -40,8 +34,9 @@ interface ChatMessage {
 
 interface Decision { action: DecisionAction; rationale: string; decidedAt: number }
 
-// Droppable context. Files (PDF/image) are native to the Claude API; links & web
-// research use Anthropic's server-side web_fetch / web_search tools (no CORS, no backend).
+// Droppable context. Files are native content blocks (image/pdf); for providers
+// without native PDF support, pdf.js extracts text as a fallback. Links and web
+// research use native server tools (Anthropic) or the thin backend (all others).
 type ContextSource =
   | { id: string; kind: "file"; name: string; mime: string; fileKind: "image" | "pdf"; blobId: string; extractedText?: string; createdAt: number }
   | { id: string; kind: "link"; url: string; title?: string; createdAt: number };
@@ -88,16 +83,16 @@ not a separate store — single source of truth.
 
 ## How context reaches the model
 
-| Source | To the model | Notes |
+| Source | Anthropic path | OpenAI / other path |
 |---|---|---|
-| image | image content block (base64) | native |
-| pdf | document content block (base64) | native; Claude reads text + layout |
-| link | `web_fetch` server tool | model fetches the URL; no CORS, no backend |
-| web research | `web_search` server tool | toggled per analysis; model searches autonomously |
-| metrics | text (locked facts in system prompt) | the deterministic grounding |
+| image | native `image` content block (base64) | `image_url` content block (base64) |
+| pdf | native `document` content block (base64) | pdf.js text extraction → text block |
+| link | `web_fetch_20260209` server tool (native) | `/api/web-fetch` backend route + OpenAI function-tool loop |
+| web research | `web_search_20260209` server tool (native) | `/api/web-search` (Tavily) + function-tool loop |
+| metrics | text — locked facts in user turn | same |
 
-Large sources are **prompt-cached** (`cache_control`) and parsed once (`extractedText`) so
-follow-up chat turns stay cheap.
+**Backend routes** (`/api/web-fetch`, `/api/web-search`) run server-side (no CORS). The
+provider's API key stays browser-only; only the Tavily operator key lives on the server.
 
 ## Data flows
 

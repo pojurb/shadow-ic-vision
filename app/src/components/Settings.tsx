@@ -15,10 +15,12 @@ export default function SettingsModal({
   onClose: () => void;
 }) {
   const [provider, setProvider] = useState<ProviderId>(initial.provider);
-  const [apiKey, setApiKey] = useState(initial.apiKey);
+  const [apiKeys, setApiKeys] = useState<Settings["apiKeys"]>({ ...initial.apiKeys });
   const [model, setModel] = useState(initial.model);
 
-  const models = getProvider(provider).models;
+  const currentProvider = getProvider(provider);
+  const models = currentProvider.models;
+  const caps = currentProvider.capabilities(model);
 
   function changeProvider(next: ProviderId) {
     setProvider(next);
@@ -27,8 +29,12 @@ export default function SettingsModal({
     setModel(first);
   }
 
+  function setKey(value: string) {
+    setApiKeys((prev) => ({ ...prev, [provider]: value }));
+  }
+
   function save() {
-    const next: Settings = { provider, apiKey: apiKey.trim(), model };
+    const next: Settings = { provider, apiKeys: { ...apiKeys, [provider]: apiKeys[provider]?.trim() ?? "" }, model };
     storage.saveSettings(next);
     onSave(next);
     onClose();
@@ -61,21 +67,30 @@ export default function SettingsModal({
             </p>
           </div>
           <div className="settings-field">
-            <label htmlFor="api-key">API Key</label>
+            <label htmlFor="api-key">
+              API Key <span style={{ opacity: 0.6, fontWeight: 400 }}>({provider})</span>
+            </label>
             <input
               id="api-key"
               type="password"
               className="meta-input"
               style={{ width: "100%" }}
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={provider === "anthropic" ? "sk-ant-..." : "sk-..."}
+              value={apiKeys[provider] ?? ""}
+              onChange={(e) => setKey(e.target.value)}
               autoComplete="off"
             />
             <p className="settings-note">
-              🔒 Your key is stored only in this browser (localStorage) and is sent directly to the
-              provider&apos;s API. It never touches our servers.
+              🔒 Each provider&apos;s key is stored only in this browser (localStorage) and is sent
+              directly to that provider&apos;s API. It never touches our servers.
             </p>
+            {(!caps.webFetchNative || !caps.webSearchNative) && (
+              <p className="settings-note" style={{ marginTop: 4 }}>
+                ⚠ Web fetch &amp; search for this provider use a server-side fallback route. Web
+                search also requires <code>TAVILY_API_KEY</code> set in <code>app/.env.local</code>{" "}
+                on the server (see <code>.env.local.example</code>).
+              </p>
+            )}
           </div>
           <div className="settings-field">
             <label htmlFor="model">Model</label>

@@ -97,7 +97,7 @@ export default function Workspace() {
           </div>
           <div className="header-actions">
             <button className="gear-btn" onClick={() => setShowSettings(true)}>
-              ⚙ SETTINGS{settings.apiKey ? "" : " ⚠"}
+              ⚙ SETTINGS{settings.apiKeys?.[settings.provider] ? "" : " ⚠"}
             </button>
           </div>
         </header>
@@ -107,7 +107,7 @@ export default function Workspace() {
             analysis={active}
             onChange={handleChange}
             provider={settings.provider}
-            apiKey={settings.apiKey}
+            apiKey={settings.apiKeys?.[settings.provider] ?? ""}
             model={settings.model}
             onNeedSettings={() => setShowSettings(true)}
           />
