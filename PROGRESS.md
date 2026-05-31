@@ -25,7 +25,8 @@
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
 | **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
 | **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
-| **P6** Multi-provider BYOK + thin backend | ✅ build clean · unverified w/o live keys |
+| **P6** Multi-provider BYOK + thin backend | ✅ smoke-tested live (Gemini key verified) |
+| Gemini adapter (P6.5) | ✅ models verified against live API |
 | **P7** Composition (portfolio cross-analysis) | ⬜ |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
@@ -108,8 +109,8 @@ confirmed sub-decisions: saved memory `multi-provider-byok`.
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
    the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo`,
-   `multi-provider-byok`). **P6 complete.** Next: **P7** (composition — portfolio cross-analysis) or smoke-test first.
-   OpenAI web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
-   AI layer (P4→P6) built but unverified against a real API key.
+   `multi-provider-byok`). **Next: P7** — Composition (portfolio cross-analysis). New Portfolio entity, member analyses
+   contribute compact grounded summaries to a shared chat. OpenAI/Gemini web search needs
+   `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
 4. **Committed to `main` (local), NOT pushed.** `git log` shows P4 / P5a / P5b / docs / P6.1. Push when
    ready: `git push origin main`.
