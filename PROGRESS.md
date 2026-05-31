@@ -27,7 +27,8 @@
 | **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
 | **P6** Multi-provider BYOK + thin backend | ✅ smoke-tested live (Gemini key verified) |
 | Gemini adapter (P6.5) | ✅ models verified against live API |
-| **P7** Composition (portfolio cross-analysis) | ⬜ |
+| Blank-entry creation flow (blank-first; presets→examples) | ✅ verified in-browser |
+| **P7** Composition (portfolio cross-analysis) | ⏸ ON HOLD — flow-direction + UX questions open first |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
 
@@ -109,8 +110,21 @@ confirmed sub-decisions: saved memory `multi-provider-byok`.
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
    the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo`,
-   `multi-provider-byok`). **Next: P7** — Composition (portfolio cross-analysis). New Portfolio entity, member analyses
-   contribute compact grounded summaries to a shared chat. OpenAI/Gemini web search needs
-   `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
-4. **Committed to `main` (local), NOT pushed.** `git log` shows P4 / P5a / P5b / docs / P6.1. Push when
-   ready: `git push origin main`.
+   `multi-provider-byok`, `feedback-ui-too-cramped`).
+
+   **P7 is ON HOLD.** Two design questions must be resolved with the user first:
+   - **(a) Flow direction.** User's mental model is *chat-first* ("start in chat → save an
+     entry → tag it Stock/VC/Conventional"). Current build is *structure-first* (pick category +
+     template → fill params → chat last). These are different products — decide which before more features.
+   - **(b) UX / readability.** User says the UI is "almost unusable" — too small/compact, too many
+     panels on one `AnalysisView` mega-scroll. A readability pass (bigger type, breathing room,
+     tabs/progressive disclosure) likely should come BEFORE P7. See memory `feedback-ui-too-cramped`.
+
+   Also, if/when P7 proceeds: the earlier eval flagged a thesis-level gap — P7 as planned has **no
+   deterministic portfolio-level math** and `PortfolioAnalysis` has **no weights/capital**, so cross-asset
+   answers would force the AI to do arithmetic (violates the no-numeric-hallucination principle). Fix =
+   add member positions + a `computePortfolioMetrics()` before the cross-asset chat.
+
+   OpenAI/Gemini web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
+4. **Committed to `main` (local), NOT pushed.** `git log` shows P4→P6.5, Gemini fixes, blank-entry flow.
+   Push when ready: `git push origin main`.
