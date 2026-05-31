@@ -25,7 +25,7 @@
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
 | **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
 | **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
-| **P6** Multi-provider BYOK + thin backend | 🔄 P6.1 seam ✅ · P6.2 OpenAI ✅ · P6.3 backend ✅ · P6.4 wiring next |
+| **P6** Multi-provider BYOK + thin backend | ✅ build clean · unverified w/o live keys |
 | **P7** Composition (portfolio cross-analysis) | ⬜ |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
@@ -108,8 +108,8 @@ confirmed sub-decisions: saved memory `multi-provider-byok`.
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
    the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo`,
-   `multi-provider-byok`). **Next: P6.4** — capability-aware wiring + per-provider keys UI + revise `DATA_MODEL.md`.
-   Web search for OpenAI needs a `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
-   AI layer (P4→P6.3) built but unverified against a real API key.
+   `multi-provider-byok`). **P6 complete.** Next: **P7** (composition — portfolio cross-analysis) or smoke-test first.
+   OpenAI web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
+   AI layer (P4→P6) built but unverified against a real API key.
 4. **Committed to `main` (local), NOT pushed.** `git log` shows P4 / P5a / P5b / docs / P6.1. Push when
    ready: `git push origin main`.
