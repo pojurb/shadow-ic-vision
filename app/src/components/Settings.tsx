@@ -75,7 +75,7 @@ export default function SettingsModal({
               type="password"
               className="meta-input"
               style={{ width: "100%" }}
-              placeholder={provider === "anthropic" ? "sk-ant-..." : "sk-..."}
+              placeholder={provider === "anthropic" ? "sk-ant-..." : provider === "gemini" ? "AIza..." : "sk-..."}
               value={apiKeys[provider] ?? ""}
               onChange={(e) => setKey(e.target.value)}
               autoComplete="off"

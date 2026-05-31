@@ -51,9 +51,11 @@ const GEMINI_CAPABILITIES: Capabilities = {
 };
 
 export const GEMINI_MODELS: ModelOption[] = [
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — most capable" },
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — balanced" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — fast / cheap" },
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash — latest fast" },
+  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro Preview — latest capable" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — stable, most capable" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — stable, balanced" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite — stable, cheapest" },
 ];
 
 // ---------------------------------------------------------------------------
