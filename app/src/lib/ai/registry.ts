@@ -4,11 +4,12 @@
  */
 import type { AIProvider, ProviderId } from "./types";
 import { anthropicProvider } from "./providers/anthropic";
+import { openaiProvider } from "./providers/openai";
 
 const PROVIDERS: Record<ProviderId, AIProvider> = {
   anthropic: anthropicProvider,
-  // openai: added in P6.2
-} as Record<ProviderId, AIProvider>;
+  openai: openaiProvider,
+};
 
 /** Providers available to choose in Settings (in display order). */
 export const PROVIDER_LIST: AIProvider[] = Object.values(PROVIDERS);

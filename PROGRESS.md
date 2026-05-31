@@ -25,7 +25,7 @@
 | **P4** Live AI + chat (BYOK) | ✅ build clean |
 | **P5a** Context sources — PDF/image as native blocks + links UI | ✅ build clean |
 | **P5b** Live `web_fetch` / `web_search` (two-pass analysis) | ✅ build clean · unverified w/o key |
-| **P6** Multi-provider BYOK + thin backend | 🔄 P6.1 seam ✅ · P6.2 OpenAI next |
+| **P6** Multi-provider BYOK + thin backend | 🔄 P6.1 seam ✅ · P6.2 OpenAI ✅ · P6.3 backend ✅ · P6.4 wiring next |
 | **P7** Composition (portfolio cross-analysis) | ⬜ |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
@@ -81,8 +81,8 @@ the user's machine; the backend only handles the web-tool fallback. This **super
 blocks / no backend" decisions below (P5a/P5b code becomes the first provider adapter). Full rationale +
 confirmed sub-decisions: saved memory `multi-provider-byok`.
 - **Providers first:** Anthropic (done) + OpenAI. **Search fallback:** Tavily via operator `.env.local` key.
-- **Sequence:** (1) `AIProvider` seam + capability map + Anthropic adapter, behavior-preserving → (2) OpenAI
-  adapter (+ pdf.js text fallback) → (3) thin backend `/api/web-fetch` + `/api/web-search` + client tool loop
+- **Sequence:** (1) `AIProvider` seam + capability map + Anthropic adapter, behavior-preserving ✅ → (2) OpenAI
+  adapter (+ pdf.js text fallback) ✅ → (3) thin backend `/api/web-fetch` + `/api/web-search` + client tool loop ✅
   → (4) capability-aware wiring + Settings (per-provider keys) + revise `DATA_MODEL.md`.
 
 ## Key decisions
@@ -108,10 +108,8 @@ confirmed sub-decisions: saved memory `multi-provider-byok`.
    ```
 3. Re-open Claude Code in `D:\jp-invest`. Context to reload: this file, `DATA_MODEL.md`,
    the plan file above, `git log`, and the saved memory (`ai-pm-portfolio-demo`,
-   `multi-provider-byok`). **Next: smoke-test the Anthropic path live** (open ⚙ SETTINGS, paste an
-   Anthropic key, pick a model, ⚡ RUN AI — the whole P4→P6.1 AI layer is built but unverified against
-   a real API), **then P6.2** (OpenAI adapter + pdf.js PDF fallback). P6.3 = thin backend
-   (`/api/web-fetch` + `/api/web-search` via Tavily). P6.4 = capability wiring + per-provider keys +
-   revise `DATA_MODEL.md`. Open tasks for P6.2–6.4 are tracked in the task list.
+   `multi-provider-byok`). **Next: P6.4** — capability-aware wiring + per-provider keys UI + revise `DATA_MODEL.md`.
+   Web search for OpenAI needs a `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
+   AI layer (P4→P6.3) built but unverified against a real API key.
 4. **Committed to `main` (local), NOT pushed.** `git log` shows P4 / P5a / P5b / docs / P6.1. Push when
    ready: `git push origin main`.
