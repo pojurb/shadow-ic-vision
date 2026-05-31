@@ -5,10 +5,12 @@
 import type { AIProvider, ProviderId } from "./types";
 import { anthropicProvider } from "./providers/anthropic";
 import { openaiProvider } from "./providers/openai";
+import { geminiProvider } from "./providers/gemini";
 
 const PROVIDERS: Record<ProviderId, AIProvider> = {
   anthropic: anthropicProvider,
   openai: openaiProvider,
+  gemini: geminiProvider,
 };
 
 /** Providers available to choose in Settings (in display order). */

@@ -41,7 +41,7 @@ const SETTINGS_KEY = "jp_settings";
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "anthropic",
-  apiKeys: { anthropic: "", openai: "" },
+  apiKeys: { anthropic: "", openai: "", gemini: "" },
   model: "claude-opus-4-8",
 };
 

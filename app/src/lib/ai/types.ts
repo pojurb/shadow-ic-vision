@@ -7,7 +7,7 @@
 import type { Analysis } from "@/lib/domain/types";
 import type { DebateOutput } from "./schemas";
 
-export type ProviderId = "anthropic" | "openai";
+export type ProviderId = "anthropic" | "openai" | "gemini";
 
 export interface ModelOption {
   id: string;
