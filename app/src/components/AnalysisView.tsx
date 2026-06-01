@@ -6,11 +6,10 @@ import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
 import { putBlob, deleteBlob } from "@/lib/repo";
 import { getProvider } from "@/lib/ai/registry";
+import { personaFor } from "@/lib/ai/personas";
 import type { ProviderId } from "@/lib/ai/types";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import type { Vertical } from "@/data/presets";
-
-type Lens = "operator" | "risk" | "predator";
 
 interface Field {
   key: keyof AssetParameters;
@@ -86,8 +85,8 @@ export default function AnalysisView({
   model: string;
   onNeedSettings: () => void;
 }) {
-  const [lens, setLens] = useState<Lens>("operator");
   const [action, setAction] = useState<DecisionAction>(analysis.decision?.action ?? "APPROVE");
+  const [reviewing, setReviewing] = useState(false);
   const [notes, setNotes] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [running, setRunning] = useState(false);
@@ -153,9 +152,12 @@ export default function AnalysisView({
         analysis,
         onPhase: setRunPhase,
       });
+      const persona = personaFor(analysis.vertical);
       update({
-        debate: { confidence: out.confidence, bull: out.bull, bear: out.bear },
+        debate: out.debate,
         advisory: out.advisory,
+        stance: out.stance,
+        persona: { id: persona.id, label: persona.label },
         model,
       });
     } catch (e) {
@@ -163,6 +165,20 @@ export default function AnalysisView({
     } finally {
       setRunning(false);
       setRunPhase("");
+    }
+  }
+
+  async function runReview() {
+    if (!apiKey) return onNeedSettings();
+    setReviewing(true);
+    setAiError(null);
+    try {
+      const review = await getProvider(provider).runExpertReview({ apiKey, model, analysis });
+      update({ expertReview: review });
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReviewing(false);
     }
   }
 
@@ -219,7 +235,7 @@ export default function AnalysisView({
   }
 
   const metrics = analysis.metrics.metrics;
-  const advisory = analysis.advisory?.[lens];
+  const advisory = analysis.advisory ?? [];
 
   return (
     <div className="analysis-view">
@@ -325,9 +341,10 @@ export default function AnalysisView({
               </span>
             </span>
             <div className="debate-control-header">
+              {analysis.persona && <span className="persona-badge" title="Domain expert that produced this analysis">{analysis.persona.label}</span>}
               {analysis.debate && (
-                <span className="confidence-indicator">
-                  Confidence: <strong>{analysis.debate.confidence}%</strong>
+                <span className={`thesis-chip thesis-${analysis.debate.thesisSupport.toLowerCase()}`}>
+                  THESIS {analysis.debate.thesisSupport}
                 </span>
               )}
               <button className="run-ai-btn" onClick={runAI} disabled={running}>
@@ -335,13 +352,19 @@ export default function AnalysisView({
               </button>
             </div>
           </div>
+          {analysis.stance && (
+            <div className="stance-banner">
+              <span className="stance-label">{analysis.stance.label}</span>
+              <span className="stance-basis">{analysis.stance.basis}</span>
+            </div>
+          )}
           {aiError && <div className="ai-error">⚠ {aiError}</div>}
           <div className="panel-body split-debate-logs">
             <div className="debate-col bull-col">
               <div className="col-title bull-text">▲ BULL ADVOCATE</div>
               <div className="log-stream scrollable">
                 {analysis.debate?.bull.map((l, i) => (
-                  <DebateEntry key={i} type="bull" agent={l.agent} text={l.text} />
+                  <DebateEntry key={i} type="bull" agent={l.agent} text={l.text} slot={l.slot} />
                 ))}
               </div>
             </div>
@@ -349,7 +372,7 @@ export default function AnalysisView({
               <div className="col-title bear-text">▼ BEAR ADVERSARY</div>
               <div className="log-stream scrollable">
                 {analysis.debate?.bear.map((l, i) => (
-                  <DebateEntry key={i} type="bear" agent={l.agent} text={l.text} />
+                  <DebateEntry key={i} type="bear" agent={l.agent} text={l.text} slot={l.slot} />
                 ))}
               </div>
             </div>
@@ -359,22 +382,24 @@ export default function AnalysisView({
         <section className="panel advisory-panel">
           <div className="panel-header warning-stripes">
             <span className="panel-title">THE ADVISORY BOARD LENSES</span>
-            <span className="panel-subtitle">Three Scenario Lenses for Human Decision</span>
+            <span className="panel-subtitle">{analysis.persona?.label ?? "Domain expert"} — lenses for human decision</span>
           </div>
           <div className="panel-body scrollable">
-            <div className="lenses-tab-control">
-              {(["operator", "risk", "predator"] as Lens[]).map((l) => (
-                <button key={l} className={`lens-tab${l === lens ? " active" : ""}`} onClick={() => setLens(l)}>
-                  {l === "operator" ? "OPERATOR" : l === "risk" ? "RISK MANAGER" : "PREDATOR"}
-                </button>
-              ))}
+            <div className="lens-list">
+              {advisory.length === 0 ? (
+                <div className="lens-empty">Run AI to generate the advisory lenses.</div>
+              ) : (
+                advisory.map((l) => (
+                  <div className="lens-row" key={l.id}>
+                    <div className="lens-row-head">
+                      <span className="lens-row-name">{l.name}</span>
+                      <span className="lens-row-verdict">{l.verdict}</span>
+                    </div>
+                    <div className="lens-row-text">{l.text}</div>
+                  </div>
+                ))
+              )}
             </div>
-            {advisory && (
-              <div className="lens-content-viewer">
-                <div className="lens-scenario-title">{advisory.title}</div>
-                <div className="lens-scenario-text">{advisory.text}</div>
-              </div>
-            )}
 
             <div className="decision-logger">
               <div className="logger-title">⚡ COMMIT HUMAN DECISION LOG</div>
@@ -402,6 +427,41 @@ export default function AnalysisView({
           </div>
         </section>
       </div>
+
+      {/* Optional second-expert review (on-demand: an extra AI call) */}
+      <section className="panel review-panel">
+        <div className="panel-header">
+          <span className="panel-title">EXPERT REVIEW</span>
+          <button
+            className="run-ai-btn"
+            onClick={runReview}
+            disabled={reviewing || !analysis.debate}
+            title={analysis.debate ? "Red-team this analysis — uses one additional AI call" : "Run AI first"}
+          >
+            {reviewing ? "REVIEWING…" : analysis.expertReview ? "RE-REVIEW" : "⚖ GET EXPERT REVIEW"}
+          </button>
+        </div>
+        <div className="panel-body">
+          {!analysis.expertReview ? (
+            <div className="review-empty">
+              A second {analysis.persona?.label ?? "expert"} red-teams the produced analysis — strengths, gaps, and a
+              grounding-integrity check. On demand; it costs one extra AI call.
+            </div>
+          ) : (
+            <div className="review-body">
+              <div className="review-verdict">{analysis.expertReview.verdictLine}</div>
+              <div className="review-grid">
+                <ReviewList title="Strengths" items={analysis.expertReview.strengths} tone="bull" />
+                <ReviewList title="Gaps" items={analysis.expertReview.gaps} tone="bear" />
+                <ReviewList title="What would change the call" items={analysis.expertReview.whatWouldChangeMyMind} tone="warning" />
+              </div>
+              <div className="review-grounding">
+                <span className="review-grounding-label">Grounding check:</span> {analysis.expertReview.groundingCheck}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="panel context-panel">
         <div className="panel-header">
@@ -522,13 +582,28 @@ export default function AnalysisView({
   );
 }
 
-function DebateEntry({ type, agent, text }: { type: "bull" | "bear"; agent: string; text: string }) {
+function DebateEntry({ type, agent, text, slot }: { type: "bull" | "bear"; agent: string; text: string; slot?: string }) {
   return (
     <div className={`log-entry ${type}-entry`}>
       <div className="log-agent">
         {type === "bull" ? "▲" : "▼"} <span className={`${type}-text`}>{agent}</span>
+        {slot && <span className="slot-tag">{slot}</span>}
       </div>
       <div className="log-text">{text}</div>
+    </div>
+  );
+}
+
+function ReviewList({ title, items, tone }: { title: string; items: string[]; tone: "bull" | "bear" | "warning" }) {
+  if (!items?.length) return null;
+  return (
+    <div className="review-list">
+      <div className={`review-list-title ${tone}-text`}>{title}</div>
+      <ul>
+        {items.map((it, i) => (
+          <li key={i}>{it}</li>
+        ))}
+      </ul>
     </div>
   );
 }

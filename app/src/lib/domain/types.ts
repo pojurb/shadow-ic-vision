@@ -3,22 +3,39 @@
  * Ledger, history, and portfolios all derive from the analyses collection.
  * See DATA_MODEL.md at the repo root for the full rationale.
  */
-import type { Vertical, AssetParameters, DebateLine, AdvisoryLens } from "@/data/presets";
+import type { Vertical, AssetParameters, DebateLine, ThesisSupport } from "@/data/presets";
+import type { ExpertReview } from "@/lib/ai/schemas";
 
-export type { Vertical, AssetParameters, DebateLine, AdvisoryLens };
+export type { Vertical, AssetParameters, DebateLine, ThesisSupport, ExpertReview };
 
-/** Red-team debate output (seeded from a preset now; produced by the AI in P4). */
+/** Red-team debate output (seeded from a preset; produced by the AI live). */
 export interface DebateResult {
-  confidence: number;
+  thesisSupport: ThesisSupport;
   bull: DebateLine[];
   bear: DebateLine[];
 }
 
-/** The three advisory lenses (seeded now; produced by the AI in P4). */
-export interface AdvisoryResult {
-  operator: AdvisoryLens;
-  risk: AdvisoryLens;
-  predator: AdvisoryLens;
+/** One advisory lens result: a short verdict word + the take. */
+export interface LensResult {
+  id: string;
+  name: string;
+  verdict: string;
+  text: string;
+}
+
+/** The advisory board — a per-vertical lens SET (was operator/risk/predator). */
+export type AdvisoryResult = LensResult[];
+
+/** Visible expert persona identity stored on the analysis. */
+export interface PersonaRef {
+  id: string;
+  label: string;
+}
+
+/** The engine-derived valuation stance label + the AI's one-line basis. */
+export interface Stance {
+  label: string;
+  basis: string;
 }
 
 export type DecisionAction = "APPROVE" | "HOLD" | "REJECT";
@@ -106,6 +123,12 @@ export interface Analysis {
   metrics: ComputedMetrics;
   debate: DebateResult | null;
   advisory: AdvisoryResult | null;
+  /** Visible expert persona that produced the analysis (per vertical). */
+  persona: PersonaRef | null;
+  /** Engine-derived valuation stance + AI basis. */
+  stance: Stance | null;
+  /** Optional, on-demand second-expert review of the produced analysis. */
+  expertReview: ExpertReview | null;
   sources: ContextSource[];
   allowWebSearch: boolean;
   chat: ChatMessage[];

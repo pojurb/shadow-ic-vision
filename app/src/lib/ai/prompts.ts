@@ -1,35 +1,38 @@
 /**
- * Prompt construction. The SYSTEM_PROMPT is static; per-asset "locked facts"
- * go in the user turn so the model treats them as grounded data, not instructions.
+ * Prompt construction. The system prompt is now persona-driven (per vertical); the
+ * per-asset "locked facts" go in the user turn so the model treats them as grounded
+ * data, not instructions. Per-vertical debate slots and lens ids are enumerated in
+ * the user prompt, then enforced by a validate+zip step in `analyze.ts`.
  */
 import type { Analysis } from "@/lib/domain/types";
+import { personaFor } from "./personas";
 
-export const SYSTEM_PROMPT = `You are the Orchestrator of an institutional investment red-team. You produce a balanced Bull-vs-Bear debate and a 3-lens advisory board for a single asset, to support a human decision-maker.
+/** System prompt for the structured analysis pass — the vertical's expert persona. */
+export function analysisSystem(a: Analysis): string {
+  return personaFor(a.vertical).systemPrompt;
+}
 
-NON-NEGOTIABLE RULES:
-1. GROUNDING: Use ONLY the numeric figures provided in the user message ("Locked figures"). Never invent, recompute, or alter a number. If you reference a metric, reference the provided value verbatim. Qualitative reasoning is welcome; fabricated numbers are not.
-2. BALANCE: The Bull and Bear sides must be roughly symmetric in strength and specificity. Do not stack one side.
-3. THREE LENSES:
-   - Operator: moat, operational efficiency, concrete SOPs/actions.
-   - Risk Manager: stress-test scenarios, downside, capital preservation, exit triggers.
-   - Predator: contrarian "fat pitch" — the exact condition + level at which to swing capital aggressively.
-4. CONFIDENCE: an integer 20-90 reflecting how strong and data-supported the overall thesis is (not a buy/sell signal).
-5. You are an analyst, not a decision-maker. Never tell the human to buy or sell; present the case for judgement.
-
-Return the structured object only.`;
+/** System prompt for the optional, on-demand expert-review pass. */
+export function reviewSystem(a: Analysis): string {
+  return personaFor(a.vertical).reviewSystemPrompt;
+}
 
 export const CHAT_SYSTEM = `You are an institutional investment analyst answering follow-up questions about ONE asset already analyzed. Use ONLY the locked figures and the prior debate provided as context — never invent numbers. Be concise and direct, use markdown, and reason like a sharp buy-side analyst. You may stress-test, reframe, or challenge the prior thesis. You are an analyst, not a decision-maker.`;
 
-/** Pass 1 of the two-pass analysis: free-form research using web tools. */
-export const RESEARCH_SYSTEM = `You are an institutional investment research analyst gathering evidence on a single asset before a formal red-team debate.
+/** Pass 1 of the two-pass analysis: free-form research using web tools (persona-aware). */
+export function researchSystem(a: Analysis): string {
+  const persona = personaFor(a.vertical);
+  const lensNames = persona.lenses.map((l) => l.name).join(", ");
+  return `You are ${persona.label}, gathering evidence on a single asset before a formal red-team debate.
 
 Use the tools available to you:
 - web_fetch: read every link the user attached, and any other URL you decide is worth reading.
 - web_search: search for current, decision-relevant facts (recent results, news, sector moves) when enabled.
 
-Produce concise analyst NOTES (not JSON, not a final verdict): the strongest bull evidence, the strongest bear evidence, and concrete observations for an Operator lens (moat/operations), a Risk lens (downside/exit triggers), and a Predator lens (the contrarian fat-pitch condition).
+Produce concise analyst NOTES (not JSON, not a final verdict): the strongest bull evidence, the strongest bear evidence, and concrete observations for these lenses — ${lensNames}.
 
 GROUNDING: the user message includes "Locked figures" from a deterministic engine. Treat those as the only authoritative numbers. You may add qualitative facts from sources, but never contradict or recompute a locked figure, and attribute any external number to its source.`;
+}
 
 export function groundingText(a: Analysis): string {
   const meta = a.assetMeta;
@@ -76,7 +79,8 @@ export function buildResearchUserPrompt(a: Analysis): string {
   const tasks: string[] = [];
   if (links.length) tasks.push(`Read these attached links with web_fetch:\n${links.map((s) => (s.kind === "link" ? `- ${s.url}` : "")).join("\n")}`);
   if (a.allowWebSearch) tasks.push(`Search the web for current, decision-relevant facts about this asset and its sector.`);
-  tasks.push(`Then write analyst notes: strongest bull evidence, strongest bear evidence, and observations for the Operator / Risk / Predator lenses.`);
+  const lensNames = personaFor(a.vertical).lenses.map((l) => l.name).join(", ");
+  tasks.push(`Then write analyst notes: strongest bull evidence, strongest bear evidence, and observations for these lenses — ${lensNames}.`);
   return [groundingText(a), attachedContextText(a), tasks.join("\n\n")].filter((s) => s !== "").join("\n\n");
 }
 
@@ -85,6 +89,9 @@ export function buildResearchUserPrompt(a: Analysis): string {
  * context from pass 1 — explicitly NOT a source of numbers (those stay locked).
  */
 export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): string {
+  const persona = personaFor(a.vertical);
+  const slots = persona.debateSlots.map((s) => `${s.name} (slot id "${s.id}")`).join(", ");
+  const lenses = persona.lenses.map((l) => `${l.name} (id "${l.id}")`).join("; ");
   const notesBlock = researchNotes?.trim()
     ? `Research notes (qualitative context only — do NOT take any number from here; all figures come from the locked figures above):\n${researchNotes.trim()}`
     : "";
@@ -92,30 +99,40 @@ export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): st
     groundingText(a),
     attachedContextText(a),
     notesBlock,
-    `Produce the red-team debate (2-3 bull, 2-3 bear), the 3 advisory lenses, and a confidence score, grounded strictly in the figures above.`,
+    `Produce the analysis as ${persona.label}, grounded strictly in the locked figures above.`,
+    `Debate: for EACH side (bull and bear), give one line per slot — ${slots} — tagging each line with its slot id. Cite a locked figure wherever the slot maps to one.`,
+    `Advisory: exactly one lens object per lens — ${lenses} — each with a short verdict word (a stance/quality label, never a buy/sell action) and 2-4 grounded sentences.`,
+    `Also output thesisSupport (STRONG / MIXED / THIN) and a one-line stanceBasis justified ONLY by the locked verdicts/figures.`,
   ]
     .filter((s) => s !== "")
     .join("\n\n");
 }
 
-/** Text rendering of a completed debate, used to seed chat context. */
+/** Pass-3 (optional) user turn: red-team the produced analysis. */
+export function buildReviewUserPrompt(a: Analysis): string {
+  return [
+    groundingText(a),
+    debateContext(a),
+    `Red-team the analysis above as ${personaFor(a.vertical).label}. Return the structured review (verdictLine, strengths, gaps, groundingCheck, whatWouldChangeMyMind). For groundingCheck, flag any number in the debate/advisory not present verbatim in the Locked figures; say "clean" if every figure traces.`,
+  ]
+    .filter((s) => s !== "")
+    .join("\n\n");
+}
+
+/** Text rendering of a completed debate, used to seed chat + review context. */
 export function debateContext(a: Analysis): string {
   if (!a.debate) return "";
-  const lines = (arr: { agent: string; text: string }[]) =>
-    arr.map((x) => `  - [${x.agent}] ${x.text}`).join("\n");
+  const lines = (arr: { agent: string; text: string; slot?: string }[]) =>
+    arr.map((x) => `  - [${x.agent}${x.slot ? `, ${x.slot}` : ""}] ${x.text}`).join("\n");
   const parts = [
-    `Prior debate (confidence ${a.debate.confidence}%):`,
+    `Prior debate (thesis support: ${a.debate.thesisSupport}):`,
     `Bull:\n${lines(a.debate.bull)}`,
     `Bear:\n${lines(a.debate.bear)}`,
   ];
-  if (a.advisory) {
-    parts.push(
-      `Advisory lenses:`,
-      `  - Operator: ${a.advisory.operator.text}`,
-      `  - Risk: ${a.advisory.risk.text}`,
-      `  - Predator: ${a.advisory.predator.text}`,
-    );
+  if (a.advisory && a.advisory.length) {
+    parts.push(`Advisory lenses:`, ...a.advisory.map((l) => `  - ${l.name} [${l.verdict}]: ${l.text}`));
   }
+  if (a.stance) parts.push(`Engine stance: ${a.stance.label} — ${a.stance.basis}`);
   return parts.join("\n");
 }
 

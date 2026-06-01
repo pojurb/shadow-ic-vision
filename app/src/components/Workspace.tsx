@@ -9,6 +9,7 @@ import {
   type AssetPreset,
 } from "@/data/presets";
 import { computeMetrics } from "@/lib/finance/compute";
+import { personaFor } from "@/lib/ai/personas";
 import {
   listAnalyses,
   getAnalysis,
@@ -60,14 +61,19 @@ export default function Workspace() {
 
   async function newFromPreset(preset: AssetPreset) {
     const parameters = { ...preset.parameters };
+    const metrics = computeMetrics(preset.vertical, parameters);
+    const persona = personaFor(preset.vertical);
+    const derived = persona.stance.derive(metrics);
     const analysis = createAnalysis({
       title: preset.name,
       vertical: preset.vertical,
       assetName: preset.name,
       parameters,
-      metrics: computeMetrics(preset.vertical, parameters),
-      debate: { confidence: preset.seed.confidence, bull: preset.seed.bull, bear: preset.seed.bear },
+      metrics,
+      debate: { thesisSupport: preset.seed.thesisSupport, bull: preset.seed.bull, bear: preset.seed.bear },
       advisory: preset.seed.advisory,
+      persona: { id: persona.id, label: persona.label },
+      stance: derived ? { label: derived.label, basis: preset.seed.stanceBasis || derived.basis } : null,
       model: "seed",
     });
     await saveAnalysis(analysis);
@@ -202,7 +208,7 @@ function NewAnalysisDialog({
               {PRESETS[vertical].map((p) => (
                 <button key={p.id} className="template-item" onClick={() => onPick(p)}>
                   <strong>{p.name}</strong>
-                  <span className="template-hint">seed confidence {p.seed.confidence}%</span>
+                  <span className="template-hint">seed thesis {p.seed.thesisSupport}</span>
                 </button>
               ))}
             </div>

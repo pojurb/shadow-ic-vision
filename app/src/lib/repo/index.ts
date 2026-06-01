@@ -4,6 +4,7 @@
  * without touching components.
  */
 import { getDB } from "./db";
+import { personaFor } from "@/lib/ai/personas";
 import type {
   Analysis,
   AnalysisStatus,
@@ -12,6 +13,9 @@ import type {
   ComputedMetrics,
   DebateResult,
   AdvisoryResult,
+  LensResult,
+  PersonaRef,
+  Stance,
   Vertical,
   AssetParameters,
 } from "@/lib/domain/types";
@@ -20,14 +24,69 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+// ---- Back-compat ----
+
+/** Old advisory shape persisted before the per-vertical lens migration. */
+type LegacyLens = { title?: string; text?: string };
+type LegacyAdvisory = { operator: LegacyLens; risk: LegacyLens; predator: LegacyLens };
+
+/**
+ * Normalize a persisted analysis to the current shape on read (idempotent). Old
+ * records have advisory={operator,risk,predator}, a numeric debate.confidence, and
+ * no persona/stance/expertReview. New records pass through untouched. Keeps the
+ * Dexie schema unchanged (no version bump) and the UI on a single, current shape.
+ */
+export function normalizeAnalysis(raw: Analysis): Analysis {
+  const a = raw as Analysis & {
+    debate: (DebateResult & { confidence?: number }) | null;
+    advisory: AdvisoryResult | LegacyAdvisory | null;
+  };
+
+  // advisory: object {operator,risk,predator} → lens array
+  let advisory: AdvisoryResult | null = null;
+  if (Array.isArray(a.advisory)) {
+    advisory = a.advisory;
+  } else if (a.advisory) {
+    const legacy = a.advisory as LegacyAdvisory;
+    advisory = [
+      { id: "operator", name: "Operator", verdict: "—", text: legacy.operator?.text ?? "" },
+      { id: "risk", name: "Risk", verdict: "—", text: legacy.risk?.text ?? "" },
+      { id: "predator", name: "Predator", verdict: "—", text: legacy.predator?.text ?? "" },
+    ] as LensResult[];
+  }
+
+  // debate: numeric confidence → discrete thesisSupport
+  let debate: DebateResult | null = a.debate;
+  if (a.debate && a.debate.thesisSupport === undefined) {
+    const c = a.debate.confidence;
+    const thesisSupport = c == null ? "MIXED" : c >= 70 ? "STRONG" : c >= 40 ? "MIXED" : "THIN";
+    debate = { thesisSupport, bull: a.debate.bull ?? [], bear: a.debate.bear ?? [] };
+  }
+
+  // backfill persona identity + engine stance
+  const persona: PersonaRef = a.persona ?? (() => {
+    const p = personaFor(a.vertical);
+    return { id: p.id, label: p.label };
+  })();
+  let stance: Stance | null = a.stance ?? null;
+  if (!stance) {
+    const d = personaFor(a.vertical).stance.derive(a.metrics);
+    stance = d ? { label: d.label, basis: d.basis } : null;
+  }
+
+  return { ...a, advisory, debate, persona, stance, expertReview: a.expertReview ?? null };
+}
+
 // ---- Analyses ----
 
 export async function listAnalyses(): Promise<Analysis[]> {
-  return getDB().analyses.orderBy("updatedAt").reverse().toArray();
+  const all = await getDB().analyses.orderBy("updatedAt").reverse().toArray();
+  return all.map(normalizeAnalysis);
 }
 
 export async function getAnalysis(id: string): Promise<Analysis | undefined> {
-  return getDB().analyses.get(id);
+  const a = await getDB().analyses.get(id);
+  return a ? normalizeAnalysis(a) : undefined;
 }
 
 export async function saveAnalysis(a: Analysis): Promise<Analysis> {
@@ -55,6 +114,8 @@ export function createAnalysis(input: {
   metrics: ComputedMetrics;
   debate?: DebateResult | null;
   advisory?: AdvisoryResult | null;
+  persona?: PersonaRef | null;
+  stance?: Stance | null;
   folderId?: string | null;
   model: string;
 }): Analysis {
@@ -71,6 +132,9 @@ export function createAnalysis(input: {
     metrics: input.metrics,
     debate: input.debate ?? null,
     advisory: input.advisory ?? null,
+    persona: input.persona ?? null,
+    stance: input.stance ?? null,
+    expertReview: null,
     sources: [],
     allowWebSearch: false,
     chat: [],
