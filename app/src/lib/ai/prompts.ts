@@ -7,7 +7,7 @@
 import type { Analysis } from "@/lib/domain/types";
 import type { Vertical } from "@/data/presets";
 import { personaFor } from "./personas";
-import { FIELDS } from "@/data/fields";
+import { FIELDS, type Field } from "@/data/fields";
 
 /** System prompt for the structured analysis pass — the vertical's expert persona. */
 export function analysisSystem(a: Analysis): string {
@@ -21,9 +21,23 @@ export function reviewSystem(a: Analysis): string {
 
 /* ----------------------------------------------------------------- intake */
 
-/** Enumerate a vertical's candidate engine keys for the intake prompt. */
+/** The unit the engine expects for a field — disambiguates percent vs fraction. */
+function unitHint(type: Field["type"]): string {
+  switch (type) {
+    case "currency":
+      return "plain number in IDR";
+    case "percent":
+      return "whole-number percent, e.g. 19 for 19%";
+    case "percent_raw":
+      return "decimal fraction between 0 and 1, e.g. 0.19 for 19%";
+    default:
+      return "plain number";
+  }
+}
+
+/** Enumerate a vertical's candidate engine keys + the exact unit each expects. */
 function candidateKeys(v: Vertical): string {
-  return FIELDS[v].map((f) => `${String(f.key)} (${f.label})`).join(", ");
+  return FIELDS[v].map((f) => `${String(f.key)} — ${f.label} [${unitHint(f.type)}]`).join("; ");
 }
 
 /**
@@ -41,7 +55,7 @@ Steps:
    - stocks: ${candidateKeys("stocks")}
    - startups: ${candidateKeys("startups")}
    - conventional: ${candidateKeys("conventional")}
-   Use the exact key strings above. Convert units to the engine's (e.g. a percent like ROE 19% → 19; a rate like a 10% discount rate → 0.10; "Rp 4.2k" → 4200). Omit any key you cannot find — NEVER invent or guess a number to fill a slot.
+   Use the exact key strings above, and convert each value to the unit shown in its [brackets] — this matters: some fields want a whole-number percent (19) and others a decimal fraction (0.19) for the SAME "19%". A margin of 70% → 0.70; a 4% churn → 0.04; "Rp 4.2k" → 4200. Omit any key you cannot find — NEVER invent or guess a number to fill a slot.
 3. Tag every field: "stated" if the user explicitly gave that number, "inferred" if you read it from an attachment or derived it. When unsure, use "inferred" so it gets confirmed.
 4. If there aren't enough numbers to value the asset, set mode "scoping" and explain in "note" what is missing. Otherwise set mode "figures".
 

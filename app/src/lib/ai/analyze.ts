@@ -31,7 +31,7 @@ import {
 import { buildFileBlocks } from "./content";
 import { personaFor } from "./personas";
 import { BLANK_PARAMS, type AssetParameters, type Vertical } from "@/data/presets";
-import { paramKeysFor } from "@/data/fields";
+import { paramKeysFor, FIELDS } from "@/data/fields";
 import type { Analysis, ContextSource, DebateLine, LensResult } from "@/lib/domain/types";
 import type { AnalysisResult } from "./types";
 
@@ -237,21 +237,27 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
     : "stocks";
 
   const allowed = new Set(paramKeysFor(vertical).map(String));
+  // percent_raw fields are fractions (0–1); a value >1 is a whole-percent misread.
+  const rawPctKeys = new Set(FIELDS[vertical].filter((f) => f.type === "percent_raw").map((f) => String(f.key)));
   const fields: IntakeField[] = [];
   const numbers: Record<string, number> = {};
   for (const f of raw?.fields ?? []) {
     if (!f || typeof f.key !== "string" || !allowed.has(f.key)) continue;
-    const value = Number(f.value);
+    let value = Number(f.value);
     if (!Number.isFinite(value)) continue;
+    // Defensive unit guard: the model sometimes emits 70 for a 70% fraction field.
+    // Every percent_raw field caps below 1, so any value >1 is a /100 unit error.
+    if (rawPctKeys.has(f.key) && value > 1) value = value / 100;
     const source: IntakeField["source"] = f.source === "stated" ? "stated" : "inferred";
     fields.push({ key: f.key, value, source });
     numbers[f.key] = value;
   }
 
-  // figures only when we actually kept ≥1 number; otherwise it's scoping.
-  let mode: IntakeResult["mode"] =
-    raw?.mode === "scoping" || raw?.mode === "figures" ? raw.mode : "figures";
-  if (fields.length === 0) mode = "scoping";
+  // Mode is DERIVED from what we actually extracted, not the model's opinion: any
+  // kept figure ⇒ figures (the confirm card still gates inferred values before they
+  // lock); nothing extractable ⇒ scoping (pre-numbers / macro questions). This keeps
+  // the figures/scoping decision deterministic instead of trusting a flaky label.
+  const mode: IntakeResult["mode"] = fields.length >= 1 ? "figures" : "scoping";
 
   const params: AssetParameters = { ...BLANK_PARAMS[vertical], ...numbers };
   // Stocks DCF needs a cashflow series, but `cashflows` isn't an extractable field

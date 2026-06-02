@@ -77,12 +77,19 @@ describe("finalizeIntake", () => {
     expect(r.fields[0].source).toBe("inferred");
   });
 
-  it("forces scoping mode when no fields survive, even if model said figures", () => {
+  it("derives scoping mode when no fields survive, even if the model said figures", () => {
     const r = finalizeIntake(raw({ mode: "figures", fields: [] }));
     expect(r.mode).toBe("scoping");
   });
 
-  it("passes scoping mode through and still yields clean blank params", () => {
+  it("derives figures mode whenever ≥1 field was extracted, even if the model said scoping", () => {
+    const r = finalizeIntake(
+      raw({ vertical: "stocks", mode: "scoping", fields: [{ key: "price", value: 4200, source: "stated" }] }),
+    );
+    expect(r.mode).toBe("figures");
+  });
+
+  it("yields clean blank params in a true scoping case (no fields)", () => {
     const r = finalizeIntake(raw({ vertical: "startups", mode: "scoping", fields: [] }));
     expect(r.mode).toBe("scoping");
     expect(r.params).toMatchObject(BLANK_PARAMS.startups);
@@ -102,6 +109,36 @@ describe("finalizeIntake", () => {
     expect(r.fields.map((f) => f.key).sort()).toEqual(["burn", "cash"]);
     expect(r.params.cash).toBe(5e9);
     expect(r.params.burn).toBe(4e8);
+  });
+
+  it("normalizes whole-percent values for percent_raw fields (margin/churn) to fractions", () => {
+    const r = finalizeIntake(
+      raw({
+        vertical: "startups",
+        fields: [
+          { key: "margin", value: 70, source: "stated" }, // 70% → 0.70
+          { key: "churn", value: 4, source: "inferred" }, // 4% → 0.04
+        ],
+      }),
+    );
+    expect(r.params.margin).toBeCloseTo(0.7, 10);
+    expect(r.params.churn).toBeCloseTo(0.04, 10);
+    // the confirm-card rows carry the normalized values too
+    expect(r.fields.find((f) => f.key === "margin")!.value).toBeCloseTo(0.7, 10);
+  });
+
+  it("leaves already-fractional percent_raw values untouched", () => {
+    const r = finalizeIntake(
+      raw({ vertical: "startups", fields: [{ key: "margin", value: 0.7, source: "stated" }] }),
+    );
+    expect(r.params.margin).toBeCloseTo(0.7, 10);
+  });
+
+  it("normalizes a whole-number discountRate for stocks", () => {
+    const r = finalizeIntake(
+      raw({ vertical: "stocks", fields: [{ key: "discountRate", value: 10, source: "inferred" }] }),
+    );
+    expect(r.params.discountRate).toBeCloseTo(0.1, 10);
   });
 
   it("defaults a blank/missing title", () => {

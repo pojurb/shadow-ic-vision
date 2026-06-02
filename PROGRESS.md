@@ -33,7 +33,7 @@
 | **Redesign prototype** (`app/src/app/proto`, throwaway) | ✅ built; stocks vertical P0 honesty pass applied 2026-06-01 |
 | **Expert analyst agent** (per-vertical personas + review pass + visible identity) | ✅ built 2026-06-01 · `tsc` clean · 41 Vitest pass · **live-verified on Gemini for ALL 3 verticals** (analysis + review; engine-stance correct each: stocks→FAIR, startups→CONDITIONAL, conventional→VIABLE; all groundingCheck "clean"). **OpenAI + Anthropic adapters still live-unverified** (no keys) |
 | **Two-pane visual port** (proto layout → `AnalysisView`) | ✅ committed `b7a8859` (checkpoint) 2026-06-02; superseded/softened by the chat-first build below |
-| **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT 2026-06-02 (all 6 phases A–F) · `tsc` clean · **57 Vitest pass** (41 baseline + 16 new) · lint-clean on changed files · `next build` compiles all routes. **Live smoke still owed** (no API key in env). Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
+| **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT + **LIVE-VERIFIED on Gemini** 2026-06-02 (all 6 phases A–F; intake→lock→debate→report green for ALL 3 verticals, stance engine-derived each). `tsc` clean · **61 Vitest pass** · `next build` green. PR #1 open. Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
 | **P7** Composition (portfolio cross-analysis) | ⏸ ON HOLD |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
@@ -272,9 +272,20 @@ gemini `_drop`/`_enum`), `next build` compiles all routes.
   (presets demoted, not a gate). Empty-conversation hint reworded.
 
 No-hallucination guard intact: intake extracts (never invents), splits stated/inferred, the confirm card gates
-inferred values before `computeMetrics`, stance stays `persona.stance.derive` (engine-derived). **Live smoke
-owed** — run one paste→confirm→debate→report per vertical with a real BYOK key (Gemini), then the temp gated
-intake test from the plan, and delete it.
+inferred values before `computeMetrics`, stance stays `persona.stance.derive` (engine-derived).
+
+**✅ LIVE SMOKE DONE (Gemini, gemini-2.5-flash, 2026-06-02).** Temp gated test drove intake→lock→debate→report
+for all 3 verticals; all green (stocks→OVERVALUED, startups→CONDITIONAL, conventional→VIABLE — each live stance
+== `persona.stance.derive`; reports carried every locked display). Temp test deleted after. The live run
+surfaced + fixed **two real bugs** (committed):
+- **Unit misread:** the model returned whole-number percents (margin 70, churn 4) for `percent_raw` fields the
+  engine wants as fractions (0.70, 0.04), and marked them `stated` (so the confirm card wouldn't catch them).
+  Fix: per-field unit hints in the intake prompt (`[decimal fraction 0–1]` vs `[whole-number percent]` from
+  `Field.type`) **+** a defensive `finalizeIntake` guard (`percent_raw` value >1 → /100, since all such fields
+  cap <1). Tests added.
+- **Sticky scoping:** the model labelled a fully-specified stock `mode:"scoping"`. Fix: `finalizeIntake` now
+  **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
+Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
 
 ### Chat-first analysis (Option C intake) — original plan record (PLAN APPROVED 2026-06-02)
 User decisions: **full auto intake** (paste a deal → detect vertical + extract figures → confirm card → confirm
