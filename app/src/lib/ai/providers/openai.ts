@@ -13,18 +13,22 @@
  * Chat uses streaming SSE (choices[0].delta.content).
  * Research uses the OpenAI function-tool loop driving the backend routes.
  */
-import type { AIProvider, AnalysisRequest, ChatRequest, Capabilities, ModelOption } from "../types";
-import type { DebateOutput } from "../schemas";
-import { DEBATE_JSON_SCHEMA } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
+import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
-  SYSTEM_PROMPT,
+  analysisSystem,
   CHAT_SYSTEM,
-  RESEARCH_SYSTEM,
+  researchSystem,
+  reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
+  buildReviewUserPrompt,
+  buildIntakeUserPrompt,
   chatContextPreamble,
 } from "../prompts";
-import { needsResearch } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
 import { blobToBase64 } from "../content";
 import { extractPdfText } from "../pdf";
 import { getBlob } from "@/lib/repo";
@@ -194,7 +198,7 @@ export async function runOpenAIResearch(
     : [{ type: "text", text: userText }];
 
   const messages: OAIMessage[] = [
-    { role: "system", content: RESEARCH_SYSTEM },
+    { role: "system", content: researchSystem(analysis) },
     { role: "user", content: userContent },
   ];
 
@@ -256,7 +260,7 @@ async function runOpenAIAnalysis(req: AnalysisRequest, researchNotes?: string): 
       model,
       max_tokens: 8000,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: analysisSystem(analysis) },
         { role: "user", content: userContent },
       ],
       response_format: {
@@ -277,6 +281,79 @@ async function runOpenAIAnalysis(req: AnalysisRequest, researchNotes?: string): 
   } catch {
     throw new Error("Model did not return valid structured output.");
   }
+}
+
+/** Optional, on-demand expert review — structured json_schema, no web tools. */
+async function runOpenAIExpertReview(req: AnalysisRequest): Promise<ExpertReview> {
+  const { apiKey, model, analysis } = req;
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 4000,
+      messages: [
+        { role: "system", content: reviewSystem(analysis) },
+        { role: "user", content: buildReviewUserPrompt(analysis) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "expert_review", strict: true, schema: EXPERT_REVIEW_JSON_SCHEMA },
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty review.");
+  try {
+    return JSON.parse(text) as ExpertReview;
+  } catch {
+    throw new Error("Model did not return a valid structured review.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Intake — one structured call; detect vertical + extract figures
+// ---------------------------------------------------------------------------
+
+async function runOpenAIIntake(req: IntakeRequest): Promise<IntakeResult> {
+  const { apiKey, model, userText, sources } = req;
+  const fileBlocks = await buildOpenAIFileBlocks(sources);
+  const userPrompt = buildIntakeUserPrompt(userText);
+  const userContent: OpenAIContentBlock[] = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: userPrompt }]
+    : [{ type: "text", text: userPrompt }];
+
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      messages: [
+        { role: "system", content: intakeSystem() },
+        { role: "user", content: userContent },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "intake", strict: true, schema: INTAKE_JSON_SCHEMA },
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -358,14 +435,23 @@ export const openaiProvider: AIProvider = {
   models: OPENAI_MODELS,
   capabilities: () => OPENAI_CAPABILITIES,
 
-  async runAnalysis(req: AnalysisRequest): Promise<DebateOutput> {
+  runIntake(req: IntakeRequest): Promise<IntakeResult> {
+    return runOpenAIIntake(req);
+  },
+
+  async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {
     let notes: string | undefined;
     if (needsResearch(req.analysis)) {
       req.onPhase?.("research");
       notes = await runOpenAIResearch(req.apiKey, req.model, req.analysis);
     }
     req.onPhase?.("debate");
-    return runOpenAIAnalysis(req, notes);
+    const raw = await runOpenAIAnalysis(req, notes);
+    return finalizeDebate(req.analysis, raw);
+  },
+
+  runExpertReview(req: AnalysisRequest): Promise<ExpertReview> {
+    return runOpenAIExpertReview(req);
   },
 
   streamChat(req: ChatRequest): Promise<string> {

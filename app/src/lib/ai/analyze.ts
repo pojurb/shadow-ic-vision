@@ -8,15 +8,32 @@
  * separate free-form pass, not here.
  */
 import { ANTHROPIC_URL, anthropicHeaders, errorMessage } from "./client";
-import { DEBATE_JSON_SCHEMA, type DebateOutput } from "./schemas";
 import {
-  SYSTEM_PROMPT,
-  RESEARCH_SYSTEM,
+  DEBATE_JSON_SCHEMA,
+  EXPERT_REVIEW_JSON_SCHEMA,
+  INTAKE_JSON_SCHEMA,
+  type DebateOutput,
+  type ExpertReview,
+  type IntakeOutput,
+  type IntakeResult,
+  type IntakeField,
+} from "./schemas";
+import {
+  analysisSystem,
+  researchSystem,
+  reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
+  buildReviewUserPrompt,
+  buildIntakeUserPrompt,
 } from "./prompts";
 import { buildFileBlocks } from "./content";
-import type { Analysis } from "@/lib/domain/types";
+import { personaFor } from "./personas";
+import { BLANK_PARAMS, type AssetParameters, type Vertical } from "@/data/presets";
+import { paramKeysFor, FIELDS } from "@/data/fields";
+import type { Analysis, ContextSource, DebateLine, LensResult } from "@/lib/domain/types";
+import type { AnalysisResult } from "./types";
 
 interface TextBlock {
   type: string;
@@ -63,7 +80,7 @@ export async function runResearch(
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
       headers: anthropicHeaders(apiKey),
-      body: JSON.stringify({ model, max_tokens: 6000, system: RESEARCH_SYSTEM, messages, tools }),
+      body: JSON.stringify({ model, max_tokens: 6000, system: researchSystem(analysis), messages, tools }),
     });
     if (!res.ok) throw new Error(await errorMessage(res));
     const data = await res.json();
@@ -91,7 +108,7 @@ export async function runAnalysis(
   model: string,
   analysis: Analysis,
   researchNotes?: string,
-): Promise<DebateOutput> {
+): Promise<AnalysisResult> {
   const fileBlocks = await buildFileBlocks(analysis.sources);
   const userText = buildAnalysisUserPrompt(analysis, researchNotes);
   const content = fileBlocks.length
@@ -104,7 +121,7 @@ export async function runAnalysis(
     body: JSON.stringify({
       model,
       max_tokens: 8000,
-      system: SYSTEM_PROMPT,
+      system: analysisSystem(analysis),
       messages: [{ role: "user", content }],
       output_config: { format: { type: "json_schema", schema: DEBATE_JSON_SCHEMA } },
     }),
@@ -115,9 +132,193 @@ export async function runAnalysis(
   const data = await res.json();
   const text = collectText(data.content);
   if (!text.trim()) throw new Error("Model returned an empty response.");
+  let raw: DebateOutput;
   try {
-    return JSON.parse(text) as DebateOutput;
+    raw = JSON.parse(text) as DebateOutput;
   } catch {
     throw new Error("Model did not return valid structured output.");
   }
+  return finalizeDebate(analysis, raw);
+}
+
+/**
+ * Validate + zip the model's structured output against the persona contract, and
+ * attach the ENGINE-DERIVED stance (the model never authors the stance label).
+ * Pure — the unit-testable core, shared by all three providers.
+ */
+export function finalizeDebate(analysis: Analysis, raw: DebateOutput): AnalysisResult {
+  const persona = personaFor(analysis.vertical);
+  const slotIds = new Set(persona.debateSlots.map((s) => s.id));
+  const clamp = (l: DebateLine): DebateLine => ({
+    agent: l.agent,
+    text: l.text,
+    slot: l.slot && slotIds.has(l.slot) ? l.slot : undefined,
+  });
+  // Zip advisory against the persona's lens set: keep lens order, drop unknown ids,
+  // fill any the model missed so the UI always renders the full board.
+  const byId = new Map((raw.advisory ?? []).map((l) => [l.id, l] as const));
+  const advisory: LensResult[] = persona.lenses.map((spec) => {
+    const got = byId.get(spec.id);
+    return {
+      id: spec.id,
+      name: spec.name,
+      verdict: got?.verdict?.trim() || "—",
+      text: got?.text?.trim() || "(no analysis returned for this lens)",
+    };
+  });
+  const derived = persona.stance.derive(analysis.metrics);
+  const stance = derived
+    ? { label: derived.label, basis: raw.stanceBasis?.trim() || derived.basis }
+    : null;
+  // Clamp to the enum (Gemini strips the schema enum, so guard the value here).
+  const thesisSupport =
+    raw.thesisSupport === "STRONG" || raw.thesisSupport === "THIN" ? raw.thesisSupport : "MIXED";
+  return {
+    debate: {
+      thesisSupport,
+      bull: (raw.bull ?? []).map(clamp),
+      bear: (raw.bear ?? []).map(clamp),
+    },
+    advisory,
+    stance,
+  };
+}
+
+/**
+ * Pass 3 (optional, on-demand) — a second expert red-teams the produced analysis.
+ * One structured call, no web tools. Returns the review for the UI to store/show.
+ */
+export async function runExpertReview(
+  apiKey: string,
+  model: string,
+  analysis: Analysis,
+): Promise<ExpertReview> {
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: anthropicHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 4000,
+      system: reviewSystem(analysis),
+      messages: [{ role: "user", content: buildReviewUserPrompt(analysis) }],
+      output_config: { format: { type: "json_schema", schema: EXPERT_REVIEW_JSON_SCHEMA } },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await errorMessage(res));
+
+  const data = await res.json();
+  const text = collectText(data.content);
+  if (!text.trim()) throw new Error("Model returned an empty review.");
+  try {
+    return JSON.parse(text) as ExpertReview;
+  } catch {
+    throw new Error("Model did not return a valid structured review.");
+  }
+}
+
+/* ----------------------------------------------------------------- intake */
+
+const VERTICALS: Vertical[] = ["stocks", "startups", "conventional"];
+
+/**
+ * Validate + zip the raw intake output into an engine-ready draft. PURE — the
+ * unit-testable core, shared by all three providers. This is the one place
+ * numbers enter from prose, so the guards matter:
+ *  - clamp `vertical`/`mode`/`source` to known values (Gemini strips schema enums)
+ *  - drop fields whose key isn't an engine param for the chosen vertical
+ *  - coerce values to finite numbers (drop the rest)
+ *  - merge BLANK_PARAMS so the engine always computes cleanly
+ * The model never authors a stance; that stays `persona.stance.derive` downstream.
+ */
+export function finalizeIntake(raw: IntakeOutput): IntakeResult {
+  const vertical: Vertical = VERTICALS.includes(raw?.vertical as Vertical)
+    ? (raw.vertical as Vertical)
+    : "stocks";
+
+  const allowed = new Set(paramKeysFor(vertical).map(String));
+  // percent_raw fields are fractions (0–1); a value >1 is a whole-percent misread.
+  const rawPctKeys = new Set(FIELDS[vertical].filter((f) => f.type === "percent_raw").map((f) => String(f.key)));
+  const fields: IntakeField[] = [];
+  const numbers: Record<string, number> = {};
+  for (const f of raw?.fields ?? []) {
+    if (!f || typeof f.key !== "string" || !allowed.has(f.key)) continue;
+    let value = Number(f.value);
+    if (!Number.isFinite(value)) continue;
+    // Defensive unit guard: the model sometimes emits 70 for a 70% fraction field.
+    // Every percent_raw field caps below 1, so any value >1 is a /100 unit error.
+    if (rawPctKeys.has(f.key) && value > 1) value = value / 100;
+    const source: IntakeField["source"] = f.source === "stated" ? "stated" : "inferred";
+    fields.push({ key: f.key, value, source });
+    numbers[f.key] = value;
+  }
+
+  // Mode is DERIVED from what we actually extracted, not the model's opinion: any
+  // kept figure ⇒ figures (the confirm card still gates inferred values before they
+  // lock); nothing extractable ⇒ scoping (pre-numbers / macro questions). This keeps
+  // the figures/scoping decision deterministic instead of trusting a flaky label.
+  const mode: IntakeResult["mode"] = fields.length >= 1 ? "figures" : "scoping";
+
+  const params: AssetParameters = { ...BLANK_PARAMS[vertical], ...numbers };
+  // Stocks DCF needs a cashflow series, but `cashflows` isn't an extractable field
+  // (not in paramKeysFor), so always proxy a flat-EPS stream from the resolved EPS —
+  // keeps DCF/NPV/MoS consistent with the EPS the user actually gave. Surfaced as an
+  // approximation on the confirm card.
+  if (vertical === "stocks") {
+    const eps = Number(params.eps ?? 0);
+    params.cashflows = Array(5).fill(eps);
+  }
+
+  return {
+    vertical,
+    mode,
+    assetName: typeof raw?.assetName === "string" ? raw.assetName : "",
+    title: (typeof raw?.title === "string" && raw.title.trim()) || "New analysis",
+    note: typeof raw?.note === "string" ? raw.note : "",
+    fields,
+    params,
+  };
+}
+
+/**
+ * Intake pass — one structured call that detects the vertical and extracts the
+ * engine parameters from the user's text + attachments. Returns the finalized,
+ * confirm-ready draft. Anthropic path; OpenAI/Gemini implement inline then call
+ * the shared `finalizeIntake`.
+ */
+export async function runIntake(
+  apiKey: string,
+  model: string,
+  userText: string,
+  sources: ContextSource[],
+): Promise<IntakeResult> {
+  const fileBlocks = await buildFileBlocks(sources);
+  const userPrompt = buildIntakeUserPrompt(userText);
+  const content = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: userPrompt }]
+    : userPrompt;
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: anthropicHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      system: intakeSystem(),
+      messages: [{ role: "user", content }],
+      output_config: { format: { type: "json_schema", schema: INTAKE_JSON_SCHEMA } },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const data = await res.json();
+  const text = collectText(data.content);
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
 }

@@ -4,10 +4,17 @@
  * Per-capability, the app uses the native path when the model supports it and an
  * app-provided fallback otherwise (see `multi-provider-byok` decision).
  */
-import type { Analysis } from "@/lib/domain/types";
-import type { DebateOutput } from "./schemas";
+import type { Analysis, ContextSource, DebateResult, AdvisoryResult, Stance } from "@/lib/domain/types";
+import type { ExpertReview, IntakeResult } from "./schemas";
 
 export type ProviderId = "anthropic" | "openai" | "gemini";
+
+/** Finalized analysis the providers return: debate + zipped advisory + engine stance. */
+export interface AnalysisResult {
+  debate: DebateResult;
+  advisory: AdvisoryResult;
+  stance: Stance | null;
+}
 
 export interface ModelOption {
   id: string;
@@ -40,14 +47,26 @@ export interface ChatRequest {
   onDelta: (text: string) => void;
 }
 
+/** Intake: detect the vertical + extract engine params from prose/attachments. */
+export interface IntakeRequest {
+  apiKey: string;
+  model: string;
+  userText: string;
+  sources: ContextSource[];
+}
+
 export interface AIProvider {
   id: ProviderId;
   label: string;
   models: ModelOption[];
   /** Native capabilities for a model id (defaults are fine for unknown ids). */
   capabilities(modelId: string): Capabilities;
+  /** Intake: detect vertical + extract figures from prose/attachments (one call). */
+  runIntake(req: IntakeRequest): Promise<IntakeResult>;
   /** Orchestrates the research + structured-debate passes; reports phases. */
-  runAnalysis(req: AnalysisRequest): Promise<DebateOutput>;
+  runAnalysis(req: AnalysisRequest): Promise<AnalysisResult>;
+  /** Optional, on-demand second-expert red-team of the produced analysis. */
+  runExpertReview(req: AnalysisRequest): Promise<ExpertReview>;
   /** Streamed, grounded follow-up chat. Returns the full text. */
   streamChat(req: ChatRequest): Promise<string>;
 }

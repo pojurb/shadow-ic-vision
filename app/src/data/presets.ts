@@ -31,25 +31,31 @@ export interface AssetParameters {
   variable?: number;
 }
 
+/** How well the locked figures + qualitative case support the thesis (replaces a numeric confidence). */
+export type ThesisSupport = "STRONG" | "MIXED" | "THIN";
+
 export interface DebateLine {
   agent: string;
   text: string;
+  /** The persona debate-rubric slot this line addresses (e.g. "valuation"). */
+  slot?: string;
 }
 
-export interface AdvisoryLens {
-  title: string;
+/** One advisory lens result: a short verdict word + the take. */
+export interface SeedLens {
+  id: string;
+  name: string;
+  verdict: string;
   text: string;
 }
 
 export interface AssetSeed {
-  confidence: number;
+  thesisSupport: ThesisSupport;
+  /** One-line justification of the engine-derived stance (references locked verdicts only). */
+  stanceBasis: string;
   bull: DebateLine[];
   bear: DebateLine[];
-  advisory: {
-    operator: AdvisoryLens;
-    risk: AdvisoryLens;
-    predator: AdvisoryLens;
-  };
+  advisory: SeedLens[];
 }
 
 export interface AssetPreset {
@@ -77,22 +83,24 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
         cashflows: [600, 680, 780, 890, 1020],
       },
       seed: {
-        confidence: 85,
+        thesisSupport: "STRONG",
+        stanceBasis: "P/E and intrinsic value back a top-quality franchise at a full price",
         bull: [
-          { agent: "Growth Lead", text: "An 80% CASA ratio gives an extremely low cost of funds, shielding it from Bank Indonesia rate hikes." },
-          { agent: "Technologist", text: "The myBCA app and e-channel banking process billions of daily transactions, securing stable fee-based income." },
-          { agent: "Asset Allocator", text: "NPL (Non-Performing Loan) is held at 1.9%, far below the national banking industry average." },
+          { slot: "quality", agent: "Growth Lead", text: "An 80% CASA ratio gives an extremely low cost of funds, shielding it from Bank Indonesia rate hikes." },
+          { slot: "catalyst", agent: "Technologist", text: "The myBCA app and e-channel banking process billions of daily transactions, securing stable fee-based income." },
+          { slot: "risk", agent: "Asset Allocator", text: "NPL (Non-Performing Loan) is held at 1.9%, far below the national banking industry average." },
         ],
         bear: [
-          { agent: "Valuation Bear", text: "A P/B ratio near 4.8x is already very premium (priced-in) versus other SEA regional banks." },
-          { agent: "Macro Adversary", text: "If Indonesian GDP growth slows below 5.0%, corporate credit expansion will weaken." },
-          { agent: "Risk Skeptic", text: "Fierce competition from new digital banks and fintech lending could erode its retail CASA share over the long run." },
+          { slot: "valuation", agent: "Valuation Bear", text: "A P/B ratio near 4.8x is already very premium (priced-in) versus other SEA regional banks." },
+          { slot: "catalyst", agent: "Macro Adversary", text: "If Indonesian GDP growth slows below 5.0%, corporate credit expansion will weaken." },
+          { slot: "risk", agent: "Risk Skeptic", text: "Fierce competition from new digital banks and fintech lending could erode its retail CASA share over the long run." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "BCA's digitalization SOP is the industry gold standard. The Operator play is to scale cloud infrastructure to cut conventional IT maintenance, and to patent the internal credit-scoring algorithm for retail lending to drive down approval cost." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "Stress-test scenario: if rates rise to 7%, corporate NPL is projected to climb to 3.5%. Mitigation: shift more liquidity into short-tenor government bonds (SBN) and reduce credit exposure to volatile commodity sectors." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "A Fat Pitch appears if an irrational market correction drags BBCA to P/B < 3.8x (~Rp 7,500–8,000). Swing capital aggressively here: historically BBCA valuation always reverts to its ~4.5x P/B mean within 6–9 months." },
-        },
+        advisory: [
+          { id: "valuation", name: "Valuation", verdict: "PREMIUM", text: "At ~4.8x P/B the quality is well recognized; the margin of safety is thin unless the multiple de-rates toward its ~4.5x mean." },
+          { id: "quality", name: "Quality", verdict: "DURABLE", text: "BCA's low-cost CASA franchise and digital SOP are the industry gold standard, sustaining high ROE through rate cycles." },
+          { id: "catalyst", name: "Catalyst", verdict: "MEAN-REVERSION", text: "A fat pitch appears only if an irrational correction drags BBCA to P/B < 3.8x (~Rp 7,500–8,000); it historically reverts to ~4.5x within 6–9 months." },
+          { id: "risk", name: "Risk Manager", verdict: "RATE-SENSITIVE", text: "Stress scenario: at 7% rates corporate NPL could climb to ~3.5%. Mitigate by shifting liquidity into short-tenor SBN and trimming volatile commodity exposure." },
+        ],
       },
     },
     {
@@ -110,20 +118,22 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
         cashflows: [230, 250, 270, 290, 310],
       },
       seed: {
-        confidence: 68,
+        thesisSupport: "MIXED",
+        stanceBasis: "an infrastructure moat offset by tariff erosion and a capped payout",
         bull: [
-          { agent: "Infras Lead", text: "The largest national fiber-optic infrastructure plus tower ownership via Mitratel guarantees connectivity-market dominance." },
-          { agent: "Cloud Architect", text: "The NeutraDC data-center business is growing fast as cloud-computing adoption by SOEs & enterprises rises." },
+          { slot: "quality", agent: "Infras Lead", text: "The largest national fiber-optic infrastructure plus tower ownership via Mitratel guarantees connectivity-market dominance." },
+          { slot: "catalyst", agent: "Cloud Architect", text: "The NeutraDC data-center business is growing fast as cloud-computing adoption by SOEs & enterprises rises." },
         ],
         bear: [
-          { agent: "Yield Skeptic", text: "Data tariffs (yield per GB) keep falling due to a telco price war that never ends." },
-          { agent: "Legacy Bear", text: "Heavy employee pension liabilities and fiber-optic CapEx cap the dividend payout ratio." },
+          { slot: "valuation", agent: "Yield Skeptic", text: "Data tariffs (yield per GB) keep falling due to a telco price war that never ends." },
+          { slot: "risk", agent: "Legacy Bear", text: "Heavy employee pension liabilities and fiber-optic CapEx cap the dividend payout ratio." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "Focus on infrastructure consolidation (FMC — Fixed Mobile Convergence) between Telkomsel and IndiHome to eliminate duplicate field sales & technician teams, cutting OpEx by up to 15%." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "A high-rate crisis could raise syndicated-debt costs. Limit non-productive fiber-optic expansion outside core urban areas and restructure USD-denominated debt into IDR." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "Wait for an extreme-discount moment when foreign sell-offs drag TLKM below 10x P/E. That is a thick Margin of Safety for the long term." },
-        },
+        advisory: [
+          { id: "valuation", name: "Valuation", verdict: "FAIR", text: "A real discount only opens on foreign sell-offs below ~10x P/E; that is the thick margin of safety worth waiting for." },
+          { id: "quality", name: "Quality", verdict: "INFRA-MOAT", text: "Fixed-Mobile Convergence between Telkomsel and IndiHome can cut duplicate field/technician OpEx by up to 15%, defending the moat." },
+          { id: "catalyst", name: "Catalyst", verdict: "DATA-CENTER", text: "NeutraDC and enterprise cloud are the re-rating catalysts if data-center monetization scales faster than legacy voice declines." },
+          { id: "risk", name: "Risk Manager", verdict: "CAPEX-HEAVY", text: "High-rate crises raise syndicated-debt costs; limit non-productive fiber expansion outside core urban areas and restructure USD debt into IDR." },
+        ],
       },
     },
   ],
@@ -134,20 +144,22 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
       vertical: "startups",
       parameters: { cash: 18_000_000_000, burn: 1_200_000_000, cac: 1_500_000, arpu: 450_000, margin: 0.7, churn: 0.04 },
       seed: {
-        confidence: 75,
+        thesisSupport: "MIXED",
+        stanceBasis: "strong loan quality and growth against a tightening runway",
         bull: [
-          { agent: "Risk Modeling", text: "The AI algorithm holds NPL (Non-Performing Loan) at 1.8%, far below the OJK 5% ceiling." },
-          { agent: "BizDev Lead", text: "A partnership with a B2B e-commerce platform grew monthly loan volume by 35% organically." },
+          { slot: "unit_economics", agent: "Risk Modeling", text: "The AI algorithm holds NPL (Non-Performing Loan) at 1.8%, far below the OJK 5% ceiling." },
+          { slot: "growth", agent: "BizDev Lead", text: "A partnership with a B2B e-commerce platform grew monthly loan volume by 35% organically." },
         ],
         bear: [
-          { agent: "Liquidity Analyst", text: "Less than 15 months of runway remain, while capital-market liquidity for a Series C is in a Tech Winter." },
-          { agent: "Regulatory Bear", text: "New OJK rules capping productive-loan interest rates will compress profit margins at the company." },
+          { slot: "runway", agent: "Liquidity Analyst", text: "Less than 15 months of runway remain, while capital-market liquidity for a Series C is in a Tech Winter." },
+          { slot: "risk", agent: "Regulatory Bear", text: "New OJK rules capping productive-loan interest rates will compress profit margins at the company." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "Automate credit assessment with a distributed-data model immediately. Reduce manual field-review staff to improve unit economics per loan disbursement." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "Runway stress-test: monthly burn must drop 25% from Rp 1.2B to Rp 900M via a hiring freeze and cloud-server efficiency, extending runway to 20 months to secure the fundraising window." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "Use the Tech Winter to acquire small fintech startups running out of runway at cheap valuations, integrating their merchant databases to accelerate market expansion." },
-        },
+        advisory: [
+          { id: "unit_economics", name: "Unit Economics", verdict: "IMPROVING", text: "Automating credit assessment with a distributed-data model cuts manual field-review cost per disbursement and lifts contribution per loan." },
+          { id: "growth", name: "Growth", verdict: "ORGANIC", text: "The B2B e-commerce channel compounds volume without paid CAC; the open question is whether it survives a rate cap on yields." },
+          { id: "runway", name: "Runway & Dilution", verdict: "TIGHTENING", text: "Cut monthly burn ~25% (Rp 1.2B → Rp 900M) via a hiring freeze and cloud efficiency to extend runway toward 20 months and raise from strength." },
+          { id: "risk", name: "Risk Manager", verdict: "REGULATORY", text: "An OJK rate cap is the tail risk to margins; model the capped-yield case before sizing, and keep NPL discipline as the moat." },
+        ],
       },
     },
     {
@@ -156,20 +168,22 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
       vertical: "startups",
       parameters: { cash: 8_000_000_000, burn: 450_000_000, cac: 600_000, arpu: 180_000, margin: 0.85, churn: 0.02 },
       seed: {
-        confidence: 89,
+        thesisSupport: "STRONG",
+        stanceBasis: "healthy LTV:CAC and very low churn with ample runway",
         bull: [
-          { agent: "Retention Advocate", text: "Very low churn at 2%/month signals strong product-market fit and high product stickiness." },
-          { agent: "Unit Econ", text: "An LTV/CAC ratio of 4.25x proves very healthy marketing-budget conversion efficiency." },
+          { slot: "growth", agent: "Retention Advocate", text: "Very low churn at 2%/month signals strong product-market fit and high product stickiness." },
+          { slot: "unit_economics", agent: "Unit Econ", text: "An LTV/CAC ratio of 4.25x proves very healthy marketing-budget conversion efficiency." },
         ],
         bear: [
-          { agent: "TAM Critic", text: "The Indonesian retail SME market is highly price-sensitive; ARPU is hard to push above Rp 200k/month without spiking churn." },
-          { agent: "Competitor Bear", text: "Many free POS systems are subsidized by e-wallet platforms chasing merchant volume." },
+          { slot: "growth", agent: "TAM Critic", text: "The Indonesian retail SME market is highly price-sensitive; ARPU is hard to push above Rp 200k/month without spiking churn." },
+          { slot: "risk", agent: "Competitor Bear", text: "Many free POS systems are subsidized by e-wallet platforms chasing merchant volume." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "Add supply-chain integration (connecting stores to raw-material suppliers) to build an ecosystem moat that a plain free POS cannot replicate." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "Offer discounted annual subscriptions to pull cash upfront, securing net cash flow earlier amid macro uncertainty." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "Target large retail brands frustrated with expensive foreign enterprise software; offer custom migration on long-term contracts." },
-        },
+        advisory: [
+          { id: "unit_economics", name: "Unit Economics", verdict: "HEALTHY", text: "LTV:CAC of ~4.25x and an 85% margin make the model fundable; growth is a distribution question, not an economics one." },
+          { id: "growth", name: "Growth", verdict: "STICKY", text: "2%/month churn anchors the base; add supply-chain integration to build an ecosystem moat a free POS cannot replicate." },
+          { id: "runway", name: "Runway & Dilution", verdict: "AMPLE", text: "Pull cash forward with discounted annual subscriptions to secure net cash flow earlier amid macro uncertainty." },
+          { id: "risk", name: "Risk Manager", verdict: "PRICE-PRESSURE", text: "Subsidized free POS rivals cap ARPU; defend with enterprise migrations and long-term contracts rather than price." },
+        ],
       },
     },
   ],
@@ -180,20 +194,22 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
       vertical: "conventional",
       parameters: { fixed: 180_000_000, price: 45_000, variable: 12_000, invested: 350_000_000 },
       seed: {
-        confidence: 79,
+        thesisSupport: "MIXED",
+        stanceBasis: "clean cash economics against fast CapEx depreciation",
         bull: [
-          { agent: "Cashflow Lead", text: "A cash-upfront business (coin/e-wallet) with no bad receivables. Working capital is very clean." },
-          { agent: "Location Expert", text: "Lower-middle-class apartments whose units lack drying balconies guarantee >60% machine occupancy." },
+          { slot: "returns", agent: "Cashflow Lead", text: "A cash-upfront business (coin/e-wallet) with no bad receivables. Working capital is very clean." },
+          { slot: "demand", agent: "Location Expert", text: "Lower-middle-class apartments whose units lack drying balconies guarantee >60% machine occupancy." },
         ],
         bear: [
-          { agent: "CapEx Bear", text: "High-speed commercial washers depreciate fast; maintenance cost rises sharply after year 2." },
-          { agent: "Utility Risk", text: "Sensitive to volatile hikes in base electricity tariffs and LPG (3kg/12kg) gas prices." },
+          { slot: "breakeven", agent: "CapEx Bear", text: "High-speed commercial washers depreciate fast; maintenance cost rises sharply after year 2." },
+          { slot: "risk", agent: "Utility Risk", text: "Sensitive to volatile hikes in base electricity tariffs and LPG (3kg/12kg) gas prices." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "Adopt an SOP for daily utility logging via IoT water & power meters to detect gas/water leaks faster. Integrate a machine-booking app to keep queues orderly." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "Stress-test: if rent rises 30% and customers drop 20%, recompute the daily BEP. Mitigation: lock a long-term lease (min. 5 years) upfront with staggered rent-adjustment options." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "Find a nearby laundry competitor with idle machines or a burned-out owner; offer to acquire the location below the machine liquidation value (distressed asset purchase)." },
-        },
+        advisory: [
+          { id: "returns", name: "Returns", verdict: "CASH-CLEAN", text: "Upfront cash collection and no receivables keep realized IRR close to modeled, provided occupancy holds above break-even." },
+          { id: "breakeven", name: "Break-even", verdict: "CAPEX-DRAG", text: "Rising post-year-2 maintenance lifts the effective break-even; budget machine refurbishment into the BEP, not just day-one units." },
+          { id: "demand", name: "Demand", verdict: "STRUCTURAL", text: "Balcony-less apartments structurally drive >60% occupancy; the location thesis is the load-bearing demand assumption." },
+          { id: "risk", name: "Risk Manager", verdict: "UTILITY-SENSITIVE", text: "Stress: rent +30% and customers −20% — recompute daily BEP. Mitigate with a 5-year lease and staggered rent-adjustment options." },
+        ],
       },
     },
     {
@@ -202,20 +218,22 @@ export const PRESETS: Record<Vertical, AssetPreset[]> = {
       vertical: "conventional",
       parameters: { fixed: 240_000_000, price: 35_000, variable: 8_500, invested: 500_000_000 },
       seed: {
-        confidence: 72,
+        thesisSupport: "MIXED",
+        stanceBasis: "a high gross margin against a saturated, low-loyalty market",
         bull: [
-          { agent: "Roastery Moat", text: "Roasting beans in-house cuts the variable cost (COGS) of a milk coffee from Rp 12k to Rp 8.5k, yielding a 75% gross margin." },
-          { agent: "Social Space", text: "The co-working & meeting-room concept attracts a loyal corporate segment with higher billing per transaction." },
+          { slot: "returns", agent: "Roastery Moat", text: "Roasting beans in-house cuts the variable cost (COGS) of a milk coffee from Rp 12k to Rp 8.5k, yielding a 75% gross margin." },
+          { slot: "demand", agent: "Social Space", text: "The co-working & meeting-room concept attracts a loyal corporate segment with higher billing per transaction." },
         ],
         bear: [
-          { agent: "Saturated Bear", text: "Coffee-shop density within a 1 km radius is already saturated. Marketing cost to acquire new customers is high." },
-          { agent: "Churn Risk", text: "Specialty-coffee customers have low loyalty — they constantly chase new spots for social-media aesthetics." },
+          { slot: "demand", agent: "Saturated Bear", text: "Coffee-shop density within a 1 km radius is already saturated. Marketing cost to acquire new customers is high." },
+          { slot: "risk", agent: "Churn Risk", text: "Specialty-coffee customers have low loyalty — they constantly chase new spots for social-media aesthetics." },
         ],
-        advisory: {
-          operator: { title: "Operator — Moat & Efficiency", text: "Sell roasted packaged beans to other small cafes around town to maximize utilization of the expensive roasting machine." },
-          risk: { title: "Risk Manager — Stress-Test & Survival", text: "If commodity green-bean prices rise 40%, quickly diversify the blend with high-quality robusta without harming the core flavor." },
-          predator: { title: "Predator — Opportunism & Fat Pitch", text: "If a neighboring coffee shop goes bankrupt, buy their used La Marzocco espresso machine at a 40% market discount as stock for a second outlet." },
-        },
+        advisory: [
+          { id: "returns", name: "Returns", verdict: "MARGIN-RICH", text: "In-house roasting lifts gross margin to ~75%, so every transaction past break-even drops hard to the bottom line." },
+          { id: "breakeven", name: "Break-even", verdict: "VOLUME-GATED", text: "High fixed rent in a prime social location pushes the BEP up; sustained daily volume, not margin, is the binding constraint." },
+          { id: "demand", name: "Demand", verdict: "SATURATED", text: "1 km density is high; the corporate co-working segment with higher billing is the differentiated demand to defend." },
+          { id: "risk", name: "Risk Manager", verdict: "COMMODITY", text: "If green-bean prices rise 40%, diversify the blend with quality robusta without harming core flavor; wholesale beans to nearby cafes to utilize the roaster." },
+        ],
       },
     },
   ],

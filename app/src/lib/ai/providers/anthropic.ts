@@ -3,10 +3,10 @@
  * logic (client/analyze/chat) behind the provider interface and owns the
  * research→debate orchestration. Claude supports every capability natively.
  */
-import type { AIProvider, AnalysisRequest, ChatRequest, Capabilities } from "../types";
-import type { DebateOutput } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities } from "../types";
+import type { ExpertReview, IntakeResult } from "../schemas";
 import { MODELS } from "../client";
-import { runAnalysis, runResearch, needsResearch } from "../analyze";
+import { runAnalysis, runResearch, runExpertReview, runIntake, needsResearch } from "../analyze";
 import { streamChat } from "../chat";
 
 const NATIVE: Capabilities = {
@@ -22,7 +22,11 @@ export const anthropicProvider: AIProvider = {
   models: MODELS,
   capabilities: () => NATIVE,
 
-  async runAnalysis({ apiKey, model, analysis, onPhase }: AnalysisRequest): Promise<DebateOutput> {
+  runIntake({ apiKey, model, userText, sources }: IntakeRequest): Promise<IntakeResult> {
+    return runIntake(apiKey, model, userText, sources);
+  },
+
+  async runAnalysis({ apiKey, model, analysis, onPhase }: AnalysisRequest): Promise<AnalysisResult> {
     // Two-pass when there are links / web research: free-form research with native
     // web tools, then the structured debate using the notes as qualitative context.
     let notes: string | undefined;
@@ -32,6 +36,10 @@ export const anthropicProvider: AIProvider = {
     }
     onPhase?.("debate");
     return runAnalysis(apiKey, model, analysis, notes);
+  },
+
+  runExpertReview({ apiKey, model, analysis }: AnalysisRequest): Promise<ExpertReview> {
+    return runExpertReview(apiKey, model, analysis);
   },
 
   streamChat({ apiKey, model, analysis, userText, onDelta }: ChatRequest): Promise<string> {

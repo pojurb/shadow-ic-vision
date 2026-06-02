@@ -12,18 +12,22 @@
  * Streaming via :streamGenerateContent?alt=sse.
  * Function calling uses functionDeclarations / functionCall / functionResponse parts.
  */
-import type { AIProvider, AnalysisRequest, ChatRequest, Capabilities, ModelOption } from "../types";
-import type { DebateOutput } from "../schemas";
-import { DEBATE_JSON_SCHEMA } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
+import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
-  SYSTEM_PROMPT,
+  analysisSystem,
   CHAT_SYSTEM,
-  RESEARCH_SYSTEM,
+  researchSystem,
+  reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
+  buildReviewUserPrompt,
+  buildIntakeUserPrompt,
   chatContextPreamble,
 } from "../prompts";
-import { needsResearch } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
 import { blobToBase64 } from "../content";
 import { getBlob } from "@/lib/repo";
 import type { Analysis, ContextSource, ChatMessage } from "@/lib/domain/types";
@@ -63,13 +67,14 @@ export const GEMINI_MODELS: ModelOption[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Gemini's responseSchema doesn't support `additionalProperties` — strip it
- * recursively before sending. Everything else in DEBATE_JSON_SCHEMA is valid.
+ * Gemini's responseSchema doesn't support `additionalProperties`; `enum` support
+ * is inconsistent across models. Strip both recursively — the enum on
+ * `thesisSupport` is enforced instead by the prompt and clamped in finalizeDebate.
  */
 function toGeminiSchema(schema: unknown): unknown {
   if (typeof schema !== "object" || schema === null) return schema;
   if (Array.isArray(schema)) return schema.map(toGeminiSchema);
-  const { additionalProperties: _drop, ...rest } = schema as Record<string, unknown>;
+  const { additionalProperties: _drop, enum: _enum, ...rest } = schema as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rest)) {
     out[k] = toGeminiSchema(v);
@@ -194,7 +199,7 @@ async function runGeminiResearch(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: RESEARCH_SYSTEM }] },
+        system_instruction: { parts: [{ text: researchSystem(analysis) }] },
         contents,
         tools: GEMINI_TOOLS,
         generationConfig: { maxOutputTokens: 6000 },
@@ -259,7 +264,7 @@ async function runGeminiAnalysis(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      system_instruction: { parts: [{ text: analysisSystem(analysis) }] },
       contents: [{ role: "user", parts: userParts }],
       generationConfig: {
         maxOutputTokens: 8000,
@@ -280,6 +285,70 @@ async function runGeminiAnalysis(
   } catch {
     throw new Error("Model did not return valid structured output.");
   }
+}
+
+/** Optional, on-demand expert review — structured responseSchema, no web tools. */
+async function runGeminiExpertReview(req: AnalysisRequest): Promise<ExpertReview> {
+  const { apiKey, model, analysis } = req;
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: reviewSystem(analysis) }] },
+      contents: [{ role: "user", parts: [{ text: buildReviewUserPrompt(analysis) }] }],
+      generationConfig: {
+        maxOutputTokens: 4000,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(EXPERT_REVIEW_JSON_SCHEMA),
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty review.");
+  try {
+    return JSON.parse(text) as ExpertReview;
+  } catch {
+    throw new Error("Model did not return a valid structured review.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Intake — one structured call; detect vertical + extract figures
+// ---------------------------------------------------------------------------
+
+async function runGeminiIntake(req: IntakeRequest): Promise<IntakeResult> {
+  const { apiKey, model, userText, sources } = req;
+  const fileParts = await buildGeminiFileParts(sources);
+  const userParts: GeminiPart[] = [...fileParts, { text: buildIntakeUserPrompt(userText) }];
+
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: intakeSystem() }] },
+      contents: [{ role: "user", parts: userParts }],
+      generationConfig: {
+        maxOutputTokens: 2000,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(INTAKE_JSON_SCHEMA),
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -368,14 +437,23 @@ export const geminiProvider: AIProvider = {
   models: GEMINI_MODELS,
   capabilities: () => GEMINI_CAPABILITIES,
 
-  async runAnalysis(req: AnalysisRequest): Promise<DebateOutput> {
+  runIntake(req: IntakeRequest): Promise<IntakeResult> {
+    return runGeminiIntake(req);
+  },
+
+  async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {
     let notes: string | undefined;
     if (needsResearch(req.analysis)) {
       req.onPhase?.("research");
       notes = await runGeminiResearch(req.apiKey, req.model, req.analysis);
     }
     req.onPhase?.("debate");
-    return runGeminiAnalysis(req, notes);
+    const raw = await runGeminiAnalysis(req, notes);
+    return finalizeDebate(req.analysis, raw);
+  },
+
+  runExpertReview(req: AnalysisRequest): Promise<ExpertReview> {
+    return runGeminiExpertReview(req);
   },
 
   streamChat(req: ChatRequest): Promise<string> {
