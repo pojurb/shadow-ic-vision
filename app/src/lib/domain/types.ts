@@ -140,10 +140,41 @@ export interface Analysis {
   updatedAt: number;
 }
 
+/** One holding in a portfolio: a member analysis + the capital allocated to it. */
+export interface PortfolioMember {
+  analysisId: string;
+  /** Capital allocated to this position (IDR). Drives the deterministic weights. */
+  capital: number;
+}
+
+/** One resolved position in the computed portfolio view (member + derived weight). */
+export interface PortfolioPosition {
+  analysisId: string;
+  name: string;
+  vertical: Vertical;
+  capital: number;
+  /** Share of total portfolio capital, 0..1. */
+  weight: number;
+  /** Engine-derived stance label of the member analysis, if any. */
+  stance: string | null;
+}
+
+/**
+ * Deterministic portfolio-level "locked facts" — the cross-asset analogue of
+ * `ComputedMetrics`. Same serializable `Metric[]` shape so the future composition
+ * chat/UI ground on portfolio figures exactly as a single analysis does. Every
+ * number originates in `computePortfolioMetrics` (never the LLM).
+ */
+export interface PortfolioMetrics {
+  totalCapital: number;
+  positions: PortfolioPosition[];
+  metrics: Metric[];
+}
+
 export interface PortfolioAnalysis {
   id: string;
   title: string;
-  memberIds: string[];
+  members: PortfolioMember[];
   tags: string[];
   folderId: string | null;
   chat: ChatMessage[];

@@ -34,7 +34,8 @@
 | **Expert analyst agent** (per-vertical personas + review pass + visible identity) | ✅ built 2026-06-01 · `tsc` clean · 41 Vitest pass · **live-verified on Gemini for ALL 3 verticals** (analysis + review; engine-stance correct each: stocks→FAIR, startups→CONDITIONAL, conventional→VIABLE; all groundingCheck "clean"). **OpenAI + Anthropic adapters still live-unverified** (no keys) |
 | **Two-pane visual port** (proto layout → `AnalysisView`) | ✅ committed `b7a8859` (checkpoint) 2026-06-02; superseded/softened by the chat-first build below |
 | **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT + **LIVE-VERIFIED on Gemini** 2026-06-02 (all 6 phases A–F; intake→lock→debate→report green for ALL 3 verticals, stance engine-derived each). `tsc` clean · **61 Vitest pass** · `next build` green. PR #1 open. Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
-| **P7** Composition (portfolio cross-analysis) | ⏸ ON HOLD |
+| **P7a** Portfolio math unblocker (members+capital + `computePortfolioMetrics`) | ✅ 2026-06-02 · `tsc` clean · **71 Vitest pass** (+10) · lint/build green. Pure engine+types+repo, no UI/AI |
+| **P7b** Composition UI + grounded cross-asset chat | ⬜ next slice (now unblocked) |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
 
@@ -126,8 +127,9 @@ best; it ties A on lifecycle cases and beats B everywhere grounding matters.
   CSV/multi-asset import flags only low-confidence cells, not all of them.
 
 **Data-model gaps the scenarios surfaced (independent of flow, queue separately):**
-- Cross-asset/P7 still needs **`computePortfolioMetrics()` + member weights/capital** before it's safe
-  (confirms the existing P7 warning — flow doesn't fix it; B makes it worse).
+- Cross-asset/P7 needed **`computePortfolioMetrics()` + member weights/capital** before it's safe →
+  ✅ **DONE 2026-06-02 (P7a)**: `lib/finance/portfolio.ts` + `PortfolioMember{analysisId,capital}` on
+  `PortfolioAnalysis`. The cross-asset chat (P7b) can now ground on it.
 - Figures need a **freshness/provenance** dimension (`dataAsOf` exists in `AssetMeta` but isn't
   enforced) so stale-vs-live conflicts surface instead of silently overriding (S11).
 
@@ -356,10 +358,11 @@ inferred before `computeMetrics`; stance stays engine-derived.
      review"** above. Next: honesty pass for startups/conventional → port the prototype into the real
      `AnalysisView.tsx`. See memory `feedback-ui-too-cramped` and `flow-direction-decision`.
 
-   Also, if/when P7 proceeds: the earlier eval flagged a thesis-level gap — P7 as planned has **no
-   deterministic portfolio-level math** and `PortfolioAnalysis` has **no weights/capital**, so cross-asset
-   answers would force the AI to do arithmetic (violates the no-numeric-hallucination principle). Fix =
-   add member positions + a `computePortfolioMetrics()` before the cross-asset chat.
+   P7 thesis-gap (eval-flagged): cross-asset answers would force the AI to do arithmetic (no portfolio
+   math, no weights/capital). **RESOLVED 2026-06-02 (P7a):** added `PortfolioMember{analysisId,capital}`
+   + pure `computePortfolioMetrics()` (`lib/finance/portfolio.ts`) + `normalizePortfolio` back-compat;
+   71 Vitest pass. **P7b** (Composition UI + grounded cross-asset chat) is the next slice, now unblocked.
+   Plan for P7a: `~/.claude/plans/reactive-tinkering-truffle.md`.
 
    OpenAI/Gemini web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
 4. **Git:** P4→P6.5 + Gemini fixes + blank-entry flow are on `main` (local). The **redesign prototype +

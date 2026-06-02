@@ -9,6 +9,7 @@ import type {
   Analysis,
   AnalysisStatus,
   PortfolioAnalysis,
+  PortfolioMember,
   Folder,
   ComputedMetrics,
   DebateResult,
@@ -181,12 +182,29 @@ export async function deleteFolder(id: string): Promise<void> {
 
 // ---- Portfolios ----
 
+/**
+ * Normalize a persisted portfolio to the current shape on read (idempotent). Old
+ * records have `memberIds: string[]` (no capital); new records carry
+ * `members: PortfolioMember[]`. Legacy ids map to members with capital 0 (the user
+ * sets capital later). Mirrors `normalizeAnalysis`; keeps the Dexie schema unchanged.
+ */
+export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
+  const p = raw as PortfolioAnalysis & { memberIds?: string[] };
+  if (Array.isArray(p.members)) return p;
+  const members: PortfolioMember[] = Array.isArray(p.memberIds)
+    ? p.memberIds.map((analysisId) => ({ analysisId, capital: 0 }))
+    : [];
+  return { ...p, members };
+}
+
 export async function listPortfolios(): Promise<PortfolioAnalysis[]> {
-  return getDB().portfolios.orderBy("updatedAt").reverse().toArray();
+  const all = await getDB().portfolios.orderBy("updatedAt").reverse().toArray();
+  return all.map(normalizePortfolio);
 }
 
 export async function getPortfolio(id: string): Promise<PortfolioAnalysis | undefined> {
-  return getDB().portfolios.get(id);
+  const p = await getDB().portfolios.get(id);
+  return p ? normalizePortfolio(p) : undefined;
 }
 
 export async function savePortfolio(p: PortfolioAnalysis): Promise<PortfolioAnalysis> {
@@ -199,12 +217,12 @@ export async function deletePortfolio(id: string): Promise<void> {
   await getDB().portfolios.delete(id);
 }
 
-export function createPortfolio(title: string, memberIds: string[] = []): PortfolioAnalysis {
+export function createPortfolio(title: string, members: PortfolioMember[] = []): PortfolioAnalysis {
   const now = Date.now();
   return {
     id: uid(),
     title,
-    memberIds,
+    members,
     tags: [],
     folderId: null,
     chat: [],
