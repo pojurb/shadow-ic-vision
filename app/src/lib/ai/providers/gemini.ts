@@ -12,20 +12,22 @@
  * Streaming via :streamGenerateContent?alt=sse.
  * Function calling uses functionDeclarations / functionCall / functionResponse parts.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, Capabilities, ModelOption } from "../types";
-import type { DebateOutput, ExpertReview } from "../schemas";
-import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
+import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
   analysisSystem,
   CHAT_SYSTEM,
   researchSystem,
   reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
   buildReviewUserPrompt,
+  buildIntakeUserPrompt,
   chatContextPreamble,
 } from "../prompts";
-import { needsResearch, finalizeDebate } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
 import { blobToBase64 } from "../content";
 import { getBlob } from "@/lib/repo";
 import type { Analysis, ContextSource, ChatMessage } from "@/lib/domain/types";
@@ -314,6 +316,42 @@ async function runGeminiExpertReview(req: AnalysisRequest): Promise<ExpertReview
 }
 
 // ---------------------------------------------------------------------------
+// Intake — one structured call; detect vertical + extract figures
+// ---------------------------------------------------------------------------
+
+async function runGeminiIntake(req: IntakeRequest): Promise<IntakeResult> {
+  const { apiKey, model, userText, sources } = req;
+  const fileParts = await buildGeminiFileParts(sources);
+  const userParts: GeminiPart[] = [...fileParts, { text: buildIntakeUserPrompt(userText) }];
+
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: intakeSystem() }] },
+      contents: [{ role: "user", parts: userParts }],
+      generationConfig: {
+        maxOutputTokens: 2000,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(INTAKE_JSON_SCHEMA),
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
+}
+
+// ---------------------------------------------------------------------------
 // Chat — streaming SSE via :streamGenerateContent?alt=sse
 // ---------------------------------------------------------------------------
 
@@ -398,6 +436,10 @@ export const geminiProvider: AIProvider = {
   label: "Google (Gemini)",
   models: GEMINI_MODELS,
   capabilities: () => GEMINI_CAPABILITIES,
+
+  runIntake(req: IntakeRequest): Promise<IntakeResult> {
+    return runGeminiIntake(req);
+  },
 
   async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {
     let notes: string | undefined;

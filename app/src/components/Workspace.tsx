@@ -82,6 +82,29 @@ export default function Workspace() {
     setShowNew(false);
   }
 
+  /**
+   * Chat-first front door (Option C): create a blank intake draft and open it. No
+   * vertical is forced — the conversation's intake pass detects it. Presets remain
+   * reachable as examples (the secondary affordance below).
+   */
+  async function newIntake() {
+    const vertical: Vertical = "stocks"; // a neutral starting point; intake reclassifies
+    const parameters = { ...BLANK_PARAMS[vertical] };
+    const analysis = createAnalysis({
+      title: "New analysis",
+      vertical,
+      assetName: "",
+      parameters,
+      metrics: computeMetrics(vertical, parameters),
+      // No debate, no persona — the composer's intake flow fills these in.
+      model: "seed",
+    });
+    await saveAnalysis(analysis);
+    await refresh();
+    setActive(analysis);
+    setShowNew(false);
+  }
+
   async function newBlank(vertical: Vertical) {
     const parameters = { ...BLANK_PARAMS[vertical] };
     const analysis = createAnalysis({
@@ -112,7 +135,7 @@ export default function Workspace() {
         activeId={active?.id ?? null}
         onOpen={open}
         onDelete={remove}
-        onNew={() => setShowNew(true)}
+        onNew={newIntake}
       />
 
       <main className="workspace-main">
@@ -143,9 +166,10 @@ export default function Workspace() {
         ) : (
           <div className="workspace-empty">
             <div className="empty-card">
-              <h2>No analysis open</h2>
-              <p>Create a new analysis or pick one from the Library.</p>
-              <button className="commit-btn" onClick={() => setShowNew(true)}>+ NEW ANALYSIS</button>
+              <h2>Start a new analysis</h2>
+              <p>Paste or describe a deal — the analyst detects the type, pulls the figures, and confirms before locking.</p>
+              <button className="commit-btn" onClick={newIntake}>+ NEW ANALYSIS</button>
+              <button className="example-link" onClick={() => setShowNew(true)}>or start from an example…</button>
             </div>
           </div>
         )}

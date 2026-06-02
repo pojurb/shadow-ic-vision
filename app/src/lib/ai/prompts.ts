@@ -5,7 +5,9 @@
  * the user prompt, then enforced by a validate+zip step in `analyze.ts`.
  */
 import type { Analysis } from "@/lib/domain/types";
+import type { Vertical } from "@/data/presets";
 import { personaFor } from "./personas";
+import { FIELDS } from "@/data/fields";
 
 /** System prompt for the structured analysis pass — the vertical's expert persona. */
 export function analysisSystem(a: Analysis): string {
@@ -15,6 +17,40 @@ export function analysisSystem(a: Analysis): string {
 /** System prompt for the optional, on-demand expert-review pass. */
 export function reviewSystem(a: Analysis): string {
   return personaFor(a.vertical).reviewSystemPrompt;
+}
+
+/* ----------------------------------------------------------------- intake */
+
+/** Enumerate a vertical's candidate engine keys for the intake prompt. */
+function candidateKeys(v: Vertical): string {
+  return FIELDS[v].map((f) => `${String(f.key)} (${f.label})`).join(", ");
+}
+
+/**
+ * System prompt for the intake pass. The model detects the vertical and EXTRACTS
+ * the engine parameters it can find — it must never invent a figure. Each field is
+ * tagged stated (typed by the user) vs inferred (read/derived), so the confirm card
+ * can gate only the inferred ones before they reach `computeMetrics`.
+ */
+export function intakeSystem(): string {
+  return `You are an intake analyst. A user has pasted or described a potential investment. Your job is to set it up for a deterministic valuation engine — NOT to value it yourself.
+
+Steps:
+1. Detect the vertical: "stocks" (listed equities), "startups" (venture / unit-economics), or "conventional" (a conventional/SMB CapEx business).
+2. Extract ONLY the engine parameters you can find for that vertical. Candidate keys:
+   - stocks: ${candidateKeys("stocks")}
+   - startups: ${candidateKeys("startups")}
+   - conventional: ${candidateKeys("conventional")}
+   Use the exact key strings above. Convert units to the engine's (e.g. a percent like ROE 19% → 19; a rate like a 10% discount rate → 0.10; "Rp 4.2k" → 4200). Omit any key you cannot find — NEVER invent or guess a number to fill a slot.
+3. Tag every field: "stated" if the user explicitly gave that number, "inferred" if you read it from an attachment or derived it. When unsure, use "inferred" so it gets confirmed.
+4. If there aren't enough numbers to value the asset, set mode "scoping" and explain in "note" what is missing. Otherwise set mode "figures".
+
+NON-NEGOTIABLE: you extract, you do not fabricate. A figure you did not see in the input must be omitted, not estimated. Return the structured object only.`;
+}
+
+/** Intake user turn: the raw deal text. Attachment bytes ride as native blocks. */
+export function buildIntakeUserPrompt(userText: string): string {
+  return `Set up this deal for the valuation engine. Read any attached files too.\n\n---\n${userText.trim()}`;
 }
 
 export const CHAT_SYSTEM = `You are an institutional investment analyst answering follow-up questions about ONE asset already analyzed. Use ONLY the locked figures and the prior debate provided as context — never invent numbers. Be concise and direct, use markdown, and reason like a sharp buy-side analyst. You may stress-test, reframe, or challenge the prior thesis. You are an analyst, not a decision-maker.`;

@@ -3,10 +3,10 @@
  * logic (client/analyze/chat) behind the provider interface and owns the
  * research→debate orchestration. Claude supports every capability natively.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, Capabilities } from "../types";
-import type { ExpertReview } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities } from "../types";
+import type { ExpertReview, IntakeResult } from "../schemas";
 import { MODELS } from "../client";
-import { runAnalysis, runResearch, runExpertReview, needsResearch } from "../analyze";
+import { runAnalysis, runResearch, runExpertReview, runIntake, needsResearch } from "../analyze";
 import { streamChat } from "../chat";
 
 const NATIVE: Capabilities = {
@@ -21,6 +21,10 @@ export const anthropicProvider: AIProvider = {
   label: "Anthropic (Claude)",
   models: MODELS,
   capabilities: () => NATIVE,
+
+  runIntake({ apiKey, model, userText, sources }: IntakeRequest): Promise<IntakeResult> {
+    return runIntake(apiKey, model, userText, sources);
+  },
 
   async runAnalysis({ apiKey, model, analysis, onPhase }: AnalysisRequest): Promise<AnalysisResult> {
     // Two-pass when there are links / web research: free-form research with native

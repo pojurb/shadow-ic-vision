@@ -32,7 +32,8 @@
 | **UX redesign** (layout + aesthetic) | ✅ DECIDED 2026-06-01 → two-pane + dashboard, softened look; see below |
 | **Redesign prototype** (`app/src/app/proto`, throwaway) | ✅ built; stocks vertical P0 honesty pass applied 2026-06-01 |
 | **Expert analyst agent** (per-vertical personas + review pass + visible identity) | ✅ built 2026-06-01 · `tsc` clean · 41 Vitest pass · **live-verified on Gemini for ALL 3 verticals** (analysis + review; engine-stance correct each: stocks→FAIR, startups→CONDITIONAL, conventional→VIABLE; all groundingCheck "clean"). **OpenAI + Anthropic adapters still live-unverified** (no keys) |
-| **Two-pane visual redesign** (port proto cosmetics into `AnalysisView`) | ⬜ DEFERRED — feature shipped in the existing layout; cosmetic two-pane port pending |
+| **Two-pane visual port** (proto layout → `AnalysisView`) | ✅ committed `b7a8859` (checkpoint) 2026-06-02; superseded/softened by the chat-first build below |
+| **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT 2026-06-02 (all 6 phases A–F) · `tsc` clean · **57 Vitest pass** (41 baseline + 16 new) · lint-clean on changed files · `next build` compiles all routes. **Live smoke still owed** (no API key in env). Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
 | **P7** Composition (portfolio cross-analysis) | ⏸ ON HOLD |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
@@ -233,6 +234,77 @@ ships in the *existing* single-scroll industrial layout. `app/src/app/proto/page
 reference (NOT deleted). Do that cosmetic port next, iterating in-browser. **Live smoke still owed** (run one
 analysis + one review per vertical/provider with a real BYOK key).
 
+### Two-pane port + the chat-first gap — 2026-06-02
+- **Two-pane visual port (first pass, LOCAL/UNCOMMITTED):** `AnalysisView.tsx` rewritten from the single-scroll
+  panels into the proto's two-pane shell — slim topbar (title + RUN AI + hide-inspector), left conversation
+  (chat + composer with attach/link/web), VS-Code-style **resizable** right inspector (stance banner → verdict
+  strip → tiled cards: figures/chart/debate/advisory/decision/expert-review/asset). `tp-*` softened CSS added
+  to `globals.css`. `tsc` clean, route 200. **But the inner elements (debate/lenses/figures) still use the
+  industrial styling**, so it drifted from the proto — user flagged "very different from the proto."
+- **The real gap the port exposed:** the app **can't start an analysis from the conversation.** Chat
+  (`streamChat`) is grounded **follow-up only**; there is **no intake engine** (detect vertical → extract
+  numbers → confirm → lock → debate → report). The proto was a static mock of that. This is the **Option C
+  flow** decided 2026-05-31 but never built.
+
+### Chat-first analysis (Option C intake) — ✅ BUILT 2026-06-02 (all phases A–F)
+Built locally on `feat/expert-analyst-personas` (the web-session attempt was unrecoverable — uncommitted,
+never pushed; rebuilt here for real). `tsc` clean, **57 Vitest pass** (41 baseline + 9 new intake + 7 new
+report), lint-clean on changed files (only the 2 pre-existing issues remain: `Workspace.tsx:36` effect,
+gemini `_drop`/`_enum`), `next build` compiles all routes.
+- **A** `data/fields.ts` — lifted `Field`/`FIELDS`/`fmtVal` + new `paramKeysFor`; `AnalysisView` imports them.
+- **B** intake engine: `schemas.ts` (`IntakeOutput`/`IntakeResult`/`INTAKE_JSON_SCHEMA`, plain-string
+  vertical/mode/source validated in code), `prompts.ts` (`intakeSystem`+`buildIntakeUserPrompt`, candidate
+  keys enumerated from `FIELDS`), `analyze.ts` (`runIntake` + pure **`finalizeIntake`** — zips to engine
+  keys, merges `BLANK_PARAMS`, always proxies stocks `cashflows` from EPS, clamps vertical/mode/source/value),
+  `runIntake` on all 3 providers (`IntakeRequest`). Tests: `intake.test.ts` (9).
+- **C** `AnalysisView` state machine: `intakeMode = !analysis.debate` routes the composer (intake vs
+  follow-up); `pendingIntake`/`intakeBusy` state; **`ConfirmCard`** (amber inferred inputs / ✓-stated rows /
+  vertical change chip, remounted via `key`); confirm builds the **next Analysis explicitly** (no stale prop),
+  `computeMetrics` → `runAnalysis` → posts the report. Manual sliders + RUN AI preserved.
+- **D** `lib/ai/report.ts` pure **`buildReport`** (templated, grounded — only engine `display` strings, no new
+  numbers) → `ReportBody` renderer; `ChatMessage.kind += "report"`. Tests: `report.test.ts` (7, incl. a
+  "no figure outside the engine set" guard across all 3 verticals).
+- **E** proto-fidelity: softened debate (`DebateSide`/`tp-points`/`tp-slot`), advisory (`tp-lens-*`), figures
+  (`tp-figs`/`tp-slider`), stance banner, thesis chip, mode pill, confirm card, report — all `tp-`-namespaced
+  under `.tp-root` in `globals.css`.
+- **F** chat-first front door: `Workspace.newIntake()` (blank intake draft, no forced vertical), Library
+  **+ NEW** → `newIntake`, empty-state primary → `newIntake` + "or start from an example…" secondary
+  (presets demoted, not a gate). Empty-conversation hint reworded.
+
+No-hallucination guard intact: intake extracts (never invents), splits stated/inferred, the confirm card gates
+inferred values before `computeMetrics`, stance stays `persona.stance.derive` (engine-derived). **Live smoke
+owed** — run one paste→confirm→debate→report per vertical with a real BYOK key (Gemini), then the temp gated
+intake test from the plan, and delete it.
+
+### Chat-first analysis (Option C intake) — original plan record (PLAN APPROVED 2026-06-02)
+User decisions: **full auto intake** (paste a deal → detect vertical + extract figures → confirm card → confirm
+locks via engine AND auto-runs the persona debate), **written report in chat**, **match the proto fully** (soften
+inner elements too). Plan refined via Ultraplan and teleported back; saved at
+`~/.claude/plans/now-i-am-thinking-cryptic-mountain.md`. Phases **A→B→(C,D)→E→F**:
+A lift `FIELDS`→`data/fields.ts`; B `runIntake` + pure `finalizeIntake` (mirrors `runExpertReview`/`finalizeDebate`,
+3 providers); C conversation state machine + `ConfirmCard` (dual-mode composer off `analysis.debate==null`);
+D pure `buildReport` templated grounded report (`ChatMessage.kind += "report"`); E soften debate/advisory/figures
+to proto; F chat-first New (`Workspace`/`Library` +NEW → blank intake draft, presets become examples).
+No-hallucination guard preserved: intake extracts (never invents), splits stated/inferred, confirm card gates
+inferred before `computeMetrics`; stance stays engine-derived.
+
+> **▶️ TO RESUME:** reopen the local Claude Code session here (`D:\jp-invest`, branch
+> `feat/expert-analyst-personas`) and just say **"go"** — it picks up cleanly at **Phase A → B** of the plan
+> at `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md`. (Do NOT continue the Claude-Code-on-web session
+> — it's on a stale base; see the git section below.)
+
+### ⚠️ Git situation (2026-06-02) — read before resuming
+- Everything (expert-agent feature commit `9cf269f` + the uncommitted two-pane port) is on the **local-only**
+  branch `feat/expert-analyst-personas`. **`origin` has only `main`**, which lacks all of it (no `personas.ts`,
+  migrated schema, `runExpertReview`, two-pane port).
+- A **Claude-Code-on-web** session tried to execute the Option-C plan but built on `origin/main` — a base
+  missing every prerequisite — so it **couldn't push/deliver**. That web work is on the wrong base; **set it
+  aside** and build locally on `feat/expert-analyst-personas`.
+- Decisions to make on resume: commit or discard the **uncommitted two-pane port** (Phases C/E rework that
+  surface), and whether to `git push -u origin feat/expert-analyst-personas` so the remote finally has the base.
+- Housekeeping: **rotate the two Gemini API keys** pasted in chat earlier; use a gitignored `app/.env.local`
+  (key name `GEMINI_API_KEY`) for any smoke tests.
+
 ## Key decisions
 - **Flow = Option C (hybrid chat-first shell over structured spine)** — see the dedicated section above.
 - **Multi-provider BYOK** (any provider key); thin backend for web-tool fallback. **Supersedes the two
@@ -280,7 +352,8 @@ analysis + one review per vertical/provider with a real BYOK key).
 
    OpenAI/Gemini web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
 4. **Git:** P4→P6.5 + Gemini fixes + blank-entry flow are on `main` (local). The **redesign prototype +
-   equity-analyst P0 pass + the full expert-analyst-agent feature** are committed on branch
-   **`feat/expert-analyst-personas`** (local, NOT pushed). Nothing is pushed to origin yet.
-   `git log feat/expert-analyst-personas` for the feature commit. Push when ready:
+   equity-analyst P0 pass + the full expert-analyst-agent feature** are committed (`9cf269f`) on branch
+   **`feat/expert-analyst-personas`** (local, NOT pushed). The **two-pane port is uncommitted** on that same
+   branch. **`origin` has only `main`** — nothing pushed yet. See the **"⚠️ Git situation"** section above for
+   the web-session/stale-base caveat before resuming. Push when ready:
    `git push -u origin feat/expert-analyst-personas`.

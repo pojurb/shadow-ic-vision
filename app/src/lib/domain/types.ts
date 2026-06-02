@@ -68,8 +68,9 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /** First assistant turn is the grounded red-team debate. */
-  kind?: "debate" | "answer";
+  /** First assistant turn is the grounded red-team debate. "report" = the
+   * templated written analysis posted after intake locks + the debate runs. */
+  kind?: "debate" | "answer" | "report";
   /** Ids of other analyses pulled in as context (composition). */
   contextRefs?: string[];
   createdAt: number;

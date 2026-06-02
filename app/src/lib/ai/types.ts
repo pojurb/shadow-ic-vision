@@ -4,8 +4,8 @@
  * Per-capability, the app uses the native path when the model supports it and an
  * app-provided fallback otherwise (see `multi-provider-byok` decision).
  */
-import type { Analysis, DebateResult, AdvisoryResult, Stance } from "@/lib/domain/types";
-import type { ExpertReview } from "./schemas";
+import type { Analysis, ContextSource, DebateResult, AdvisoryResult, Stance } from "@/lib/domain/types";
+import type { ExpertReview, IntakeResult } from "./schemas";
 
 export type ProviderId = "anthropic" | "openai" | "gemini";
 
@@ -47,12 +47,22 @@ export interface ChatRequest {
   onDelta: (text: string) => void;
 }
 
+/** Intake: detect the vertical + extract engine params from prose/attachments. */
+export interface IntakeRequest {
+  apiKey: string;
+  model: string;
+  userText: string;
+  sources: ContextSource[];
+}
+
 export interface AIProvider {
   id: ProviderId;
   label: string;
   models: ModelOption[];
   /** Native capabilities for a model id (defaults are fine for unknown ids). */
   capabilities(modelId: string): Capabilities;
+  /** Intake: detect vertical + extract figures from prose/attachments (one call). */
+  runIntake(req: IntakeRequest): Promise<IntakeResult>;
   /** Orchestrates the research + structured-debate passes; reports phases. */
   runAnalysis(req: AnalysisRequest): Promise<AnalysisResult>;
   /** Optional, on-demand second-expert red-team of the produced analysis. */

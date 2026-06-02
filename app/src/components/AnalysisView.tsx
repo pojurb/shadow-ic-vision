@@ -1,59 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSource } from "@/lib/domain/types";
-import { calcDCF, calcBEP, formatIDR, formatNum } from "@/lib/finance";
+import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSource, DebateLine } from "@/lib/domain/types";
+import { calcDCF, calcBEP } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
 import { putBlob, deleteBlob } from "@/lib/repo";
 import { getProvider } from "@/lib/ai/registry";
 import { personaFor } from "@/lib/ai/personas";
+import { buildReport } from "@/lib/ai/report";
 import type { ProviderId } from "@/lib/ai/types";
+import type { IntakeResult } from "@/lib/ai/schemas";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
-import type { Vertical } from "@/data/presets";
-
-interface Field {
-  key: keyof AssetParameters;
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  type: "currency" | "percent" | "percent_raw" | "number";
-}
-
-const FIELDS: Record<Vertical, Field[]> = {
-  stocks: [
-    { key: "price", label: "Share Price (IDR)", min: 100, max: 20000, step: 100, type: "currency" },
-    { key: "eps", label: "Earnings Per Share (EPS)", min: 10, max: 2000, step: 10, type: "currency" },
-    { key: "roe", label: "Return on Equity (ROE %)", min: 1, max: 50, step: 0.5, type: "percent" },
-    { key: "discountRate", label: "Discount Rate %", min: 0.05, max: 0.25, step: 0.01, type: "percent_raw" },
-    { key: "terminalMult", label: "Terminal DCF Multiple", min: 5, max: 25, step: 1, type: "number" },
-    { key: "invested", label: "Invested / Buy Price", min: 100, max: 20000, step: 100, type: "currency" },
-  ],
-  startups: [
-    { key: "cash", label: "Cash Balance", min: 1e9, max: 5e10, step: 5e8, type: "currency" },
-    { key: "burn", label: "Monthly Cash Burn", min: 1e8, max: 5e9, step: 5e7, type: "currency" },
-    { key: "cac", label: "CAC (Acquisition Cost)", min: 50000, max: 5e6, step: 50000, type: "currency" },
-    { key: "arpu", label: "Monthly ARPU", min: 10000, max: 2e6, step: 10000, type: "currency" },
-    { key: "margin", label: "Gross Profit Margin %", min: 0.1, max: 0.95, step: 0.05, type: "percent_raw" },
-    { key: "churn", label: "Monthly Churn Rate %", min: 0.01, max: 0.15, step: 0.005, type: "percent_raw" },
-  ],
-  conventional: [
-    { key: "invested", label: "Initial CapEx Investment", min: 5e7, max: 2e9, step: 2.5e7, type: "currency" },
-    { key: "fixed", label: "Annual Fixed Cost", min: 2e7, max: 1e9, step: 1e7, type: "currency" },
-    { key: "price", label: "Avg Customer Billing / Unit", min: 5000, max: 500000, step: 2000, type: "currency" },
-    { key: "variable", label: "Variable Cost / Unit (COGS)", min: 1000, max: 200000, step: 1000, type: "currency" },
-  ],
-};
+import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
+import { FIELDS, fmtVal } from "@/data/fields";
 
 const MIN_W = 340;
 const MAX_W = 760;
-
-function fmtVal(v: number, type: Field["type"]): string {
-  if (type === "currency") return formatIDR(v);
-  if (type === "percent") return `${v}%`;
-  if (type === "percent_raw") return `${(v * 100).toFixed(1)}%`;
-  return formatNum(v, 0);
-}
 
 function toneFor(verdict?: string): string {
   if (!verdict) return "";
@@ -101,6 +63,13 @@ export default function AnalysisView({
   const [chatBusy, setChatBusy] = useState(false);
   const [linkDraft, setLinkDraft] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Intake (Option C): when there's no debate yet, the composer drives a structured
+  // intake → confirm-card → lock → debate flow instead of grounded follow-up chat.
+  const intakeMode = !analysis.debate;
+  const [pendingIntake, setPendingIntake] = useState<IntakeResult | null>(null);
+  const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakeNonce, setIntakeNonce] = useState(0); // remounts ConfirmCard on a new draft
 
   // Two-pane: collapsible + VS-Code-style resizable inspector (docked right).
   const [inspectorOpen, setInspectorOpen] = useState(true);
@@ -206,12 +175,19 @@ export default function AnalysisView({
     }
   }
 
-  async function sendChat(e: React.SyntheticEvent) {
+  /** Composer submit — routes by mode: intake (no debate yet) vs grounded follow-up. */
+  function onComposerSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     const text = chatInput.trim();
-    if (!text || chatBusy) return;
+    if (!text || chatBusy || intakeBusy || running) return;
     if (!apiKey) return onNeedSettings();
     setChatInput("");
+    if (intakeMode) submitIntake(text);
+    else sendFollowUp(text);
+  }
+
+  /** Grounded follow-up chat (only after a debate exists). */
+  async function sendFollowUp(text: string) {
     setPendingUser(text);
     setStreamingText("");
     setChatBusy(true);
@@ -234,6 +210,88 @@ export default function AnalysisView({
       setPendingUser(null);
       setStreamingText("");
       setChatBusy(false);
+    }
+  }
+
+  /** Intake: structured pass that detects the vertical + extracts figures. */
+  async function submitIntake(text: string) {
+    const now = Date.now();
+    const userMsg: ChatMessage = { id: `${now}-u`, role: "user", content: text, createdAt: now };
+    // Persist the user turn explicitly so we don't read the stale `analysis` prop later.
+    const withUser: Analysis = { ...analysis, chat: [...analysis.chat, userMsg] };
+    onChange(withUser);
+    setIntakeBusy(true);
+    setAiError(null);
+    try {
+      const result = await getProvider(provider).runIntake({
+        apiKey,
+        model,
+        userText: text,
+        sources: analysis.sources,
+      });
+      if (result.mode === "scoping") {
+        const aiMsg: ChatMessage = {
+          id: `${now}-a`,
+          role: "assistant",
+          kind: "answer",
+          content: result.note || "I need a few more numbers before I can value this — tell me the key figures.",
+          createdAt: now + 1,
+        };
+        onChange({ ...withUser, chat: [...withUser.chat, aiMsg] });
+      } else {
+        setPendingIntake(result);
+        setIntakeNonce((n) => n + 1);
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIntakeBusy(false);
+    }
+  }
+
+  /**
+   * Confirm handler: lock the (possibly edited) figures via the engine and auto-run
+   * the persona debate, then post the written report. Builds the next Analysis
+   * EXPLICITLY (the `analysis` prop won't reflect onChange synchronously).
+   */
+  async function confirmIntake(vertical: Vertical, values: Record<string, number>) {
+    if (!pendingIntake) return;
+    if (!apiKey) return onNeedSettings();
+    const parameters: AssetParameters = { ...BLANK_PARAMS[vertical], ...values };
+    // Stocks DCF cashflows aren't user-facing — proxy from the (confirmed) EPS.
+    if (vertical === "stocks") parameters.cashflows = Array(5).fill(Number(parameters.eps ?? 0));
+    const persona = personaFor(vertical);
+    const next: Analysis = {
+      ...analysis,
+      vertical,
+      assetName: pendingIntake.assetName || analysis.assetName,
+      title: pendingIntake.title || analysis.title,
+      parameters,
+      metrics: computeMetrics(vertical, parameters),
+      persona: { id: persona.id, label: persona.label },
+      model,
+    };
+    onChange(next);
+    setPendingIntake(null);
+    setRunning(true);
+    setRunPhase("");
+    setAiError(null);
+    try {
+      const out = await getProvider(provider).runAnalysis({ apiKey, model, analysis: next, onPhase: setRunPhase });
+      const after: Analysis = { ...next, debate: out.debate, advisory: out.advisory, stance: out.stance };
+      const reportMsg: ChatMessage = {
+        id: `${Date.now()}-r`,
+        role: "assistant",
+        kind: "report",
+        content: buildReport(after),
+        createdAt: Date.now(),
+      };
+      onChange({ ...after, chat: [...after.chat, reportMsg] });
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+      setRunPhase("");
     }
   }
 
@@ -271,6 +329,9 @@ export default function AnalysisView({
           {analysis.persona && (
             <span className="persona-badge" title="Domain expert that produced this analysis">{analysis.persona.label}</span>
           )}
+          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Intake — describe a deal to extract & confirm figures" : "Figures locked through the deterministic engine"}>
+            ● {intakeMode ? "INTAKE" : "FIGURES LOCKED"}
+          </span>
           <span className={`sim-badge${isLive ? " live" : ""}`} title={isLive ? `Live AI (${analysis.model})` : "Seed content — run AI for a grounded debate"}>
             {isLive ? "LIVE" : "SEED"}
           </span>
@@ -290,18 +351,23 @@ export default function AnalysisView({
         {/* ================= LEFT: conversation ================= */}
         <main className="tp-convo">
           <div className="tp-stream scrollable">
-            {analysis.chat.length === 0 && !pendingUser && (
+            {analysis.chat.length === 0 && !pendingUser && !pendingIntake && !intakeBusy && (
               <div className="tp-stream-empty">
-                <div className="tp-stream-empty-h">Discuss with {analysis.persona?.label ?? "the analyst"}</div>
-                Paste a deal or ask a question. Hit <b>⚡ RUN AI</b> to generate the grounded debate, then
-                follow up here — e.g. &quot;stress-test the discount rate&quot;, &quot;why is the bear wrong?&quot;.
+                <div className="tp-stream-empty-h">Start with {analysis.persona?.label ?? "the analyst"}</div>
+                Paste or describe a deal — I&apos;ll detect the type, pull the figures, and confirm before
+                locking. Once the figures lock, the persona debate runs and a written read posts here; then
+                you can follow up — e.g. &quot;stress-test the discount rate&quot;, &quot;why is the bear wrong?&quot;.
                 Numbers stay locked to the deterministic engine.
               </div>
             )}
             {analysis.chat.map((m) => (
               <div key={m.id} className={`tp-msg tp-msg--${m.role}`}>
                 <div className="tp-msg-role">{m.role === "user" ? "You" : "Analyst"}</div>
-                <div className="tp-msg-body">{m.content}</div>
+                {m.kind === "report" ? (
+                  <ReportBody content={m.content} />
+                ) : (
+                  <div className="tp-msg-body">{m.content}</div>
+                )}
               </div>
             ))}
             {pendingUser && (
@@ -315,6 +381,27 @@ export default function AnalysisView({
                   <div className="tp-msg-body">{streamingText || "…"}</div>
                 </div>
               </>
+            )}
+            {intakeBusy && (
+              <div className="tp-msg tp-msg--assistant">
+                <div className="tp-msg-role">Analyst</div>
+                <div className="tp-msg-body">Reading the deal and pulling the figures…</div>
+              </div>
+            )}
+            {pendingIntake && !intakeBusy && (
+              <ConfirmCard
+                key={intakeNonce}
+                intake={pendingIntake}
+                busy={running}
+                onConfirm={confirmIntake}
+                onCancel={() => setPendingIntake(null)}
+              />
+            )}
+            {running && intakeMode && (
+              <div className="tp-msg tp-msg--assistant">
+                <div className="tp-msg-role">Analyst</div>
+                <div className="tp-msg-body">{runPhase === "research" ? "Researching…" : "Locking figures and running the debate…"}</div>
+              </div>
             )}
           </div>
 
@@ -361,22 +448,24 @@ export default function AnalysisView({
                 Web research
               </label>
             </div>
-            <form className="tp-composer-input" onSubmit={sendChat}>
+            <form className="tp-composer-input" onSubmit={onComposerSubmit}>
               <textarea
                 className="tp-input"
                 rows={2}
-                placeholder="Ask a grounded follow-up…"
+                placeholder={intakeMode ? "Paste or describe a deal to analyze…" : "Ask a grounded follow-up…"}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    sendChat(e);
+                    onComposerSubmit(e);
                   }
                 }}
-                disabled={chatBusy}
+                disabled={chatBusy || intakeBusy || running}
               />
-              <button type="submit" className="tp-send" disabled={chatBusy}>{chatBusy ? "…" : "Send ↵"}</button>
+              <button type="submit" className="tp-send" disabled={chatBusy || intakeBusy || running}>
+                {intakeMode ? (intakeBusy ? "…" : "Analyze ↵") : chatBusy ? "…" : "Send ↵"}
+              </button>
             </form>
           </div>
         </main>
@@ -395,9 +484,9 @@ export default function AnalysisView({
             </div>
 
             {analysis.stance && (
-              <div className="stance-banner">
-                <span className="stance-label">{analysis.stance.label}</span>
-                <span className="stance-basis">{analysis.stance.basis}</span>
+              <div className="tp-stance">
+                <span className="tp-stance-label">{analysis.stance.label}</span>
+                <span className="tp-stance-basis">{analysis.stance.basis}</span>
               </div>
             )}
 
@@ -415,16 +504,16 @@ export default function AnalysisView({
               {/* locked figures (sliders) */}
               <div className="tp-card">
                 <div className="tp-card-h">Locked figures <span className="tp-card-hint">editable</span></div>
-                <form className="parameter-form" onSubmit={(e) => e.preventDefault()}>
+                <form className="tp-figs" onSubmit={(e) => e.preventDefault()}>
                   {FIELDS[analysis.vertical].map((f) => {
                     const val = Number(analysis.parameters[f.key] ?? f.min);
                     return (
-                      <div className="form-group" key={f.key}>
-                        <div className="form-label-row">
-                          <span className="field-label">{f.label}</span>
-                          <span className="field-value">{fmtVal(val, f.type)}</span>
+                      <div className="tp-fig" key={f.key}>
+                        <div className="tp-fig-row">
+                          <span className="tp-fig-label">{f.label}</span>
+                          <span className="tp-fig-val">{fmtVal(val, f.type)}</span>
                         </div>
-                        <input type="range" className="slider-input" min={f.min} max={f.max} step={f.step} value={val} onChange={(e) => setParam(f.key, parseFloat(e.target.value))} />
+                        <input type="range" className="tp-slider" min={f.min} max={f.max} step={f.step} value={val} onChange={(e) => setParam(f.key, parseFloat(e.target.value))} />
                       </div>
                     );
                   })}
@@ -442,29 +531,15 @@ export default function AnalysisView({
                 <div className="tp-card-h">
                   Red-team debate
                   {analysis.debate && (
-                    <span className={`thesis-chip thesis-${analysis.debate.thesisSupport.toLowerCase()}`}>THESIS {analysis.debate.thesisSupport}</span>
+                    <span className="tp-badge tp-badge-support">THESIS {analysis.debate.thesisSupport}</span>
                   )}
                 </div>
                 {!analysis.debate ? (
                   <div className="tp-muted-note">Run AI to generate the grounded bull/bear debate.</div>
                 ) : (
-                  <div className="split-debate-logs">
-                    <div className="debate-col bull-col">
-                      <div className="col-title bull-text">▲ BULL</div>
-                      <div className="log-stream">
-                        {analysis.debate.bull.map((l, i) => (
-                          <DebateEntry key={i} type="bull" agent={l.agent} text={l.text} slot={l.slot} />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="debate-col bear-col">
-                      <div className="col-title bear-text">▼ BEAR</div>
-                      <div className="log-stream">
-                        {analysis.debate.bear.map((l, i) => (
-                          <DebateEntry key={i} type="bear" agent={l.agent} text={l.text} slot={l.slot} />
-                        ))}
-                      </div>
-                    </div>
+                  <div className="tp-debate">
+                    <DebateSide side="bull" label="▲ BULL" lines={analysis.debate.bull} />
+                    <DebateSide side="bear" label="▼ BEAR" lines={analysis.debate.bear} />
                   </div>
                 )}
               </div>
@@ -472,17 +547,17 @@ export default function AnalysisView({
               {/* advisory lenses */}
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">Advisory board <span className="tp-card-hint">{analysis.persona?.label ?? "lenses"}</span></div>
-                <div className="lens-list">
+                <div className="tp-lenses">
                   {advisory.length === 0 ? (
-                    <div className="lens-empty">Run AI to generate the advisory lenses.</div>
+                    <div className="tp-muted-note">Run AI to generate the advisory lenses.</div>
                   ) : (
                     advisory.map((l) => (
-                      <div className="lens-row" key={l.id}>
-                        <div className="lens-row-head">
-                          <span className="lens-row-name">{l.name}</span>
-                          <span className="lens-row-verdict">{l.verdict}</span>
+                      <div className="tp-lens-row" key={l.id}>
+                        <div className="tp-lens-top">
+                          <span className="tp-lens-name">{l.name}</span>
+                          <span className="tp-lens-verdict">{l.verdict}</span>
                         </div>
-                        <div className="lens-row-text">{l.text}</div>
+                        <div className="tp-lens-hook">{l.text}</div>
                       </div>
                     ))
                   )}
@@ -573,14 +648,18 @@ export default function AnalysisView({
   );
 }
 
-function DebateEntry({ type, agent, text, slot }: { type: "bull" | "bear"; agent: string; text: string; slot?: string }) {
+function DebateSide({ side, label, lines }: { side: "bull" | "bear"; label: string; lines: DebateLine[] }) {
   return (
-    <div className={`log-entry ${type}-entry`}>
-      <div className="log-agent">
-        {type === "bull" ? "▲" : "▼"} <span className={`${type}-text`}>{agent}</span>
-        {slot && <span className="slot-tag">{slot}</span>}
-      </div>
-      <div className="log-text">{text}</div>
+    <div className="tp-debate-col">
+      <div className={`tp-debate-h ${side === "bull" ? "tp-bull-text" : "tp-bear-text"}`}>{label}</div>
+      <ul className="tp-points">
+        {lines.map((l, i) => (
+          <li key={i}>
+            {l.slot && <span className="tp-slot">{l.slot}</span>}
+            <b>{l.agent}</b> — {l.text}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -595,6 +674,139 @@ function ReviewList({ title, items, tone }: { title: string; items: string[]; to
           <li key={i}>{it}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const VERTICAL_CYCLE: Vertical[] = ["stocks", "startups", "conventional"];
+
+/**
+ * The intake confirm card. Renders the extracted, source-tagged figures for the
+ * (overridable) vertical: amber editable inputs for inferred values, static "✓ you
+ * typed" rows for stated ones. Confirming hands the chosen vertical + final values
+ * up to `confirmIntake`, which locks them through the engine and runs the debate.
+ * Remounted on each new draft via a `key`, so local edits reset cleanly.
+ */
+function ConfirmCard({
+  intake,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  intake: IntakeResult;
+  busy: boolean;
+  onConfirm: (vertical: Vertical, values: Record<string, number>) => void;
+  onCancel: () => void;
+}) {
+  const [vertical, setVertical] = useState<Vertical>(intake.vertical);
+  const [values, setValues] = useState<Record<string, number>>(() =>
+    Object.fromEntries(intake.fields.map((f) => [f.key, f.value])),
+  );
+
+  const known = new Map(intake.fields.map((f) => [String(f.key), f]));
+  // Only show this vertical's fields that we actually extracted a value for.
+  const rows = FIELDS[vertical].filter((f) => known.has(String(f.key)));
+
+  function cycleVertical() {
+    setVertical((v) => VERTICAL_CYCLE[(VERTICAL_CYCLE.indexOf(v) + 1) % VERTICAL_CYCLE.length]);
+  }
+
+  function confirm() {
+    // Pass only finite values for keys valid in the chosen vertical.
+    const out: Record<string, number> = {};
+    for (const f of rows) {
+      const v = Number(values[String(f.key)] ?? known.get(String(f.key))!.value);
+      if (Number.isFinite(v)) out[String(f.key)] = v;
+    }
+    onConfirm(vertical, out);
+  }
+
+  return (
+    <div className="tp-confirm">
+      <div className="tp-confirm-h">Confirm before locking</div>
+      <div className="tp-confirm-vrow">
+        <span className="tp-confirm-vlbl">Type</span>
+        <span className="tp-confirm-vchip">{VERTICAL_SHORT[vertical]}</span>
+        <button type="button" className="tp-confirm-change" onClick={cycleVertical} disabled={busy}>
+          change
+        </button>
+      </div>
+      <div className="tp-confirm-note">
+        Amber rows were <b>inferred</b> — check them. The ✓ rows you typed are ready.
+        {vertical === "stocks" && " DCF cashflows are proxied from EPS until refined."}
+      </div>
+      {rows.length === 0 ? (
+        <div className="tp-muted-note">
+          No figures map to {VERTICAL_SHORT[vertical]} — it will start from defaults; tune them in the inspector after locking.
+        </div>
+      ) : (
+        rows.map((f) => {
+          const meta = known.get(String(f.key))!;
+          const inferred = meta.source === "inferred";
+          return (
+            <div className={`tp-confirm-row${inferred ? " is-inferred" : ""}`} key={String(f.key)}>
+              <span className="tp-confirm-k">{f.label}</span>
+              {inferred ? (
+                <input
+                  className="tp-confirm-input"
+                  type="number"
+                  value={Number.isFinite(values[String(f.key)]) ? values[String(f.key)] : ""}
+                  onChange={(e) => setValues((s) => ({ ...s, [String(f.key)]: parseFloat(e.target.value) }))}
+                  disabled={busy}
+                />
+              ) : (
+                <span className="tp-confirm-v">{fmtVal(Number(values[String(f.key)] ?? meta.value), f.type)}</span>
+              )}
+              <span className={inferred ? "tp-confirm-flag" : "tp-confirm-ok"}>
+                {inferred ? "inferred · check" : "✓ you typed"}
+              </span>
+            </div>
+          );
+        })
+      )}
+      <div className="tp-confirm-actions">
+        <button type="button" className="tp-confirm-btn" onClick={confirm} disabled={busy}>
+          {busy ? "Locking…" : "Confirm & lock figures"}
+        </button>
+        <button type="button" className="tp-ghost" onClick={onCancel} disabled={busy}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Render inline **bold** / _italic_ markdown in a report line. */
+function renderInline(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) return <b key={i}>{p.slice(2, -2)}</b>;
+    if (p.startsWith("_") && p.endsWith("_")) return <i key={i}>{p.slice(1, -1)}</i>;
+    return <span key={i}>{p}</span>;
+  });
+}
+
+/** Renders a templated `kind:"report"` chat message (paragraphs + bullet lists). */
+function ReportBody({ content }: { content: string }) {
+  const blocks = content.split("\n\n");
+  return (
+    <div className="tp-report">
+      {blocks.map((b, i) => {
+        const lines = b.split("\n");
+        if (lines.length > 0 && lines.every((l) => l.startsWith("- "))) {
+          return (
+            <ul className="tp-report-list" key={i}>
+              {lines.map((l, j) => (
+                <li key={j}>{renderInline(l.slice(2))}</li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p className="tp-report-p" key={i}>
+            {renderInline(b)}
+          </p>
+        );
+      })}
     </div>
   );
 }

@@ -1180,6 +1180,14 @@ body.industrial-theme {
    TWO-PANE ANALYSIS LAYOUT (softened)
    left = conversation · right = resizable dashboard inspector
    ========================================== */
+/* workspace empty state — chat-first front door */
+.workspace-empty { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
+.empty-card { max-width: 460px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.empty-card h2 { font-size: 20px; margin: 0; }
+.empty-card p { color: #9aa3b2; font-size: 14.5px; line-height: 1.55; margin: 0; }
+.example-link { background: none; border: none; color: #22d3ee; cursor: pointer; font-size: 13px; font-family: inherit; padding: 4px; }
+.example-link:hover { text-decoration: underline; }
+
 .tp-root {
     flex: 1;
     min-height: 0;
@@ -1324,3 +1332,77 @@ body.industrial-theme {
     .tp-inspector { width: auto !important; flex: 1 1 auto !important; border-top: 1px solid var(--tp-line); }
     .tp-gutter { display: none; }
 }
+
+/* ===================== proto-fidelity inner elements ===================== */
+
+/* mode pill (intake vs figures-locked) */
+.tp-mode { font-family: var(--tp-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.tp-mode.is-intake { color: var(--tp-amber); background: rgba(240, 168, 41, 0.14); }
+.tp-mode.is-locked { color: var(--tp-bull); background: rgba(52, 211, 153, 0.14); }
+
+/* stance banner — engine-derived valuation verdict */
+.tp-stance { display: flex; align-items: baseline; gap: 10px; padding: 11px 16px; background: rgba(52, 211, 153, 0.06); border-bottom: 1px solid var(--tp-line); flex-wrap: wrap; }
+.tp-stance-label { font-family: var(--tp-mono); font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: var(--tp-bull); }
+.tp-stance-basis { font-size: 11.5px; color: var(--tp-muted); }
+
+/* badges (thesis-support chip replaces the ungrounded % confidence) */
+.tp-badge { font-family: var(--tp-mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: auto; }
+.tp-badge-support { color: var(--tp-amber); background: rgba(240, 168, 41, 0.14); }
+
+/* debate — two columns of bolded-hook bullets with slot tags */
+.tp-debate { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tp-debate-h { font-weight: 700; font-size: 12.5px; margin-bottom: 8px; }
+.tp-bull-text { color: var(--tp-bull); }
+.tp-bear-text { color: var(--tp-bear); }
+.tp-points { list-style: none; display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; }
+.tp-points li { font-size: 13.5px; line-height: 1.5; color: #cdd3dd; }
+.tp-points b { color: #fff; font-weight: 600; }
+.tp-slot { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--tp-muted); background: rgba(255, 255, 255, 0.05); border-radius: 4px; padding: 1px 6px; margin-right: 6px; vertical-align: middle; }
+@media (max-width: 560px) { .tp-debate { grid-template-columns: 1fr; } }
+
+/* advisory lenses */
+.tp-lenses { display: flex; flex-direction: column; gap: 13px; }
+.tp-lens-row { border-left: 2px solid var(--tp-line); padding-left: 12px; }
+.tp-lens-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.tp-lens-name { font-size: 11.5px; font-weight: 700; color: var(--tp-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.tp-lens-verdict { font-family: var(--tp-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.04); white-space: nowrap; }
+.tp-lens-hook { font-size: 14px; line-height: 1.5; color: #cdd3dd; }
+
+/* locked figures (sliders) */
+.tp-figs { display: flex; flex-direction: column; gap: 14px; }
+.tp-fig-row { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 5px; gap: 8px; }
+.tp-fig-label { color: var(--tp-muted); }
+.tp-fig-val { font-family: var(--tp-mono); color: var(--tp-acc); font-weight: 600; }
+.tp-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 3px; background: #2c313b; outline: none; }
+.tp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--tp-acc); cursor: pointer; border: 2px solid #16181d; }
+.tp-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--tp-acc); cursor: pointer; border: 2px solid #16181d; }
+
+/* intake confirm card (amber inferred rows) */
+.tp-confirm { max-width: 680px; margin: 0 auto 20px; padding: 14px 16px; background: var(--tp-panel2); border: 1px solid var(--tp-line); border-radius: 12px; }
+.tp-confirm-h { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+.tp-confirm-vrow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.tp-confirm-vlbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--tp-muted); }
+.tp-confirm-vchip { font-family: var(--tp-mono); font-size: 12px; font-weight: 700; color: var(--tp-acc); background: rgba(34, 211, 238, 0.12); padding: 2px 9px; border-radius: 999px; }
+.tp-confirm-change { background: none; border: none; color: var(--tp-acc); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; padding: 0; }
+.tp-confirm-change:disabled { opacity: 0.5; cursor: default; }
+.tp-confirm-note { font-size: 12.5px; line-height: 1.5; color: var(--tp-muted); margin-bottom: 12px; }
+.tp-confirm-note b { color: var(--tp-amber); }
+.tp-confirm-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--tp-line); }
+.tp-confirm-row.is-inferred { background: rgba(240, 168, 41, 0.05); margin: 0 -8px; padding: 7px 8px; border-radius: 6px; border-bottom: none; }
+.tp-confirm-k { flex: 1; font-size: 13px; color: #cdd3dd; }
+.tp-confirm-v { font-family: var(--tp-mono); font-size: 13px; color: #fff; }
+.tp-confirm-input { width: 120px; background: #13161b; border: 1px solid var(--tp-amber); border-radius: 6px; color: #fff; padding: 6px 9px; font-size: 13px; font-family: var(--tp-mono); }
+.tp-confirm-input:focus { outline: none; border-color: var(--tp-acc); }
+.tp-confirm-flag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--tp-amber); white-space: nowrap; }
+.tp-confirm-ok { font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--tp-bull); white-space: nowrap; }
+.tp-confirm-actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+.tp-confirm-btn { background: var(--tp-amber); color: #1a1205; border: none; border-radius: 8px; font-weight: 700; padding: 10px 16px; cursor: pointer; font-size: 13.5px; font-family: inherit; }
+.tp-confirm-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* written report message */
+.tp-report { font-size: 15px; line-height: 1.6; }
+.tp-report-p { margin: 0 0 12px; }
+.tp-report-p b { color: #fff; }
+.tp-report-list { margin: 0 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.tp-report-list li { font-size: 14.5px; line-height: 1.5; }
+.tp-report-list b { color: #fff; }

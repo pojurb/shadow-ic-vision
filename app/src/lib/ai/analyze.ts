@@ -11,20 +11,28 @@ import { ANTHROPIC_URL, anthropicHeaders, errorMessage } from "./client";
 import {
   DEBATE_JSON_SCHEMA,
   EXPERT_REVIEW_JSON_SCHEMA,
+  INTAKE_JSON_SCHEMA,
   type DebateOutput,
   type ExpertReview,
+  type IntakeOutput,
+  type IntakeResult,
+  type IntakeField,
 } from "./schemas";
 import {
   analysisSystem,
   researchSystem,
   reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
   buildReviewUserPrompt,
+  buildIntakeUserPrompt,
 } from "./prompts";
 import { buildFileBlocks } from "./content";
 import { personaFor } from "./personas";
-import type { Analysis, DebateLine, LensResult } from "@/lib/domain/types";
+import { BLANK_PARAMS, type AssetParameters, type Vertical } from "@/data/presets";
+import { paramKeysFor } from "@/data/fields";
+import type { Analysis, ContextSource, DebateLine, LensResult } from "@/lib/domain/types";
 import type { AnalysisResult } from "./types";
 
 interface TextBlock {
@@ -207,4 +215,104 @@ export async function runExpertReview(
   } catch {
     throw new Error("Model did not return a valid structured review.");
   }
+}
+
+/* ----------------------------------------------------------------- intake */
+
+const VERTICALS: Vertical[] = ["stocks", "startups", "conventional"];
+
+/**
+ * Validate + zip the raw intake output into an engine-ready draft. PURE — the
+ * unit-testable core, shared by all three providers. This is the one place
+ * numbers enter from prose, so the guards matter:
+ *  - clamp `vertical`/`mode`/`source` to known values (Gemini strips schema enums)
+ *  - drop fields whose key isn't an engine param for the chosen vertical
+ *  - coerce values to finite numbers (drop the rest)
+ *  - merge BLANK_PARAMS so the engine always computes cleanly
+ * The model never authors a stance; that stays `persona.stance.derive` downstream.
+ */
+export function finalizeIntake(raw: IntakeOutput): IntakeResult {
+  const vertical: Vertical = VERTICALS.includes(raw?.vertical as Vertical)
+    ? (raw.vertical as Vertical)
+    : "stocks";
+
+  const allowed = new Set(paramKeysFor(vertical).map(String));
+  const fields: IntakeField[] = [];
+  const numbers: Record<string, number> = {};
+  for (const f of raw?.fields ?? []) {
+    if (!f || typeof f.key !== "string" || !allowed.has(f.key)) continue;
+    const value = Number(f.value);
+    if (!Number.isFinite(value)) continue;
+    const source: IntakeField["source"] = f.source === "stated" ? "stated" : "inferred";
+    fields.push({ key: f.key, value, source });
+    numbers[f.key] = value;
+  }
+
+  // figures only when we actually kept ≥1 number; otherwise it's scoping.
+  let mode: IntakeResult["mode"] =
+    raw?.mode === "scoping" || raw?.mode === "figures" ? raw.mode : "figures";
+  if (fields.length === 0) mode = "scoping";
+
+  const params: AssetParameters = { ...BLANK_PARAMS[vertical], ...numbers };
+  // Stocks DCF needs a cashflow series, but `cashflows` isn't an extractable field
+  // (not in paramKeysFor), so always proxy a flat-EPS stream from the resolved EPS —
+  // keeps DCF/NPV/MoS consistent with the EPS the user actually gave. Surfaced as an
+  // approximation on the confirm card.
+  if (vertical === "stocks") {
+    const eps = Number(params.eps ?? 0);
+    params.cashflows = Array(5).fill(eps);
+  }
+
+  return {
+    vertical,
+    mode,
+    assetName: typeof raw?.assetName === "string" ? raw.assetName : "",
+    title: (typeof raw?.title === "string" && raw.title.trim()) || "New analysis",
+    note: typeof raw?.note === "string" ? raw.note : "",
+    fields,
+    params,
+  };
+}
+
+/**
+ * Intake pass — one structured call that detects the vertical and extracts the
+ * engine parameters from the user's text + attachments. Returns the finalized,
+ * confirm-ready draft. Anthropic path; OpenAI/Gemini implement inline then call
+ * the shared `finalizeIntake`.
+ */
+export async function runIntake(
+  apiKey: string,
+  model: string,
+  userText: string,
+  sources: ContextSource[],
+): Promise<IntakeResult> {
+  const fileBlocks = await buildFileBlocks(sources);
+  const userPrompt = buildIntakeUserPrompt(userText);
+  const content = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: userPrompt }]
+    : userPrompt;
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: anthropicHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      system: intakeSystem(),
+      messages: [{ role: "user", content }],
+      output_config: { format: { type: "json_schema", schema: INTAKE_JSON_SCHEMA } },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const data = await res.json();
+  const text = collectText(data.content);
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
 }

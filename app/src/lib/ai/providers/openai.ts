@@ -13,20 +13,22 @@
  * Chat uses streaming SSE (choices[0].delta.content).
  * Research uses the OpenAI function-tool loop driving the backend routes.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, Capabilities, ModelOption } from "../types";
-import type { DebateOutput, ExpertReview } from "../schemas";
-import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA } from "../schemas";
+import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
+import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
   analysisSystem,
   CHAT_SYSTEM,
   researchSystem,
   reviewSystem,
+  intakeSystem,
   buildAnalysisUserPrompt,
   buildResearchUserPrompt,
   buildReviewUserPrompt,
+  buildIntakeUserPrompt,
   chatContextPreamble,
 } from "../prompts";
-import { needsResearch, finalizeDebate } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
 import { blobToBase64 } from "../content";
 import { extractPdfText } from "../pdf";
 import { getBlob } from "@/lib/repo";
@@ -313,6 +315,48 @@ async function runOpenAIExpertReview(req: AnalysisRequest): Promise<ExpertReview
 }
 
 // ---------------------------------------------------------------------------
+// Intake — one structured call; detect vertical + extract figures
+// ---------------------------------------------------------------------------
+
+async function runOpenAIIntake(req: IntakeRequest): Promise<IntakeResult> {
+  const { apiKey, model, userText, sources } = req;
+  const fileBlocks = await buildOpenAIFileBlocks(sources);
+  const userPrompt = buildIntakeUserPrompt(userText);
+  const userContent: OpenAIContentBlock[] = fileBlocks.length
+    ? [...fileBlocks, { type: "text", text: userPrompt }]
+    : [{ type: "text", text: userPrompt }];
+
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      messages: [
+        { role: "system", content: intakeSystem() },
+        { role: "user", content: userContent },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "intake", strict: true, schema: INTAKE_JSON_SCHEMA },
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty intake.");
+  let raw: IntakeOutput;
+  try {
+    raw = JSON.parse(text) as IntakeOutput;
+  } catch {
+    throw new Error("Model did not return valid intake output.");
+  }
+  return finalizeIntake(raw);
+}
+
+// ---------------------------------------------------------------------------
 // Chat — streaming SSE via choices[0].delta.content
 // ---------------------------------------------------------------------------
 
@@ -390,6 +434,10 @@ export const openaiProvider: AIProvider = {
   label: "OpenAI (GPT)",
   models: OPENAI_MODELS,
   capabilities: () => OPENAI_CAPABILITIES,
+
+  runIntake(req: IntakeRequest): Promise<IntakeResult> {
+    return runOpenAIIntake(req);
+  },
 
   async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {
     let notes: string | undefined;
