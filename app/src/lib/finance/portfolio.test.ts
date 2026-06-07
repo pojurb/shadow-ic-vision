@@ -193,6 +193,10 @@ describe("normalizePortfolio (back-compat)", () => {
       folderId: null,
       chat: [],
       allowWebSearch: false,
+      persona: null,
+      stance: null,
+      debate: null,
+      advisory: null,
       createdAt: 0,
       updatedAt: 0,
     };

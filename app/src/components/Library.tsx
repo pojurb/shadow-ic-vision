@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Analysis, Vertical } from "@/lib/domain/types";
+import type { Analysis, PortfolioAnalysis, Vertical } from "@/lib/domain/types";
 
 const VERTICAL_TAG: Record<Vertical, string> = {
   stocks: "EQ",
@@ -11,16 +11,26 @@ const VERTICAL_TAG: Record<Vertical, string> = {
 
 export default function Library({
   analyses,
+  portfolios,
   activeId,
+  activePortfolioId,
   onOpen,
+  onOpenPortfolio,
   onDelete,
+  onDeletePortfolio,
   onNew,
+  onNewPortfolio,
 }: {
   analyses: Analysis[];
+  portfolios: PortfolioAnalysis[];
   activeId: string | null;
+  activePortfolioId: string | null;
   onOpen: (id: string) => void;
+  onOpenPortfolio: (id: string) => void;
   onDelete: (id: string) => void;
+  onDeletePortfolio: (id: string) => void;
   onNew: () => void;
+  onNewPortfolio: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "decided">("all");
@@ -43,8 +53,46 @@ export default function Library({
     <aside className="library-sidebar">
       <div className="panel-header warning-stripes">
         <span className="panel-title">LIBRARY</span>
-        <button className="new-btn" onClick={onNew}>+ NEW</button>
+        <div className="library-new-actions">
+          <button className="new-btn" onClick={onNew}>+ NEW</button>
+          <button className="new-btn" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
+        </div>
       </div>
+
+      {portfolios.length > 0 && (
+        <div className="library-section">
+          <div className="library-section-h">PORTFOLIOS</div>
+          {portfolios.map((p) => (
+            <div
+              key={p.id}
+              className={`library-item${p.id === activePortfolioId ? " active" : ""}`}
+              onClick={() => onOpenPortfolio(p.id)}
+            >
+              <div className="library-item-top">
+                <span className="library-vtag library-vtag--pf">PF</span>
+                <span className="library-item-title">{p.title}</span>
+                <button
+                  className="library-del"
+                  title="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeletePortfolio(p.id);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="library-item-meta">
+                <span className="mini-badge draft">
+                  {p.members.length} {p.members.length === 1 ? "holding" : "holdings"}
+                </span>
+                <span className="library-date">{new Date(p.updatedAt).toLocaleDateString("id-ID")}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="library-controls">
         <input className="library-search" placeholder="Search analyses…" value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="library-filter">

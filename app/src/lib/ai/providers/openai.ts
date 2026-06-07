@@ -13,7 +13,17 @@
  * Chat uses streaming SSE (choices[0].delta.content).
  * Research uses the OpenAI function-tool loop driving the backend routes.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type {
+  AIProvider,
+  AnalysisRequest,
+  AnalysisResult,
+  ChatRequest,
+  IntakeRequest,
+  Capabilities,
+  ModelOption,
+  PortfolioAnalysisRequest,
+  PortfolioChatRequest,
+} from "../types";
 import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
 import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
@@ -27,8 +37,12 @@ import {
   buildReviewUserPrompt,
   buildIntakeUserPrompt,
   chatContextPreamble,
+  buildPortfolioAnalysisUserPrompt,
+  PORTFOLIO_CHAT_SYSTEM,
+  portfolioChatContextPreamble,
 } from "../prompts";
-import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake, finalizePortfolioDebate } from "../analyze";
+import { portfolioPersona } from "../personas";
 import { blobToBase64 } from "../content";
 import { extractPdfText } from "../pdf";
 import { getBlob } from "@/lib/repo";
@@ -426,6 +440,102 @@ async function streamOpenAIChat(req: ChatRequest): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Portfolio — structured cross-asset debate + grounded chat
+// ---------------------------------------------------------------------------
+
+async function runOpenAIPortfolioAnalysis(req: PortfolioAnalysisRequest): Promise<AnalysisResult> {
+  const { apiKey, model, portfolio, metrics, byId } = req;
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 8000,
+      messages: [
+        { role: "system", content: portfolioPersona().systemPrompt },
+        { role: "user", content: buildPortfolioAnalysisUserPrompt(portfolio, metrics, byId) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "debate", strict: true, schema: DEBATE_JSON_SCHEMA },
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty response.");
+  let raw: DebateOutput;
+  try {
+    raw = JSON.parse(text) as DebateOutput;
+  } catch {
+    throw new Error("Model did not return valid structured output.");
+  }
+  return finalizePortfolioDebate(metrics, raw);
+}
+
+async function streamOpenAIPortfolioChat(req: PortfolioChatRequest): Promise<string> {
+  const { apiKey, model, portfolio, metrics, byId, userText, onDelta } = req;
+  const history = portfolio.chat.map((m: ChatMessage) => ({ role: m.role, content: m.content }));
+  const preamble = portfolioChatContextPreamble(portfolio, metrics, byId);
+
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 4000,
+      stream: true,
+      messages: [
+        { role: "system", content: PORTFOLIO_CHAT_SYSTEM },
+        { role: "user", content: preamble },
+        {
+          role: "assistant",
+          content:
+            "Understood — I have the portfolio's locked figures and each holding's figures in mind. Ask away.",
+        },
+        ...history,
+        { role: "user", content: userText },
+      ],
+    }),
+  });
+
+  if (!res.ok || !res.body) throw new Error(await openaiErrorMessage(res));
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const payload = trimmed.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const evt = JSON.parse(payload);
+        const delta: string = evt?.choices?.[0]?.delta?.content ?? "";
+        if (delta) {
+          full += delta;
+          onDelta(delta);
+        }
+      } catch {
+        /* ignore keep-alive / partial lines */
+      }
+    }
+  }
+
+  return full;
+}
+
+// ---------------------------------------------------------------------------
 // Provider export
 // ---------------------------------------------------------------------------
 
@@ -456,5 +566,13 @@ export const openaiProvider: AIProvider = {
 
   streamChat(req: ChatRequest): Promise<string> {
     return streamOpenAIChat(req);
+  },
+
+  runPortfolioAnalysis(req: PortfolioAnalysisRequest): Promise<AnalysisResult> {
+    return runOpenAIPortfolioAnalysis(req);
+  },
+
+  streamPortfolioChat(req: PortfolioChatRequest): Promise<string> {
+    return streamOpenAIPortfolioChat(req);
   },
 };

@@ -27,12 +27,20 @@ import {
   buildResearchUserPrompt,
   buildReviewUserPrompt,
   buildIntakeUserPrompt,
+  buildPortfolioAnalysisUserPrompt,
 } from "./prompts";
 import { buildFileBlocks } from "./content";
-import { personaFor } from "./personas";
+import { personaFor, portfolioPersona } from "./personas";
 import { BLANK_PARAMS, type AssetParameters, type Vertical } from "@/data/presets";
 import { paramKeysFor, FIELDS } from "@/data/fields";
-import type { Analysis, ContextSource, DebateLine, LensResult } from "@/lib/domain/types";
+import type {
+  Analysis,
+  ContextSource,
+  DebateLine,
+  LensResult,
+  PortfolioAnalysis,
+  PortfolioMetrics,
+} from "@/lib/domain/types";
 import type { AnalysisResult } from "./types";
 
 interface TextBlock {
@@ -171,6 +179,88 @@ export function finalizeDebate(analysis: Analysis, raw: DebateOutput): AnalysisR
     ? { label: derived.label, basis: raw.stanceBasis?.trim() || derived.basis }
     : null;
   // Clamp to the enum (Gemini strips the schema enum, so guard the value here).
+  const thesisSupport =
+    raw.thesisSupport === "STRONG" || raw.thesisSupport === "THIN" ? raw.thesisSupport : "MIXED";
+  return {
+    debate: {
+      thesisSupport,
+      bull: (raw.bull ?? []).map(clamp),
+      bear: (raw.bear ?? []).map(clamp),
+    },
+    advisory,
+    stance,
+  };
+}
+
+/* --------------------------------------------------------------- portfolio */
+
+/**
+ * Portfolio-level structured debate (cross-asset). One structured call, no web
+ * research pass — the grounding is the deterministic portfolio metrics + each
+ * member's locked figures. Anthropic path; OpenAI/Gemini implement inline then call
+ * the shared `finalizePortfolioDebate`.
+ */
+export async function runPortfolioAnalysis(
+  apiKey: string,
+  model: string,
+  portfolio: PortfolioAnalysis,
+  metrics: PortfolioMetrics,
+  byId: Map<string, Analysis>,
+): Promise<AnalysisResult> {
+  const userText = buildPortfolioAnalysisUserPrompt(portfolio, metrics, byId);
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: anthropicHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 8000,
+      system: portfolioPersona().systemPrompt,
+      messages: [{ role: "user", content: userText }],
+      output_config: { format: { type: "json_schema", schema: DEBATE_JSON_SCHEMA } },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await errorMessage(res));
+  const data = await res.json();
+  const text = collectText(data.content);
+  if (!text.trim()) throw new Error("Model returned an empty response.");
+  let raw: DebateOutput;
+  try {
+    raw = JSON.parse(text) as DebateOutput;
+  } catch {
+    throw new Error("Model did not return valid structured output.");
+  }
+  return finalizePortfolioDebate(metrics, raw);
+}
+
+/**
+ * Validate + zip the portfolio debate against the Portfolio Strategist contract, and
+ * attach the ENGINE-DERIVED portfolio stance (the model never authors the label).
+ * Pure — the unit-testable core, shared by all three providers. Mirrors
+ * `finalizeDebate`, but the stance derives from `PortfolioMetrics`.
+ */
+export function finalizePortfolioDebate(metrics: PortfolioMetrics, raw: DebateOutput): AnalysisResult {
+  const persona = portfolioPersona();
+  const slotIds = new Set(persona.debateSlots.map((s) => s.id));
+  const clamp = (l: DebateLine): DebateLine => ({
+    agent: l.agent,
+    text: l.text,
+    slot: l.slot && slotIds.has(l.slot) ? l.slot : undefined,
+  });
+  const byId = new Map((raw.advisory ?? []).map((l) => [l.id, l] as const));
+  const advisory: LensResult[] = persona.lenses.map((spec) => {
+    const got = byId.get(spec.id);
+    return {
+      id: spec.id,
+      name: spec.name,
+      verdict: got?.verdict?.trim() || "—",
+      text: got?.text?.trim() || "(no analysis returned for this lens)",
+    };
+  });
+  const derived = persona.stance.derive(metrics);
+  const stance = derived
+    ? { label: derived.label, basis: raw.stanceBasis?.trim() || derived.basis }
+    : null;
   const thesisSupport =
     raw.thesisSupport === "STRONG" || raw.thesisSupport === "THIN" ? raw.thesisSupport : "MIXED";
   return {

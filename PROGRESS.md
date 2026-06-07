@@ -35,7 +35,7 @@
 | **Two-pane visual port** (proto layout → `AnalysisView`) | ✅ committed `b7a8859` (checkpoint) 2026-06-02; superseded/softened by the chat-first build below |
 | **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT + **LIVE-VERIFIED on Gemini** 2026-06-02 (all 6 phases A–F; intake→lock→debate→report green for ALL 3 verticals, stance engine-derived each). `tsc` clean · **61 Vitest pass** · `next build` green. PR #1 open. Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
 | **P7a** Portfolio math unblocker (members+capital + `computePortfolioMetrics`) | ✅ 2026-06-02 · `tsc` clean · **71 Vitest pass** (+10) · lint/build green. Pure engine+types+repo, no UI/AI |
-| **P7b** Composition UI + grounded cross-asset chat | ⬜ next slice (now unblocked) |
+| **P7b** Composition UI + grounded cross-asset chat | ✅ 2026-06-07 · `tsc` clean · **86 Vitest pass** (+15) · `next build` green · **live-verified on Gemini** (engine stance == derive; grounded chat). See section below |
 | **P8** Guardrails + eval harness | ⬜ |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
 
@@ -288,6 +288,48 @@ surfaced + fixed **two real bugs** (committed):
 - **Sticky scoping:** the model labelled a fully-specified stock `mode:"scoping"`. Fix: `finalizeIntake` now
   **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
 Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
+
+### P7b — Composition UI + grounded cross-asset chat — ✅ BUILT + LIVE-VERIFIED 2026-06-07
+Portfolios are now first-class. User decisions (2026-06-07): **manual composition** (member picker + capital,
+persisted), **chat + portfolio debate** (not chat-only), **grounding = portfolio metrics + each member's locked
+figures**. Plan: `~/.claude/plans/d-jp-invest-progress-md-check-whether-th-fluffy-stallman.md`. Built on
+`feat/expert-analyst-personas`. `tsc` clean · **86 Vitest pass** (+15) · `next build` green · dev route 200.
+
+- **A — domain + persona + engine stance.** `PortfolioAnalysis` gained `persona`/`stance`/`debate`/`advisory`
+  (metrics stay computed-on-read); `createPortfolio` inits them, `normalizePortfolio` backfills on read (idempotent,
+  preserves the `.toBe` fast-path). New cross-vertical **Portfolio Strategist** in `personas.ts`: 4 slots
+  (Allocation/Concentration/Conviction/Risk), 4 lenses (Capital Allocation/Concentration/Conviction Mix/Risk
+  Manager), `STANCE_POLARITY` (the 9 member labels → ±/neutral), and a **pure `derivePortfolioStance`**
+  (empty→null; top >40%→CONCENTRATED; else ≥60% positive→CONSTRUCTIVE; ≥60% negative→DEFENSIVE; else BALANCED).
+  Tests `portfolioPersona.test.ts` (7).
+- **B — AI seam.** `prompts.ts`: `portfolioGroundingText` (5 portfolio figures **+ each holding's**
+  `summarizeMetrics` + weight/capital/stance), `portfolioChatContextPreamble`, `PORTFOLIO_CHAT_SYSTEM`,
+  `buildPortfolioAnalysisUserPrompt`. `analyze.ts`: `runPortfolioAnalysis` (single structured pass, **no web
+  research** — reuses `DEBATE_JSON_SCHEMA`) + pure **`finalizePortfolioDebate`** (validate+zip vs the persona
+  lens/slot sets, clamp thesisSupport, **override stance with `derivePortfolioStance`** — model authors only the
+  one-line basis). `AIProvider` seam gained `runPortfolioAnalysis` + `streamPortfolioChat`, implemented in all 3
+  providers (anthropic delegates; openai json_schema strict; gemini `toGeminiSchema`/SSE). Chat is **text-only**
+  (no per-holding file blocks in v1). Tests `portfolioGrounding.test.ts` (4) + `finalizePortfolio.test.ts` (4).
+- **C — routing + Library.** `Workspace` active is now a discriminated union (`analysis | portfolio | null`) with
+  `openPortfolio`/`newPortfolio`/`handlePortfolioChange` (debounced `savePortfolio`, separate timer); loads
+  `listPortfolios`. `Library` got a **Portfolios** section + **+ PORTFOLIO** button. Empty-state gained
+  "or compose a portfolio…".
+- **D/E — `PortfolioView.tsx`** (mirrors `AnalysisView`'s two-pane `tp-*` shell): left = cross-asset chat
+  (follow-up only, no intake); right inspector = stance banner → verdict strip (5 metrics) → **Composition card**
+  (per-holding capital input + remove + "Add holding" picker from `listAnalyses`, recomputes
+  `computePortfolioMetrics` live) → **Allocation** weight bars → **Strategist debate** → **Advisory** lenses.
+  ⚡ ANALYZE PORTFOLIO runs the debate; chat turns + edits persist via debounced `handlePortfolioChange`. New
+  `tp-pos-*`/`tp-alloc-*`/library section CSS in `globals.css`.
+
+**✅ LIVE SMOKE (Gemini, gemini-2.5-flash, 2026-06-07).** 3-vertical book (60/30/10 capital). `runPortfolioAnalysis`
+→ **model stance == `derivePortfolioStance` == CONCENTRATED** (engine-derived override holds), bull 4 / bear 4 /
+lenses 4, thesis MIXED. `streamPortfolioChat` ("which holding carries the most concentration risk?") answered
+**grounded on the locked weight** ("BBCA represents 60% of the total capital") — no invented numbers. Temp gated
+test deleted after. **OpenAI + Anthropic portfolio paths still live-unverified** (no keys). Key still owed a
+**rotation** (gitignored `app/.env.local`).
+
+**Deferred (out of P7b v1):** portfolio web-research pass, portfolio expert-review pass, chat attachments — each a
+straight mirror of the single-asset path when wanted.
 
 ### Chat-first analysis (Option C intake) — original plan record (PLAN APPROVED 2026-06-02)
 User decisions: **full auto intake** (paste a deal → detect vertical + extract figures → confirm card → confirm

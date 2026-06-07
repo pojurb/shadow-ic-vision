@@ -16,23 +16,41 @@ import {
   saveAnalysis,
   deleteAnalysis,
   createAnalysis,
+  listPortfolios,
+  getPortfolio,
+  savePortfolio,
+  deletePortfolio,
+  createPortfolio,
 } from "@/lib/repo";
-import type { Analysis } from "@/lib/domain/types";
+import type { Analysis, PortfolioAnalysis } from "@/lib/domain/types";
 import { storage, DEFAULT_SETTINGS, type Settings } from "@/lib/storage";
 import Library from "./Library";
 import AnalysisView from "./AnalysisView";
+import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
+
+/** What the main pane is showing — a single analysis, a portfolio, or nothing. */
+type Active =
+  | { type: "analysis"; data: Analysis }
+  | { type: "portfolio"; data: PortfolioAnalysis }
+  | null;
 
 export default function Workspace() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
-  const [active, setActive] = useState<Analysis | null>(null);
+  const [portfolios, setPortfolios] = useState<PortfolioAnalysis[]>([]);
+  const [active, setActive] = useState<Active>(null);
   const [showNew, setShowNew] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const portfolioSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const activeAnalysisId = active?.type === "analysis" ? active.data.id : null;
+  const activePortfolioId = active?.type === "portfolio" ? active.data.id : null;
 
   useEffect(() => {
     listAnalyses().then(setAnalyses);
+    listPortfolios().then(setPortfolios);
     setSettings(storage.getSettings());
   }, []);
 
@@ -40,13 +58,22 @@ export default function Workspace() {
     setAnalyses(await listAnalyses());
   }
 
+  async function refreshPortfolios() {
+    setPortfolios(await listPortfolios());
+  }
+
   async function open(id: string) {
     const a = await getAnalysis(id);
-    if (a) setActive(a);
+    if (a) setActive({ type: "analysis", data: a });
+  }
+
+  async function openPortfolio(id: string) {
+    const p = await getPortfolio(id);
+    if (p) setActive({ type: "portfolio", data: p });
   }
 
   function handleChange(next: Analysis) {
-    setActive(next);
+    setActive({ type: "analysis", data: next });
     // optimistic list update
     setAnalyses((list) => {
       const others = list.filter((a) => a.id !== next.id);
@@ -57,6 +84,31 @@ export default function Workspace() {
     saveTimer.current = setTimeout(() => {
       saveAnalysis(next);
     }, 500);
+  }
+
+  function handlePortfolioChange(next: PortfolioAnalysis) {
+    setActive({ type: "portfolio", data: next });
+    setPortfolios((list) => {
+      const others = list.filter((p) => p.id !== next.id);
+      return [{ ...next, updatedAt: Date.now() }, ...others];
+    });
+    if (portfolioSaveTimer.current) clearTimeout(portfolioSaveTimer.current);
+    portfolioSaveTimer.current = setTimeout(() => {
+      savePortfolio(next);
+    }, 500);
+  }
+
+  async function newPortfolio() {
+    const p = createPortfolio("New portfolio");
+    await savePortfolio(p);
+    await refreshPortfolios();
+    setActive({ type: "portfolio", data: p });
+  }
+
+  async function removePortfolio(id: string) {
+    await deletePortfolio(id);
+    if (activePortfolioId === id) setActive(null);
+    await refreshPortfolios();
   }
 
   async function newFromPreset(preset: AssetPreset) {
@@ -78,7 +130,7 @@ export default function Workspace() {
     });
     await saveAnalysis(analysis);
     await refresh();
-    setActive(analysis);
+    setActive({ type: "analysis", data: analysis });
     setShowNew(false);
   }
 
@@ -101,7 +153,7 @@ export default function Workspace() {
     });
     await saveAnalysis(analysis);
     await refresh();
-    setActive(analysis);
+    setActive({ type: "analysis", data: analysis });
     setShowNew(false);
   }
 
@@ -118,13 +170,13 @@ export default function Workspace() {
     });
     await saveAnalysis(analysis);
     await refresh();
-    setActive(analysis);
+    setActive({ type: "analysis", data: analysis });
     setShowNew(false);
   }
 
   async function remove(id: string) {
     await deleteAnalysis(id);
-    if (active?.id === id) setActive(null);
+    if (activeAnalysisId === id) setActive(null);
     await refresh();
   }
 
@@ -132,10 +184,15 @@ export default function Workspace() {
     <div className="workspace">
       <Library
         analyses={analyses}
-        activeId={active?.id ?? null}
+        portfolios={portfolios}
+        activeId={activeAnalysisId}
+        activePortfolioId={activePortfolioId}
         onOpen={open}
+        onOpenPortfolio={openPortfolio}
         onDelete={remove}
+        onDeletePortfolio={removePortfolio}
         onNew={newIntake}
+        onNewPortfolio={newPortfolio}
       />
 
       <main className="workspace-main">
@@ -154,10 +211,20 @@ export default function Workspace() {
           </div>
         </header>
 
-        {active ? (
+        {active?.type === "analysis" ? (
           <AnalysisView
-            analysis={active}
+            analysis={active.data}
             onChange={handleChange}
+            provider={settings.provider}
+            apiKey={settings.apiKeys?.[settings.provider] ?? ""}
+            model={settings.model}
+            onNeedSettings={() => setShowSettings(true)}
+          />
+        ) : active?.type === "portfolio" ? (
+          <PortfolioView
+            portfolio={active.data}
+            analyses={analyses}
+            onChange={handlePortfolioChange}
             provider={settings.provider}
             apiKey={settings.apiKeys?.[settings.provider] ?? ""}
             model={settings.model}
@@ -170,6 +237,7 @@ export default function Workspace() {
               <p>Paste or describe a deal — the analyst detects the type, pulls the figures, and confirms before locking.</p>
               <button className="commit-btn" onClick={newIntake}>+ NEW ANALYSIS</button>
               <button className="example-link" onClick={() => setShowNew(true)}>or start from an example…</button>
+              <button className="example-link" onClick={newPortfolio}>or compose a portfolio…</button>
             </div>
           </div>
         )}

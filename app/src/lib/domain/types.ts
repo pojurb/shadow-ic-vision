@@ -179,6 +179,14 @@ export interface PortfolioAnalysis {
   folderId: string | null;
   chat: ChatMessage[];
   allowWebSearch: boolean;
+  /** Cross-asset expert persona that produced the portfolio debate (Portfolio Strategist). */
+  persona: PersonaRef | null;
+  /** Engine-derived portfolio stance (concentration + conviction mix) + AI basis. */
+  stance: Stance | null;
+  /** Portfolio-level red-team debate (bull/bear over the composed holdings). */
+  debate: DebateResult | null;
+  /** Portfolio-level advisory lenses (capital allocation, concentration, conviction, risk). */
+  advisory: AdvisoryResult | null;
   createdAt: number;
   updatedAt: number;
 }

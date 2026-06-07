@@ -190,11 +190,30 @@ export async function deleteFolder(id: string): Promise<void> {
  */
 export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
   const p = raw as PortfolioAnalysis & { memberIds?: string[] };
-  if (Array.isArray(p.members)) return p;
-  const members: PortfolioMember[] = Array.isArray(p.memberIds)
-    ? p.memberIds.map((analysisId) => ({ analysisId, capital: 0 }))
-    : [];
-  return { ...p, members };
+  const hasMembers = Array.isArray(p.members);
+  // Analysis-parity fields added with P7b (persona/stance/debate/advisory). The stance
+  // is derived only when ANALYZE runs (it needs the member analyses), so a missing one
+  // stays null here — no byId is available on read.
+  const hasFields =
+    p.persona !== undefined &&
+    p.stance !== undefined &&
+    p.debate !== undefined &&
+    p.advisory !== undefined;
+  if (hasMembers && hasFields) return p; // already current-shape (idempotent)
+
+  const members: PortfolioMember[] = hasMembers
+    ? p.members
+    : Array.isArray(p.memberIds)
+      ? p.memberIds.map((analysisId) => ({ analysisId, capital: 0 }))
+      : [];
+  return {
+    ...p,
+    members,
+    persona: p.persona ?? null,
+    stance: p.stance ?? null,
+    debate: p.debate ?? null,
+    advisory: p.advisory ?? null,
+  };
 }
 
 export async function listPortfolios(): Promise<PortfolioAnalysis[]> {
@@ -227,6 +246,10 @@ export function createPortfolio(title: string, members: PortfolioMember[] = []):
     folderId: null,
     chat: [],
     allowWebSearch: false,
+    persona: null,
+    stance: null,
+    debate: null,
+    advisory: null,
     createdAt: now,
     updatedAt: now,
   };
