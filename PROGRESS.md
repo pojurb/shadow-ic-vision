@@ -36,7 +36,7 @@
 | **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT + **LIVE-VERIFIED on Gemini** 2026-06-02 (all 6 phases A–F; intake→lock→debate→report green for ALL 3 verticals, stance engine-derived each). `tsc` clean · **61 Vitest pass** · `next build` green. PR #1 open. Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
 | **P7a** Portfolio math unblocker (members+capital + `computePortfolioMetrics`) | ✅ 2026-06-02 · `tsc` clean · **71 Vitest pass** (+10) · lint/build green. Pure engine+types+repo, no UI/AI |
 | **P7b** Composition UI + grounded cross-asset chat | ✅ 2026-06-07 · `tsc` clean · **86 Vitest pass** (+15) · `next build` green · **live-verified on Gemini** (engine stance == derive; grounded chat). See section below |
-| **P8** Guardrails + eval harness | ⬜ |
+| **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
 | **P9** Polish, export/import, Vercel cutover | ⬜ |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
@@ -288,6 +288,39 @@ surfaced + fixed **two real bugs** (committed):
 - **Sticky scoping:** the model labelled a fully-specified stock `mode:"scoping"`. Fix: `finalizeIntake` now
   **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
 Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
+
+### P8 — Guardrails + eval harness — ✅ BUILT 2026-06-07
+Closes the gap where the no-numeric-hallucination promise was enforced only softly (prompt + schema +
+engine-derived stance) — nothing deterministically checked the numbers in the model's *free text*. Now a
+pure linter does, surfaced as a non-blocking flag, plus an eval suite that measures it. User decisions:
+**flag (don't block)**, **offline + optional live**, **lint structured + chat**. Plan:
+`~/.claude/plans/d-jp-invest-progress-md-check-whether-th-fluffy-stallman.md`. `tsc` clean · **110 Vitest
+pass** (+24) · `next build` + lint green.
+
+- **A — pure grounding linter** `lib/ai/grounding.ts`: `extractNumberTokens` (parses id-ID `.`/`,`, `Rp`,
+  `%`, `x`, `B`/`M`/`T`; **ambiguous separators → BOTH interpretations**, e.g. "4.940"→{4.94, 4940}),
+  `allowedValues` (each `metric.value` + numbers re-extracted from each `display` + extras),
+  `lintGrounding` (compares VALUES with ~2% tolerance; unit-bearing figures must trace, bare ints ≤100 /
+  years whitelisted), and gatherers `lintAnalysisGrounding` / `lintPortfolioGrounding` (allows each
+  holding's own figures) / `lintChatReply` + `portfolioChatExtras`. `grounding.test.ts` (13).
+- **B — UI flag (non-blocking, render-time, no persistence).** `AnalysisView` + `PortfolioView`: a
+  **GroundChip** in the debate-card header (`✓ Grounded` / `⚠ N unverified` with a tooltip of the flagged
+  tokens) and a per-assistant-message **ChatGroundFlag**. New `tp-ground*` CSS. No change to `finalize*`
+  or providers — the linter is read-only over produced data.
+- **C — eval harness.** `eval/fixtures.ts` (preset members, mixed portfolio, grounded vs
+  planted-violation debates). `eval/offline.test.ts` (in `npm test`, no key): finalize + lint **flag the
+  planted figure** and pass the clean fixture for all 3 verticals + portfolio; full lens set; engine-stance
+  match; a portfolio capital-split / conviction-mix **stance sweep**. Optional live scorecard
+  `eval/live.eval.ts` + `vitest.eval.config.ts` + `npm run eval` (gated by `GEMINI_API_KEY`): runs real
+  debates/chat and prints schema-valid % / stance-match % / grounding-clean %; **hard-gates schema +
+  engine-derived stance at 100%**, grounding-clean is measured (not gated — model slips AND parser
+  false-positives both lower it). Soft-skips green on a provider quota/network limit.
+
+**Verification:** offline suite green (110). `npm run eval` first run **passed** on Gemini (schema=100%,
+stance=100% gates held on real calls); repeat runs hit the **free-tier daily quota** (429) and now
+**soft-skip green** by design — re-run `npm run eval` once the quota resets to print the full scorecard.
+**Design note:** flag-only by intent; tune the parser against the live scorecard, never by tightening into
+the user's prose. OpenAI/Anthropic scorecards await their keys.
 
 ### P7b — Composition UI + grounded cross-asset chat — ✅ BUILT + LIVE-VERIFIED 2026-06-07
 Portfolios are now first-class. User decisions (2026-06-07): **manual composition** (member picker + capital,

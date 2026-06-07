@@ -11,6 +11,12 @@ import type {
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
 import { getProvider } from "@/lib/ai/registry";
 import { portfolioPersona } from "@/lib/ai/personas";
+import {
+  lintPortfolioGrounding,
+  lintChatReply,
+  portfolioChatExtras,
+  type GroundingResult,
+} from "@/lib/ai/grounding";
 import type { ProviderId } from "@/lib/ai/types";
 
 const MIN_W = 360;
@@ -178,6 +184,9 @@ export default function PortfolioView({
   const verticalMetrics = metrics.metrics;
   const advisory = portfolio.advisory ?? [];
   const hasMembers = portfolio.members.length > 0;
+  // Deterministic grounding guard (P8) over the portfolio debate + per-holding figures.
+  const grounding = useMemo(() => lintPortfolioGrounding(portfolio, metrics, byId), [portfolio, metrics, byId]);
+  const chatGround = useMemo(() => portfolioChatExtras(metrics, byId), [metrics, byId]);
 
   return (
     <div className="tp-root" ref={rootRef} style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
@@ -220,6 +229,9 @@ export default function PortfolioView({
               <div key={m.id} className={`tp-msg tp-msg--${m.role}`}>
                 <div className="tp-msg-role">{m.role === "user" ? "You" : "Strategist"}</div>
                 <div className="tp-msg-body">{m.content}</div>
+                {m.role === "assistant" && (
+                  <ChatGroundFlag result={lintChatReply(m.content, chatGround.metrics, chatGround.extra)} />
+                )}
               </div>
             ))}
             {pendingUser && (
@@ -363,6 +375,7 @@ export default function PortfolioView({
                   {portfolio.debate && (
                     <span className="tp-badge tp-badge-support">THESIS {portfolio.debate.thesisSupport}</span>
                   )}
+                  {portfolio.debate && <GroundChip result={grounding} />}
                 </div>
                 {!portfolio.debate ? (
                   <div className="tp-muted-note">Compose the portfolio, then ⚡ ANALYZE PORTFOLIO for a grounded bull/bear debate across the book.</div>
@@ -397,6 +410,28 @@ export default function PortfolioView({
           </aside>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Grounding chip for a card header: ✓ when every figure traces to the engine. */
+function GroundChip({ result }: { result: GroundingResult }) {
+  if (result.clean) {
+    return <span className="tp-ground" title="Every figure in the portfolio analysis traces to the deterministic engine">✓ Grounded</span>;
+  }
+  return (
+    <span className="tp-ground tp-ground--warn" title={`Unverified figure(s): ${result.flagged.map((f) => f.raw).join(", ")}`}>
+      ⚠ {result.flagged.length} unverified
+    </span>
+  );
+}
+
+/** Inline marker under a chat reply when it contains an ungrounded number. */
+function ChatGroundFlag({ result }: { result: GroundingResult }) {
+  if (result.clean) return null;
+  return (
+    <div className="tp-ground-msg" title={`Not traced to the engine: ${result.flagged.map((f) => f.raw).join(", ")}`}>
+      ⚠ {result.flagged.length} unverified figure{result.flagged.length > 1 ? "s" : ""}
     </div>
   );
 }
