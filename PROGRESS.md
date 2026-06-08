@@ -38,7 +38,8 @@
 | **P7b** Composition UI + grounded cross-asset chat | ✅ 2026-06-07 · `tsc` clean · **86 Vitest pass** (+15) · `next build` green · **live-verified on Gemini** (engine stance == derive; grounded chat). See section below |
 | **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
 | **P9a** Export / import (backup & restore) | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** (+10) · `next build` green · pure backup core + DB wrappers + Settings UI. See section below |
-| **P9b** Polish + Vercel cutover | ⬜ (queued — broad UI polish, Vercel cutover prep + doc) |
+| **P9b** UI readability & density pass | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** · `next build` green · type-floor + spacing rhythm + chrome harmonization + persisted inspector width. See section below |
+| **P9c** Vercel cutover | ⬜ (queued — cutover prep + deploy doc) |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
@@ -289,6 +290,30 @@ surfaced + fixed **two real bugs** (committed):
 - **Sticky scoping:** the model labelled a fully-specified stock `mode:"scoping"`. Fix: `finalizeIntake` now
   **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
 Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
+
+### P9b — UI readability & density pass — ✅ BUILT 2026-06-08
+Pays down long-standing feedback that the workspace was **"too small / too dense, almost unusable"** — a
+presentation-only pass (no logic / AI / data-shape / copy changes), so it can't touch the engine math or the
+no-hallucination guarantees. Plan: `~/.claude/plans/silly-moseying-alpaca.md`. `tsc` clean · **120 Vitest
+pass** (unchanged — CSS-only) · `next build` green.
+
+- **Type-floor + spacing rhythm** (`app/src/app/globals.css`, `tp-*` block): new tunable vars on `.tp-root`
+  (`--tp-fs-label/-meta/-body/-head`, `--tp-pad`, `--tp-gap`) referenced across the inspector. Lifted the
+  cluster of sub-11px labels (`.tp-slot` 9.5→10, `.tp-vlbl`/`.tp-pos-stance`/`.tp-ground` 10→11.5,
+  `.tp-card-hint`/`.tp-lens-name`/`.tp-stance-basis`→11.5) to a readable floor and loosened the dense
+  containers (card padding, board/verdict/debate/points/lens/figs gaps, composition rows, allocation labels).
+- **Legacy sidebar + settings** (`app/src/app/workspace.css`): bumped the genuinely cramped 9–12px Library
+  items, search/filter, mini-badges, dates, Settings labels/notes, and the gear button to a comfortable size;
+  widened the sidebar 290→300.
+- **Chrome harmonization**: `cockpit-header` + `library-sidebar` moved off the hard 3px/2px brutalist borders
+  onto the soft 1px `--tp-line` + tp panel backgrounds so the chrome reads as one surface with the two-pane.
+- **Persisted inspector width** (`AnalysisView.tsx` / `PortfolioView.tsx` + new `lib/ui/inspectorWidth.ts`):
+  the dragged width now survives reloads (per-view localStorage key, SSR-safe fallback-first, clamped to
+  MIN/MAX); raised `MIN_W` (340→380 analysis, 360→400 portfolio) so the default opens comfortably.
+
+**Verification:** `tsc` clean · 120 unit tests green (CSS-only, count unchanged) · `next build` green.
+**Owed:** in-browser eyeball (`npm run dev`) across an analysis + a portfolio + Settings, and the mobile
+breakpoint, to confirm legibility — no functional risk.
 
 ### P9a — Export / import (backup & restore) — ✅ BUILT 2026-06-08
 Closes the single biggest data-loss risk in a local-first app: the whole workspace lived **only** in this

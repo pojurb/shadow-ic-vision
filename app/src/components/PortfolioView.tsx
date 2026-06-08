@@ -18,9 +18,11 @@ import {
   type GroundingResult,
 } from "@/lib/ai/grounding";
 import type { ProviderId } from "@/lib/ai/types";
+import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 
-const MIN_W = 360;
+const MIN_W = 400;
 const MAX_W = 820;
+const W_KEY = "tp_inspector_w_portfolio";
 
 const VERTICAL_TAG: Record<Vertical, string> = { stocks: "EQ", startups: "VC", conventional: "RE" };
 
@@ -62,13 +64,23 @@ export default function PortfolioView({
   const [dragging, setDragging] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const onGutterDown = useCallback(() => setDragging(true), []);
+  // Restore a previously dragged width after mount (SSR-safe — fallback renders first).
+  useEffect(() => {
+    setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+  }, []);
   useEffect(() => {
     if (!dragging) return;
     const onMove = (ev: MouseEvent) => {
       const right = rootRef.current?.getBoundingClientRect().right ?? window.innerWidth;
       setInspectorW(Math.min(MAX_W, Math.max(MIN_W, right - ev.clientX)));
     };
-    const onUp = () => setDragging(false);
+    const onUp = () => {
+      setDragging(false);
+      setInspectorW((w) => {
+        saveInspectorWidth(W_KEY, w);
+        return w;
+      });
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {

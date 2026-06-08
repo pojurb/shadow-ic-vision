@@ -14,9 +14,11 @@ import type { IntakeResult } from "@/lib/ai/schemas";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
+import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 
-const MIN_W = 340;
+const MIN_W = 380;
 const MAX_W = 760;
+const W_KEY = "tp_inspector_w_analysis";
 
 function toneFor(verdict?: string): string {
   if (!verdict) return "";
@@ -74,17 +76,27 @@ export default function AnalysisView({
 
   // Two-pane: collapsible + VS-Code-style resizable inspector (docked right).
   const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [inspectorW, setInspectorW] = useState(460);
+  const [inspectorW, setInspectorW] = useState(480);
   const [dragging, setDragging] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const onGutterDown = useCallback(() => setDragging(true), []);
+  // Restore a previously dragged width after mount (SSR-safe — fallback renders first).
+  useEffect(() => {
+    setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+  }, []);
   useEffect(() => {
     if (!dragging) return;
     const onMove = (ev: MouseEvent) => {
       const right = rootRef.current?.getBoundingClientRect().right ?? window.innerWidth;
       setInspectorW(Math.min(MAX_W, Math.max(MIN_W, right - ev.clientX)));
     };
-    const onUp = () => setDragging(false);
+    const onUp = () => {
+      setDragging(false);
+      setInspectorW((w) => {
+        saveInspectorWidth(W_KEY, w);
+        return w;
+      });
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
