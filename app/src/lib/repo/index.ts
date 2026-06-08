@@ -5,10 +5,19 @@
  */
 import { getDB } from "./db";
 import { personaFor } from "@/lib/ai/personas";
+import {
+  bytesToBase64,
+  base64ToBytes,
+  buildEnvelope,
+  serializeBackup,
+  parseBackup,
+  type BackupBlob,
+} from "./backup";
 import type {
   Analysis,
   AnalysisStatus,
   PortfolioAnalysis,
+  PortfolioMember,
   Folder,
   ComputedMetrics,
   DebateResult,
@@ -181,12 +190,48 @@ export async function deleteFolder(id: string): Promise<void> {
 
 // ---- Portfolios ----
 
+/**
+ * Normalize a persisted portfolio to the current shape on read (idempotent). Old
+ * records have `memberIds: string[]` (no capital); new records carry
+ * `members: PortfolioMember[]`. Legacy ids map to members with capital 0 (the user
+ * sets capital later). Mirrors `normalizeAnalysis`; keeps the Dexie schema unchanged.
+ */
+export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
+  const p = raw as PortfolioAnalysis & { memberIds?: string[] };
+  const hasMembers = Array.isArray(p.members);
+  // Analysis-parity fields added with P7b (persona/stance/debate/advisory). The stance
+  // is derived only when ANALYZE runs (it needs the member analyses), so a missing one
+  // stays null here — no byId is available on read.
+  const hasFields =
+    p.persona !== undefined &&
+    p.stance !== undefined &&
+    p.debate !== undefined &&
+    p.advisory !== undefined;
+  if (hasMembers && hasFields) return p; // already current-shape (idempotent)
+
+  const members: PortfolioMember[] = hasMembers
+    ? p.members
+    : Array.isArray(p.memberIds)
+      ? p.memberIds.map((analysisId) => ({ analysisId, capital: 0 }))
+      : [];
+  return {
+    ...p,
+    members,
+    persona: p.persona ?? null,
+    stance: p.stance ?? null,
+    debate: p.debate ?? null,
+    advisory: p.advisory ?? null,
+  };
+}
+
 export async function listPortfolios(): Promise<PortfolioAnalysis[]> {
-  return getDB().portfolios.orderBy("updatedAt").reverse().toArray();
+  const all = await getDB().portfolios.orderBy("updatedAt").reverse().toArray();
+  return all.map(normalizePortfolio);
 }
 
 export async function getPortfolio(id: string): Promise<PortfolioAnalysis | undefined> {
-  return getDB().portfolios.get(id);
+  const p = await getDB().portfolios.get(id);
+  return p ? normalizePortfolio(p) : undefined;
 }
 
 export async function savePortfolio(p: PortfolioAnalysis): Promise<PortfolioAnalysis> {
@@ -199,16 +244,20 @@ export async function deletePortfolio(id: string): Promise<void> {
   await getDB().portfolios.delete(id);
 }
 
-export function createPortfolio(title: string, memberIds: string[] = []): PortfolioAnalysis {
+export function createPortfolio(title: string, members: PortfolioMember[] = []): PortfolioAnalysis {
   const now = Date.now();
   return {
     id: uid(),
     title,
-    memberIds,
+    members,
     tags: [],
     folderId: null,
     chat: [],
     allowWebSearch: false,
+    persona: null,
+    stance: null,
+    debate: null,
+    advisory: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -216,14 +265,67 @@ export function createPortfolio(title: string, memberIds: string[] = []): Portfo
 
 // ---- Maintenance ----
 
+export interface ImportCounts {
+  analyses: number;
+  portfolios: number;
+  folders: number;
+  blobs: number;
+}
+
+/**
+ * Serialize the ENTIRE workspace (incl. attachment bytes) to a versioned JSON
+ * backup string. Blobs are read as raw bytes and carried as base64 with their
+ * mime type. API keys / settings are intentionally excluded (secrets).
+ */
 export async function exportAll(): Promise<string> {
   const db = getDB();
-  const [analyses, portfolios, folders] = await Promise.all([
+  const [analyses, portfolios, folders, blobRecords] = await Promise.all([
     db.analyses.toArray(),
     db.portfolios.toArray(),
     db.folders.toArray(),
+    db.blobs.toArray(),
   ]);
-  return JSON.stringify({ version: 1, analyses, portfolios, folders }, null, 2);
+  const blobs: BackupBlob[] = await Promise.all(
+    blobRecords.map(async (rec) => ({
+      id: rec.id,
+      mime: rec.blob.type || "application/octet-stream",
+      data: bytesToBase64(new Uint8Array(await rec.blob.arrayBuffer())),
+    })),
+  );
+  return serializeBackup(buildEnvelope({ analyses, portfolios, folders, blobs }));
+}
+
+/**
+ * Restore a backup. `merge` (default) overwrites by id and keeps everything else;
+ * `replace` wipes the four tables first (destructive). Blobs are rebuilt from
+ * base64. Returns per-table counts written, for UI feedback.
+ */
+export async function importAll(json: string, mode: "merge" | "replace" = "merge"): Promise<ImportCounts> {
+  const env = parseBackup(json);
+  const db = getDB();
+  const blobRecords = env.blobs.map((b) => ({
+    id: b.id,
+    blob: new Blob([base64ToBytes(b.data) as BlobPart], { type: b.mime }),
+  }));
+
+  await db.transaction("rw", db.analyses, db.portfolios, db.folders, db.blobs, async () => {
+    if (mode === "replace") {
+      await Promise.all([db.analyses.clear(), db.portfolios.clear(), db.folders.clear(), db.blobs.clear()]);
+    }
+    await Promise.all([
+      db.analyses.bulkPut(env.analyses),
+      db.portfolios.bulkPut(env.portfolios),
+      db.folders.bulkPut(env.folders),
+      db.blobs.bulkPut(blobRecords),
+    ]);
+  });
+
+  return {
+    analyses: env.analyses.length,
+    portfolios: env.portfolios.length,
+    folders: env.folders.length,
+    blobs: blobRecords.length,
+  };
 }
 
 export async function setStatus(id: string, status: AnalysisStatus): Promise<void> {

@@ -4,7 +4,15 @@
  * Per-capability, the app uses the native path when the model supports it and an
  * app-provided fallback otherwise (see `multi-provider-byok` decision).
  */
-import type { Analysis, ContextSource, DebateResult, AdvisoryResult, Stance } from "@/lib/domain/types";
+import type {
+  Analysis,
+  ContextSource,
+  DebateResult,
+  AdvisoryResult,
+  Stance,
+  PortfolioAnalysis,
+  PortfolioMetrics,
+} from "@/lib/domain/types";
 import type { ExpertReview, IntakeResult } from "./schemas";
 
 export type ProviderId = "anthropic" | "openai" | "gemini";
@@ -55,6 +63,27 @@ export interface IntakeRequest {
   sources: ContextSource[];
 }
 
+/** Portfolio-level structured debate over the composed holdings. */
+export interface PortfolioAnalysisRequest {
+  apiKey: string;
+  model: string;
+  portfolio: PortfolioAnalysis;
+  metrics: PortfolioMetrics;
+  /** All analyses keyed by id — resolves each member's own locked figures for grounding. */
+  byId: Map<string, Analysis>;
+}
+
+/** Grounded cross-asset follow-up chat over a portfolio. */
+export interface PortfolioChatRequest {
+  apiKey: string;
+  model: string;
+  portfolio: PortfolioAnalysis;
+  metrics: PortfolioMetrics;
+  byId: Map<string, Analysis>;
+  userText: string;
+  onDelta: (text: string) => void;
+}
+
 export interface AIProvider {
   id: ProviderId;
   label: string;
@@ -69,4 +98,8 @@ export interface AIProvider {
   runExpertReview(req: AnalysisRequest): Promise<ExpertReview>;
   /** Streamed, grounded follow-up chat. Returns the full text. */
   streamChat(req: ChatRequest): Promise<string>;
+  /** Portfolio-level structured debate over the composed holdings (one call, no research). */
+  runPortfolioAnalysis(req: PortfolioAnalysisRequest): Promise<AnalysisResult>;
+  /** Streamed, grounded cross-asset follow-up chat over the portfolio. Returns the full text. */
+  streamPortfolioChat(req: PortfolioChatRequest): Promise<string>;
 }

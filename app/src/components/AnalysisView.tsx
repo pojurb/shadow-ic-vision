@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSource, DebateLine } from "@/lib/domain/types";
 import { calcDCF, calcBEP } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
@@ -8,14 +8,17 @@ import { putBlob, deleteBlob } from "@/lib/repo";
 import { getProvider } from "@/lib/ai/registry";
 import { personaFor } from "@/lib/ai/personas";
 import { buildReport } from "@/lib/ai/report";
+import { lintAnalysisGrounding, lintChatReply, type GroundingResult } from "@/lib/ai/grounding";
 import type { ProviderId } from "@/lib/ai/types";
 import type { IntakeResult } from "@/lib/ai/schemas";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
+import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 
-const MIN_W = 340;
+const MIN_W = 380;
 const MAX_W = 760;
+const W_KEY = "tp_inspector_w_analysis";
 
 function toneFor(verdict?: string): string {
   if (!verdict) return "";
@@ -73,17 +76,27 @@ export default function AnalysisView({
 
   // Two-pane: collapsible + VS-Code-style resizable inspector (docked right).
   const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [inspectorW, setInspectorW] = useState(460);
+  const [inspectorW, setInspectorW] = useState(480);
   const [dragging, setDragging] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const onGutterDown = useCallback(() => setDragging(true), []);
+  // Restore a previously dragged width after mount (SSR-safe — fallback renders first).
+  useEffect(() => {
+    setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+  }, []);
   useEffect(() => {
     if (!dragging) return;
     const onMove = (ev: MouseEvent) => {
       const right = rootRef.current?.getBoundingClientRect().right ?? window.innerWidth;
       setInspectorW(Math.min(MAX_W, Math.max(MIN_W, right - ev.clientX)));
     };
-    const onUp = () => setDragging(false);
+    const onUp = () => {
+      setDragging(false);
+      setInspectorW((w) => {
+        saveInspectorWidth(W_KEY, w);
+        return w;
+      });
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
@@ -318,6 +331,9 @@ export default function AnalysisView({
 
   const metrics = analysis.metrics.metrics;
   const advisory = analysis.advisory ?? [];
+  // Deterministic grounding guard (P8): flag any number in the model's prose that
+  // doesn't trace to the engine. Non-blocking — surfaced as a chip / message marker.
+  const grounding = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
 
   return (
     <div className="tp-root" ref={rootRef} style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
@@ -367,6 +383,9 @@ export default function AnalysisView({
                   <ReportBody content={m.content} />
                 ) : (
                   <div className="tp-msg-body">{m.content}</div>
+                )}
+                {m.role === "assistant" && m.kind !== "report" && (
+                  <ChatGroundFlag result={lintChatReply(m.content, metrics)} />
                 )}
               </div>
             ))}
@@ -533,6 +552,7 @@ export default function AnalysisView({
                   {analysis.debate && (
                     <span className="tp-badge tp-badge-support">THESIS {analysis.debate.thesisSupport}</span>
                   )}
+                  {analysis.debate && <GroundChip result={grounding} />}
                 </div>
                 {!analysis.debate ? (
                   <div className="tp-muted-note">Run AI to generate the grounded bull/bear debate.</div>
@@ -644,6 +664,28 @@ export default function AnalysisView({
           </aside>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Grounding chip for a card header: ✓ when every figure traces to the engine. */
+function GroundChip({ result }: { result: GroundingResult }) {
+  if (result.clean) {
+    return <span className="tp-ground" title="Every figure in the analysis traces to the deterministic engine">✓ Grounded</span>;
+  }
+  return (
+    <span className="tp-ground tp-ground--warn" title={`Unverified figure(s): ${result.flagged.map((f) => f.raw).join(", ")}`}>
+      ⚠ {result.flagged.length} unverified
+    </span>
+  );
+}
+
+/** Inline marker under a chat reply when it contains an ungrounded number. */
+function ChatGroundFlag({ result }: { result: GroundingResult }) {
+  if (result.clean) return null;
+  return (
+    <div className="tp-ground-msg" title={`Not traced to the engine: ${result.flagged.map((f) => f.raw).join(", ")}`}>
+      ⚠ {result.flagged.length} unverified figure{result.flagged.length > 1 ? "s" : ""}
     </div>
   );
 }

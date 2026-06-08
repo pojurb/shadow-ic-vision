@@ -34,9 +34,12 @@
 | **Expert analyst agent** (per-vertical personas + review pass + visible identity) | ✅ built 2026-06-01 · `tsc` clean · 41 Vitest pass · **live-verified on Gemini for ALL 3 verticals** (analysis + review; engine-stance correct each: stocks→FAIR, startups→CONDITIONAL, conventional→VIABLE; all groundingCheck "clean"). **OpenAI + Anthropic adapters still live-unverified** (no keys) |
 | **Two-pane visual port** (proto layout → `AnalysisView`) | ✅ committed `b7a8859` (checkpoint) 2026-06-02; superseded/softened by the chat-first build below |
 | **Chat-first analysis (Option C intake) + proto-fidelity** | ✅ BUILT + **LIVE-VERIFIED on Gemini** 2026-06-02 (all 6 phases A–F; intake→lock→debate→report green for ALL 3 verticals, stance engine-derived each). `tsc` clean · **61 Vitest pass** · `next build` green. PR #1 open. Plan: `~/.claude/plans/now-i-am-thinking-cryptic-mountain.md` |
-| **P7** Composition (portfolio cross-analysis) | ⏸ ON HOLD |
-| **P8** Guardrails + eval harness | ⬜ |
-| **P9** Polish, export/import, Vercel cutover | ⬜ |
+| **P7a** Portfolio math unblocker (members+capital + `computePortfolioMetrics`) | ✅ 2026-06-02 · `tsc` clean · **71 Vitest pass** (+10) · lint/build green. Pure engine+types+repo, no UI/AI |
+| **P7b** Composition UI + grounded cross-asset chat | ✅ 2026-06-07 · `tsc` clean · **86 Vitest pass** (+15) · `next build` green · **live-verified on Gemini** (engine stance == derive; grounded chat). See section below |
+| **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
+| **P9a** Export / import (backup & restore) | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** (+10) · `next build` green · pure backup core + DB wrappers + Settings UI. See section below |
+| **P9b** UI readability & density pass | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** · `next build` green · type-floor + spacing rhythm + chrome harmonization + persisted inspector width. See section below |
+| **P9c** Vercel cutover | ⬜ (queued — cutover prep + deploy doc) |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
@@ -126,8 +129,9 @@ best; it ties A on lifecycle cases and beats B everywhere grounding matters.
   CSV/multi-asset import flags only low-confidence cells, not all of them.
 
 **Data-model gaps the scenarios surfaced (independent of flow, queue separately):**
-- Cross-asset/P7 still needs **`computePortfolioMetrics()` + member weights/capital** before it's safe
-  (confirms the existing P7 warning — flow doesn't fix it; B makes it worse).
+- Cross-asset/P7 needed **`computePortfolioMetrics()` + member weights/capital** before it's safe →
+  ✅ **DONE 2026-06-02 (P7a)**: `lib/finance/portfolio.ts` + `PortfolioMember{analysisId,capital}` on
+  `PortfolioAnalysis`. The cross-asset chat (P7b) can now ground on it.
 - Figures need a **freshness/provenance** dimension (`dataAsOf` exists in `AssetMeta` but isn't
   enforced) so stale-vs-live conflicts surface instead of silently overriding (S11).
 
@@ -287,6 +291,135 @@ surfaced + fixed **two real bugs** (committed):
   **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
 Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
 
+### P9b — UI readability & density pass — ✅ BUILT 2026-06-08
+Pays down long-standing feedback that the workspace was **"too small / too dense, almost unusable"** — a
+presentation-only pass (no logic / AI / data-shape / copy changes), so it can't touch the engine math or the
+no-hallucination guarantees. Plan: `~/.claude/plans/silly-moseying-alpaca.md`. `tsc` clean · **120 Vitest
+pass** (unchanged — CSS-only) · `next build` green.
+
+- **Type-floor + spacing rhythm** (`app/src/app/globals.css`, `tp-*` block): new tunable vars on `.tp-root`
+  (`--tp-fs-label/-meta/-body/-head`, `--tp-pad`, `--tp-gap`) referenced across the inspector. Lifted the
+  cluster of sub-11px labels (`.tp-slot` 9.5→10, `.tp-vlbl`/`.tp-pos-stance`/`.tp-ground` 10→11.5,
+  `.tp-card-hint`/`.tp-lens-name`/`.tp-stance-basis`→11.5) to a readable floor and loosened the dense
+  containers (card padding, board/verdict/debate/points/lens/figs gaps, composition rows, allocation labels).
+- **Legacy sidebar + settings** (`app/src/app/workspace.css`): bumped the genuinely cramped 9–12px Library
+  items, search/filter, mini-badges, dates, Settings labels/notes, and the gear button to a comfortable size;
+  widened the sidebar 290→300.
+- **Chrome harmonization**: `cockpit-header` + `library-sidebar` moved off the hard 3px/2px brutalist borders
+  onto the soft 1px `--tp-line` + tp panel backgrounds so the chrome reads as one surface with the two-pane.
+- **Persisted inspector width** (`AnalysisView.tsx` / `PortfolioView.tsx` + new `lib/ui/inspectorWidth.ts`):
+  the dragged width now survives reloads (per-view localStorage key, SSR-safe fallback-first, clamped to
+  MIN/MAX); raised `MIN_W` (340→380 analysis, 360→400 portfolio) so the default opens comfortably.
+
+**Verification:** `tsc` clean · 120 unit tests green (CSS-only, count unchanged) · `next build` green.
+**Owed:** in-browser eyeball (`npm run dev`) across an analysis + a portfolio + Settings, and the mobile
+breakpoint, to confirm legibility — no functional risk.
+
+### P9a — Export / import (backup & restore) — ✅ BUILT 2026-06-08
+Closes the single biggest data-loss risk in a local-first app: the whole workspace lived **only** in this
+browser's IndexedDB with no copy and no restore path, and the old `exportAll()` stub silently **omitted the
+`blobs` table** (every attachment would be lost) and had no import counterpart. Now there is a real,
+faithful Save-to-file / Load-from-file in Settings that captures the *entire* workspace. Plan:
+`~/.claude/plans/silly-moseying-alpaca.md`. `tsc` clean · **120 Vitest pass** (+10) · `next build` green.
+
+- **A — pure backup core** `lib/repo/backup.ts` (env-agnostic, no Dexie/FileReader → unit-testable):
+  `BackupEnvelope` (`{ app:"jp-workspace"; version:1; exportedAt; analyses; portfolios; folders; blobs:
+  {id;mime;data/*base64*/}[] }`), `bytesToBase64`/`base64ToBytes` (chunked `btoa`/`atob` — browser+node, all
+  byte values), `buildEnvelope`/`serializeBackup`, and `parseBackup` (validates `app`/`version`, drops
+  malformed blob rows, **normalizes records on import** via `normalizeAnalysis`/`normalizePortfolio` so old
+  backups upgrade exactly like a read). `backup.test.ts` (10): base64 round-trip incl. 100k run + empty,
+  envelope shape, foreign-file / bad-version / non-JSON guards, legacy-record upgrade.
+- **B — DB wrappers** `lib/repo/index.ts`: `exportAll()` rewritten to read all **four** tables incl. blobs
+  (`new Uint8Array(await blob.arrayBuffer())` → base64 with mime); new `importAll(json, mode)` →
+  `parseBackup`, rebuild `Blob`s, single `rw` transaction (`replace` clears the 4 tables first; `merge`
+  `bulkPut`s by id), returns per-table `ImportCounts`.
+- **C — Settings UI** `components/Settings.tsx`: a **Backup & Restore** section — **⬇ Export workspace**
+  (downloads `jp-workspace-YYYY-MM-DD.json`, reports counts) and **⬆ Import workspace** (hidden file input;
+  `window.confirm` chooses **Replace all** vs **Merge**; inline ok/err message). New `onImported` prop wired
+  in `Workspace.tsx` re-runs `listAnalyses`+`listPortfolios` and clears the active selection. New
+  `.backup-row`/`.ghost-btn` CSS.
+- **Key decision:** API keys / provider settings are **deliberately excluded** from backups (secrets live in
+  localStorage, must never travel in a shared file). The user re-enters them.
+
+**Verification:** `tsc` clean · 120 unit tests green · `next build` green. **Owed:** in-browser manual
+round-trip (create analysis+portfolio+attachment → Export → Replace-all import in a fresh profile → confirm
+the attached PDF still opens; grep the JSON for absence of API keys).
+
+### P8 — Guardrails + eval harness — ✅ BUILT 2026-06-07
+Closes the gap where the no-numeric-hallucination promise was enforced only softly (prompt + schema +
+engine-derived stance) — nothing deterministically checked the numbers in the model's *free text*. Now a
+pure linter does, surfaced as a non-blocking flag, plus an eval suite that measures it. User decisions:
+**flag (don't block)**, **offline + optional live**, **lint structured + chat**. Plan:
+`~/.claude/plans/d-jp-invest-progress-md-check-whether-th-fluffy-stallman.md`. `tsc` clean · **110 Vitest
+pass** (+24) · `next build` + lint green.
+
+- **A — pure grounding linter** `lib/ai/grounding.ts`: `extractNumberTokens` (parses id-ID `.`/`,`, `Rp`,
+  `%`, `x`, `B`/`M`/`T`; **ambiguous separators → BOTH interpretations**, e.g. "4.940"→{4.94, 4940}),
+  `allowedValues` (each `metric.value` + numbers re-extracted from each `display` + extras),
+  `lintGrounding` (compares VALUES with ~2% tolerance; unit-bearing figures must trace, bare ints ≤100 /
+  years whitelisted), and gatherers `lintAnalysisGrounding` / `lintPortfolioGrounding` (allows each
+  holding's own figures) / `lintChatReply` + `portfolioChatExtras`. `grounding.test.ts` (13).
+- **B — UI flag (non-blocking, render-time, no persistence).** `AnalysisView` + `PortfolioView`: a
+  **GroundChip** in the debate-card header (`✓ Grounded` / `⚠ N unverified` with a tooltip of the flagged
+  tokens) and a per-assistant-message **ChatGroundFlag**. New `tp-ground*` CSS. No change to `finalize*`
+  or providers — the linter is read-only over produced data.
+- **C — eval harness.** `eval/fixtures.ts` (preset members, mixed portfolio, grounded vs
+  planted-violation debates). `eval/offline.test.ts` (in `npm test`, no key): finalize + lint **flag the
+  planted figure** and pass the clean fixture for all 3 verticals + portfolio; full lens set; engine-stance
+  match; a portfolio capital-split / conviction-mix **stance sweep**. Optional live scorecard
+  `eval/live.eval.ts` + `vitest.eval.config.ts` + `npm run eval` (gated by `GEMINI_API_KEY`): runs real
+  debates/chat and prints schema-valid % / stance-match % / grounding-clean %; **hard-gates schema +
+  engine-derived stance at 100%**, grounding-clean is measured (not gated — model slips AND parser
+  false-positives both lower it). Soft-skips green on a provider quota/network limit.
+
+**Verification:** offline suite green (110). `npm run eval` first run **passed** on Gemini (schema=100%,
+stance=100% gates held on real calls); repeat runs hit the **free-tier daily quota** (429) and now
+**soft-skip green** by design — re-run `npm run eval` once the quota resets to print the full scorecard.
+**Design note:** flag-only by intent; tune the parser against the live scorecard, never by tightening into
+the user's prose. OpenAI/Anthropic scorecards await their keys.
+
+### P7b — Composition UI + grounded cross-asset chat — ✅ BUILT + LIVE-VERIFIED 2026-06-07
+Portfolios are now first-class. User decisions (2026-06-07): **manual composition** (member picker + capital,
+persisted), **chat + portfolio debate** (not chat-only), **grounding = portfolio metrics + each member's locked
+figures**. Plan: `~/.claude/plans/d-jp-invest-progress-md-check-whether-th-fluffy-stallman.md`. Built on
+`feat/expert-analyst-personas`. `tsc` clean · **86 Vitest pass** (+15) · `next build` green · dev route 200.
+
+- **A — domain + persona + engine stance.** `PortfolioAnalysis` gained `persona`/`stance`/`debate`/`advisory`
+  (metrics stay computed-on-read); `createPortfolio` inits them, `normalizePortfolio` backfills on read (idempotent,
+  preserves the `.toBe` fast-path). New cross-vertical **Portfolio Strategist** in `personas.ts`: 4 slots
+  (Allocation/Concentration/Conviction/Risk), 4 lenses (Capital Allocation/Concentration/Conviction Mix/Risk
+  Manager), `STANCE_POLARITY` (the 9 member labels → ±/neutral), and a **pure `derivePortfolioStance`**
+  (empty→null; top >40%→CONCENTRATED; else ≥60% positive→CONSTRUCTIVE; ≥60% negative→DEFENSIVE; else BALANCED).
+  Tests `portfolioPersona.test.ts` (7).
+- **B — AI seam.** `prompts.ts`: `portfolioGroundingText` (5 portfolio figures **+ each holding's**
+  `summarizeMetrics` + weight/capital/stance), `portfolioChatContextPreamble`, `PORTFOLIO_CHAT_SYSTEM`,
+  `buildPortfolioAnalysisUserPrompt`. `analyze.ts`: `runPortfolioAnalysis` (single structured pass, **no web
+  research** — reuses `DEBATE_JSON_SCHEMA`) + pure **`finalizePortfolioDebate`** (validate+zip vs the persona
+  lens/slot sets, clamp thesisSupport, **override stance with `derivePortfolioStance`** — model authors only the
+  one-line basis). `AIProvider` seam gained `runPortfolioAnalysis` + `streamPortfolioChat`, implemented in all 3
+  providers (anthropic delegates; openai json_schema strict; gemini `toGeminiSchema`/SSE). Chat is **text-only**
+  (no per-holding file blocks in v1). Tests `portfolioGrounding.test.ts` (4) + `finalizePortfolio.test.ts` (4).
+- **C — routing + Library.** `Workspace` active is now a discriminated union (`analysis | portfolio | null`) with
+  `openPortfolio`/`newPortfolio`/`handlePortfolioChange` (debounced `savePortfolio`, separate timer); loads
+  `listPortfolios`. `Library` got a **Portfolios** section + **+ PORTFOLIO** button. Empty-state gained
+  "or compose a portfolio…".
+- **D/E — `PortfolioView.tsx`** (mirrors `AnalysisView`'s two-pane `tp-*` shell): left = cross-asset chat
+  (follow-up only, no intake); right inspector = stance banner → verdict strip (5 metrics) → **Composition card**
+  (per-holding capital input + remove + "Add holding" picker from `listAnalyses`, recomputes
+  `computePortfolioMetrics` live) → **Allocation** weight bars → **Strategist debate** → **Advisory** lenses.
+  ⚡ ANALYZE PORTFOLIO runs the debate; chat turns + edits persist via debounced `handlePortfolioChange`. New
+  `tp-pos-*`/`tp-alloc-*`/library section CSS in `globals.css`.
+
+**✅ LIVE SMOKE (Gemini, gemini-2.5-flash, 2026-06-07).** 3-vertical book (60/30/10 capital). `runPortfolioAnalysis`
+→ **model stance == `derivePortfolioStance` == CONCENTRATED** (engine-derived override holds), bull 4 / bear 4 /
+lenses 4, thesis MIXED. `streamPortfolioChat` ("which holding carries the most concentration risk?") answered
+**grounded on the locked weight** ("BBCA represents 60% of the total capital") — no invented numbers. Temp gated
+test deleted after. **OpenAI + Anthropic portfolio paths still live-unverified** (no keys). Key still owed a
+**rotation** (gitignored `app/.env.local`).
+
+**Deferred (out of P7b v1):** portfolio web-research pass, portfolio expert-review pass, chat attachments — each a
+straight mirror of the single-asset path when wanted.
+
 ### Chat-first analysis (Option C intake) — original plan record (PLAN APPROVED 2026-06-02)
 User decisions: **full auto intake** (paste a deal → detect vertical + extract figures → confirm card → confirm
 locks via engine AND auto-runs the persona debate), **written report in chat**, **match the proto fully** (soften
@@ -356,10 +489,11 @@ inferred before `computeMetrics`; stance stays engine-derived.
      review"** above. Next: honesty pass for startups/conventional → port the prototype into the real
      `AnalysisView.tsx`. See memory `feedback-ui-too-cramped` and `flow-direction-decision`.
 
-   Also, if/when P7 proceeds: the earlier eval flagged a thesis-level gap — P7 as planned has **no
-   deterministic portfolio-level math** and `PortfolioAnalysis` has **no weights/capital**, so cross-asset
-   answers would force the AI to do arithmetic (violates the no-numeric-hallucination principle). Fix =
-   add member positions + a `computePortfolioMetrics()` before the cross-asset chat.
+   P7 thesis-gap (eval-flagged): cross-asset answers would force the AI to do arithmetic (no portfolio
+   math, no weights/capital). **RESOLVED 2026-06-02 (P7a):** added `PortfolioMember{analysisId,capital}`
+   + pure `computePortfolioMetrics()` (`lib/finance/portfolio.ts`) + `normalizePortfolio` back-compat;
+   71 Vitest pass. **P7b** (Composition UI + grounded cross-asset chat) is the next slice, now unblocked.
+   Plan for P7a: `~/.claude/plans/reactive-tinkering-truffle.md`.
 
    OpenAI/Gemini web search needs `TAVILY_API_KEY` in `app/.env.local` (see `.env.local.example`).
 4. **Git:** P4→P6.5 + Gemini fixes + blank-entry flow are on `main` (local). The **redesign prototype +

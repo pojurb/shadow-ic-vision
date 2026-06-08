@@ -12,7 +12,17 @@
  * Streaming via :streamGenerateContent?alt=sse.
  * Function calling uses functionDeclarations / functionCall / functionResponse parts.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities, ModelOption } from "../types";
+import type {
+  AIProvider,
+  AnalysisRequest,
+  AnalysisResult,
+  ChatRequest,
+  IntakeRequest,
+  Capabilities,
+  ModelOption,
+  PortfolioAnalysisRequest,
+  PortfolioChatRequest,
+} from "../types";
 import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
 import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
 import {
@@ -26,8 +36,12 @@ import {
   buildReviewUserPrompt,
   buildIntakeUserPrompt,
   chatContextPreamble,
+  buildPortfolioAnalysisUserPrompt,
+  PORTFOLIO_CHAT_SYSTEM,
+  portfolioChatContextPreamble,
 } from "../prompts";
-import { needsResearch, finalizeDebate, finalizeIntake } from "../analyze";
+import { needsResearch, finalizeDebate, finalizeIntake, finalizePortfolioDebate } from "../analyze";
+import { portfolioPersona } from "../personas";
 import { blobToBase64 } from "../content";
 import { getBlob } from "@/lib/repo";
 import type { Analysis, ContextSource, ChatMessage } from "@/lib/domain/types";
@@ -428,6 +442,107 @@ async function streamGeminiChat(req: ChatRequest): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Portfolio — structured cross-asset debate + grounded chat
+// ---------------------------------------------------------------------------
+
+async function runGeminiPortfolioAnalysis(req: PortfolioAnalysisRequest): Promise<AnalysisResult> {
+  const { apiKey, model, portfolio, metrics, byId } = req;
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: portfolioPersona().systemPrompt }] },
+      contents: [
+        { role: "user", parts: [{ text: buildPortfolioAnalysisUserPrompt(portfolio, metrics, byId) }] },
+      ],
+      generationConfig: {
+        maxOutputTokens: 8000,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(DEBATE_JSON_SCHEMA),
+      },
+    }),
+  });
+
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("Model returned an empty response.");
+  let raw: DebateOutput;
+  try {
+    raw = JSON.parse(text) as DebateOutput;
+  } catch {
+    throw new Error("Model did not return valid structured output.");
+  }
+  return finalizePortfolioDebate(metrics, raw);
+}
+
+async function streamGeminiPortfolioChat(req: PortfolioChatRequest): Promise<string> {
+  const { apiKey, model, portfolio, metrics, byId, userText, onDelta } = req;
+  const preamble = portfolioChatContextPreamble(portfolio, metrics, byId);
+  const history: GeminiMessage[] = portfolio.chat.map((m: ChatMessage) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const contents: GeminiMessage[] = [
+    { role: "user", parts: [{ text: preamble }] },
+    {
+      role: "model",
+      parts: [
+        {
+          text: "Understood — I have the portfolio's locked figures and each holding's figures in mind. Ask away.",
+        },
+      ],
+    },
+    ...history,
+    { role: "user", parts: [{ text: userText }] },
+  ];
+
+  const res = await fetch(geminiUrl(model, "streamGenerateContent", apiKey) + "&alt=sse", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: PORTFOLIO_CHAT_SYSTEM }] },
+      contents,
+      generationConfig: { maxOutputTokens: 4000 },
+    }),
+  });
+
+  if (!res.ok || !res.body) throw new Error(await geminiErrorMessage(res));
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+      const payload = trimmed.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const evt = JSON.parse(payload);
+        const chunk: string = evt?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        if (chunk) {
+          full += chunk;
+          onDelta(chunk);
+        }
+      } catch {
+        /* ignore keep-alive / partial lines */
+      }
+    }
+  }
+
+  return full;
+}
+
+// ---------------------------------------------------------------------------
 // Provider export
 // ---------------------------------------------------------------------------
 
@@ -458,5 +573,13 @@ export const geminiProvider: AIProvider = {
 
   streamChat(req: ChatRequest): Promise<string> {
     return streamGeminiChat(req);
+  },
+
+  runPortfolioAnalysis(req: PortfolioAnalysisRequest): Promise<AnalysisResult> {
+    return runGeminiPortfolioAnalysis(req);
+  },
+
+  streamPortfolioChat(req: PortfolioChatRequest): Promise<string> {
+    return streamGeminiPortfolioChat(req);
   },
 };

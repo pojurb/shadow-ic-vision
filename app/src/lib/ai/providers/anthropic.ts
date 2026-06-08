@@ -3,11 +3,20 @@
  * logic (client/analyze/chat) behind the provider interface and owns the
  * research→debate orchestration. Claude supports every capability natively.
  */
-import type { AIProvider, AnalysisRequest, AnalysisResult, ChatRequest, IntakeRequest, Capabilities } from "../types";
+import type {
+  AIProvider,
+  AnalysisRequest,
+  AnalysisResult,
+  ChatRequest,
+  IntakeRequest,
+  Capabilities,
+  PortfolioAnalysisRequest,
+  PortfolioChatRequest,
+} from "../types";
 import type { ExpertReview, IntakeResult } from "../schemas";
 import { MODELS } from "../client";
-import { runAnalysis, runResearch, runExpertReview, runIntake, needsResearch } from "../analyze";
-import { streamChat } from "../chat";
+import { runAnalysis, runResearch, runExpertReview, runIntake, needsResearch, runPortfolioAnalysis } from "../analyze";
+import { streamChat, streamPortfolioChat } from "../chat";
 
 const NATIVE: Capabilities = {
   vision: true,
@@ -44,5 +53,13 @@ export const anthropicProvider: AIProvider = {
 
   streamChat({ apiKey, model, analysis, userText, onDelta }: ChatRequest): Promise<string> {
     return streamChat({ apiKey, model, analysis, userText, onDelta });
+  },
+
+  runPortfolioAnalysis({ apiKey, model, portfolio, metrics, byId }: PortfolioAnalysisRequest): Promise<AnalysisResult> {
+    return runPortfolioAnalysis(apiKey, model, portfolio, metrics, byId);
+  },
+
+  streamPortfolioChat({ apiKey, model, portfolio, metrics, byId, userText, onDelta }: PortfolioChatRequest): Promise<string> {
+    return streamPortfolioChat({ apiKey, model, portfolio, metrics, byId, userText, onDelta });
   },
 };

@@ -1,22 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PROVIDER_LIST, getProvider } from "@/lib/ai/registry";
 import type { ProviderId } from "@/lib/ai/types";
 import { storage, type Settings } from "@/lib/storage";
+import { exportAll, importAll, type ImportCounts } from "@/lib/repo";
 
 export default function SettingsModal({
   initial,
   onSave,
   onClose,
+  onImported,
 }: {
   initial: Settings;
   onSave: (s: Settings) => void;
   onClose: () => void;
+  onImported?: () => void;
 }) {
   const [provider, setProvider] = useState<ProviderId>(initial.provider);
   const [apiKeys, setApiKeys] = useState<Settings["apiKeys"]>({ ...initial.apiKeys });
   const [model, setModel] = useState(initial.model);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<"export" | "import" | null>(null);
+  const [backupMsg, setBackupMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  async function doExport() {
+    setBusy("export");
+    setBackupMsg(null);
+    try {
+      const json = await exportAll();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `jp-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      const parsed = JSON.parse(json) as { analyses: unknown[]; portfolios: unknown[]; blobs: unknown[] };
+      setBackupMsg({
+        kind: "ok",
+        text: `Saved ${parsed.analyses.length} analyses, ${parsed.portfolios.length} portfolios, ${parsed.blobs.length} attachments.`,
+      });
+    } catch (e) {
+      setBackupMsg({ kind: "err", text: e instanceof Error ? e.message : "Export failed." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function pickImport() {
+    setBackupMsg(null);
+    fileRef.current?.click();
+  }
+
+  async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    const replace = window.confirm(
+      "Replace ALL current workspace data with this backup?\n\n" +
+        "OK = Replace all (wipes existing analyses, portfolios, folders & attachments first).\n" +
+        "Cancel = Merge (adds/updates from the backup, keeps everything else).",
+    );
+    const mode: "merge" | "replace" = replace ? "replace" : "merge";
+    setBusy("import");
+    try {
+      const text = await file.text();
+      const counts: ImportCounts = await importAll(text, mode);
+      setBackupMsg({
+        kind: "ok",
+        text: `${mode === "replace" ? "Replaced" : "Merged"} — ${counts.analyses} analyses, ${counts.portfolios} portfolios, ${counts.folders} folders, ${counts.blobs} attachments.`,
+      });
+      onImported?.();
+    } catch (err) {
+      setBackupMsg({ kind: "err", text: err instanceof Error ? err.message : "Import failed." });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const currentProvider = getProvider(provider);
   const models = currentProvider.models;
@@ -101,6 +165,37 @@ export default function SettingsModal({
             </select>
             <p className="settings-note">You pay for API usage with your own key. Cheaper models cost less per analysis.</p>
           </div>
+
+          <div className="settings-field">
+            <label>Backup &amp; Restore</label>
+            <p className="settings-note">
+              Your workspace lives only in this browser. Export a backup file to keep a copy or move to
+              another machine. Backups include analyses, portfolios, folders &amp; attachments —{" "}
+              <strong>but never your API keys</strong>.
+            </p>
+            <div className="backup-row">
+              <button className="ghost-btn" onClick={doExport} disabled={busy !== null}>
+                {busy === "export" ? "Exporting…" : "⬇ Export workspace"}
+              </button>
+              <button className="ghost-btn" onClick={pickImport} disabled={busy !== null}>
+                {busy === "import" ? "Importing…" : "⬆ Import workspace"}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={onFilePicked}
+              />
+            </div>
+            {backupMsg && (
+              <p className="settings-note" style={{ marginTop: 6, color: backupMsg.kind === "err" ? "var(--danger, #c0392b)" : undefined }}>
+                {backupMsg.kind === "err" ? "⚠ " : "✓ "}
+                {backupMsg.text}
+              </p>
+            )}
+          </div>
+
           <button className="commit-btn" onClick={save}>SAVE</button>
         </div>
       </div>

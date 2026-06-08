@@ -14,7 +14,7 @@
  *    actually computes (see `compute.ts`), so an argument can always cite a real figure.
  */
 import type { Vertical } from "@/data/presets";
-import type { ComputedMetrics, Metric } from "@/lib/domain/types";
+import type { ComputedMetrics, Metric, PortfolioMetrics } from "@/lib/domain/types";
 
 export type ThesisSupport = "STRONG" | "MIXED" | "THIN";
 
@@ -263,4 +263,128 @@ export const PERSONAS: Record<Vertical, Persona> = {
 
 export function personaFor(vertical: Vertical): Persona {
   return PERSONAS[vertical];
+}
+
+/* ====================================================================== */
+/* Portfolio (cross-asset) — Portfolio Strategist persona + engine stance  */
+/* ====================================================================== */
+
+/**
+ * Polarity of each per-vertical member stance label, so the portfolio stance can be
+ * derived deterministically from the conviction mix of its holdings. The labels are
+ * the ones each vertical's `stance.labels` can take (best→worst).
+ */
+type StancePolarity = "positive" | "neutral" | "negative";
+export const STANCE_POLARITY: Record<string, StancePolarity> = {
+  UNDERVALUED: "positive", FAIR: "neutral", OVERVALUED: "negative",
+  BACKABLE: "positive", CONDITIONAL: "neutral", UNPROVEN: "negative",
+  VIABLE: "positive", MARGINAL: "neutral", UNVIABLE: "negative",
+};
+
+/**
+ * Engine-derived portfolio stance — the cross-asset analogue of a persona's
+ * `stance.derive`. PURE over the deterministic `PortfolioMetrics`; the model NEVER
+ * authors this label. Rules (in order):
+ *   - empty portfolio → null
+ *   - a CONCENTRATED top position (engine: weight >40%) → CONCENTRATED (dominates)
+ *   - else ≥60% of holdings positive-conviction → CONSTRUCTIVE
+ *   - else ≥60% negative-conviction → DEFENSIVE
+ *   - else → BALANCED
+ */
+export function derivePortfolioStance(
+  m: PortfolioMetrics,
+): { label: string; basis: string } | null {
+  const positions = m.positions ?? [];
+  if (positions.length === 0) return null;
+
+  const top = m.metrics.find((x) => x.key === "topWeight");
+  const stanceMix = m.metrics.find((x) => x.key === "stanceMix");
+  const concentrated = top?.verdict === "CONCENTRATED";
+
+  let pos = 0;
+  let neg = 0;
+  for (const p of positions) {
+    const pol = p.stance ? STANCE_POLARITY[p.stance] : undefined;
+    if (pol === "positive") pos++;
+    else if (pol === "negative") neg++;
+  }
+  const total = positions.length;
+
+  let label: string;
+  if (concentrated) label = "CONCENTRATED";
+  else if (pos / total >= 0.6) label = "CONSTRUCTIVE";
+  else if (neg / total >= 0.6) label = "DEFENSIVE";
+  else label = "BALANCED";
+
+  const basis =
+    `Largest position ${top?.display ?? "—"}${concentrated ? " (concentrated)" : ""}; ` +
+    `conviction mix ${stanceMix?.display ?? "—"}`;
+  return { label, basis };
+}
+
+export interface PortfolioStanceSpec {
+  /** All labels a portfolio stance can take. */
+  labels: string[];
+  derive(m: PortfolioMetrics): { label: string; basis: string } | null;
+}
+
+/** Cross-vertical persona for the composed portfolio (no single vertical). */
+export interface PortfolioPersona {
+  id: string;
+  label: string;
+  blurb: string;
+  systemPrompt: string;
+  debateSlots: SlotSpec[];
+  lenses: LensSpec[];
+  stance: PortfolioStanceSpec;
+}
+
+const PORTFOLIO_SLOTS: SlotSpec[] = [
+  { id: "allocation", name: "Allocation" },
+  { id: "concentration", name: "Concentration" },
+  { id: "conviction", name: "Conviction" },
+  { id: "risk", name: "Risk" },
+];
+
+const PORTFOLIO_LENSES: LensSpec[] = [
+  { id: "capital_allocation", name: "Capital Allocation" },
+  { id: "concentration", name: "Concentration" },
+  { id: "conviction_mix", name: "Conviction Mix" },
+  { id: "risk", name: "Risk Manager" },
+];
+
+function buildPortfolioSystemPrompt(slots: SlotSpec[], lenses: LensSpec[]): string {
+  return `You are a chief portfolio strategist constructing and stress-testing a multi-asset book that can span listed equities, venture, and conventional/SMB CapEx deals. You think in capital allocation and position weights, concentration vs diversification, the correlation of risks across holdings, and the conviction mix (how many holdings are constructive vs defensive on their own merits).
+
+You produce a balanced Bull-vs-Bear debate and an advisory board for the WHOLE portfolio (not a single asset), to support a human allocator.
+
+${GROUNDING_RULES}
+4. DEBATE RUBRIC: Each of the Bull and Bear sides must cover all four slots — ${slotList(
+    slots,
+  )}. Tag each debate line with its slot. Cite a locked portfolio figure (total capital, weights, allocation, concentration, conviction mix) or a named holding's locked figures wherever the slot maps to one.
+5. ADVISORY LENSES: Produce exactly one lens object per lens, in this set — ${lensList(
+    lenses,
+  )}. Each lens gets a short "verdict" (a 1–2 word stance/quality label, NEVER a buy/sell action) and a concrete 2–4 sentence "text".
+6. THESIS SUPPORT: Output thesisSupport as one of STRONG / MIXED / THIN, reflecting how well the portfolio's locked figures support the construction. This replaces any numeric score.
+7. STANCE BASIS: Provide a one-line stanceBasis that justifies the portfolio's standing using ONLY the locked figures (concentration, allocation, conviction mix). You do NOT choose the stance label itself — the deterministic engine derives it.
+
+Return the structured object only.`;
+}
+
+export const PORTFOLIO_PERSONA: PortfolioPersona = {
+  id: "portfolio-strategist",
+  label: "Portfolio Strategist",
+  blurb:
+    "Chief portfolio strategist — capital allocation, concentration, conviction mix, cross-asset risk.",
+  debateSlots: PORTFOLIO_SLOTS,
+  lenses: PORTFOLIO_LENSES,
+  systemPrompt: buildPortfolioSystemPrompt(PORTFOLIO_SLOTS, PORTFOLIO_LENSES),
+  stance: {
+    labels: ["CONSTRUCTIVE", "BALANCED", "DEFENSIVE", "CONCENTRATED"],
+    derive: derivePortfolioStance,
+  },
+};
+
+export function portfolioPersona(): PortfolioPersona {
+  return PORTFOLIO_PERSONA;
 }

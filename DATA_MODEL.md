@@ -58,14 +58,24 @@ interface Analysis {
 }
 
 // Composition: combine A + B (the IDE "@-mention files" pattern).
+interface PortfolioMember { analysisId: string; capital: number; }  // capital drives weights
 interface PortfolioAnalysis {
   id: string; title: string;
-  memberIds: string[];           // analyses included as grounded context
+  members: PortfolioMember[];    // member analyses + explicit per-position capital
   tags: string[]; folderId: string | null;
   chat: ChatMessage[]; allowWebSearch: boolean;
   createdAt: number; updatedAt: number;
 }
 ```
+
+**Portfolio-level numbers are deterministic too.** `computePortfolioMetrics(members, byId)`
+(`lib/finance/portfolio.ts`, pure) aggregates members into a `PortfolioMetrics` = `{ totalCapital,
+positions[], metrics: Metric[] }` — same serializable `Metric[]` "locked figures" shape as a single
+analysis's `ComputedMetrics`. Locked figures: total capital, per-position weights (capital / total),
+allocation by vertical, largest-position concentration, stance mix. This is what lets a cross-asset
+answer cite real arithmetic instead of the LLM doing math (the no-numeric-hallucination rule at the
+portfolio level). `members` is derived-on-read back-compat: legacy `memberIds[]` → `members` with
+capital 0 (`normalizePortfolio`, mirrors `normalizeAnalysis`).
 
 ## Dexie tables
 

@@ -7,3 +7,4 @@ export * from "./format";
 export * from "./equities";
 export * from "./ventures";
 export * from "./operating";
+export * from "./portfolio";

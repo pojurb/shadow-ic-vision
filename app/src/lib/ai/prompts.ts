@@ -4,9 +4,11 @@
  * data, not instructions. Per-vertical debate slots and lens ids are enumerated in
  * the user prompt, then enforced by a validate+zip step in `analyze.ts`.
  */
-import type { Analysis } from "@/lib/domain/types";
+import type { Analysis, PortfolioAnalysis, PortfolioMetrics } from "@/lib/domain/types";
 import type { Vertical } from "@/data/presets";
-import { personaFor } from "./personas";
+import { personaFor, portfolioPersona } from "./personas";
+import { summarizeMetrics } from "@/lib/finance/compute";
+import { formatIDR } from "@/lib/finance/format";
 import { FIELDS, type Field } from "@/data/fields";
 
 /** System prompt for the structured analysis pass — the vertical's expert persona. */
@@ -188,6 +190,95 @@ export function debateContext(a: Analysis): string {
 
 export function chatContextPreamble(a: Analysis): string {
   return [groundingText(a), attachedContextText(a), debateContext(a)]
+    .filter((s) => s !== "")
+    .join("\n\n");
+}
+
+/* ============================================================= portfolio */
+
+export const PORTFOLIO_CHAT_SYSTEM = `You are an institutional portfolio strategist answering follow-up questions about a MULTI-ASSET portfolio that has already been composed and analyzed. Use ONLY the locked figures provided — both the portfolio-level figures AND each holding's own locked figures — plus the prior debate. Never invent, estimate, or recompute a number; when you compare holdings, compare the figures already given. Be concise and direct, use markdown, and reason like a sharp cross-asset allocator. You may stress-test or challenge the construction. You are an analyst, not a decision-maker — never tell the human to buy or sell.`;
+
+/**
+ * Portfolio "locked facts" for the prompt: the deterministic portfolio metrics PLUS
+ * each holding's own engine figures (so cross-asset questions — "which holding has the
+ * best margin of safety?" — can be answered without the model recomputing anything).
+ * Every value here comes from the engine (`computePortfolioMetrics` + each member's
+ * `computeMetrics`); the model may not alter any of it.
+ */
+export function portfolioGroundingText(
+  portfolio: PortfolioAnalysis,
+  metrics: PortfolioMetrics,
+  byId: Map<string, Analysis>,
+): string {
+  const figures = metrics.metrics
+    .map((m) => `- ${m.label}: ${m.display}${m.verdict ? ` (${m.verdict})` : ""}`)
+    .join("\n");
+
+  const holdings = metrics.positions.map((p, i) => {
+    const member = byId.get(p.analysisId);
+    const figs = member ? summarizeMetrics(member.metrics) : "(member analysis unavailable)";
+    return [
+      `${i + 1}. ${p.name} (${p.vertical}) — weight ${Math.round(p.weight * 100)}%, capital ${formatIDR(
+        p.capital,
+      )}, stance ${p.stance ?? "—"}`,
+      `   Locked figures: ${figs}`,
+    ].join("\n");
+  });
+
+  return [
+    `Portfolio: ${portfolio.title} — ${metrics.positions.length} holdings`,
+    ``,
+    `Portfolio locked figures (deterministic engine output — do not alter):`,
+    figures,
+    ``,
+    `Holdings (each with its own locked figures — also deterministic, do not alter):`,
+    holdings.length ? holdings.join("\n") : "- (no holdings yet)",
+  ].join("\n");
+}
+
+/** Text rendering of a completed portfolio debate, to seed the cross-asset chat. */
+export function portfolioDebateContext(p: PortfolioAnalysis): string {
+  if (!p.debate) return "";
+  const lines = (arr: { agent: string; text: string; slot?: string }[]) =>
+    arr.map((x) => `  - [${x.agent}${x.slot ? `, ${x.slot}` : ""}] ${x.text}`).join("\n");
+  const parts = [
+    `Prior portfolio debate (thesis support: ${p.debate.thesisSupport}):`,
+    `Bull:\n${lines(p.debate.bull)}`,
+    `Bear:\n${lines(p.debate.bear)}`,
+  ];
+  if (p.advisory && p.advisory.length) {
+    parts.push(`Advisory lenses:`, ...p.advisory.map((l) => `  - ${l.name} [${l.verdict}]: ${l.text}`));
+  }
+  if (p.stance) parts.push(`Engine stance: ${p.stance.label} — ${p.stance.basis}`);
+  return parts.join("\n");
+}
+
+export function portfolioChatContextPreamble(
+  portfolio: PortfolioAnalysis,
+  metrics: PortfolioMetrics,
+  byId: Map<string, Analysis>,
+): string {
+  return [portfolioGroundingText(portfolio, metrics, byId), portfolioDebateContext(portfolio)]
+    .filter((s) => s !== "")
+    .join("\n\n");
+}
+
+/** Portfolio structured-debate user turn (mirrors `buildAnalysisUserPrompt`). */
+export function buildPortfolioAnalysisUserPrompt(
+  portfolio: PortfolioAnalysis,
+  metrics: PortfolioMetrics,
+  byId: Map<string, Analysis>,
+): string {
+  const persona = portfolioPersona();
+  const slots = persona.debateSlots.map((s) => `${s.name} (slot id "${s.id}")`).join(", ");
+  const lenses = persona.lenses.map((l) => `${l.name} (id "${l.id}")`).join("; ");
+  return [
+    portfolioGroundingText(portfolio, metrics, byId),
+    `Produce the analysis as ${persona.label}, grounded strictly in the locked figures above (portfolio-level and per-holding).`,
+    `Debate: for EACH side (bull and bear), give one line per slot — ${slots} — tagging each line with its slot id. Cite a locked figure wherever the slot maps to one.`,
+    `Advisory: exactly one lens object per lens — ${lenses} — each with a short verdict word (a stance/quality label, never a buy/sell action) and 2-4 grounded sentences.`,
+    `Also output thesisSupport (STRONG / MIXED / THIN) and a one-line stanceBasis justified ONLY by the locked portfolio figures.`,
+  ]
     .filter((s) => s !== "")
     .join("\n\n");
 }

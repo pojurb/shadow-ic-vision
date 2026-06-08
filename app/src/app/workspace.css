@@ -11,12 +11,12 @@
 
 /* ---- Library sidebar ---- */
 .library-sidebar {
-  width: 290px;
+  width: 300px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
-  border-right: 2px solid var(--border-color);
+  border-right: 1px solid var(--tp-line, #2a2e37);
 }
 
 .new-btn {
@@ -25,8 +25,8 @@
   border: none;
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 11.5px;
+  padding: 5px 11px;
   cursor: pointer;
 }
 
@@ -41,8 +41,8 @@
   border: 1px solid var(--border-color);
   color: #e2e8f0;
   font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 6px 8px;
+  font-size: 13px;
+  padding: 7px 9px;
   margin-bottom: 6px;
 }
 
@@ -55,11 +55,11 @@
   flex: 1;
   background: #0f1013;
   border: 1px solid var(--border-color);
-  color: #64748b;
+  color: #8b94a3;
   font-family: var(--font-heading);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px;
+  padding: 5px;
   cursor: pointer;
 }
 .filter-btn.active {
@@ -75,14 +75,19 @@
 
 .library-empty,
 .library-item-meta {
-  font-size: 10px;
-  color: #475569;
+  font-size: 11.5px;
+  color: #6b7687;
+}
+
+.library-empty {
+  padding: 8px 4px;
+  line-height: 1.5;
 }
 
 .library-item {
   border: 1px solid var(--border-color);
   background: var(--bg-panel);
-  padding: 8px;
+  padding: 10px;
   margin-bottom: 6px;
   cursor: pointer;
 }
@@ -99,16 +104,16 @@
   gap: 6px;
 }
 .library-vtag {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--cyan-active);
   border: 1px solid var(--cyan-active);
-  padding: 0 3px;
+  padding: 1px 4px;
   flex-shrink: 0;
 }
 .library-item-title {
   flex: 1;
-  font-size: 12px;
+  font-size: 13.5px;
   color: #e2e8f0;
   font-weight: 600;
   overflow: hidden;
@@ -118,9 +123,9 @@
 .library-del {
   background: none;
   border: none;
-  color: #475569;
+  color: #6b7687;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
 }
 .library-del:hover {
   color: var(--bear-red);
@@ -133,21 +138,21 @@
   margin-top: 4px;
 }
 .mini-badge {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 0 4px;
+  padding: 1px 5px;
   border: 1px solid currentColor;
 }
 .mini-badge.draft {
-  color: #64748b;
+  color: #8b94a3;
 }
 .library-date {
-  color: #475569;
+  color: #6b7687;
 }
 .library-tags {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--yellow-caution);
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 /* ---- Main column ---- */
@@ -379,17 +384,17 @@
 .settings-field label {
   display: block;
   font-family: var(--font-heading);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #cbd5e1;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
   text-transform: uppercase;
 }
 .settings-note {
-  font-size: 11px;
+  font-size: 12.5px;
   color: #94a3b8;
   margin-top: 6px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .settings-note a {
   color: var(--cyan-active);
@@ -405,10 +410,10 @@
   background: #0f1013;
   border: 1px solid var(--border-color);
   color: #cbd5e1;
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-heading);
   font-weight: 600;
-  padding: 5px 10px;
+  padding: 6px 11px;
   cursor: pointer;
 }
 .gear-btn:hover {
