@@ -5,6 +5,14 @@
  */
 import { getDB } from "./db";
 import { personaFor } from "@/lib/ai/personas";
+import {
+  bytesToBase64,
+  base64ToBytes,
+  buildEnvelope,
+  serializeBackup,
+  parseBackup,
+  type BackupBlob,
+} from "./backup";
 import type {
   Analysis,
   AnalysisStatus,
@@ -257,14 +265,67 @@ export function createPortfolio(title: string, members: PortfolioMember[] = []):
 
 // ---- Maintenance ----
 
+export interface ImportCounts {
+  analyses: number;
+  portfolios: number;
+  folders: number;
+  blobs: number;
+}
+
+/**
+ * Serialize the ENTIRE workspace (incl. attachment bytes) to a versioned JSON
+ * backup string. Blobs are read as raw bytes and carried as base64 with their
+ * mime type. API keys / settings are intentionally excluded (secrets).
+ */
 export async function exportAll(): Promise<string> {
   const db = getDB();
-  const [analyses, portfolios, folders] = await Promise.all([
+  const [analyses, portfolios, folders, blobRecords] = await Promise.all([
     db.analyses.toArray(),
     db.portfolios.toArray(),
     db.folders.toArray(),
+    db.blobs.toArray(),
   ]);
-  return JSON.stringify({ version: 1, analyses, portfolios, folders }, null, 2);
+  const blobs: BackupBlob[] = await Promise.all(
+    blobRecords.map(async (rec) => ({
+      id: rec.id,
+      mime: rec.blob.type || "application/octet-stream",
+      data: bytesToBase64(new Uint8Array(await rec.blob.arrayBuffer())),
+    })),
+  );
+  return serializeBackup(buildEnvelope({ analyses, portfolios, folders, blobs }));
+}
+
+/**
+ * Restore a backup. `merge` (default) overwrites by id and keeps everything else;
+ * `replace` wipes the four tables first (destructive). Blobs are rebuilt from
+ * base64. Returns per-table counts written, for UI feedback.
+ */
+export async function importAll(json: string, mode: "merge" | "replace" = "merge"): Promise<ImportCounts> {
+  const env = parseBackup(json);
+  const db = getDB();
+  const blobRecords = env.blobs.map((b) => ({
+    id: b.id,
+    blob: new Blob([base64ToBytes(b.data) as BlobPart], { type: b.mime }),
+  }));
+
+  await db.transaction("rw", db.analyses, db.portfolios, db.folders, db.blobs, async () => {
+    if (mode === "replace") {
+      await Promise.all([db.analyses.clear(), db.portfolios.clear(), db.folders.clear(), db.blobs.clear()]);
+    }
+    await Promise.all([
+      db.analyses.bulkPut(env.analyses),
+      db.portfolios.bulkPut(env.portfolios),
+      db.folders.bulkPut(env.folders),
+      db.blobs.bulkPut(blobRecords),
+    ]);
+  });
+
+  return {
+    analyses: env.analyses.length,
+    portfolios: env.portfolios.length,
+    folders: env.folders.length,
+    blobs: blobRecords.length,
+  };
 }
 
 export async function setStatus(id: string, status: AnalysisStatus): Promise<void> {

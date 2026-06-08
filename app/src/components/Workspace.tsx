@@ -251,7 +251,15 @@ export default function Workspace() {
         />
       )}
       {showSettings && (
-        <SettingsModal initial={settings} onSave={setSettings} onClose={() => setShowSettings(false)} />
+        <SettingsModal
+          initial={settings}
+          onSave={setSettings}
+          onClose={() => setShowSettings(false)}
+          onImported={async () => {
+            await Promise.all([refresh(), refreshPortfolios()]);
+            setActive(null);
+          }}
+        />
       )}
     </div>
   );

@@ -920,6 +920,36 @@ body.industrial-theme {
     border-color: var(--yellow-caution);
 }
 
+/* Backup & Restore row (Settings) */
+.backup-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.ghost-btn {
+    flex: 1;
+    background: transparent;
+    border: 2px solid var(--border-color);
+    color: #e2e8f0;
+    padding: 8px;
+    cursor: pointer;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.85rem;
+    transition: all 0.1s;
+}
+
+.ghost-btn:hover:not(:disabled) {
+    background: var(--bg-panel);
+    border-color: var(--yellow-caution);
+}
+
+.ghost-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Recent Committed Entries */
 .decision-history {
     display: flex;

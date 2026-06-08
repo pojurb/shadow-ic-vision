@@ -37,7 +37,8 @@
 | **P7a** Portfolio math unblocker (members+capital + `computePortfolioMetrics`) | ✅ 2026-06-02 · `tsc` clean · **71 Vitest pass** (+10) · lint/build green. Pure engine+types+repo, no UI/AI |
 | **P7b** Composition UI + grounded cross-asset chat | ✅ 2026-06-07 · `tsc` clean · **86 Vitest pass** (+15) · `next build` green · **live-verified on Gemini** (engine stance == derive; grounded chat). See section below |
 | **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
-| **P9** Polish, export/import, Vercel cutover | ⬜ |
+| **P9a** Export / import (backup & restore) | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** (+10) · `next build` green · pure backup core + DB wrappers + Settings UI. See section below |
+| **P9b** Polish + Vercel cutover | ⬜ (queued — broad UI polish, Vercel cutover prep + doc) |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
@@ -288,6 +289,36 @@ surfaced + fixed **two real bugs** (committed):
 - **Sticky scoping:** the model labelled a fully-specified stock `mode:"scoping"`. Fix: `finalizeIntake` now
   **derives** mode from field count (≥1 kept field ⇒ figures), ignoring the model's flaky label. Test added.
 Key was BYOK in a gitignored `app/.env.local` (still must be **rotated** — it was pasted in chat).
+
+### P9a — Export / import (backup & restore) — ✅ BUILT 2026-06-08
+Closes the single biggest data-loss risk in a local-first app: the whole workspace lived **only** in this
+browser's IndexedDB with no copy and no restore path, and the old `exportAll()` stub silently **omitted the
+`blobs` table** (every attachment would be lost) and had no import counterpart. Now there is a real,
+faithful Save-to-file / Load-from-file in Settings that captures the *entire* workspace. Plan:
+`~/.claude/plans/silly-moseying-alpaca.md`. `tsc` clean · **120 Vitest pass** (+10) · `next build` green.
+
+- **A — pure backup core** `lib/repo/backup.ts` (env-agnostic, no Dexie/FileReader → unit-testable):
+  `BackupEnvelope` (`{ app:"jp-workspace"; version:1; exportedAt; analyses; portfolios; folders; blobs:
+  {id;mime;data/*base64*/}[] }`), `bytesToBase64`/`base64ToBytes` (chunked `btoa`/`atob` — browser+node, all
+  byte values), `buildEnvelope`/`serializeBackup`, and `parseBackup` (validates `app`/`version`, drops
+  malformed blob rows, **normalizes records on import** via `normalizeAnalysis`/`normalizePortfolio` so old
+  backups upgrade exactly like a read). `backup.test.ts` (10): base64 round-trip incl. 100k run + empty,
+  envelope shape, foreign-file / bad-version / non-JSON guards, legacy-record upgrade.
+- **B — DB wrappers** `lib/repo/index.ts`: `exportAll()` rewritten to read all **four** tables incl. blobs
+  (`new Uint8Array(await blob.arrayBuffer())` → base64 with mime); new `importAll(json, mode)` →
+  `parseBackup`, rebuild `Blob`s, single `rw` transaction (`replace` clears the 4 tables first; `merge`
+  `bulkPut`s by id), returns per-table `ImportCounts`.
+- **C — Settings UI** `components/Settings.tsx`: a **Backup & Restore** section — **⬇ Export workspace**
+  (downloads `jp-workspace-YYYY-MM-DD.json`, reports counts) and **⬆ Import workspace** (hidden file input;
+  `window.confirm` chooses **Replace all** vs **Merge**; inline ok/err message). New `onImported` prop wired
+  in `Workspace.tsx` re-runs `listAnalyses`+`listPortfolios` and clears the active selection. New
+  `.backup-row`/`.ghost-btn` CSS.
+- **Key decision:** API keys / provider settings are **deliberately excluded** from backups (secrets live in
+  localStorage, must never travel in a shared file). The user re-enters them.
+
+**Verification:** `tsc` clean · 120 unit tests green · `next build` green. **Owed:** in-browser manual
+round-trip (create analysis+portfolio+attachment → Export → Replace-all import in a fresh profile → confirm
+the attached PDF still opens; grep the JSON for absence of API keys).
 
 ### P8 — Guardrails + eval harness — ✅ BUILT 2026-06-07
 Closes the gap where the no-numeric-hallucination promise was enforced only softly (prompt + schema +
