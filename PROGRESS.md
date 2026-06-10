@@ -39,7 +39,7 @@
 | **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
 | **P9a** Export / import (backup & restore) | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** (+10) · `next build` green · pure backup core + DB wrappers + Settings UI. See section below |
 | **P9b** UI readability & density pass | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** · `next build` green · type-floor + spacing rhythm + chrome harmonization + persisted inspector width. See section below |
-| **P9c** Vercel cutover | ⬜ (queued — cutover prep + deploy doc) |
+| **P9c** Vercel cutover | 🟡 deploy doc drafted · production alias switch pending |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,
@@ -314,6 +314,14 @@ pass** (unchanged — CSS-only) · `next build` green.
 **Verification:** `tsc` clean · 120 unit tests green (CSS-only, count unchanged) · `next build` green.
 **Owed:** in-browser eyeball (`npm run dev`) across an analysis + a portfolio + Settings, and the mobile
 breakpoint, to confirm legibility — no functional risk.
+
+### P9c — Vercel cutover prep — 🟡 DOC DRAFTED 2026-06-08
+The production handoff is now documented in [`VERCEL_CUTOVER.md`](VERCEL_CUTOVER.md). It pins the live
+target to `app/`, lists the Vercel project settings, calls out `TAVILY_API_KEY`, and spells out the
+cutover / rollback / post-cutover checks.
+
+**Still pending:** the actual production alias switch from the legacy `web/` demo to the new Vercel
+deployment.
 
 ### P9a — Export / import (backup & restore) — ✅ BUILT 2026-06-08
 Closes the single biggest data-loss risk in a local-first app: the whole workspace lived **only** in this

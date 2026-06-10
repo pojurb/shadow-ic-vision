@@ -9,6 +9,11 @@ import { getProvider } from "@/lib/ai/registry";
 import { personaFor } from "@/lib/ai/personas";
 import { buildReport } from "@/lib/ai/report";
 import { lintAnalysisGrounding, lintChatReply, type GroundingResult } from "@/lib/ai/grounding";
+import {
+  buildIntakeConversationText,
+  buildResearchAugmentedIntakeText,
+  gatherIntakeWebEvidence,
+} from "@/lib/ai/intakeContext";
 import type { ProviderId } from "@/lib/ai/types";
 import type { IntakeResult } from "@/lib/ai/schemas";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
@@ -72,6 +77,7 @@ export default function AnalysisView({
   const intakeMode = !analysis.debate;
   const [pendingIntake, setPendingIntake] = useState<IntakeResult | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
+  const [intakePhase, setIntakePhase] = useState<"extract" | "research">("extract");
   const [intakeNonce, setIntakeNonce] = useState(0); // remounts ConfirmCard on a new draft
 
   // Two-pane: collapsible + VS-Code-style resizable inspector (docked right).
@@ -234,13 +240,29 @@ export default function AnalysisView({
     const withUser: Analysis = { ...analysis, chat: [...analysis.chat, userMsg] };
     onChange(withUser);
     setIntakeBusy(true);
+    setIntakePhase(withUser.allowWebSearch || withUser.sources.some((s) => s.kind === "link") ? "research" : "extract");
     setAiError(null);
     try {
+      const conversationText = buildIntakeConversationText(withUser.chat);
+      let intakeText = conversationText;
+      if (withUser.allowWebSearch || withUser.sources.some((s) => s.kind === "link")) {
+        const evidence = await gatherIntakeWebEvidence({
+          conversationText,
+          sources: withUser.sources,
+          allowWebSearch: withUser.allowWebSearch,
+        });
+        const hasEvidence = evidence.fetchedLinks.length > 0 || evidence.searchResults.length > 0;
+        if (!hasEvidence && evidence.errors.length > 0) {
+          throw new Error(`Web research failed: ${evidence.errors.join("; ")}`);
+        }
+        intakeText = buildResearchAugmentedIntakeText(conversationText, evidence);
+        setIntakePhase("extract");
+      }
       const result = await getProvider(provider).runIntake({
         apiKey,
         model,
-        userText: text,
-        sources: analysis.sources,
+        userText: intakeText,
+        sources: withUser.sources,
       });
       if (result.mode === "scoping") {
         const aiMsg: ChatMessage = {
@@ -259,6 +281,7 @@ export default function AnalysisView({
       setAiError(e instanceof Error ? e.message : String(e));
     } finally {
       setIntakeBusy(false);
+      setIntakePhase("extract");
     }
   }
 
@@ -404,7 +427,9 @@ export default function AnalysisView({
             {intakeBusy && (
               <div className="tp-msg tp-msg--assistant">
                 <div className="tp-msg-role">Analyst</div>
-                <div className="tp-msg-body">Reading the deal and pulling the figures…</div>
+                <div className="tp-msg-body">
+                  {intakePhase === "research" ? "Searching the web and reading sources…" : "Reading the deal and pulling the figures…"}
+                </div>
               </div>
             )}
             {pendingIntake && !intakeBusy && (
