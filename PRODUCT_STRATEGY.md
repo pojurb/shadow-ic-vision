@@ -1,21 +1,30 @@
 # Product Strategy - AI Investment Committee
 
-## Current Product Thesis
+## Final Product Definition
 
-This product is not an AI research tool. It is an AI Investment Committee for serious investors who need better portfolio decisions, not more information.
+This product is an AI Investment Committee for serious self-directed investors.
 
-The product should help the user answer:
+It is not another AI research chatbot. It is a decision-quality system that remembers the user's investment theses, tracks what changed, challenges assumptions, surfaces risk, and helps decide what deserves attention or capital.
 
-- What should I do next?
-- What is my biggest risk?
-- What changed?
-- What am I missing?
-- Where am I overconfident?
-- What would break my thesis?
-- What deserves more capital?
-- What deserves less capital?
+The winning product is:
 
-## Target ICP
+> Watchlist IC Dashboard + Thesis Memory + Evidence Locker + Decision Ledger + Change Detection.
+
+The current single-asset analysis cockpit should become the thesis detail page inside this broader system.
+
+## Source Documents Synthesized
+
+This strategy consolidates the following documents:
+
+- `AI_Investment_Committee_ICP_v1.md`
+- `ai_investment_assistant_prd.md`
+- `ANALYST_PRD_v1.0.docx`
+- `investment_brain_plans.md`
+- `investment_brain_v1_prd.md`
+
+Older PRDs remain historical references. This file is the current product-strategy source of truth.
+
+## Target User
 
 Primary ICP: serious self-directed investors.
 
@@ -23,30 +32,44 @@ They typically:
 
 - Manage their own portfolio.
 - Track a watchlist of 20-100 companies.
-- Read annual reports and investment content.
+- Read annual reports, earnings releases, market commentary, and investment content.
 - Already use AI tools such as ChatGPT, Claude, Gemini, or Perplexity.
 - Make several meaningful investment decisions per year.
 
 Their pain is not lack of information. Their pain is lack of decision structure, memory, monitoring, and risk discipline.
 
-## Decisions Locked
+## Locked Strategic Decisions
 
 - Beachhead workflow: Watchlist IC Dashboard.
 - Core promise: decision clarity.
 - Data trust policy: cited facts only before locking valuation figures.
 - Initial target: serious self-directed investors, not institutions.
-- Data source policy: free, reliable-enough hybrid.
-- Current analysis workspace should evolve into the thesis detail page for each asset.
+- MVP data source policy: free, reliable-enough hybrid.
+- Current analysis workspace evolves into a thesis detail page.
+- Build on the current Next.js app before starting a new Python/PostgreSQL system.
+
+## What The Product Is Not
+
+- Not a generic stock analyzer.
+- Not a PDF Q&A app.
+- Not a trading bot.
+- Not a research-volume machine.
+- Not a traditional chunk-based RAG product.
+- Not a chatbot with finance prompts.
 
 ## Product Pillars
 
 ### Thesis Memory
 
-The product must remember what the user believed, what evidence supported the thesis, what would break it, and when it was last reviewed.
+The product remembers what the user believed, what evidence supported the thesis, what would break it, and when it was last reviewed.
+
+### Evidence Locker
+
+The product stores filings, articles, notes, transcripts, market data, and user insights as evidence. Evidence should be linked to theses as supporting, contradictory, neutral, or unresolved.
 
 ### Investment Committee Logic
 
-The product should behave like a committee with distinct roles:
+The product behaves like a committee with distinct roles:
 
 - Analyst: facts, valuation, and model.
 - Portfolio Manager: fit, sizing, opportunity cost, and capital allocation.
@@ -56,21 +79,99 @@ The product should behave like a committee with distinct roles:
 
 ### Change Detection
 
-The product should surface what changed since the last thesis update, including price moves, earnings changes, valuation changes, important news, thesis triggers, and risk triggers.
+The product surfaces what changed since the last thesis update, including price moves, earnings changes, valuation changes, news, thesis triggers, and risk triggers.
 
 ### Conviction Management
 
-The product should not invent an AI confidence score. It should help the user manage conviction through evidence quality, uncertainty, thesis freshness, and decision history.
+The product should not invent a black-box AI confidence score. Conviction should be managed through evidence quality, thesis freshness, uncertainty, assumption risk, and decision history.
 
-### Decision History
+### Decision Ledger
 
-The product should preserve what the user decided, why they decided it, and what happened afterward.
+The product preserves what the user decided, why they decided it, and what happened afterward.
+
+## Synthesized Product Model
+
+The combined idea from all PRDs should be implemented as four layers:
+
+1. Evidence
+   - Filings, articles, notes, transcripts, market data, and user insights.
+
+2. Memory
+   - Entities, theses, observations, relationships, assumptions, and thesis updates.
+
+3. Committee
+   - Analyst, portfolio manager, risk officer, devil's advocate, and IC chair perspectives.
+
+4. Decision
+   - IC agenda, conviction review, action candidates, decision log, and review loop.
+
+The UI should expose the decision layer first. The engine can contain the evidence, memory, and committee layers.
+
+## Core Product Loop
+
+The main product loop:
+
+1. Add asset to watchlist.
+2. Create initial thesis.
+3. Attach evidence and assumptions.
+4. Define thesis breakers.
+5. Ingest or monitor new information.
+6. Generate IC agenda.
+7. Commit decision.
+8. Preserve decision and thesis evolution.
+
+This loop is stronger than opening chat, asking a question, and saving an answer.
+
+## MVP Screens
+
+### 1. Watchlist IC Dashboard
+
+Shows the user's investment committee agenda:
+
+- Names requiring attention.
+- What changed.
+- Stale theses.
+- Risk triggers.
+- Thesis-breaker alerts.
+- Overconfidence warnings.
+- Conviction changes.
+- Capital action candidates.
+
+### 2. Thesis Detail Page
+
+The current analysis page should evolve into this screen.
+
+It should show:
+
+- Thesis summary.
+- Key assumptions.
+- Thesis breakers.
+- Supporting evidence.
+- Contradictory evidence.
+- Catalysts to watch.
+- Open questions.
+- Narrative evolution.
+- Decision history.
+- Grounded bull/bear debate.
+
+### 3. Evidence Locker
+
+The Evidence Locker is the reframed Knowledge Library.
+
+It should show:
+
+- Sources.
+- Notes.
+- Filings.
+- Active context.
+- Linked theses.
+- Source reliability and date.
 
 ## Trust And Data Policy
 
 Wrong uncited data is worse than missing data.
 
-Before a number becomes a locked valuation figure, the app should show:
+Before a number becomes a locked valuation figure, the app must show:
 
 - Source title.
 - Source URL.
@@ -82,7 +183,7 @@ For stock intake, auto-filled values must be auditable before locking. If the sy
 
 The BBCA issue exposed a core product risk: broad web snippets can produce stale or incorrect figures. The product must not lock weakly sourced numbers into the valuation engine.
 
-## Free Data Source Strategy
+## Free Data Source Policy For Stock Intake
 
 Use a combined free source model:
 
@@ -104,87 +205,71 @@ For Indonesian equities such as BBCA:
 - Use free quote data for latest/delayed share price only with freshness labeling.
 - Keep `discountRate`, `terminalMult`, and `invested/buy price` as user assumptions unless explicitly provided.
 
-## Plan: Free, Reliable Data Source Policy For Stock Intake
+Expected app behavior:
 
-### Summary
-
-Use a combined source model: official-first for fundamentals and fast free market data for current or delayed price.
-
-No paid data subscription is required for the MVP. The user should not need to manually find routine data for each stock. The app should fetch, cite, label, and ask for confirmation before locking values.
-
-### Source Rules
-
-- Fundamentals: use official company investor-relations pages, annual reports, financial statements, or IDX/company filings first.
-- Price: use a fast free quote source for latest or delayed market price, clearly labeled as third-party and delayed if applicable.
-- IDX/company filings: prefer them as evidence when available, but do not depend on one brittle page scrape.
-- Web search/Tavily: use only for discovery of source URLs, not as the direct source of lockable valuation numbers.
-- Lockable values must include source title, source URL, data date/period, and confidence.
-
-### Expected App Behavior
-
-For a ticker such as `BBCA`, the app should automatically:
-
-- Normalize the ticker to the IDX convention, e.g. `BBCA` -> `BBCA.JK` where needed.
-- Fetch latest or delayed share price from a free quote source.
-- Fetch EPS and ROE from official annual report, financial statement, or financial-highlight sources when possible.
-- Show all inferred values in the confirm card with provenance.
+- Fetch and show sourced price, EPS, and ROE when available.
+- Show source and date beside each inferred value.
+- Separate sourced facts from assumptions.
 - Prevent vague search snippets from creating lockable price, EPS, or ROE values.
+- Leave fields blank or manual when the app cannot cite them.
 
-If the app cannot cite a value, it should leave the field blank or mark it as a manual/assumption field. It should never silently guess.
+## What We Keep From Prior PRDs
 
-`discountRate`, `terminalMult`, and `invested/buy price` should remain user assumptions unless explicitly provided by the user.
+From `ai_investment_assistant_prd.md`:
 
-### What The User Needs To Do
+- In-context learning and state preservation.
+- Do not erase important historical thesis context.
+- Markdown thesis export.
+- Auditability through clean diffs.
+- Idempotent thesis updates.
 
-The user should not need to manually collect routine stock data.
+From `ANALYST_PRD_v1.0.docx`:
 
-The user does need to accept these MVP constraints:
+- Knowledge Library, reframed as Evidence Locker.
+- Proactive relevant-source suggestion.
+- Watchlist trigger.
+- Analysis history, reframed as Decision Memory.
+- Active context selection.
+- Save insights back to the library.
 
-- Free quote data can be delayed.
-- Fundamentals may be latest annual, latest interim, or TTM depending on source availability, and must be labeled.
-- If Tavily remains part of source discovery, the deployed app needs `TAVILY_API_KEY` configured.
-- No paid market-data API key is required for MVP.
+From `investment_brain_plans.md`:
 
-### Implementation Direction
+- Thesis structure.
+- Supporting evidence.
+- Contradictory evidence.
+- Assumptions.
+- Narrative Evolution.
+- Catalysts to Watch.
+- Open Questions.
+- Migration mindset from simple local state to structured backend.
 
-- Add a stock data resolver route that accepts a ticker and returns normalized ticker, sourced fields, warnings, and citations.
-- Run the stock resolver before LLM intake extraction for stock requests.
-- Pass source-backed fields into the confirm card.
-- Prevent uncited LLM-extracted numbers from becoming lockable fields.
-- Update the confirm card to separate sourced facts from assumptions.
+From `investment_brain_v1_prd.md`:
 
-### Acceptance Tests
+- Structured memory layer.
+- Entity / Thesis / Observation / Relationship primitives.
+- Thesis-aware reasoning.
+- Thesis evolution engine.
+- Worldview snapshot.
+- Avoid raw chunk-based RAG as the main primitive.
 
-- `BBCA` normalizes to `BBCA.JK`.
-- Sourced price, EPS, and ROE display with citations when available.
-- Search snippets cannot create lockable valuation numbers.
-- Missing source produces a warning/manual field instead of a bad auto-fill.
-- User-provided values override fetched values.
+## What We Reframe
 
-## Session Decisions And Lessons
+- Knowledge Library becomes Evidence Locker.
+- Watchlist becomes IC Agenda.
+- Analysis History becomes Decision Memory.
+- AI personas become Investment Committee roles.
+- Chat becomes an interface to thesis memory, not the product itself.
+- Confidence percentage becomes a conviction rubric based on evidence quality, thesis freshness, and assumption risk.
+- Markdown files become export/audit artifacts, not the only product surface.
 
-- The product should optimize for decision clarity, not research volume.
-- The first monetizable workflow should be a Watchlist IC Dashboard.
-- Current single-asset analysis should become the thesis detail page inside a broader watchlist/portfolio decision system.
-- The BBCA issue is a trust failure, not just an extraction bug.
-- Wrong uncited data is more damaging than missing data for this ICP.
-- The app should behave like an investment committee: cite facts, challenge assumptions, preserve thesis memory, and force explicit decisions.
+## What We Deprioritize
 
-## MVP Direction
-
-Build toward a Watchlist IC Dashboard.
-
-The dashboard should produce an IC agenda:
-
-- Names requiring attention.
-- What changed.
-- Biggest risks.
-- Thesis-breaker alerts.
-- Overconfidence warnings.
-- Conviction changes.
-- Capital action candidates.
-
-The existing single-analysis workspace becomes the thesis detail page where the user can inspect source data, revise assumptions, run bull/bear debate, and commit decisions.
+- CLI-first user experience.
+- Crypto as initial wedge.
+- Generic five-mode chat interface.
+- Full PostgreSQL/dual-LLM architecture before validating the loop.
+- Graph database or complex worldview engine before watchlist/thesis workflow works.
+- Metrics that reward research volume, such as number of sources added per session.
 
 ## Next Build Priorities
 
@@ -194,19 +279,35 @@ The existing single-analysis workspace becomes the thesis detail page where the 
    - Distinguish market price, EPS, ROE, user assumptions, and defaults.
 
 2. Add thesis state.
-   - Store thesis summary, key assumptions, break conditions, watch items, and conviction.
+   - Store thesis summary, key assumptions, thesis breakers, watch items, conviction, and review cadence.
 
-3. Add watchlist agenda.
-   - Aggregate analyses into a daily or weekly committee queue.
-   - Rank by changed facts, stale thesis, triggered risks, or capital relevance.
+3. Add Evidence Locker primitives.
+   - Store evidence items with source, date, type, reliability, and thesis linkage.
+   - Classify evidence as supporting, contradictory, neutral, or unresolved.
 
-4. Add decision review loop.
+4. Add Watchlist IC Agenda.
+   - Aggregate theses into a review queue.
+   - Rank by changed facts, stale thesis, triggered risks, contradiction strength, or capital relevance.
+
+5. Add decision review loop.
    - Compare prior decisions against later outcomes.
    - Surface whether the thesis was right for the right reason.
+
+## Build Guardrails
+
+- Do not build another AI research assistant.
+- Do not optimize for source volume or chat volume.
+- Do not lock uncited valuation figures.
+- Do not treat AI as the decision-maker.
+- Do not introduce black-box confidence percentages.
+- Do not overbuild backend architecture before the watchlist/thesis loop works.
+- Do not hide assumptions inside AI prose.
 
 ## Open Questions
 
 - What exact free data sources should be trusted for Indonesian equities?
-- Should the first dashboard be daily, weekly, or manually refreshed?
-- Should conviction be a user-entered field, a rubric, or both?
-- Which user action vocabulary should be supported: watch, research, add, trim, sell, archive, or only approve/hold/reject?
+- Should the first IC agenda be manually refreshed, weekly, or daily?
+- Should conviction be user-entered, rubric-derived, or both?
+- Which action vocabulary should be supported first: watch, research, add, trim, exit, archive, or approve/hold/reject?
+- How should portfolio sizing be represented before full brokerage/portfolio import exists?
+
