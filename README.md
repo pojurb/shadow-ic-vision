@@ -1,122 +1,137 @@
-# Project Living Thesis — AI Family Office Assistant
+# JP-Invest Workspace
 
-An institutional-grade, file-based quantitative and qualitative investment cockpit. This system is designed to analyze opportunities across three asset verticals: **Listed Equities**, **Startups/VC**, and **Real/Conventional Businesses**, presenting analysis through a strict dual-perspective (Bull vs. Bear) debate and a multi-scenario Advisory Board framework. 
+AI Investment Committee for serious self-directed investors.
 
-This project runs 100% locally and can be easily ported to other machines or integrated with any AI LLM system of your choice.
+This project is not an AI research toy. The product direction is an investment decision workspace that helps investors remember theses, monitor what changed, challenge assumptions, manage conviction, and make better portfolio decisions.
 
----
+The current app is a local-first Next.js cockpit with single-asset analysis, grounded AI debate, portfolio composition, and a decision log. The strategic direction is documented in [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md).
 
-## ⚡ Quick Start (60 Seconds)
-1. Install Node.js ([nodejs.org](https://nodejs.org)) if not already installed.
-2. Open this folder in your AI-enabled IDE (Cursor, Windsurf, Antigravity, VS Code, etc.).
-3. The AI will automatically load the rules — just start chatting!
-4. Try typing: *"Analisis BBCA berdasarkan data sample yang ada"*
+## Product Thesis
 
-To verify everything is configured correctly, run the health check in your terminal:
-```bash
-node scripts/run.js check
-```
+The product should help answer:
 
----
+- What should I do next?
+- What is my biggest risk?
+- What changed?
+- What am I missing?
+- Where am I overconfident?
+- What would break my thesis?
+- What deserves more capital?
+- What deserves less capital?
 
-## 📂 Project Directory Structure
+The first target user is the serious self-directed investor with a watchlist of 20-100 companies and recurring portfolio decisions.
+
+## Current Capabilities
+
+- Local-first investment workspace stored in browser IndexedDB.
+- Single-asset analysis for listed equities, startups/VC, and conventional businesses.
+- Deterministic financial engine for locked valuation figures.
+- AI bull/bear debate and advisory lenses using Anthropic, OpenAI, or Gemini.
+- BYOK provider settings stored locally in the browser.
+- File and link context: PDF, image, URL fetch, and web research.
+- Grounded follow-up chat after an analysis is generated.
+- Decision logging with approve/hold/reject rationale.
+- Portfolio composition and cross-asset analysis.
+
+## Strategic Direction
+
+The product should evolve from a single-analysis cockpit into a Watchlist IC Dashboard:
+
+- Each asset has thesis memory, assumptions, break conditions, and conviction.
+- The dashboard surfaces an IC agenda: what changed, what is risky, what needs attention, and what deserves capital.
+- The app should preserve decision history and later review whether prior theses were right for the right reasons.
+- Data trust matters: wrong uncited data is worse than missing data.
+
+For stock intake, valuation figures should not be locked unless they are cited, labeled, and confirmed. The preferred MVP data policy is free and reliable-enough:
+
+- Official-first for fundamentals.
+- Fast free market data for current or delayed price.
+- Web search for source discovery only, not as a lockable data source.
+
+## Repository Structure
 
 ```text
 jp-invest/
-│
-├── README.md                         # Universal user manual (this file)
-├── prd.md                            # Product Requirement Document (v8 Specification)
-├── package.json                      # Node.js project manifest
-│
-├── system/
-│   ├── system_prompt.md              # AI behavior rules & operational protocols
-│   ├── living_thesis_template.md     # Standardized 7-section analysis template
-│   └── advisory_board_protocol.md    # Principles governing the 3 advisory lenses
-│
-├── inputs/
-│   ├── stocks/                       # Equities ingestion guidelines & CSV templates
-│   ├── startups/                     # Startup/VC unit economics guidelines
-│   └── conventional_biz/             # Real business CapEx/OpEx scanning guidelines
-│
-├── data/
-│   └── Portfolio_Master_State.md     # The central, living ledger of your portfolio
-│
-├── scripts/
-│   ├── run.js                        # Universal cross-platform command dispatcher
-│   ├── health_check.js               # Environment verification tool
-│   ├── sandbox/
-│   │   ├── financial_calc.js         # Quantitative engine (BEP, IRR, LTV, CAC, DCF, etc.)
-│   │   └── options_pricing.js        # Black-Scholes options pricing model & Greeks
-│   ├── ingestion/
-│   │   └── parse_inputs.js           # Tri-vertical data-ingestion scanning engine
-│   └── portfolio/
-│       └── update_state.js           # Master portfolio state editing tool
-│
-└── outputs/
-    └── living_thesis/
-        └── _example_BBCA.md          # Complete reference example of a Living Thesis
+|-- README.md                         Current project overview
+|-- PRODUCT_STRATEGY.md               Durable product strategy and decisions
+|-- AI_Investment_Committee_ICP_v1.md ICP source document
+|-- DATA_MODEL.md                     Domain model and storage design
+|-- app/                              Main Next.js web application
+|-- scripts/                          Legacy/local quantitative utilities
+|-- inputs/                           Input folders for legacy parsing flows
+|-- outputs/                          Generated thesis outputs
+|-- system/                           Legacy orchestration/protocol docs
+`-- data/                             Legacy portfolio state files
 ```
 
----
+The production product work is primarily in `app/`.
 
-## 🤖 Supported AI Platforms (Zero-Config Integration)
+## App Quick Start
 
-This project contains auto-discovery files that instantly map the `system/` protocols into your AI's context window.
+```bash
+cd app
+npm install
+npm run dev
+```
 
-| IDE / Platform | Auto-Discovery File | Setup Required |
-| :--- | :--- | :--- |
-| **Google Antigravity** | `GEMINI.md` | None — just open the folder |
-| **Cursor** | `.cursorrules` | None — just open the folder |
-| **Windsurf** | `.windsurfrules` | None — just open the folder |
-| **VS Code + Copilot** | `.github/copilot-instructions.md` | None |
-| **Cline / Roo Code** | `.clinerules` | None — just open the folder |
-| **Claude Code/Cowork** | `CLAUDE.md` | None — just open the folder |
-| **OpenAI Codex** | `AGENTS.md` | None — just open the folder |
-| **ChatGPT / Claude Web** | — | Paste `system/system_prompt.md` as your first message |
-| **Ollama (terminal)** | — | Use `--system "$(cat system/system_prompt.md)"` |
+Open:
 
----
+```text
+http://localhost:3000
+```
 
-## 💻 Command Line Reference (Quantitative Sandbox)
+Build:
 
-This project uses a **universal Node.js runner** (`run.js`) that works identically on Windows, Mac, and Linux.
+```bash
+cd app
+npm run build
+```
 
-If you are on Windows, you can also use `.\scripts\run.ps1`. If you are on Mac/Linux, you can use `./scripts/run.sh`. But the command below works everywhere:
+Test:
 
-### Quantitative Calculations
-*   **Break-Even Point (BEP)**:
-    ```bash
-    node scripts/run.js calc bep --fixed=500000000 --price=150000 --variable=80000
-    ```
-*   **Discounted Cash Flow (5-Year NPV)**:
-    ```bash
-    node scripts/run.js calc dcf --cashflows="100,120,144,173,207" --rate=0.15 --terminal=10
-    ```
-*   **Black-Scholes Options Pricing & Greeks**:
-    ```bash
-    node scripts/run.js calc options --S=9200 --K=9500 --T=0.25 --r=0.06 --sigma=0.25
-    ```
+```bash
+cd app
+npm test
+```
 
-### Data Ingestion Scanner
-*   Parse all dropped CSV files in an input folder:
-    ```bash
-    node scripts/run.js parse stocks
-    ```
+## Environment
 
-### Portfolio Ledger Control
-*   **Show Portfolio Status**:
-    ```bash
-    node scripts/run.js update-state
-    ```
-*   **Update Macro variables**:
-    ```bash
-    node scripts/run.js update-state --update-macro --bi-rate=6.25 --ihsg=7200 --usdIdr=16200
-    ```
+The app is BYOK for AI providers. The user enters Anthropic, OpenAI, or Gemini API keys in the app settings; those keys are stored in the browser and sent directly to the selected provider.
 
----
+Server-side web search uses Tavily:
 
-## ⚡ The Human-in-the-Loop Protocol
-Always remember that **AI is merely a quantitative analyst.**
-Every Living Thesis output is designed to produce 3 distinct scenario lenses (Operator, Risk Manager, and Predator) rather than a single rigid conclusion. 
+```env
+TAVILY_API_KEY=...
+```
 
-The execution decision resides 100% with you. Fill in the **Human Decision Log** at the end of each thesis to commit actions to your central ledger.
+This is needed for `/api/web-search` and deployed web-research fallback behavior.
+
+## Important Product Rules
+
+- Do not position the product as a generic stock analyzer.
+- Do not lock uncited valuation numbers into the engine.
+- Do not treat AI output as the decision-maker.
+- Preserve the human decision log.
+- Treat analysis as thesis memory, not a one-off answer.
+- Optimize for decision clarity over research volume.
+
+## Key Docs
+
+- [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md): current product strategy, decisions, and roadmap direction.
+- [AI_Investment_Committee_ICP_v1.md](AI_Investment_Committee_ICP_v1.md): ICP and positioning source.
+- [DATA_MODEL.md](DATA_MODEL.md): domain model, storage, and data flow.
+- [app/CODE_ANATOMY.md](app/CODE_ANATOMY.md): app architecture and code map.
+- [VERCEL_CUTOVER.md](VERCEL_CUTOVER.md): deployment handoff notes.
+
+## Legacy CLI Utilities
+
+Some older command-line utilities remain available:
+
+```bash
+node scripts/run.js check
+node scripts/run.js calc dcf --cashflows="100,120,144,173,207" --rate=0.15 --terminal=10
+node scripts/run.js parse stocks
+node scripts/run.js update-state
+```
+
+These are secondary to the current Next.js app.
