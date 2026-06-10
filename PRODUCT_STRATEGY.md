@@ -303,11 +303,92 @@ From `investment_brain_v1_prd.md`:
 - Do not overbuild backend architecture before the watchlist/thesis loop works.
 - Do not hide assumptions inside AI prose.
 
-## Open Questions
+## Answered Product Decisions
 
-- What exact free data sources should be trusted for Indonesian equities?
-- Should the first IC agenda be manually refreshed, weekly, or daily?
-- Should conviction be user-entered, rubric-derived, or both?
-- Which action vocabulary should be supported first: watch, research, add, trim, exit, archive, or approve/hold/reject?
-- How should portfolio sizing be represented before full brokerage/portfolio import exists?
+### Indonesian Equities Data Sources
 
+Use a free, source-tiered policy.
+
+Tier 1: official issuer and exchange documents.
+
+- Use company investor-relations pages, annual reports, financial statements, financial highlights, and official IDX/company filings for fundamentals.
+- For BBCA, the canonical source path starts from BCA investor relations, including annual reports and stock information pages.
+- EPS, ROE, revenue, net profit, dividends, and capital metrics should prefer official filings or issuer disclosures.
+
+Tier 2: free third-party market quote sources.
+
+- Use free quote data only for latest or delayed market price.
+- Treat quote data as third-party, timestamped, and potentially delayed.
+- Do not use third-party quote pages as the primary source for fundamentals when official filings are available.
+
+Tier 3: search/discovery tools.
+
+- Tavily or web search can find relevant source URLs.
+- Search snippets must not create lockable valuation numbers.
+- Any value discovered through search must be traced back to a source page or document before it can be locked.
+
+Implementation default:
+
+- Fundamentals: official issuer/IDX documents.
+- Price: free quote source with timestamp and delay label.
+- Discovery: Tavily/web search only as source finder.
+- Fallback: if no cited source is available, leave the field blank or mark it as manual.
+
+### IC Agenda Refresh Cadence
+
+MVP should use manual refresh with a weekly default review cadence.
+
+- Manual refresh keeps the first version local-first and avoids fake automation.
+- Each thesis should have `lastReviewedAt`, `nextReviewDue`, and `reviewCadence`.
+- Default cadence: weekly for active watchlist names.
+- Stale threshold: 7 days past `nextReviewDue`.
+- Later versions can add scheduled daily/weekly monitoring once backend sync and reliable data fetch are in place.
+
+### Conviction Model
+
+Use both user-owned conviction and rubric-derived diagnostics.
+
+- User owns the final conviction label: Low, Medium, or High.
+- The system computes supporting diagnostics, not a black-box confidence score.
+- Diagnostics should include evidence quality, thesis freshness, contradiction pressure, assumption risk, and portfolio fit.
+- The UI should show why conviction may need review, but the user must explicitly confirm conviction changes.
+
+Avoid percentage confidence scores in the MVP. They create false precision.
+
+### First Action Vocabulary
+
+Use investment-committee action language, not generic approve/hold/reject only.
+
+MVP actions:
+
+- No Action
+- Watch
+- Research More
+- Increase Conviction
+- Decrease Conviction
+- Add / Increase Position
+- Trim / Reduce Position
+- Exit
+- Archive
+
+Legacy approve/hold/reject can remain internally or as a simplified label, but the user-facing workflow should move toward IC actions.
+
+### Portfolio Sizing Before Brokerage Import
+
+Use manual position metadata and sizing bands before brokerage integration.
+
+MVP fields:
+
+- Current position: none, small, medium, large, or custom capital amount.
+- Target weight: optional percentage.
+- Max weight: optional percentage.
+- Portfolio role: core compounder, tactical, hedge, income, optionality, or watchlist only.
+- Sizing band: starter, standard, high conviction, or max allocation.
+
+The product should not pretend to know the live portfolio before brokerage/import exists. It should support decision discipline by asking: what role should this asset play, what is the intended size, and what would justify increasing or reducing it?
+
+### Source References For Data Policy
+
+- BCA official investor relations includes annual-report access, including a 2025 annual report entry.
+- BCA official stock information page exposes stock-information navigation such as share performance, shareholder composition, listing chronology, and dividends.
+- Alpha Vantage documents free API key access and global equity time-series / quote-style APIs, making it an acceptable optional fallback for a documented quote provider if Indonesian symbols validate in implementation.
