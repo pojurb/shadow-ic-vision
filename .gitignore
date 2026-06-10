@@ -21,3 +21,7 @@ Desktop.ini
 
 # === NODE ===
 node_modules/
+
+# Keep local screenshots in issues/ but do not track images
+issues/*
+!issues/.gitkeep
