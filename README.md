@@ -54,8 +54,10 @@ For stock intake, valuation figures should not be locked unless they are cited, 
 jp-invest/
 |-- README.md                         Current project overview
 |-- PRODUCT_STRATEGY.md               Durable product strategy and decisions
-|-- AI_Investment_Committee_ICP_v1.md ICP source document
+|-- BUILD_PLAN.md                     Current milestone tracker
+|-- PROGRESS.md                       Current implementation log
 |-- DATA_MODEL.md                     Domain model and storage design
+|-- docs/archive/                     Historical PRDs and strategy inputs
 |-- app/                              Main Next.js web application
 |-- scripts/                          Legacy/local quantitative utilities
 |-- inputs/                           Input folders for legacy parsing flows
@@ -118,10 +120,12 @@ This is needed for `/api/web-search` and deployed web-research fallback behavior
 ## Key Docs
 
 - [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md): current product strategy, decisions, and roadmap direction.
-- [AI_Investment_Committee_ICP_v1.md](AI_Investment_Committee_ICP_v1.md): ICP and positioning source.
+- [BUILD_PLAN.md](BUILD_PLAN.md): current milestone tracker and next build order.
+- [PROGRESS.md](PROGRESS.md): implementation log and latest saved status.
 - [DATA_MODEL.md](DATA_MODEL.md): domain model, storage, and data flow.
 - [app/CODE_ANATOMY.md](app/CODE_ANATOMY.md): app architecture and code map.
 - [VERCEL_CUTOVER.md](VERCEL_CUTOVER.md): deployment handoff notes.
+- [docs/archive/](docs/archive/): historical PRDs and prior strategy inputs.
 
 ## Legacy CLI Utilities
 

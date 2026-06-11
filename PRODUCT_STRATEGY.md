@@ -16,12 +16,12 @@ The current single-asset analysis cockpit should become the thesis detail page i
 
 This strategy consolidates the following documents:
 
-- `AI_Investment_Committee_ICP_v1.md`
-- `ai_investment_assistant_prd.md`
-- `ANALYST_PRD_v1.0.docx`
-- `investment_brain_plans.md`
-- `investment_brain_v1_prd.md`
-- `PRODUCT_STRATEGY_FEEDBACK.md`
+- `docs/archive/ai_investment_assistant_prd.md`
+- `docs/archive/ANALYST_PRD_v1.0.docx`
+- `docs/archive/investment_brain_plans.md`
+- `docs/archive/investment_brain_v1_prd.md`
+- `docs/archive/prd.md`
+- `docs/archive/PRODUCT_STRATEGY_FEEDBACK.md`
 
 Older PRDs remain historical references. This file is the current product-strategy source of truth.
 
@@ -324,7 +324,7 @@ Expected app behavior:
 
 ## What We Keep From Prior PRDs
 
-From `ai_investment_assistant_prd.md`:
+From `docs/archive/ai_investment_assistant_prd.md`:
 
 - In-context learning and state preservation.
 - Do not erase important historical thesis context.
@@ -332,7 +332,7 @@ From `ai_investment_assistant_prd.md`:
 - Auditability through clean diffs.
 - Idempotent thesis updates.
 
-From `ANALYST_PRD_v1.0.docx`:
+From `docs/archive/ANALYST_PRD_v1.0.docx`:
 
 - Knowledge Library, reframed as Evidence Locker.
 - Proactive relevant-source suggestion.
@@ -341,7 +341,7 @@ From `ANALYST_PRD_v1.0.docx`:
 - Active context selection.
 - Save insights back to the library.
 
-From `investment_brain_plans.md`:
+From `docs/archive/investment_brain_plans.md`:
 
 - Thesis structure.
 - Supporting evidence.
@@ -352,7 +352,7 @@ From `investment_brain_plans.md`:
 - Open Questions.
 - Migration mindset from simple local state to structured backend.
 
-From `investment_brain_v1_prd.md`:
+From `docs/archive/investment_brain_v1_prd.md`:
 
 - Structured memory layer.
 - Entity / Thesis / Observation / Relationship primitives.

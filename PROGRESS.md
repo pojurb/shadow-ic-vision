@@ -7,7 +7,42 @@
 - **Old demo (still live):** `web/` → https://demo-vercel-nu-peach.vercel.app/ (untouched until cutover)
 - **New product:** `app/` → Next.js 16 + TypeScript + Dexie
 - **Data model (locked):** see `DATA_MODEL.md`
-- **Build plan (locked):** see `~/.claude/plans/ethereal-popping-zebra.md`
+- **Build plan (locked):** see `BUILD_PLAN.md`
+
+---
+
+## Latest Snapshot - 2026-06-11
+
+Saved before next build work:
+
+- `BUILD_PLAN.md` is now the current milestone tracker.
+- Milestone 1 is mostly implemented: IC primitives, thesis memory, thesis intake,
+  confirmation, and inspector display exist.
+- Milestone 2 is not implemented: manual real estate, crypto, macro, other, and
+  richer private-asset metadata are not in the UI yet.
+- Milestone 3 is partial: stock-intake search and weak-value guardrails improved,
+  but field-level cited provenance is still missing.
+- Milestone 4 is partial primitives only: evidence candidates exist, but there is
+  no first-class Evidence Locker workflow.
+- Milestone 5 is not implemented: review cadence exists, but no IC agenda or
+  assumption-monitoring engine exists.
+- Milestone 6 is not implemented: the app still uses legacy
+  `APPROVE` / `HOLD` / `REJECT` decisions with rationale and timestamp only.
+- Recent stock-intake fix: focused IDX ticker queries, quote/chart fetch, top
+  search-result page fetch, partial-stock-data scoping guard, and prompt
+  guardrails against invented `discountRate`, `terminalMult`, and evidence.
+- Verification after the recent app changes: `npm test` passed
+  (17 files / 129 tests), `npm run build` passed, and the local app responded at
+  `http://127.0.0.1:3000`.
+- Recommended next implementation after documentation cleanup: Milestone 6
+  Decision Ledger + Review Loop.
+
+Root cleanup decision:
+
+- Current source-of-truth docs stay at root: `README.md`,
+  `PRODUCT_STRATEGY.md`, `BUILD_PLAN.md`, `PROGRESS.md`, `DATA_MODEL.md`,
+  `VERCEL_CUTOVER.md`, tool instruction files, package files, and license.
+- Historical PRDs move to `docs/archive/`.
 
 ---
 

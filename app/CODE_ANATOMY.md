@@ -274,7 +274,7 @@ Analysis {
   allowWebSearch
   chat
 
-  decision                      // legacy APPROVE/HOLD/REJECT decision memory
+  decision                      // legacy APPROVE/HOLD/REJECT decision memory (migrating to ICAction)
   model
   status                        // draft/decided/watching/archived
   createdAt
@@ -467,7 +467,7 @@ These functions are pure and testable. Their outputs are the numeric grounding l
 - Evidence locker linkage: sources and evidence candidates exist, but there is no first-class linked evidence table/workflow yet.
 - Assumption monitoring: assumptions/review cadence are stored, but no monitoring engine flags thesis drift or breaker events.
 - Stock intake provenance: intake tags fields as stated/inferred, but lockable public-equity figures do not yet carry cited field-level provenance.
-- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions.
+- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions (which exist in \`types.ts\` pending UI integration).
 - Folder organization UI, despite the schema existing.
 - Rich private/alternative asset metadata such as liquidity, duration, pricing freshness, portfolio role, and sizing intent.
 - Data import from CSV/XLSX or official financial statement extraction.

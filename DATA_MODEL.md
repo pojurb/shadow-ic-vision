@@ -1,121 +1,224 @@
-# Data Model — AI Investment Workspace
+# Data Model - AI Investment Workspace
 
-The product evolves from a single-screen cockpit into an **analysis workspace** (IDE-like:
-saved documents, history, chat, droppable context, composition). The unit of work is an
-**Analysis**; everything else (ledger, history, portfolio) derives from it.
+The product is now a local-first AI Investment Committee workspace. The central
+object remains `Analysis`, but an analysis is now a thesis detail record: it
+carries investment committee memory, deterministic valuation figures, context
+sources, AI debate, chat, and a legacy decision.
 
-Persistence: **Dexie (IndexedDB)**, local-first, behind an async repository interface so a
-server/DB implementation drops in later for multi-user without UI changes.
+Persistence: Dexie / IndexedDB in the browser. The app stores everything locally
+behind repository helpers so a server-backed implementation can be added later
+without rewriting the UI.
 
-## Core entities
+## Core Distinctions
 
 ```ts
 type Vertical = "stocks" | "startups" | "conventional";
-type DecisionAction = "APPROVE" | "HOLD" | "REJECT";
-type AnalysisStatus = "draft" | "decided" | "watching" | "archived";
 
-interface AssetMeta {
-  ticker?: string; sector?: string; currency?: string; // default "IDR"
-  region?: string; dataAsOf?: string; source?: string;
+type AssetType =
+  | "public_equity"
+  | "conventional_business"
+  | "startup"
+  | "real_estate"
+  | "crypto"
+  | "macro_view"
+  | "other";
+```
+
+- `vertical` routes the deterministic valuation engine and field set.
+- `assetType` is the IC/product classification. It is broader than the current
+  valuation engine and is the bridge toward manual private/alternative assets.
+
+## IC Thesis Memory
+
+Each analysis carries `ic: ICState`.
+
+```ts
+type ReviewCadence = "weekly" | "monthly" | "quarterly" | "event_driven";
+type ConvictionLabel = "low" | "medium" | "high";
+type EvidenceRelation = "supporting" | "contradictory" | "neutral" | "unresolved";
+type EvidenceReliability = "official" | "third_party" | "user_provided" | "unknown";
+
+interface ThesisMemory {
+  summary: string;
+  assumptions: ThesisAssumption[];
+  thesisBreakers: ThesisBreaker[];
+  watchItems: WatchItem[];
+  valuationAssumptions: ValuationAssumption[];
+  catalysts: Catalyst[];
+  openQuestions: OpenQuestion[];
+  evidenceCandidates: EvidenceCandidate[];
+  conviction: ConvictionLabel | null;
 }
 
-// Deterministic engine output, normalized + serializable = the "locked facts" fed to the AI.
-interface Metric { key: string; label: string; value: number; display: string; verdict?: string }
-interface ComputedMetrics { vertical: Vertical; metrics: Metric[] }
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;              // markdown for assistant turns
-  kind?: "debate" | "answer";   // first assistant turn = grounded red-team debate
-  contextRefs?: string[];       // ids of other analyses pulled in (composition)
-  createdAt: number;
+interface ReviewState {
+  cadence: ReviewCadence;
+  lastReviewedAt: number | null;
+  nextReviewDue: number | null;
 }
 
-interface Decision { action: DecisionAction; rationale: string; decidedAt: number }
-
-// Droppable context. Files are native content blocks (image/pdf); for providers
-// without native PDF support, pdf.js extracts text as a fallback. Links and web
-// research use native server tools (Anthropic) or the thin backend (all others).
-type ContextSource =
-  | { id: string; kind: "file"; name: string; mime: string; fileKind: "image" | "pdf"; blobId: string; extractedText?: string; createdAt: number }
-  | { id: string; kind: "link"; url: string; title?: string; createdAt: number };
-
-interface Folder { id: string; name: string; parentId: string | null; createdAt: number }
-
-interface Analysis {
-  id: string; title: string;
-  vertical: Vertical; assetName: string; assetMeta: AssetMeta;
-  tags: string[]; folderId: string | null;
-  parameters: AssetParameters;   // raw inputs
-  metrics: ComputedMetrics;      // deterministic snapshot (grounded truth)
-  sources: ContextSource[];      // dropped files + links
-  allowWebSearch: boolean;       // let the model research the web
-  chat: ChatMessage[];           // debate seed turn + follow-ups
-  decision: Decision | null;
-  model: string; status: AnalysisStatus;
-  createdAt: number; updatedAt: number;
-}
-
-// Composition: combine A + B (the IDE "@-mention files" pattern).
-interface PortfolioMember { analysisId: string; capital: number; }  // capital drives weights
-interface PortfolioAnalysis {
-  id: string; title: string;
-  members: PortfolioMember[];    // member analyses + explicit per-position capital
-  tags: string[]; folderId: string | null;
-  chat: ChatMessage[]; allowWebSearch: boolean;
-  createdAt: number; updatedAt: number;
+interface ICState {
+  thesis: ThesisMemory;
+  review: ReviewState;
 }
 ```
 
-**Portfolio-level numbers are deterministic too.** `computePortfolioMetrics(members, byId)`
-(`lib/finance/portfolio.ts`, pure) aggregates members into a `PortfolioMetrics` = `{ totalCapital,
-positions[], metrics: Metric[] }` — same serializable `Metric[]` "locked figures" shape as a single
-analysis's `ComputedMetrics`. Locked figures: total capital, per-position weights (capital / total),
-allocation by vertical, largest-position concentration, stance mix. This is what lets a cross-asset
-answer cite real arithmetic instead of the LLM doing math (the no-numeric-hallucination rule at the
-portfolio level). `members` is derived-on-read back-compat: legacy `memberIds[]` → `members` with
-capital 0 (`normalizePortfolio`, mirrors `normalizeAnalysis`).
+Current scope:
 
-## Dexie tables
+- Thesis memory is first-class on `Analysis`.
+- Evidence is currently stored as thesis `evidenceCandidates`, not yet as a
+  first-class Evidence Locker table.
+- Review cadence exists, but there is no IC Agenda or assumption-monitoring
+  engine yet.
+
+## Analysis
+
+```ts
+type DecisionAction = "APPROVE" | "HOLD" | "REJECT"; // legacy
+type AnalysisStatus = "draft" | "decided" | "watching" | "archived";
+
+interface Decision {
+  action: DecisionAction;
+  rationale: string;
+  decidedAt: number;
+}
+
+interface Analysis {
+  id: string;
+  title: string;
+  vertical: Vertical;
+  assetType: AssetType;
+  assetName: string;
+  assetMeta: AssetMeta;
+  tags: string[];
+  folderId: string | null;
+
+  ic: ICState;
+
+  parameters: AssetParameters;
+  metrics: ComputedMetrics;
+
+  debate: DebateResult | null;
+  advisory: LensResult[] | null;
+  persona: PersonaRef | null;
+  stance: Stance | null;
+  expertReview: ExpertReview | null;
+
+  sources: ContextSource[];
+  allowWebSearch: boolean;
+  chat: ChatMessage[];
+
+  decision: Decision | null;
+  model: string;
+  status: AnalysisStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+`Decision` is legacy. Milestone 6 will replace the user-facing
+approve/hold/reject workflow with IC actions, pre-mortems, linked thesis/evidence
+snapshots, review triggers, and outcome reviews.
+
+## Deterministic Metrics
+
+```ts
+interface Metric {
+  key: string;
+  label: string;
+  value: number;
+  display: string;
+  verdict?: string;
+}
+
+interface ComputedMetrics {
+  vertical: Vertical;
+  metrics: Metric[];
+}
+```
+
+All valuation figures used by debate/chat originate from deterministic engine
+functions, not from the model:
+
+- Single-asset metrics: `computeMetrics(vertical, parameters)`.
+- Portfolio metrics: `computePortfolioMetrics(members, byId)`.
+
+Model outputs may interpret and challenge locked figures; they must not author
+lockable numbers.
+
+## Context Sources
+
+```ts
+type ContextSource =
+  | {
+      id: string;
+      kind: "file";
+      name: string;
+      mime: string;
+      fileKind: "image" | "pdf";
+      blobId: string;
+      extractedText?: string;
+      createdAt: number;
+    }
+  | {
+      id: string;
+      kind: "link";
+      url: string;
+      title?: string;
+      createdAt: number;
+    };
+```
+
+Files are stored as blobs in IndexedDB. Links and web research use native provider
+tools where available or the app's server-side `/api/web-fetch` and
+`/api/web-search` routes.
+
+## Portfolio
+
+```ts
+interface PortfolioMember {
+  analysisId: string;
+  capital: number;
+}
+
+interface PortfolioAnalysis {
+  id: string;
+  title: string;
+  members: PortfolioMember[];
+  tags: string[];
+  folderId: string | null;
+  chat: ChatMessage[];
+  allowWebSearch: boolean;
+  persona: PersonaRef | null;
+  stance: Stance | null;
+  debate: DebateResult | null;
+  advisory: LensResult[] | null;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+Portfolio metrics are derived from member capital and referenced analyses. The
+portfolio record stores composition and AI outputs, while metrics are recomputed
+for grounding.
+
+## Dexie Tables
 
 | Table | Primary key | Indexes |
 |---|---|---|
 | `analyses` | `id` | `updatedAt`, `vertical`, `folderId`, `status`, `*tags` |
 | `portfolios` | `id` | `updatedAt`, `folderId`, `*tags` |
 | `folders` | `id` | `parentId` |
-| `blobs` | `id` | — (file bytes, referenced by `ContextSource.blobId`) |
+| `blobs` | `id` | file bytes referenced by `ContextSource.blobId` |
 
-Blobs live in their own table so the `Analysis` record stays light. The repository exposes an
-async API (`listAnalyses / getAnalysis / saveAnalysis / deleteAnalysis / putBlob / getBlob /
-folder + portfolio CRUD`). **Ledger = derived view** (`analyses` where `decision != null`),
-not a separate store — single source of truth.
+The repository normalizes older records on read, so newer fields like
+`assetType`, `ic`, portfolio members, persona, stance, and expert review can
+backfill without a Dexie version bump.
 
-## How context reaches the model
+## Current Gaps
 
-| Source | Anthropic path | OpenAI / other path |
-|---|---|---|
-| image | native `image` content block (base64) | `image_url` content block (base64) |
-| pdf | native `document` content block (base64) | pdf.js text extraction → text block |
-| link | `web_fetch_20260209` server tool (native) | `/api/web-fetch` backend route + OpenAI function-tool loop |
-| web research | `web_search_20260209` server tool (native) | `/api/web-search` (Tavily) + function-tool loop |
-| metrics | text — locked facts in user turn | same |
-
-**Backend routes** (`/api/web-fetch`, `/api/web-search`) run server-side (no CORS). The
-provider's API key stays browser-only; only the Tavily operator key lives on the server.
-
-## Data flows
-
-**Single analysis:** set params → engine computes `metrics` (live) → "Run" → AI streams grounded
-Bull/Bear/Orchestrator (first chat turn) → saved as `Analysis(draft)` → follow-up chat (re-grounded
-each turn) → commit `Decision` → appears in derived Ledger.
-
-**Composition:** New Portfolio → @-select member analyses → prompt injects each member's compact
-**grounded summary** (asset + key metrics + decision + 1-line thesis), not full chat → cross-asset
-answer saved to `portfolio.chat`.
-
-**Local-first bonus:** everything in IndexedDB → trivial **JSON export/import**, and a clean
-migration path to multi-user (swap the repo impl for server calls).
-
-## Out of scope for v1 (designed-for, not built)
-CSV/xlsx/docx parsing + CSV→parameter auto-fill (fast-follow), multi-user backend, real-time sync.
+- Manual private/alternative asset metadata is not yet modeled in full.
+- Evidence Locker has candidates but no first-class evidence table.
+- Stock figure provenance is not yet stored at field level.
+- IC Agenda and assumption monitoring are not implemented.
+- Decision Ledger / review loop is still legacy and is the recommended next
+  implementation milestone.
