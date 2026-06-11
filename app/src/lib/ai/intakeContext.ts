@@ -170,20 +170,20 @@ export function extractIntakeAssetHint(conversationText: string): AssetHint {
   const cleanText = conversationText.replace(/^User:\s*/gim, "");
 
   const explicit = cleanTicker(
-    cleanText.match(/\b(?:ticker|kode|symbol)\s*[:=]?\s*([A-Za-z]{2,5})(?:\.(?:JK|IDX))?\b/i)?.[1],
+    cleanText.match(/\b(?:ticker|kode|symbol)[ \t]*[:=]?[ \t]*([A-Za-z]{2,5})(?:\.(?:JK|IDX))?\b/i)?.[1],
   );
   if (explicit) return { ticker: explicit };
 
   const stockHint = cleanTicker(
     cleanText.match(
-      /\b(?:saham|emiten|stock|stocks|analisa|analisis|analyze|analysis|evaluasi|eval)\s+([a-zA-Z]{4})(?:\.(?:jk|idx))?\b/i,
+      /\b(?:saham|emiten|stock|stocks|analisa|analisis|analyze|analysis|evaluasi|eval)[ \t]+([a-zA-Z]{4})(?:\.(?:jk|idx))?\b/i,
     )?.[1],
   );
   if (stockHint) return { ticker: stockHint };
 
   const reverseStockHint = cleanTicker(
     cleanText.match(
-      /\b([a-zA-Z]{4})\s+(?:saham|emiten|stock|stocks|analisa|analisis|analyze|analysis|evaluasi|eval)\b/i,
+      /\b([a-zA-Z]{4})[ \t]+(?:saham|emiten|stock|stocks|analisa|analisis|analyze|analysis|evaluasi|eval)\b/i,
     )?.[1],
   );
   if (reverseStockHint) return { ticker: reverseStockHint };

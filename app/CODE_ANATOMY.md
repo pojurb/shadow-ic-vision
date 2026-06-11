@@ -63,6 +63,7 @@ app/
 |       |   |-- content.ts           File/PDF/image content block builder
 |       |   |-- pdf.ts               PDF text extraction via pdfjs-dist
 |       |   |-- client.ts            Anthropic fetch helpers and model list
+|       |   |-- eval/                Offline/live eval fixtures, intake scorecards, improvement log
 |       |   `-- providers/
 |       |       |-- anthropic.ts      Claude adapter
 |       |       |-- openai.ts         OpenAI adapter
@@ -214,6 +215,35 @@ ChatMessage appended to analysis.chat and saved
 
 Portfolio chat mirrors this pattern, but grounds on portfolio metrics plus each member analysis' locked figures.
 
+### Flow 4 - Eval Harness And Safe Self-Improvement
+
+```text
+Bad intake / grounding behavior is observed
+      |
+      v
+Convert the failure into an eval case
+      |
+      v
+Pure scorecard checks:
+  - ticker detection
+  - search query quality
+  - search-result relevance
+  - required vs forbidden fields
+  - visible evidence support
+  - scoping vs figures mode
+      |
+      v
+npm test guards deterministic behavior
+      |
+      v
+npm run eval optionally scores live provider behavior
+```
+
+The self-improvement loop is intentionally safe and reviewable. It does not
+auto-edit prompts, code, or user data. Failed behavior becomes a fixture first;
+prompt, retrieval, or parser changes must preserve or improve the scorecard
+before they are promoted.
+
 ---
 
 ## Domain Data Schema
@@ -348,6 +378,19 @@ Capabilities {
 }
 ```
 
+### Eval Harness
+
+`src/lib/ai/eval/` contains two layers:
+
+- P8 grounding harness: fixture analyses, deterministic grounding tests, and an
+  optional live debate/chat scorecard.
+- Intake harness: fixture prompts such as MBMA/BBCA/GOTO, mocked web evidence,
+  pure scoring rules, and a review-only improvement log.
+
+Normal `npm test` runs the offline harness with no network/API keys.
+`npm run eval` uses the optional live provider scorecard and soft-skips provider
+environment limits.
+
 ---
 
 ## State And Storage
@@ -416,6 +459,7 @@ These functions are pure and testable. Their outputs are the numeric grounding l
 | `src/lib/ai/schemas.ts` | Changing structured intake/debate/review JSON schemas |
 | `src/lib/ai/intakeContext.ts` | Changing link/search enrichment for intake |
 | `src/lib/ai/grounding.ts` | Changing numeric grounding lint rules |
+| `src/lib/ai/eval/*` | Adding regression cases, intake scorecards, grounding fixtures, or improvement-log entries |
 | `src/lib/ai/providers/*` | Changing provider-specific API calls |
 | `src/lib/finance/compute.ts` | Changing single-analysis locked metrics |
 | `src/lib/finance/portfolio.ts` | Changing portfolio locked metrics |
@@ -441,6 +485,10 @@ These functions are pure and testable. Their outputs are the numeric grounding l
 
 **Portfolio composition uses the same grounding philosophy.** Portfolio weights and concentration are computed from explicit capital inputs, then used to ground portfolio debate and chat.
 
+**Self-improvement is fixture-first.** A bad model or retrieval result should be
+captured as an eval case before changing prompts or parsers. The harness scores
+candidate changes; it does not autonomously rewrite the system.
+
 ---
 
 ## Roadmap Status
@@ -460,6 +508,8 @@ These functions are pure and testable. Their outputs are the numeric grounding l
 - Portfolio composition: manual holdings, capital weights, deterministic portfolio metrics, strategist debate, and cross-asset chat.
 - Full local persistence for analyses, portfolios, chat, decisions, sources, blobs, and IC memory.
 - Settings: provider, BYOK key, model selector, and workspace backup import/export.
+- Offline intake/grounding eval harness plus optional live provider scorecards.
+- Review-only improvement log linking observed failures to regression cases.
 
 **Still incomplete / product gaps:**
 
@@ -467,7 +517,8 @@ These functions are pure and testable. Their outputs are the numeric grounding l
 - Evidence locker linkage: sources and evidence candidates exist, but there is no first-class linked evidence table/workflow yet.
 - Assumption monitoring: assumptions/review cadence are stored, but no monitoring engine flags thesis drift or breaker events.
 - Stock intake provenance: intake tags fields as stated/inferred, but lockable public-equity figures do not yet carry cited field-level provenance.
-- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions (which exist in \`types.ts\` pending UI integration).
+- In-app feedback inbox / user-facing improvement queue; the current self-improvement loop is developer-facing fixtures only.
+- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions (which exist in `types.ts` pending UI integration).
 - Folder organization UI, despite the schema existing.
 - Rich private/alternative asset metadata such as liquidity, duration, pricing freshness, portfolio role, and sizing intent.
 - Data import from CSV/XLSX or official financial statement extraction.

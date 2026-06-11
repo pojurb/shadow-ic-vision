@@ -2,11 +2,15 @@
 
 > Read this when you return after time away and need to re-orient quickly.
 > It covers what the product is, where to find things in the code, and why key decisions were made.
-> Last updated: 2026-05-30
+> Last updated: 2026-06-11
 
 ---
 
 ## What This Is
+
+Current status: `web/` is frozen as a legacy demo. New product work, including
+live AI, thesis memory, portfolio analysis, intake grounding, and the
+eval/self-improvement harness, lives in `../app/`.
 
 This is the demo version of the JP Family Office investment cockpit. It runs entirely in a web browser — you open the `index.html` file and it works immediately. There is no installation, no server running in the background, and no internet connection required. Everything the page needs is already inside the two files in this folder (`index.html` and `style.css`).
 
@@ -186,6 +190,11 @@ These variables are declared inside a block called `:root` — which is just CSS
 This is the demo version of the investment cockpit. When you open it in a browser, it looks fully functional — but the AI debate you see is not real AI. The text from the Bull and Bear agents was written by hand during development and is just playing back with a typewriter animation. No AI model is being called. This was done intentionally to keep the demo free, fast, and hostable anywhere without a server.
 
 **What is the `app/` folder?**
+
+2026-06-11 update: `app/` is now the active local-first Next.js product. It
+supports BYOK live AI providers, thesis memory, portfolio analysis, intake
+grounding, offline evals, optional live provider scorecards, and the safe
+self-improvement loop.
 Inside the same project folder (`D:\jp-invest\`), there is a second, completely separate product called `app/`. This is the real, production version being actively built. Unlike this demo, `app/` actually connects to an AI model (Claude by Anthropic), stores your analysis data permanently on your machine, and is designed for actual daily use — not just to demonstrate the concept to others.
 
 **Why does this matter for the roadmap?**

@@ -57,6 +57,7 @@ jp-invest/
 |-- BUILD_PLAN.md                     Current milestone tracker
 |-- PROGRESS.md                       Current implementation log
 |-- DATA_MODEL.md                     Domain model and storage design
+|-- docs/deployment/                  Deployment runbooks
 |-- docs/archive/                     Historical PRDs and strategy inputs
 |-- app/                              Main Next.js web application
 |-- scripts/                          Legacy/local quantitative utilities
@@ -124,7 +125,7 @@ This is needed for `/api/web-search` and deployed web-research fallback behavior
 - [PROGRESS.md](PROGRESS.md): implementation log and latest saved status.
 - [DATA_MODEL.md](DATA_MODEL.md): domain model, storage, and data flow.
 - [app/CODE_ANATOMY.md](app/CODE_ANATOMY.md): app architecture and code map.
-- [VERCEL_CUTOVER.md](VERCEL_CUTOVER.md): deployment handoff notes.
+- [docs/deployment/VERCEL_CUTOVER.md](docs/deployment/VERCEL_CUTOVER.md): deployment handoff notes.
 - [docs/archive/](docs/archive/): historical PRDs and prior strategy inputs.
 
 ## Legacy CLI Utilities

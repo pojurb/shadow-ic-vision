@@ -31,9 +31,11 @@ Saved before next build work:
 - Recent stock-intake fix: focused IDX ticker queries, quote/chart fetch, top
   search-result page fetch, partial-stock-data scoping guard, and prompt
   guardrails against invented `discountRate`, `terminalMult`, and evidence.
+- Safe intake/self-improvement harness now guards the MBMA-style failure class
+  through fixture cases, pure scorecards, an improvement log, and optional live
+  provider eval.
 - Verification after the recent app changes: `npm test` passed
-  (17 files / 129 tests), `npm run build` passed, and the local app responded at
-  `http://127.0.0.1:3000`.
+  (18 files / 141 tests), `npm run build` passed, and `npm run eval` passed.
 - Recommended next implementation after documentation cleanup: Milestone 6
   Decision Ledger + Review Loop.
 
@@ -41,7 +43,8 @@ Root cleanup decision:
 
 - Current source-of-truth docs stay at root: `README.md`,
   `PRODUCT_STRATEGY.md`, `BUILD_PLAN.md`, `PROGRESS.md`, `DATA_MODEL.md`,
-  `VERCEL_CUTOVER.md`, tool instruction files, package files, and license.
+  tool instruction files, package files, and license.
+- Deployment runbooks live under `docs/deployment/`.
 - Historical PRDs move to `docs/archive/`.
 
 ---
@@ -351,7 +354,7 @@ pass** (unchanged — CSS-only) · `next build` green.
 breakpoint, to confirm legibility — no functional risk.
 
 ### P9c — Vercel cutover prep — 🟡 DOC DRAFTED 2026-06-08
-The production handoff is now documented in [`VERCEL_CUTOVER.md`](VERCEL_CUTOVER.md). It pins the live
+The production handoff is now documented in [`docs/deployment/VERCEL_CUTOVER.md`](docs/deployment/VERCEL_CUTOVER.md). It pins the live
 target to `app/`, lists the Vercel project settings, calls out `TAVILY_API_KEY`, and spells out the
 cutover / rollback / post-cutover checks.
 

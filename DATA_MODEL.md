@@ -214,11 +214,45 @@ The repository normalizes older records on read, so newer fields like
 `assetType`, `ic`, portfolio members, persona, stance, and expert review can
 backfill without a Dexie version bump.
 
+## Eval Harness And Improvement Loop
+
+The self-improvement loop is developer-facing and fixture-driven. It is not a
+runtime product table yet.
+
+```ts
+interface ImprovementLogEntry {
+  id: string;
+  createdAt: string;
+  area: "intake" | "grounding" | "decision" | "portfolio";
+  caseId: string;
+  status: "new" | "fixed" | "accepted-risk";
+  observedFailure: string;
+  expectedBehavior: string;
+  guardedBy: string[];
+  notes?: string;
+}
+```
+
+Current implementation:
+
+- Intake eval cases live in code fixtures and describe expected ticker detection,
+  research quality, allowed/forbidden fields, expected values, and evidence URLs.
+- Intake scoring is pure and checks extraction, no-fabrication behavior,
+  evidence relevance, and scoping-vs-figures mode.
+- The improvement log links observed failures to eval cases and tests.
+- Optional live eval reuses the same cases against Gemini when a provider key is
+  available.
+
+The harness is intentionally not autonomous. It records and guards failures, but
+does not modify prompts, code, or persisted user data.
+
 ## Current Gaps
 
 - Manual private/alternative asset metadata is not yet modeled in full.
 - Evidence Locker has candidates but no first-class evidence table.
 - Stock figure provenance is not yet stored at field level.
+- Eval/self-improvement is fixture-based only; there is no in-app feedback inbox
+  or persisted user-facing improvement queue.
 - IC Agenda and assumption monitoring are not implemented.
 - Decision Ledger / review loop is still legacy and is the recommended next
   implementation milestone.

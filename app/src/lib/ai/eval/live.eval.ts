@@ -14,7 +14,19 @@ import {
   lintPortfolioGrounding,
   portfolioChatExtras,
 } from "@/lib/ai/grounding";
+import { gatherIntakeWebEvidence } from "@/lib/ai/intakeContext";
 import { VERTICALS, memberFromPreset, mixedPortfolio } from "./fixtures";
+import {
+  INTAKE_EVAL_CASES,
+  buildIntakeEvalText,
+  createIntakeEvalFetch,
+} from "./intakeCases";
+import {
+  failedChecks,
+  mergeIntakeScores,
+  scoreIntakeResearch,
+  scoreIntakeResult,
+} from "./intakeScore";
 import type { Analysis } from "@/lib/domain/types";
 
 function readKey(): string {
@@ -58,6 +70,13 @@ interface Row {
   groundingClean: boolean;
 }
 
+interface IntakeRow {
+  name: string;
+  criticalPass: boolean;
+  scorePct: number;
+  failures: string[];
+}
+
 describe.skipIf(!KEY)("P8 live eval scorecard (Gemini)", () => {
   const rows: Row[] = [];
 
@@ -75,6 +94,8 @@ describe.skipIf(!KEY)("P8 live eval scorecard (Gemini)", () => {
 });
 
 async function runScorecard(rows: Row[]): Promise<void> {
+  const intakeRows: IntakeRow[] = [];
+
   {
     // --- per-vertical debate + a follow-up chat ---
     for (const v of VERTICALS) {
@@ -128,6 +149,30 @@ async function runScorecard(rows: Row[]): Promise<void> {
     );
     rows.push({ name: "portfolio chat", schemaValid: null, stanceMatch: null, groundingClean: lintChatReply(pReply, pExtra.metrics, pExtra.extra).clean });
 
+    // --- intake scorecard over deterministic research evidence ---
+    for (const testCase of INTAKE_EVAL_CASES) {
+      const evidence = await gatherIntakeWebEvidence({
+        conversationText: testCase.conversationText,
+        sources: testCase.sources,
+        allowWebSearch: testCase.allowWebSearch,
+        fetchImpl: createIntakeEvalFetch(testCase),
+      });
+      const userText = buildIntakeEvalText(testCase, evidence);
+      const out = await withRetry(() =>
+        geminiProvider.runIntake({ apiKey: KEY, model: MODEL, userText, sources: testCase.sources }),
+      );
+      const combined = mergeIntakeScores(testCase.id, [
+        scoreIntakeResearch(testCase, evidence),
+        scoreIntakeResult(testCase, out, evidence),
+      ]);
+      intakeRows.push({
+        name: testCase.id,
+        criticalPass: combined.criticalPass,
+        scorePct: combined.scorePct,
+        failures: failedChecks(combined, true).map((check) => check.id),
+      });
+    }
+
     // --- scorecard ---
     const pct = (xs: (boolean | null)[]) => {
       const vals = xs.filter((x): x is boolean => x !== null);
@@ -144,8 +189,19 @@ async function runScorecard(rows: Row[]): Promise<void> {
     console.log(`  grounding-clean:${pct(rows.map((r) => r.groundingClean))}%   (measured; model slips OR parser false-positives lower it)`);
     console.log("================================================================\n");
 
+    console.log("================ INTAKE EVAL SCORECARD (Gemini " + MODEL + ") ================");
+    for (const r of intakeRows) {
+      const cell = r.criticalPass ? " OK " : "FAIL";
+      const failures = r.failures.length ? ` failures: ${r.failures.join(", ")}` : "";
+      console.log(`  ${r.name.padEnd(24)} critical ${cell} score ${String(r.scorePct).padStart(3)}%${failures}`);
+    }
+    console.log("  ----------------------------------------------------------------");
+    console.log(`  intake-critical:${pct(intakeRows.map((r) => r.criticalPass))}%   (no-fabrication + required extraction gates)`);
+    console.log("================================================================\n");
+
     // Hard gates: schema + engine-derived stance must always hold. Grounding is measured.
     expect(pct(rows.map((r) => r.schemaValid))).toBe(100);
     expect(pct(rows.map((r) => r.stanceMatch))).toBe(100);
+    expect(pct(intakeRows.map((r) => r.criticalPass))).toBe(100);
   }
 }

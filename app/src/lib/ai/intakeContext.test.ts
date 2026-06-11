@@ -64,6 +64,16 @@ describe("intakeContext", () => {
     ]);
   });
 
+  it("does not let stock keywords consume the next user turn as a ticker", () => {
+    const text = buildIntakeConversationText([
+      user("MBMA Stocks", 1),
+      user("find it through internet, but only use real visible data", 2),
+    ]);
+
+    expect(extractIntakeAssetHint(text)).toEqual({ ticker: "MBMA" });
+    expect(buildIntakeSearchQuery(text)).toBe("MBMA.JK stock quote EPS ROE market cap");
+  });
+
   it("uses backend search when web research is enabled", async () => {
     const calls: string[] = [];
     const fetchImpl = async (url: string | URL | Request, init?: RequestInit) => {

@@ -98,6 +98,8 @@ Implemented:
   intake stays in scoping unless required fields survive extraction.
 - `discountRate`, `terminalMult`, and buy price remain user assumptions unless
   explicitly supplied.
+- Intake eval fixtures and pure scorecards now guard ticker detection, evidence
+  relevance, no-fabrication behavior, and scoping-vs-figures mode.
 
 Remaining:
 
