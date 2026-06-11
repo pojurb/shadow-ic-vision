@@ -7,6 +7,7 @@ import { computeMetrics } from "@/lib/finance/compute";
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
 import { personaFor } from "@/lib/ai/personas";
 import { PRESETS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { SlotSpec, LensSpec } from "@/lib/ai/personas";
 import type { Analysis, PortfolioAnalysis, PortfolioMember, PortfolioMetrics } from "@/lib/domain/types";
 import type { DebateOutput } from "@/lib/ai/schemas";
@@ -26,6 +27,7 @@ export function memberFromPreset(id: string, vertical: Vertical, idx = 0): Analy
   return {
     id, title: preset.name, vertical, assetName: preset.name,
     assetMeta: { currency: "IDR" }, tags: [], folderId: null,
+    assetType: assetTypeForVertical(vertical), ic: createDefaultICState(0),
     parameters, metrics,
     debate: null, advisory: null, persona: null,
     stance: d ? { label: d.label, basis: d.basis } : null,

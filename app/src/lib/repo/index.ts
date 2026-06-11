@@ -5,6 +5,7 @@
  */
 import { getDB } from "./db";
 import { personaFor } from "@/lib/ai/personas";
+import { assetTypeForVertical, createDefaultICState, normalizeICState } from "@/lib/domain/ic";
 import {
   bytesToBase64,
   base64ToBytes,
@@ -27,6 +28,8 @@ import type {
   Stance,
   Vertical,
   AssetParameters,
+  AssetType,
+  ICState,
 } from "@/lib/domain/types";
 
 function uid(): string {
@@ -49,6 +52,8 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
   const a = raw as Analysis & {
     debate: (DebateResult & { confidence?: number }) | null;
     advisory: AdvisoryResult | LegacyAdvisory | null;
+    assetType?: AssetType;
+    ic?: ICState;
   };
 
   // advisory: object {operator,risk,predator} → lens array
@@ -83,7 +88,16 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     stance = d ? { label: d.label, basis: d.basis } : null;
   }
 
-  return { ...a, advisory, debate, persona, stance, expertReview: a.expertReview ?? null };
+  return {
+    ...a,
+    assetType: a.assetType ?? assetTypeForVertical(a.vertical),
+    ic: normalizeICState(a.ic),
+    advisory,
+    debate,
+    persona,
+    stance,
+    expertReview: a.expertReview ?? null,
+  };
 }
 
 // ---- Analyses ----
@@ -133,10 +147,12 @@ export function createAnalysis(input: {
     id: uid(),
     title: input.title,
     vertical: input.vertical,
+    assetType: assetTypeForVertical(input.vertical),
     assetName: input.assetName,
     assetMeta: { currency: "IDR" },
     tags: [],
     folderId: input.folderId ?? null,
+    ic: createDefaultICState(now),
     parameters: input.parameters,
     metrics: input.metrics,
     debate: input.debate ?? null,

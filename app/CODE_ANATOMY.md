@@ -1,428 +1,475 @@
-# CODE ANATOMY — app/
+# CODE ANATOMY - app/
 
 > Read this when you return after time away and need to re-orient quickly.
 > It covers what the product is, where to find things in the code, and why key decisions were made.
-> Last updated: 2026-05-31
+> Product strategy lives in `../PRODUCT_STRATEGY.md`; this file is the implementation map.
+> Last updated: 2026-06-11
 
 ---
 
 ## What This Is
 
-This is the production version of the JP Family Office investment cockpit. It runs as a Next.js web application — you start it with `npm run dev` and open it in a browser at `localhost:3000`. Unlike the static demo in `web/`, this version connects to real AI models, stores all your work permanently in your browser's database, and is designed for actual daily use.
+This app is evolving from a single-asset valuation cockpit into a local-first AI Investment Committee workspace. It runs as a Next.js web application, stores work in the browser, and uses BYOK provider keys for live AI calls.
 
-**What it does:** You create a new "analysis" for an asset (a stock, startup, or conventional business), adjust financial parameters using sliders, then click "RUN AI" to generate a live Bull vs Bear debate and three advisory perspectives. The AI receives your locked financial figures as grounding — it cannot invent numbers. You can upload supporting documents (PDFs, images), paste links, enable web research, and ask follow-up questions in a grounded chat panel. When you reach a conviction, you commit a APPROVE / HOLD / REJECT decision with a rationale.
+The current "analysis cockpit" is now best understood as the thesis detail page. A user can paste rough investment notes, attach files or links, let the model extract a structured intake draft, confirm the extracted fields, and then save thesis memory into `analysis.ic`. If enough valuation figures exist, those confirmed figures also lock into the deterministic valuation engine and trigger the grounded bull/bear debate. If figures are missing, the thesis memory still persists for later.
 
-**Bring Your Own Key (BYOK):** There is no subscription. You supply an API key (Anthropic, OpenAI, or Google Gemini) in the Settings panel. The key is stored only in your browser and sent directly to the provider — it never touches the server. The only server-side secret the operator needs is a free Tavily key for web search (used as a fallback for providers that lack native web access).
+The product surface now includes:
+
+- Thesis memory: summary, assumptions, thesis breakers, watch items, valuation assumptions, catalysts, open questions, evidence candidates, and conviction.
+- Deterministic valuation figures: computed locally from confirmed parameters and injected into prompts as locked facts.
+- Decision memory: persisted decisions and rationale on the analysis record.
+- Portfolio composition: local portfolio objects with manual holdings, capital weights, deterministic portfolio metrics, portfolio debate, and cross-asset chat.
+
+BYOK still applies. Anthropic, OpenAI, and Gemini keys are stored only in browser localStorage and sent directly from the browser to the provider. Tavily is server-side only through `/api/web-search` when a provider needs the app fallback for search.
 
 ---
 
 ## File Map
 
-```
+```text
 app/
-├── src/
-│   ├── app/                    Next.js routing root
-│   │   ├── layout.tsx          HTML shell, fonts, metadata
-│   │   ├── page.tsx            "/" route — renders <Workspace />
-│   │   ├── globals.css         CSS resets and base rules
-│   │   ├── workspace.css       Workspace layout styles
-│   │   └── api/
-│   │       ├── web-search/
-│   │       │   └── route.ts    POST /api/web-search (Tavily proxy)
-│   │       └── web-fetch/
-│   │           └── route.ts    POST /api/web-fetch (CORS-bypass URL fetcher)
-│   ├── components/
-│   │   ├── Workspace.tsx       Root container — analysis list, new/delete, settings
-│   │   ├── AnalysisView.tsx    Main editor — all panels for one open analysis
-│   │   ├── Library.tsx         Sidebar — search, filter, analysis list
-│   │   ├── Settings.tsx        Modal — provider / API key / model selector
-│   │   └── charts.tsx          Retro SVG charts (one per vertical)
-│   ├── data/
-│   │   └── presets.ts          6 seeded presets (2 per vertical) with curated debate text
-│   └── lib/
-│       ├── ai/
-│       │   ├── registry.ts     Provider registry — single resolution point
-│       │   ├── types.ts        AIProvider interface, Capabilities flags
-│       │   ├── analyze.ts      Two-pass orchestration: research → debate
-│       │   ├── chat.ts         Streamed follow-up chat (SSE parsing)
-│       │   ├── prompts.ts      System/user prompt builders, grounding text
-│       │   ├── schemas.ts      JSON Schema for structured debate output
-│       │   ├── content.ts      Anthropic content block builder (files/PDFs)
-│       │   ├── pdf.ts          PDF text extraction via pdfjs-dist
-│       │   ├── client.ts       Anthropic fetch helpers, model list
-│       │   └── providers/
-│       │       ├── anthropic.ts  Claude adapter (all capabilities native)
-│       │       ├── openai.ts     GPT-4o adapter (PDF/web via fallbacks)
-│       │       └── gemini.ts     Gemini adapter (PDF native, web via fallback)
-│       ├── domain/
-│       │   └── types.ts        All core types: Analysis, DebateResult, Decision, etc.
-│       ├── finance/
-│       │   ├── compute.ts      computeMetrics() — bridges engine to UI and AI prompts
-│       │   ├── equities.ts     calcPE, calcDCF, calcIRR (Stocks vertical)
-│       │   ├── ventures.ts     calcLTV, calcCAC, calcRunway (Startups vertical)
-│       │   ├── operating.ts    calcBEP (Conventional vertical)
-│       │   ├── format.ts       formatIDR, formatNum display helpers
-│       │   ├── index.ts        Export barrel
-│       │   └── *.test.ts       Vitest unit tests per module
-│       ├── repo/
-│       │   ├── db.ts           Dexie schema — WorkspaceDB, table definitions
-│       │   └── index.ts        Async repository: listAnalyses, saveAnalysis, etc.
-│       └── storage/
-│           └── index.ts        localStorage adapter for Settings and Ledger
-├── public/
-│   └── pdf.worker.min.mjs      pdfjs worker (served statically, needed for PDF extraction)
-├── .env.local.example          One required env var: TAVILY_API_KEY
-├── next.config.ts
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-├── CLAUDE.md
-└── AGENTS.md
+|-- src/
+|   |-- app/                         Next.js routing root
+|   |   |-- layout.tsx               HTML shell, fonts, metadata
+|   |   |-- page.tsx                 "/" route; renders <Workspace />
+|   |   |-- globals.css              CSS tokens, component styles, base rules
+|   |   |-- workspace.css            Workspace layout styles
+|   |   |-- proto/page.tsx           Prototype route
+|   |   `-- api/
+|   |       |-- web-search/route.ts  POST /api/web-search (Tavily proxy)
+|   |       `-- web-fetch/route.ts   POST /api/web-fetch (CORS-bypass URL fetcher)
+|   |-- components/
+|   |   |-- Workspace.tsx            Root container: analyses, portfolios, create/delete, settings
+|   |   |-- AnalysisView.tsx         Thesis detail page: intake confirmation, thesis memory inspector, engine, debate, chat
+|   |   |-- PortfolioView.tsx        Portfolio composition, weights, strategist debate, cross-asset chat
+|   |   |-- Library.tsx              Sidebar search/filter/list for analyses and portfolios
+|   |   |-- Settings.tsx             Provider/key/model config plus backup import/export
+|   |   `-- charts.tsx               SVG charts per valuation vertical
+|   |-- data/
+|   |   |-- fields.ts                UI/intake field metadata for engine parameters
+|   |   `-- presets.ts               Seeded presets and vertical parameter types
+|   `-- lib/
+|       |-- ai/
+|       |   |-- registry.ts          Provider registry
+|       |   |-- types.ts             AIProvider interface, including runIntake()
+|       |   |-- analyze.ts           Research, thesis intake finalization, debate, expert review, portfolio debate
+|       |   |-- chat.ts              Streamed grounded follow-up chat
+|       |   |-- prompts.ts           Intake, research, debate, chat, and portfolio prompt builders
+|       |   |-- schemas.ts           JSON Schemas for intake, debate, and expert review
+|       |   |-- grounding.ts         Post-hoc numeric grounding checks
+|       |   |-- intakeContext.ts     Intake conversation/link/web-evidence helpers
+|       |   |-- report.ts            Templated written report after intake/debate
+|       |   |-- personas.ts          Per-vertical and portfolio persona/lens definitions
+|       |   |-- content.ts           File/PDF/image content block builder
+|       |   |-- pdf.ts               PDF text extraction via pdfjs-dist
+|       |   |-- client.ts            Anthropic fetch helpers and model list
+|       |   `-- providers/
+|       |       |-- anthropic.ts      Claude adapter
+|       |       |-- openai.ts         OpenAI adapter
+|       |       `-- gemini.ts         Gemini adapter
+|       |-- domain/
+|       |   |-- types.ts            Core types: Analysis, IC primitives, PortfolioAnalysis, Decision, etc.
+|       |   `-- ic.ts               IC defaults, asset-type labels, normalization/backfill helpers
+|       |-- finance/
+|       |   |-- compute.ts          computeMetrics(); single-analysis locked figures
+|       |   |-- portfolio.ts        computePortfolioMetrics(); portfolio locked figures
+|       |   |-- equities.ts         P/E, DCF, IRR
+|       |   |-- ventures.ts         LTV, CAC, runway
+|       |   |-- operating.ts        Break-even point
+|       |   |-- format.ts           Display formatting
+|       |   `-- *.test.ts           Vitest coverage
+|       |-- repo/
+|       |   |-- db.ts               Dexie schema
+|       |   |-- index.ts            Repository API and normalization
+|       |   `-- backup.ts           Workspace backup serialization/import parsing
+|       |-- storage/index.ts        localStorage adapter for settings and legacy ledger
+|       `-- ui/inspectorWidth.ts    Persisted inspector width helpers
+|-- public/pdf.worker.min.mjs       pdfjs worker
+|-- .env.local.example              TAVILY_API_KEY example
+|-- package.json
+|-- next.config.ts
+|-- tsconfig.json
+`-- vitest.config.ts
 ```
 
 ---
 
-## Architecture in One Sentence
+## Architecture In One Sentence
 
-The app is a single-page workspace where your financial figures are computed deterministically on the client, then passed as locked facts to whichever AI provider you configured — so the AI can only interpret numbers you already verified, not invent them.
+The app is a local-first single-page workspace where user-confirmed thesis memory and deterministic valuation figures are saved in IndexedDB, then passed to a configured AI provider as grounded context so the model can interpret and challenge the thesis without inventing lockable numbers.
 
 ---
 
 ## Data Flow
 
-Two separate flows run in this app. The first is triggered every time you move a slider. The second is triggered when you click RUN AI or send a chat message. Read each diagram top to bottom — each arrow means "triggers" or "feeds into".
+### Flow 0 - Intake: Messy Notes To Thesis Memory
 
-### Flow 1 — Slider changes a parameter
-
+```text
+User pastes notes / links / attachment-backed context
+      |
+      v
+AnalysisView.submitIntake()
+      |
+      |-- optional link/search enrichment via intakeContext.ts
+      v
+provider.runIntake()
+      |
+      v
+Model returns structured intake:
+  - detected vertical
+  - extracted valuation fields
+  - thesis draft
+      |
+      v
+finalizeIntake() normalizes/sanitizes output
+  - clamp vertical
+  - drop unknown parameter keys
+  - coerce finite numeric values
+  - unit-guard percent_raw fields
+  - sanitize thesis lists/evidence candidates
+      |
+      v
+ConfirmCard lets user edit/confirm figures and thesis draft
+      |
+      v
+confirmIntake()
+      |
+      |-- save confirmed thesis memory to analysis.ic
+      |-- if figures exist: computeMetrics() -> locked figures -> runAnalysis()
+      `-- if figures do not exist: save thesis memory only; debate waits
 ```
-User moves a slider
-      │
-      ▼
-analysis.parameters (updated in React state)
-      │
-      ▼
-computeMetrics(vertical, parameters)    ← deterministic math only, no AI
-      │
-      ├──► analysis.metrics updated     ← locked figures, shown in metric boxes
-      └──► SVG chart re-renders         ← chart visuals update immediately
+
+Intake output is not trusted directly. It is confirm-ready, not locked. Confirmed thesis memory is saved under `analysis.ic.thesis`; confirmed valuation numbers become `analysis.parameters` and `analysis.metrics`.
+
+### Flow 1 - Parameter Changes
+
+```text
+User moves a slider or edits a confirmed value
+      |
+      v
+analysis.parameters updated in React state
+      |
+      v
+computeMetrics(vertical, parameters)
+      |
+      |-- analysis.metrics updated     deterministic locked figures
+      `-- chart re-renders             visual only
 ```
 
-### Flow 2 — RUN AI (two-pass orchestration)
+All valuation figures used by debate/chat originate in `computeMetrics()` or `computePortfolioMetrics()`, not from the model.
 
-```
-User clicks RUN AI
-      │
-      ▼
-getProvider(settings.provider)          ← picks Anthropic, OpenAI, or Gemini adapter
-      │
-      ▼
-Pass 1: runResearch()                   ← only if allowWebSearch=true or link sources present
-      │   Provider uses web_fetch / web_search tools (native or via /api/web-*)
-      │   Handles tool-use loop (up to 6 rounds)
-      │
-      └──► analyst notes (free-form text)
-                  │
-                  ▼
+### Flow 2 - Single-Asset AI Debate
+
+```text
+User clicks RUN AI or intake confirms enough figures
+      |
+      v
+getProvider(settings.provider)
+      |
+      v
+Pass 1: runResearch()
+  only when allowWebSearch=true or link sources exist
+  provider uses native tools or app fallback routes
+      |
+      v
+qualitative research notes
+      |
+      v
 Pass 2: runAnalysis()
-      │   Locked figures from computeMetrics() injected into user prompt
-      │   Structured output enforced via JSON Schema (debate format)
-      │
-      └──► DebateOutput {
-                confidence %, bull[], bear[],
-                advisory { operator, risk, predator }
-           }
-                  │
-                  ▼
-analysis.debate + analysis.advisory updated → UI re-renders debate/advisory panels
-      │
-      ▼
-saveAnalysis() → Dexie/IndexedDB        ← persisted automatically
+  prompt includes locked figures + confirmed thesis memory
+  structured output enforced by DEBATE_JSON_SCHEMA
+      |
+      v
+finalizeDebate()
+  zips advisory lenses to persona contract
+  derives stance from engine metrics
+      |
+      v
+analysis.debate / analysis.advisory / analysis.stance saved to Dexie
 ```
 
-### Flow 3 — Chat follow-up
+Research notes are qualitative context only. Locked figures remain the only authoritative numeric source for the debate.
 
-```
-User types a message and sends
-      │
-      ▼
+### Flow 3 - Grounded Chat
+
+```text
+User sends follow-up
+      |
+      v
 streamChat()
-      │   Preamble: locked figures + prior debate injected for grounding
-      │   Streams SSE delta tokens from provider API
-      │
-      └──► onDelta(text) fires per chunk → chat panel renders incrementally
-                  │
-                  ▼
-ChatMessage appended to analysis.chat → saveAnalysis()
+      |
+      v
+Prompt preamble:
+  - locked figures
+  - confirmed thesis memory
+  - attached context summary
+  - prior debate
+      |
+      v
+SSE deltas render incrementally
+      |
+      v
+ChatMessage appended to analysis.chat and saved
 ```
 
----
-
-## Source Directory Index
-
-*Where to go when you need to change something.*
-
-| Directory / File | Touch when… |
-|---|---|
-| `src/app/page.tsx` + `layout.tsx` | Changing the root HTML shell, fonts, or page metadata |
-| `src/components/Workspace.tsx` | Changing the overall layout, how analyses are created/deleted, or the new-analysis dialog |
-| `src/components/AnalysisView.tsx` | Changing any panel within an open analysis — parameters, debate, advisory, context, chat |
-| `src/components/Library.tsx` | Changing the sidebar — search, filter, list items |
-| `src/components/Settings.tsx` | Changing the provider/key/model configuration UI |
-| `src/components/charts.tsx` | Editing the SVG charts (one component per vertical) |
-| `src/data/presets.ts` | Adding or editing the seeded presets — their parameters and curated debate/advisory text |
-| `src/lib/ai/providers/anthropic.ts` | Changing how Claude is called — model, tools, content blocks, structured output |
-| `src/lib/ai/providers/openai.ts` | Changing GPT-4o behaviour, tool loop, fallback handling |
-| `src/lib/ai/providers/gemini.ts` | Changing Gemini behaviour, PDF handling, fallback handling |
-| `src/lib/ai/registry.ts` | Adding a new provider, or changing which provider is the default |
-| `src/lib/ai/types.ts` | Adding a new capability flag, or changing the AIProvider interface |
-| `src/lib/ai/analyze.ts` | Changing the research/debate orchestration logic, tool-use loop depth, pass count |
-| `src/lib/ai/chat.ts` | Changing how the chat stream works or how grounding is built for chat |
-| `src/lib/ai/prompts.ts` | Editing system prompts, user prompts, or the grounding block injected before AI calls |
-| `src/lib/ai/schemas.ts` | Changing the JSON Schema that enforces structured debate output |
-| `src/lib/finance/compute.ts` | Changing which metrics are computed and how they are formatted for the UI and AI prompt |
-| `src/lib/finance/equities.ts` | Changing P/E, DCF, or IRR formulas for the Stocks vertical |
-| `src/lib/finance/ventures.ts` | Changing LTV, CAC, or Runway formulas for the Startups vertical |
-| `src/lib/finance/operating.ts` | Changing BEP formula for the Conventional vertical |
-| `src/lib/domain/types.ts` | Adding a new field to Analysis, Decision, ContextSource, or any other core type |
-| `src/lib/repo/db.ts` | Changing the Dexie database schema — adding tables or indexes |
-| `src/lib/repo/index.ts` | Changing how analyses are read, saved, listed, or deleted |
-| `src/lib/storage/index.ts` | Changing what gets saved in localStorage (Settings or Ledger) |
-| `src/app/api/web-search/route.ts` | Changing the Tavily integration — result count, search depth, error handling |
-| `src/app/api/web-fetch/route.ts` | Changing URL fetching — content length cap, HTML stripping, error handling |
-
----
-
-## State and Storage
-
-This app has three layers of storage. Each stores different things for different reasons.
-
-### 1. React component state (in-memory, resets on refresh)
-Held directly in `Workspace.tsx` and `AnalysisView.tsx` via `useState`. This is the live session state — which analysis is open, what the current slider values are, whether a modal is showing. It is not persisted anywhere on its own; it is the working copy of data loaded from Dexie.
-
-Key values in `Workspace.tsx`:
-```ts
-analyses        // Analysis[]  — full list loaded from IndexedDB
-activeAnalysis  // Analysis | null  — the one currently open
-showNew         // boolean  — whether the new-analysis dialog is visible
-showSettings    // boolean  — whether the settings modal is open
-settings        // Settings  — provider + API keys + model (loaded from localStorage)
-```
-
-### 2. localStorage (persists across refresh, per browser)
-Managed by `src/lib/storage/index.ts`. Stores small config objects only.
-
-| Key | Contents |
-|---|---|
-| `jp_settings` | `{ provider, apiKeys: { anthropic, openai, gemini }, model }` |
-| `jp_ledger` | Legacy ledger entries (superseded by `Analysis.decision` in Dexie) |
-
-### 3. Dexie / IndexedDB (persists across refresh and sessions, per browser)
-Managed by `src/lib/repo/`. This is the main database. All analyses, their parameters, AI-generated debate content, attached file blobs, chat history, and decisions live here. The database name is `"jp-workspace"`.
-
-| Dexie Table | Stores | Key fields for querying |
-|---|---|---|
-| `analyses` | Analysis objects | `id`, `updatedAt`, `vertical`, `folderId`, `status`, `tags[]` |
-| `portfolios` | Portfolio groupings | `id`, `updatedAt`, `folderId`, `tags[]` |
-| `folders` | Folder hierarchy | `id`, `parentId` |
-| `blobs` | Binary file attachments (PDFs, images) | `id` |
-
-The Dexie instance is created lazily on the first `getDB()` call — it only runs in the browser (not during Next.js server-side rendering), which is why it is wrapped in a lazy singleton check.
+Portfolio chat mirrors this pattern, but grounds on portfolio metrics plus each member analysis' locked figures.
 
 ---
 
 ## Domain Data Schema
 
-The central type is `Analysis`. Every piece of data the app stores for a single investment analysis lives inside this object. When you need to add a field (e.g. a new metadata attribute or a new panel), `Analysis` in `src/lib/domain/types.ts` is the starting point.
+The central object is still `Analysis`, but it now carries IC memory alongside valuation-engine state.
+
+Important distinction:
+
+- `vertical` routes the valuation engine and field set: `"stocks" | "startups" | "conventional"`.
+- `assetType` is the IC/product classification: `"public_equity" | "conventional_business" | "startup" | "real_estate" | "crypto" | "macro_view" | "other"`.
 
 ```ts
 Analysis {
-  id           // unique identifier (UUID)
-  title        // user-editable analysis title
-  vertical     // "stocks" | "startups" | "conventional"
-  assetName    // e.g. "Bank Central Asia"
+  id
+  title
+  vertical       // valuation-engine route
+  assetType     // IC/product classification
+  assetName
   assetMeta {
-    ticker?    // e.g. "BBCA"
+    ticker?
     sector?
     currency?
     region?
-    dataAsOf?  // date string — when the input data was sourced
-    source?    // e.g. "annual report 2024"
+    dataAsOf?
+    source?
   }
-  tags         // string[]
-  folderId?
+  tags
+  folderId
 
-  parameters   // vertical-specific sliders (see below)
-  metrics      // ComputedMetrics — output of computeMetrics(), locked for AI
+  ic {
+    thesis {
+      summary
+      assumptions[]             // { id, text, status, monitor?, createdAt, updatedAt }
+      thesisBreakers[]          // { id, text, severity, createdAt }
+      watchItems[]              // { id, text, cadence?, createdAt }
+      valuationAssumptions[]    // { id, text, source, createdAt }
+      catalysts[]               // { id, text, timeframe?, createdAt }
+      openQuestions[]           // { id, text, createdAt }
+      evidenceCandidates[]      // title/url/note/type/relation/reliability
+      conviction                // "low" | "medium" | "high" | null
+    }
+    review {
+      cadence                   // weekly/monthly/quarterly/event_driven
+      lastReviewedAt
+      nextReviewDue
+    }
+  }
 
-  debate       // DebateResult { confidence %, bull[], bear[] }
-  advisory     // AdvisoryResult { operator, risk, predator }
+  parameters                    // vertical-specific engine inputs
+  metrics                       // ComputedMetrics from computeMetrics()
+  debate                        // DebateResult | null
+  advisory                      // LensResult[] | null
+  persona                       // visible expert persona | null
+  stance                        // engine-derived stance | null
+  expertReview                  // optional second-expert review | null
 
-  sources      // ContextSource[] — uploaded files and pasted links
-  allowWebSearch  // boolean — whether AI may run web research
+  sources                       // uploaded files and pasted links
+  allowWebSearch
+  chat
 
-  chat         // ChatMessage[] — follow-up conversation history
-
-  decision?    // Decision { action, rationale, decidedAt }
-  model?       // which model was used for the last AI run
-  status       // "draft" | "decided"
-  createdAt    // ISO string
-  updatedAt    // ISO string
+  decision                      // legacy APPROVE/HOLD/REJECT decision memory
+  model
+  status                        // draft/decided/watching/archived
+  createdAt
+  updatedAt
 }
 ```
 
-Parameters by vertical:
+`src/lib/domain/ic.ts` owns defaults and normalization for the IC portion:
 
-| Vertical | Parameter Keys |
-|---|---|
-| `stocks` | `price, eps, pb, roe, discountRate, terminalMult, invested, cashflows[]` |
-| `startups` | `cash, burn, cac, arpu, margin, churn` |
-| `conventional` | `fixed, price, variable, invested` |
+- `assetTypeForVertical(vertical)` backfills the default asset type.
+- `emptyThesisMemory()` creates empty thesis memory.
+- `createDefaultICState()` sets default thesis and weekly review state.
+- `normalizeICState()` makes old persisted analyses render safely.
 
-The structured AI output follows this schema (enforced by JSON Schema in `schemas.ts`):
+Portfolio state is separate. Metrics are computed on demand from `members` plus the referenced analyses, not stored on the portfolio record.
 
 ```ts
-DebateOutput {
-  confidence   // integer 20–90
-  bull         // DebateLine[] — { agent, text }
-  bear         // DebateLine[] — { agent, text }
-  advisory {
-    operator   // { title, text }
-    risk       // { title, text }
-    predator   // { title, text }
-  }
+PortfolioAnalysis {
+  id
+  title
+  members[]       // { analysisId, capital }
+  debate
+  advisory
+  chat
+  persona
+  stance
 }
 ```
-
----
-
-## Finance Engine
-
-The finance engine is the layer that turns raw slider values into computed metrics — before any AI is involved. All calculations are deterministic: the same inputs always produce the same outputs. These outputs are called "locked figures" because once computed, they are passed to the AI as facts it cannot override.
-
-`computeMetrics(vertical, parameters)` is the single entry point. It returns a `ComputedMetrics` object with a flat `metrics[]` array where each entry has a `key`, `label`, human-readable `display` value, and an optional `verdict` badge (e.g. `"DISCOUNT"`, `"CRITICAL"`, `"STRONG"`).
-
-| File | Formulas | Used in vertical |
-|---|---|---|
-| `equities.ts` | P/E ratio, DCF (Net Present Value + margin of safety), IRR | Stocks |
-| `ventures.ts` | LTV:CAC ratio, CAC payback period, cash runway months | Startups |
-| `operating.ts` | Break-even point (units and revenue) | Conventional |
-
-Each formula function is self-contained: it takes numbers in, returns numbers out, and has no side effects. They can be tested and debugged in isolation. Unit tests live in `*.test.ts` files in `lib/finance/` and run via Vitest.
 
 ---
 
 ## AI Provider System
 
-The AI layer is built around an adapter pattern. Each provider (Anthropic, OpenAI, Gemini) has its own adapter file that implements the same `AIProvider` interface. The rest of the app only calls `getProvider(id)` and never imports provider-specific code directly.
-
-### The AIProvider Interface (`lib/ai/types.ts`)
+The AI layer uses provider adapters. UI code calls `getProvider(id)` and then the shared `AIProvider` interface; provider-specific API details stay inside `lib/ai/providers/*`.
 
 ```ts
 interface AIProvider {
-  id            // "anthropic" | "openai" | "gemini"
-  label         // display name for Settings UI
-  models        // ModelOption[] — list shown in model selector
-  capabilities(modelId)  // returns Capabilities flags for the chosen model
-  runAnalysis(req)        // two-pass research + debate → DebateOutput
-  streamChat(req)         // streamed follow-up conversation → string
-}
+  id
+  label
+  models
+  capabilities(modelId)
 
-Capabilities {
-  vision           // can receive images directly
-  pdfNative        // can receive PDF bytes directly (no client extraction needed)
-  webFetchNative   // can call web_fetch tool without server relay
-  webSearchNative  // can call web_search tool without server relay
+  runIntake(req)             // messy notes -> valuation fields + thesis draft
+  runAnalysis(req)           // optional research pass -> structured debate
+  runExpertReview(req)       // optional second-expert review
+  streamChat(req)            // grounded single-asset chat
+  runPortfolioAnalysis(req)  // structured portfolio debate
+  streamPortfolioChat(req)   // grounded cross-asset chat
 }
 ```
 
-### Capability Flags and Fallbacks
+`runIntake()` returns an `IntakeResult` with both sides of the intake draft:
 
-Not every provider supports every feature natively. The capability flags determine what happens when a feature is needed:
+- Valuation setup: detected `vertical`, `mode`, `assetName`, `title`, `fields`, and engine-ready `params`.
+- Thesis setup: `summary`, `assumptions`, `thesisBreakers`, `watchItems`, `valuationAssumptions`, `catalysts`, `openQuestions`, and `evidenceCandidates`.
 
-| Provider | Vision | PDF | Web Fetch | Web Search |
-|---|---|---|---|---|
-| Anthropic (Claude) | Native | Native | Native (tool) | Native (tool) |
-| OpenAI (GPT-4o) | Native | **pdfjs fallback** | **`/api/web-fetch`** | **`/api/web-search`** |
-| Gemini | Native | Native | **`/api/web-fetch`** | **`/api/web-search`** |
+Provider behavior is intentionally concise:
 
-"Native" means the provider's API handles it directly. "Fallback" means the client does the work before calling the provider:
-- **pdfjs fallback:** `lib/ai/pdf.ts` extracts PDF text in the browser, then sends the text as a string.
-- **`/api/web-fetch`:** The backend route fetches the URL, strips HTML, returns plain text — bypassing browser CORS restrictions.
-- **`/api/web-search`:** The backend route calls Tavily using the operator's API key, returns structured search results.
+- Anthropic: native structured output, native PDF/image handling, native web tools where used.
+- OpenAI: adapter implements the same interface; PDF/web needs app fallbacks where unsupported.
+- Gemini: adapter implements the same interface; schema enums are guarded again in finalization because provider schema conversion can weaken enum enforcement.
 
-The operator's Tavily key (`TAVILY_API_KEY` in `.env.local`) is only used for the web-search backend route. It never leaves the server. The user's AI provider key is only used in the browser and never reaches the server.
+Capability flags still decide native-vs-fallback paths:
 
-### Adding a New Provider
-
-1. Create `lib/ai/providers/yourprovider.ts` implementing `AIProvider`
-2. Add the provider ID to `ProviderId` in `lib/ai/types.ts`
-3. Register it in `lib/ai/registry.ts`
-4. Add its models to the Settings UI in `components/Settings.tsx`
+```ts
+Capabilities {
+  vision
+  pdfNative
+  webFetchNative
+  webSearchNative
+}
+```
 
 ---
 
-## CSS Design System (quick ref)
+## State And Storage
 
-The visual identity is defined as CSS custom properties (variables) at the top of `globals.css`. To change a colour across the whole app, update it in one place there.
+### React State
 
-| Token | Colour | Used for |
+`Workspace.tsx` owns the live list of analyses, portfolios, the active item, settings modal state, and debounced saves. `AnalysisView.tsx` owns the active thesis-detail UI state: intake draft, confirmation card, chat streaming, inspector width, review/debate loading, source drafts, and decision form state.
+
+### localStorage
+
+Managed by `src/lib/storage/index.ts`.
+
+| Key | Contents |
+|---|---|
+| `jp_settings` | Provider, API keys, selected model |
+| `jp_ledger` | Legacy ledger entries; superseded by `Analysis.decision` |
+
+### Dexie / IndexedDB
+
+Managed by `src/lib/repo/`. Database name: `jp-workspace`.
+
+| Table | Stores |
+|---|---|
+| `analyses` | Full `Analysis` records, including IC memory, debate, chat, sources, decision |
+| `portfolios` | `PortfolioAnalysis` records |
+| `folders` | Folder hierarchy data; schema exists but UI is not exposed |
+| `blobs` | Uploaded file bytes |
+
+The repository normalizes old records on read, so the Dexie schema has not needed a version bump for newer fields like `assetType`, `ic`, `persona`, `stance`, or current portfolio member shape.
+
+---
+
+## Finance Engine
+
+The finance engine turns confirmed parameters into locked figures before any AI call.
+
+`computeMetrics(vertical, parameters)` is the single-analysis entry point. It returns a serializable `ComputedMetrics` object with flat metric rows: `key`, `label`, numeric `value`, formatted `display`, and optional `verdict`.
+
+| File | Formulas | Used by |
 |---|---|---|
-| `--cyan-active` | `#06b6d4` | AI-related elements, live/active values, highlights |
-| `--yellow-caution` | `#d97706` | Primary accent — buttons, borders, important labels |
-| `--bull-green` | `#22c55e` | Positive / profit / APPROVE indicators |
-| `--bear-red` | `#ef4444` | Negative / risk / REJECT indicators |
-| `--font-mono` | JetBrains Mono | Body text, data values, labels (fixed-width, terminal feel) |
-| `--font-heading` | Space Grotesk | Headings, button labels, titles |
+| `equities.ts` | P/E, DCF, IRR | Stocks vertical |
+| `ventures.ts` | LTV:CAC, CAC payback, runway | Startups vertical |
+| `operating.ts` | Break-even point | Conventional vertical |
+| `portfolio.ts` | Total capital, weights, vertical allocation, concentration, stance mix | Portfolio view |
 
-The overall theme class is `industrial-theme`, applied to the root `<body>` in `layout.tsx`. Workspace-level layout rules (the sidebar/main split, panel sizing) live in `workspace.css`. Component-specific styles are written as `className` strings using CSS utility classes — there is no CSS-in-JS library.
+These functions are pure and testable. Their outputs are the numeric grounding layer for prompts and post-hoc grounding checks.
 
 ---
 
-## Design Decisions (the "why")
+## Source Directory Index
 
-**Locked figures prevent AI hallucination.**
-The financial metrics are computed client-side from the user's own slider values, then passed into the AI prompt as a hardcoded block of facts. The AI is explicitly instructed to reason from those numbers, not compute its own. This means a DCF of Rp 14.200 in the debate was derived from your inputs — the AI cannot produce a different number on a different run.
+| Directory / File | Touch when... |
+|---|---|
+| `src/components/Workspace.tsx` | Changing root layout, active item routing, new analysis/portfolio creation, persistence wiring |
+| `src/components/AnalysisView.tsx` | Changing thesis intake, confirm card, thesis memory inspector, valuation controls, debate, chat, decision UI |
+| `src/components/PortfolioView.tsx` | Changing portfolio composition, weights, portfolio debate, cross-asset chat |
+| `src/components/Library.tsx` | Changing sidebar search/filter/list behavior |
+| `src/components/Settings.tsx` | Changing provider settings or backup import/export UI |
+| `src/data/fields.ts` | Changing engine field definitions shown in sliders/intake confirmation |
+| `src/data/presets.ts` | Changing seeded examples or vertical parameter types |
+| `src/lib/domain/types.ts` | Adding or changing Analysis, IC primitives, PortfolioAnalysis, Decision, source, or chat types |
+| `src/lib/domain/ic.ts` | Changing IC defaults, asset-type labels, or persisted IC normalization |
+| `src/lib/ai/types.ts` | Adding provider methods, request types, or capability flags |
+| `src/lib/ai/analyze.ts` | Changing intake finalization, research/debate orchestration, expert review, or portfolio debate |
+| `src/lib/ai/prompts.ts` | Editing intake, thesis-memory grounding, debate, chat, or portfolio prompts |
+| `src/lib/ai/schemas.ts` | Changing structured intake/debate/review JSON schemas |
+| `src/lib/ai/intakeContext.ts` | Changing link/search enrichment for intake |
+| `src/lib/ai/grounding.ts` | Changing numeric grounding lint rules |
+| `src/lib/ai/providers/*` | Changing provider-specific API calls |
+| `src/lib/finance/compute.ts` | Changing single-analysis locked metrics |
+| `src/lib/finance/portfolio.ts` | Changing portfolio locked metrics |
+| `src/lib/repo/db.ts` | Changing Dexie tables or indexes |
+| `src/lib/repo/index.ts` | Changing create/read/save/delete behavior or normalization |
+| `src/lib/repo/backup.ts` | Changing import/export envelope format |
+| `src/app/api/web-search/route.ts` | Changing Tavily search behavior |
+| `src/app/api/web-fetch/route.ts` | Changing URL fetch behavior |
 
-**Two-pass analysis (research → debate) instead of one big call.**
-The research pass uses open-ended tool use (web_fetch, web_search) to gather context. The debate pass uses structured JSON output to enforce the response format. These two modes are incompatible in a single call: structured output conflicts with tool-use loops. Separating them into two calls solves this cleanly.
+---
 
-**Provider adapters with capability flags instead of a single lowest-common-denominator API.**
-Different providers have genuinely different strengths. Treating all of them as equivalent would mean every provider gets the weakest experience. Instead, each adapter declares what it can do natively, and the app uses those capabilities when available — degrading to fallbacks only when needed. Adding a new provider only requires implementing the adapter; nothing else changes.
+## Design Decisions
 
-**No global state library (no Redux, Zustand, or Jotai).**
-The state tree is shallow enough that React's built-in `useState` and prop passing cover it without ceremony. `Workspace.tsx` holds the list and the active analysis; `AnalysisView.tsx` holds all the UI state for the open analysis. There are no deeply nested components that would justify a context or store.
+**Locked figures remain deterministic.** The app still prevents numeric hallucination by computing valuation metrics locally and injecting those metrics into prompts as hard facts. The model may interpret, challenge, and contextualize; it must not author lockable figures.
 
-**Dexie over raw IndexedDB.**
-IndexedDB's native API is callback-based and verbose. Dexie wraps it in a clean promise/async API, adds indexing (needed for querying by vertical, status, or tags), and handles schema versioning. The lazy singleton pattern (`getDB()`) ensures the database is only opened in the browser — not during Next.js's server-side rendering step.
+**Intake is confirm-ready, not trusted.** `runIntake()` can read messy notes and produce a draft, but `finalizeIntake()` sanitizes it and the user confirms before anything becomes thesis memory or valuation input.
 
-**BYOK with no server proxy for AI calls.**
-The user's API key is stored in their own browser's localStorage and sent directly to the provider API. There is no server in the middle holding or proxying AI requests. This keeps the architecture simple and means the operator running the app never sees user keys. The only exception is web search / fetch, where a server route is genuinely needed (Tavily requires a server secret, and raw URL fetching from the browser is blocked by CORS).
+**Thesis memory is separate from lockable valuation facts.** `analysis.ic.thesis` can store user-confirmed beliefs, assumptions, breakers, and evidence candidates. Those items ground reasoning, but they are not treated as audited valuation figures.
 
-**Seed content in presets so the app is usable without an API key.**
-Every preset ships with curated Bull/Bear debate text and advisory content. This means a new user can open the app, explore all the panels, and understand the workflow before they have an API key. When they run live AI, the seed content is replaced.
+**Provider adapters keep BYOK flexible.** Anthropic, OpenAI, and Gemini expose one interface even though their native PDF, web, and structured-output behavior differs.
 
-**No UI component library.**
-The cockpit uses hand-written CSS (oscilloscope/industrial aesthetic) and hand-drawn SVG charts. Bringing in a component library (shadcn, MUI, Tailwind UI) would impose its own design language on top of the custom theme, and most of its components would be overridden anyway. Keeping it DIY preserves full control over the visual identity.
+**Dexie stays the local-first system of record.** IndexedDB stores analyses, portfolios, files, chat, decisions, and IC memory. Normalization code lets older records survive shape changes.
+
+**Portfolio composition uses the same grounding philosophy.** Portfolio weights and concentration are computed from explicit capital inputs, then used to ground portfolio debate and chat.
 
 ---
 
 ## Roadmap Status
 
-**What is already working:**
-- Full three-vertical parameter sandbox (sliders, live metric recompute, SVG charts)
-- Live AI debate via Anthropic Claude (all capabilities native)
-- Live AI debate via OpenAI GPT-4o (PDF via pdfjs fallback, web via `/api/` routes)
-- Live AI debate via Google Gemini (PDF native, web via `/api/` routes)
-- Context sources: PDF upload, image upload, link paste
-- Web research (Tavily-backed) with AI tool-use loop
-- Grounded follow-up chat (streamed, SSE-parsed)
-- APPROVE / HOLD / REJECT decision log with rationale
-- Full persistence: analyses, debate content, chat history, decisions in IndexedDB
-- Settings: provider + BYOK key + model selector, persisted in localStorage
+**Already working:**
 
-**What is not yet built:**
-- Portfolio-level view (grouping multiple analyses, aggregate exposure)
-- Folder organisation (the Dexie schema has `folderId` and `folders` table, but the UI does not expose it yet)
-- Data import (CSV or XLSX for populating parameters from a real financial statement)
-- Export / share (PDF report, JSON snapshot)
-- Auth or sync (everything is local-first; no user accounts or cloud backup exist yet)
+- Full three-vertical valuation sandbox with deterministic metrics and charts.
+- Frictionless thesis intake: paste messy notes, extract figures plus thesis draft, confirm before saving.
+- IC primitives in storage: `assetType`, thesis memory, assumptions, breakers, watch items, valuation assumptions, catalysts, open questions, evidence candidates, conviction, and review state.
+- Thesis memory inspector in the analysis detail page.
+- Live AI debate via Anthropic, OpenAI, and Gemini provider adapters.
+- Context sources: PDF upload, image upload, link paste.
+- Web research through native tools or `/api/` fallbacks.
+- Grounded follow-up chat with numeric grounding checks.
+- Optional second-expert review.
+- Legacy APPROVE / HOLD / REJECT decision log with rationale.
+- Portfolio composition: manual holdings, capital weights, deterministic portfolio metrics, strategist debate, and cross-asset chat.
+- Full local persistence for analyses, portfolios, chat, decisions, sources, blobs, and IC memory.
+- Settings: provider, BYOK key, model selector, and workspace backup import/export.
+
+**Still incomplete / product gaps:**
+
+- Full IC agenda/watchlist dashboard that ranks assets by review need, assumption pressure, stale thesis, risk triggers, or capital relevance.
+- Evidence locker linkage: sources and evidence candidates exist, but there is no first-class linked evidence table/workflow yet.
+- Assumption monitoring: assumptions/review cadence are stored, but no monitoring engine flags thesis drift or breaker events.
+- Stock intake provenance: intake tags fields as stated/inferred, but lockable public-equity figures do not yet carry cited field-level provenance.
+- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions.
+- Folder organization UI, despite the schema existing.
+- Rich private/alternative asset metadata such as liquidity, duration, pricing freshness, portfolio role, and sizing intent.
+- Data import from CSV/XLSX or official financial statement extraction.
+- Shareable investment memo/report export beyond workspace backup.
+- Auth, sync, scheduled monitoring, and cloud backup.

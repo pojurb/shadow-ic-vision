@@ -35,11 +35,13 @@ describe("finalizeIntake", () => {
       ["price", 4200, "stated"],
       ["eps", 380, "stated"],
       ["roe", 19, "inferred"],
+      ["invested", 4200, "inferred"],
     ]);
     // numbers overlay the blank defaults; untouched defaults remain
     expect(r.params.price).toBe(4200);
     expect(r.params.eps).toBe(380);
     expect(r.params.roe).toBe(19);
+    expect(r.params.invested).toBe(4200);
     expect(r.params.discountRate).toBe(BLANK_PARAMS.stocks.discountRate);
   });
 
@@ -54,7 +56,7 @@ describe("finalizeIntake", () => {
         ],
       }),
     );
-    expect(r.fields.map((f) => f.key)).toEqual(["price"]);
+    expect(r.fields.map((f) => f.key)).toEqual(["price", "invested"]);
     expect("ebitda" in r.params).toBe(false);
   });
 
@@ -82,9 +84,23 @@ describe("finalizeIntake", () => {
     expect(r.mode).toBe("scoping");
   });
 
-  it("derives figures mode whenever ≥1 field was extracted, even if the model said scoping", () => {
+  it("keeps partial stock data in scoping mode even if the model said figures", () => {
     const r = finalizeIntake(
-      raw({ vertical: "stocks", mode: "scoping", fields: [{ key: "price", value: 4200, source: "stated" }] }),
+      raw({ vertical: "stocks", mode: "figures", fields: [{ key: "price", value: 4200, source: "stated" }] }),
+    );
+    expect(r.mode).toBe("scoping");
+  });
+
+  it("derives figures mode when required stock fields survive, even if the model said scoping", () => {
+    const r = finalizeIntake(
+      raw({
+        vertical: "stocks",
+        mode: "scoping",
+        fields: [
+          { key: "price", value: 4200, source: "stated" },
+          { key: "eps", value: 380, source: "inferred" },
+        ],
+      }),
     );
     expect(r.mode).toBe("figures");
   });
@@ -141,8 +157,67 @@ describe("finalizeIntake", () => {
     expect(r.params.discountRate).toBeCloseTo(0.1, 10);
   });
 
+  it("normalizes fractional whole-percent fields like ROE", () => {
+    const r = finalizeIntake(
+      raw({
+        vertical: "stocks",
+        fields: [
+          { key: "price", value: 4200, source: "stated" },
+          { key: "eps", value: 380, source: "stated" },
+          { key: "roe", value: 0.19, source: "inferred" },
+        ],
+      }),
+    );
+    expect(r.params.roe).toBeCloseTo(19, 10);
+    expect(r.fields.find((f) => f.key === "roe")!.value).toBeCloseTo(19, 10);
+  });
+
   it("defaults a blank/missing title", () => {
     const r = finalizeIntake(raw({ title: "   ", fields: [{ key: "price", value: 1, source: "stated" }] }));
     expect(r.title).toBe("New analysis");
+  });
+
+  it("normalizes thesis intake sections and evidence candidate enums", () => {
+    const r = finalizeIntake(
+      raw({
+        fields: [],
+        thesis: {
+          summary: " Low-cost deposit franchise can compound. ",
+          assumptions: [" CASA stays high ", ""],
+          thesisBreakers: ["NIM compression accelerates"],
+          watchItems: ["Deposit beta"],
+          valuationAssumptions: ["Premium multiple remains justified"],
+          catalysts: ["Rate cuts"],
+          openQuestions: ["How sticky are SME deposits?"],
+          evidenceCandidates: [
+            {
+              title: "Annual report",
+              url: "https://example.com/report",
+              note: "Funding mix",
+              type: "filing",
+              relation: "supporting",
+              reliability: "official",
+            },
+            {
+              title: "",
+              note: "",
+              type: "bogus",
+              relation: "bad",
+              reliability: "bad",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(r.thesis.summary).toBe("Low-cost deposit franchise can compound.");
+    expect(r.thesis.assumptions).toEqual(["CASA stays high"]);
+    expect(r.thesis.evidenceCandidates).toHaveLength(1);
+    expect(r.thesis.evidenceCandidates[0]).toMatchObject({
+      title: "Annual report",
+      type: "filing",
+      relation: "supporting",
+      reliability: "official",
+    });
   });
 });

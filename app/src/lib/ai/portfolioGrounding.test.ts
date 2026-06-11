@@ -3,6 +3,7 @@ import { portfolioGroundingText, portfolioChatContextPreamble } from "./prompts"
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
 import { computeMetrics, summarizeMetrics } from "@/lib/finance/compute";
 import { BLANK_PARAMS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { Analysis, PortfolioMember, PortfolioAnalysis } from "@/lib/domain/types";
 
 function analysis(id: string, vertical: Vertical, name: string, stance: string | null): Analysis {
@@ -10,6 +11,7 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
   return {
     id, title: name, vertical, assetName: name,
     assetMeta: { currency: "IDR" }, tags: [], folderId: null,
+    assetType: assetTypeForVertical(vertical), ic: createDefaultICState(0),
     parameters, metrics: computeMetrics(vertical, parameters),
     debate: null, advisory: null, persona: null,
     stance: stance ? { label: stance, basis: "" } : null,

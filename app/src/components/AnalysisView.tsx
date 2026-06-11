@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Analysis, AssetParameters, DecisionAction, ChatMessage, ContextSource, DebateLine } from "@/lib/domain/types";
+import type {
+  Analysis,
+  AssetParameters,
+  DecisionAction,
+  ChatMessage,
+  ContextSource,
+  DebateLine,
+  ICState,
+  EvidenceRelation,
+  EvidenceReliability,
+  EvidenceType,
+} from "@/lib/domain/types";
 import { calcDCF, calcBEP } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
 import { putBlob, deleteBlob } from "@/lib/repo";
@@ -15,11 +26,12 @@ import {
   gatherIntakeWebEvidence,
 } from "@/lib/ai/intakeContext";
 import type { ProviderId } from "@/lib/ai/types";
-import type { IntakeResult } from "@/lib/ai/schemas";
+import type { IntakeResult, ThesisIntakeDraft } from "@/lib/ai/schemas";
 import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
+import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 
 const MIN_W = 380;
 const MAX_W = 760;
@@ -41,6 +53,101 @@ function chartFor(vertical: Vertical, p: AssetParameters) {
     return <StartupsChart cash={Number(p.cash ?? 0)} burn={Number(p.burn ?? 0)} />;
   }
   return <ConventionalChart bep={calcBEP(Number(p.fixed ?? 0), Number(p.price ?? 0), Number(p.variable ?? 0))} />;
+}
+
+function uid(): string {
+  return crypto.randomUUID();
+}
+
+function cleanLines(values: string[]): string[] {
+  return values.map((v) => v.trim()).filter(Boolean);
+}
+
+function clampEvidenceType(value?: string): EvidenceType {
+  const allowed: EvidenceType[] = [
+    "filing",
+    "article",
+    "note",
+    "transcript",
+    "market_data",
+    "pitch_deck",
+    "memo",
+    "screenshot",
+    "pdf",
+    "deal_document",
+    "other",
+  ];
+  return allowed.includes(value as EvidenceType) ? (value as EvidenceType) : "other";
+}
+
+function clampEvidenceRelation(value?: string): EvidenceRelation {
+  const allowed: EvidenceRelation[] = ["supporting", "contradictory", "neutral", "unresolved"];
+  return allowed.includes(value as EvidenceRelation) ? (value as EvidenceRelation) : "unresolved";
+}
+
+function clampEvidenceReliability(value?: string): EvidenceReliability {
+  const allowed: EvidenceReliability[] = ["official", "third_party", "user_provided", "unknown"];
+  return allowed.includes(value as EvidenceReliability) ? (value as EvidenceReliability) : "unknown";
+}
+
+function hasThesisDraft(thesis: ThesisIntakeDraft): boolean {
+  return Boolean(
+    thesis.summary.trim() ||
+      thesis.assumptions.length ||
+      thesis.thesisBreakers.length ||
+      thesis.watchItems.length ||
+      thesis.valuationAssumptions.length ||
+      thesis.catalysts.length ||
+      thesis.openQuestions.length ||
+      thesis.evidenceCandidates.length,
+  );
+}
+
+function buildICStateFromThesis(thesis: ThesisIntakeDraft, existing?: ICState): ICState {
+  const now = Date.now();
+  const base = existing ?? createDefaultICState(now);
+  return {
+    ...base,
+    thesis: {
+      ...base.thesis,
+      summary: thesis.summary.trim(),
+      assumptions: cleanLines(thesis.assumptions).map((text) => ({
+        id: uid(),
+        text,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })),
+      thesisBreakers: cleanLines(thesis.thesisBreakers).map((text) => ({
+        id: uid(),
+        text,
+        severity: "material",
+        createdAt: now,
+      })),
+      watchItems: cleanLines(thesis.watchItems).map((text) => ({ id: uid(), text, cadence: "weekly", createdAt: now })),
+      valuationAssumptions: cleanLines(thesis.valuationAssumptions).map((text) => ({
+        id: uid(),
+        text,
+        source: "user",
+        createdAt: now,
+      })),
+      catalysts: cleanLines(thesis.catalysts).map((text) => ({ id: uid(), text, createdAt: now })),
+      openQuestions: cleanLines(thesis.openQuestions).map((text) => ({ id: uid(), text, createdAt: now })),
+      evidenceCandidates: thesis.evidenceCandidates
+        .filter((candidate) => candidate.title?.trim())
+        .map((candidate) => ({
+          id: uid(),
+          title: candidate.title.trim(),
+          ...(candidate.url?.trim() ? { url: candidate.url.trim() } : {}),
+          ...(candidate.note?.trim() ? { note: candidate.note.trim() } : {}),
+          type: clampEvidenceType(candidate.type),
+          relation: clampEvidenceRelation(candidate.relation),
+          reliability: clampEvidenceReliability(candidate.reliability),
+          createdAt: now,
+        })),
+      conviction: base.thesis.conviction,
+    },
+  };
 }
 
 export default function AnalysisView({
@@ -251,7 +358,11 @@ export default function AnalysisView({
           sources: withUser.sources,
           allowWebSearch: withUser.allowWebSearch,
         });
-        const hasEvidence = evidence.fetchedLinks.length > 0 || evidence.searchResults.length > 0;
+        const hasEvidence =
+          evidence.fetchedLinks.length > 0 ||
+          evidence.marketData.length > 0 ||
+          evidence.searchResults.length > 0 ||
+          evidence.searchedPages.length > 0;
         if (!hasEvidence && evidence.errors.length > 0) {
           throw new Error(`Web research failed: ${evidence.errors.join("; ")}`);
         }
@@ -264,7 +375,7 @@ export default function AnalysisView({
         userText: intakeText,
         sources: withUser.sources,
       });
-      if (result.mode === "scoping") {
+      if (result.mode === "scoping" && !hasThesisDraft(result.thesis)) {
         const aiMsg: ChatMessage = {
           id: `${now}-a`,
           role: "assistant",
@@ -290,9 +401,10 @@ export default function AnalysisView({
    * the persona debate, then post the written report. Builds the next Analysis
    * EXPLICITLY (the `analysis` prop won't reflect onChange synchronously).
    */
-  async function confirmIntake(vertical: Vertical, values: Record<string, number>) {
+  async function confirmIntake(vertical: Vertical, values: Record<string, number>, thesis: ThesisIntakeDraft) {
     if (!pendingIntake) return;
-    if (!apiKey) return onNeedSettings();
+    const shouldRunDebate = pendingIntake.mode === "figures";
+    if (shouldRunDebate && !apiKey) return onNeedSettings();
     const parameters: AssetParameters = { ...BLANK_PARAMS[vertical], ...values };
     // Stocks DCF cashflows aren't user-facing — proxy from the (confirmed) EPS.
     if (vertical === "stocks") parameters.cashflows = Array(5).fill(Number(parameters.eps ?? 0));
@@ -300,15 +412,28 @@ export default function AnalysisView({
     const next: Analysis = {
       ...analysis,
       vertical,
+      assetType: assetTypeForVertical(vertical),
       assetName: pendingIntake.assetName || analysis.assetName,
       title: pendingIntake.title || analysis.title,
+      ic: buildICStateFromThesis(thesis, analysis.ic),
       parameters,
       metrics: computeMetrics(vertical, parameters),
       persona: { id: persona.id, label: persona.label },
-      model,
+      model: shouldRunDebate ? model : analysis.model,
     };
     onChange(next);
     setPendingIntake(null);
+    if (!shouldRunDebate) {
+      const savedMsg: ChatMessage = {
+        id: `${Date.now()}-t`,
+        role: "assistant",
+        kind: "answer",
+        content: "Thesis memory saved. Add valuation figures when ready, then I can lock the numbers and run the debate.",
+        createdAt: Date.now(),
+      };
+      onChange({ ...next, chat: [...next.chat, savedMsg] });
+      return;
+    }
     setRunning(true);
     setRunPhase("");
     setAiError(null);
@@ -545,6 +670,14 @@ export default function AnalysisView({
             </div>
 
             <div className="tp-board">
+              <div className="tp-card tp-card--wide">
+                <div className="tp-card-h">
+                  Thesis memory
+                  <span className="tp-card-hint">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
+                </div>
+                <ThesisMemoryPanel analysis={analysis} />
+              </div>
+
               {/* locked figures (sliders) */}
               <div className="tp-card">
                 <div className="tp-card-h">Locked figures <span className="tp-card-hint">editable</span></div>
@@ -693,7 +826,76 @@ export default function AnalysisView({
   );
 }
 
-/** Grounding chip for a card header: ✓ when every figure traces to the engine. */
+/** Saved IC thesis memory shown in the inspector. */
+function ThesisMemoryPanel({ analysis }: { analysis: Analysis }) {
+  const thesis = analysis.ic.thesis;
+  const hasMemory = hasThesisDraft({
+    summary: thesis.summary,
+    assumptions: thesis.assumptions.map((item) => item.text),
+    thesisBreakers: thesis.thesisBreakers.map((item) => item.text),
+    watchItems: thesis.watchItems.map((item) => item.text),
+    valuationAssumptions: thesis.valuationAssumptions.map((item) => item.text),
+    catalysts: thesis.catalysts.map((item) => item.text),
+    openQuestions: thesis.openQuestions.map((item) => item.text),
+    evidenceCandidates: thesis.evidenceCandidates,
+  });
+
+  if (!hasMemory) {
+    return (
+      <div className="tp-muted-note">
+        Paste rough notes in intake to extract a thesis summary, assumptions, breakers, watch items, and evidence candidates.
+      </div>
+    );
+  }
+
+  return (
+    <div className="tp-thesis-panel">
+      {thesis.summary && <div className="tp-thesis-summary">{thesis.summary}</div>}
+      <div className="tp-thesis-grid">
+        <ThesisMiniList title="Assumptions" items={thesis.assumptions.map((item) => item.text)} tone="neutral" />
+        <ThesisMiniList title="Breakers" items={thesis.thesisBreakers.map((item) => item.text)} tone="bear" />
+        <ThesisMiniList title="Watch items" items={thesis.watchItems.map((item) => item.text)} tone="warning" />
+        <ThesisMiniList title="Valuation assumptions" items={thesis.valuationAssumptions.map((item) => item.text)} tone="neutral" />
+        <ThesisMiniList title="Catalysts" items={thesis.catalysts.map((item) => item.text)} tone="bull" />
+        <ThesisMiniList title="Open questions" items={thesis.openQuestions.map((item) => item.text)} tone="warning" />
+      </div>
+      {thesis.evidenceCandidates.length > 0 && (
+        <div className="tp-thesis-evidence">
+          <div className="tp-thesis-evidence-h">Evidence candidates</div>
+          {thesis.evidenceCandidates.map((candidate) => (
+            <div className="tp-thesis-evidence-row" key={candidate.id}>
+              <span>{candidate.title}</span>
+              <em>{candidate.relation}</em>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ThesisMiniList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: "bull" | "bear" | "warning" | "neutral";
+}) {
+  if (!items.length) return null;
+  return (
+    <div className="tp-thesis-mini">
+      <div className={`tp-thesis-mini-h ${tone === "neutral" ? "" : `${tone}-text`}`}>{title}</div>
+      <ul>
+        {items.map((item, i) => (
+          <li key={`${title}-${i}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function GroundChip({ result }: { result: GroundingResult }) {
   if (result.clean) {
     return <span className="tp-ground" title="Every figure in the analysis traces to the deterministic engine">✓ Grounded</span>;
@@ -762,13 +964,14 @@ function ConfirmCard({
 }: {
   intake: IntakeResult;
   busy: boolean;
-  onConfirm: (vertical: Vertical, values: Record<string, number>) => void;
+  onConfirm: (vertical: Vertical, values: Record<string, number>, thesis: ThesisIntakeDraft) => void;
   onCancel: () => void;
 }) {
   const [vertical, setVertical] = useState<Vertical>(intake.vertical);
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(intake.fields.map((f) => [f.key, f.value])),
   );
+  const [thesis, setThesis] = useState<ThesisIntakeDraft>(intake.thesis);
 
   const known = new Map(intake.fields.map((f) => [String(f.key), f]));
   // Only show this vertical's fields that we actually extracted a value for.
@@ -785,7 +988,11 @@ function ConfirmCard({
       const v = Number(values[String(f.key)] ?? known.get(String(f.key))!.value);
       if (Number.isFinite(v)) out[String(f.key)] = v;
     }
-    onConfirm(vertical, out);
+    onConfirm(vertical, out, thesis);
+  }
+
+  function setThesisList(key: keyof Pick<ThesisIntakeDraft, "assumptions" | "thesisBreakers" | "watchItems" | "valuationAssumptions" | "catalysts" | "openQuestions">, text: string) {
+    setThesis((current) => ({ ...current, [key]: text.split("\n").map((line) => line.trim()).filter(Boolean) }));
   }
 
   return (
@@ -802,9 +1009,40 @@ function ConfirmCard({
         Amber rows were <b>inferred</b> — check them. The ✓ rows you typed are ready.
         {vertical === "stocks" && " DCF cashflows are proxied from EPS until refined."}
       </div>
+      <div className="tp-thesis-confirm">
+        <label className="tp-thesis-field">
+          <span>Thesis summary</span>
+          <textarea
+            rows={2}
+            value={thesis.summary}
+            onChange={(e) => setThesis((current) => ({ ...current, summary: e.target.value }))}
+            disabled={busy}
+            placeholder="Why this asset may deserve attention..."
+          />
+        </label>
+        <div className="tp-thesis-confirm-grid">
+          <ThesisListEditor label="Assumptions" value={thesis.assumptions} onChange={(text) => setThesisList("assumptions", text)} disabled={busy} />
+          <ThesisListEditor label="Breakers" value={thesis.thesisBreakers} onChange={(text) => setThesisList("thesisBreakers", text)} disabled={busy} />
+          <ThesisListEditor label="Watch items" value={thesis.watchItems} onChange={(text) => setThesisList("watchItems", text)} disabled={busy} />
+          <ThesisListEditor label="Valuation assumptions" value={thesis.valuationAssumptions} onChange={(text) => setThesisList("valuationAssumptions", text)} disabled={busy} />
+          <ThesisListEditor label="Catalysts" value={thesis.catalysts} onChange={(text) => setThesisList("catalysts", text)} disabled={busy} />
+          <ThesisListEditor label="Open questions" value={thesis.openQuestions} onChange={(text) => setThesisList("openQuestions", text)} disabled={busy} />
+        </div>
+        {thesis.evidenceCandidates.length > 0 && (
+          <div className="tp-thesis-evidence">
+            <div className="tp-thesis-evidence-h">Evidence candidates</div>
+            {thesis.evidenceCandidates.map((candidate, i) => (
+              <div className="tp-thesis-evidence-row" key={`${candidate.title}-${i}`}>
+                <span>{candidate.title}</span>
+                <em>{candidate.relation ?? "unresolved"}</em>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {rows.length === 0 ? (
         <div className="tp-muted-note">
-          No figures map to {VERTICAL_SHORT[vertical]} — it will start from defaults; tune them in the inspector after locking.
+          No figures map to {VERTICAL_SHORT[vertical]} — thesis memory can still be saved; add valuation figures later.
         </div>
       ) : (
         rows.map((f) => {
@@ -833,13 +1071,32 @@ function ConfirmCard({
       )}
       <div className="tp-confirm-actions">
         <button type="button" className="tp-confirm-btn" onClick={confirm} disabled={busy}>
-          {busy ? "Locking…" : "Confirm & lock figures"}
+          {busy ? "Locking..." : intake.mode === "scoping" ? "Save thesis memory" : "Confirm & lock figures"}
         </button>
         <button type="button" className="tp-ghost" onClick={onCancel} disabled={busy}>
           Dismiss
         </button>
       </div>
     </div>
+  );
+}
+
+function ThesisListEditor({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: string[];
+  onChange: (text: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <label className="tp-thesis-field">
+      <span>{label}</span>
+      <textarea rows={3} value={value.join("\n")} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
+    </label>
   );
 }
 

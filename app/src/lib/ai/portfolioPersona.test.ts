@@ -3,6 +3,7 @@ import { derivePortfolioStance, PORTFOLIO_PERSONA } from "./personas";
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
 import { computeMetrics } from "@/lib/finance/compute";
 import { BLANK_PARAMS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { Analysis, PortfolioMember } from "@/lib/domain/types";
 
 /** Minimal member analysis carrying real engine metrics + an explicit stance label. */
@@ -16,6 +17,8 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
     assetMeta: { currency: "IDR" },
     tags: [],
     folderId: null,
+    assetType: assetTypeForVertical(vertical),
+    ic: createDefaultICState(0),
     parameters,
     metrics: computeMetrics(vertical, parameters),
     debate: null,

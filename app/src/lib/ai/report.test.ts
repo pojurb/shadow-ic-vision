@@ -3,6 +3,7 @@ import { buildReport } from "./report";
 import { computeMetrics } from "@/lib/finance/compute";
 import { personaFor } from "./personas";
 import { BLANK_PARAMS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { Analysis } from "@/lib/domain/types";
 
 /**
@@ -19,10 +20,12 @@ function fixture(vertical: Vertical): Analysis {
     id: "t",
     title: "Test Analysis",
     vertical,
+    assetType: assetTypeForVertical(vertical),
     assetName: "Acme Holdings",
     assetMeta: { currency: "IDR" },
     tags: [],
     folderId: null,
+    ic: createDefaultICState(0),
     parameters,
     metrics,
     debate: {

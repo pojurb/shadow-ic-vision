@@ -30,6 +30,27 @@ export interface IntakeOutput {
   title: string;
   note: string;
   fields: IntakeField[];
+  thesis?: ThesisIntakeDraft;
+}
+
+export interface IntakeEvidenceCandidate {
+  title: string;
+  url?: string;
+  note?: string;
+  type?: string;
+  relation?: string;
+  reliability?: string;
+}
+
+export interface ThesisIntakeDraft {
+  summary: string;
+  assumptions: string[];
+  thesisBreakers: string[];
+  watchItems: string[];
+  valuationAssumptions: string[];
+  catalysts: string[];
+  openQuestions: string[];
+  evidenceCandidates: IntakeEvidenceCandidate[];
 }
 
 /** Finalized intake (validated + zipped). Adds the engine-ready `params`. */
@@ -43,6 +64,8 @@ export interface IntakeResult {
   fields: IntakeField[];
   /** BLANK_PARAMS for the vertical, overlaid with the kept numeric fields. */
   params: AssetParameters;
+  /** Confirmable thesis memory extracted from messy notes. */
+  thesis: ThesisIntakeDraft;
 }
 
 const intakeField = {
@@ -53,6 +76,47 @@ const intakeField = {
     source: { type: "string", description: "'stated' if the user explicitly typed this number, 'inferred' if you read or derived it" },
   },
   required: ["key", "value", "source"],
+  additionalProperties: false,
+} as const;
+
+const intakeStringArray = { type: "array", items: { type: "string" } } as const;
+
+const intakeEvidenceCandidate = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Short evidence title or source name" },
+    url: { type: "string", description: "Source URL if visible, otherwise empty string" },
+    note: { type: "string", description: "Brief note on what this evidence says" },
+    type: { type: "string", description: "One of: filing, article, note, transcript, market_data, pitch_deck, memo, screenshot, pdf, deal_document, other" },
+    relation: { type: "string", description: "One of: supporting, contradictory, neutral, unresolved" },
+    reliability: { type: "string", description: "One of: official, third_party, user_provided, unknown" },
+  },
+  required: ["title", "url", "note", "type", "relation", "reliability"],
+  additionalProperties: false,
+} as const;
+
+const thesisDraft = {
+  type: "object",
+  properties: {
+    summary: { type: "string", description: "One concise investment thesis summary. Empty string if not enough context." },
+    assumptions: intakeStringArray,
+    thesisBreakers: intakeStringArray,
+    watchItems: intakeStringArray,
+    valuationAssumptions: intakeStringArray,
+    catalysts: intakeStringArray,
+    openQuestions: intakeStringArray,
+    evidenceCandidates: { type: "array", items: intakeEvidenceCandidate },
+  },
+  required: [
+    "summary",
+    "assumptions",
+    "thesisBreakers",
+    "watchItems",
+    "valuationAssumptions",
+    "catalysts",
+    "openQuestions",
+    "evidenceCandidates",
+  ],
   additionalProperties: false,
 } as const;
 
@@ -69,9 +133,10 @@ export const INTAKE_JSON_SCHEMA = {
     assetName: { type: "string", description: "The asset/company name, or '' if not given" },
     title: { type: "string", description: "A short title for this analysis" },
     note: { type: "string", description: "In scoping mode: what numbers are missing. In figures mode: a one-line summary of what was found" },
+    thesis: thesisDraft,
     fields: { type: "array", items: intakeField, description: "The engine parameters you could extract (omit any you cannot find — never invent)" },
   },
-  required: ["vertical", "mode", "assetName", "title", "note", "fields"],
+  required: ["vertical", "mode", "assetName", "title", "note", "fields", "thesis"],
   additionalProperties: false,
 } as const;
 

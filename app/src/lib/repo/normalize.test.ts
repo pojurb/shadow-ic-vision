@@ -41,6 +41,14 @@ describe("normalizeAnalysis — back-compat on read", () => {
     expect(n.expertReview).toBeNull();
   });
 
+  it("backfills asset type and empty IC thesis memory", () => {
+    const n = normalizeAnalysis(legacyAnalysis());
+    expect(n.assetType).toBe("public_equity");
+    expect(n.ic.thesis.summary).toBe("");
+    expect(n.ic.thesis.assumptions).toEqual([]);
+    expect(n.ic.review.cadence).toBe("weekly");
+  });
+
   it("is idempotent — re-normalizing a current-shape record is a no-op", () => {
     const once = normalizeAnalysis(legacyAnalysis());
     const twice = normalizeAnalysis(once);

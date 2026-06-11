@@ -58,15 +58,25 @@ Steps:
    - startups: ${candidateKeys("startups")}
    - conventional: ${candidateKeys("conventional")}
    Use the exact key strings above, and convert each value to the unit shown in its [brackets] — this matters: some fields want a whole-number percent (19) and others a decimal fraction (0.19) for the SAME "19%". A margin of 70% → 0.70; a 4% churn → 0.04; "Rp 4.2k" → 4200. Omit any key you cannot find — NEVER invent or guess a number to fill a slot.
+   For listed equities: do NOT fill discountRate or terminalMult unless the user/evidence explicitly states those assumptions. Do NOT fill invested unless a buy price/cost basis/current-price-as-entry figure is visible.
 3. Tag every field: "stated" if the user explicitly gave that number, "inferred" if you read it from an attachment or derived it. When unsure, use "inferred" so it gets confirmed.
-4. If there aren't enough numbers to value the asset, set mode "scoping" and explain in "note" what is missing. Otherwise set mode "figures".
+4. Extract a confirmable thesis draft for the IC memory:
+   - summary: the shortest accurate statement of why the asset may deserve attention.
+   - assumptions: explicit business, market, portfolio, execution, valuation, or macro assumptions.
+   - thesisBreakers: facts or events that would break or materially weaken the thesis.
+   - watchItems: signals the user should monitor.
+   - valuationAssumptions: valuation inputs or pricing claims that are assumptions, not sourced facts.
+   - catalysts: possible events that could change value or perception.
+   - openQuestions: unresolved questions the user still needs to answer.
+   - evidenceCandidates: ONLY links, filings, notes, decks, memos, search-result pages, market-data extracts, or other source items visible in the input/research evidence. Do not invent generic annual-report links or source names. Classify relation as supporting, contradictory, neutral, or unresolved. Classify reliability as official, third_party, user_provided, or unknown.
+5. If there aren't enough numbers to value the asset, set mode "scoping" and explain in "note" what is missing. Still return the thesis draft if there is enough qualitative material. Otherwise set mode "figures".
 
 NON-NEGOTIABLE: you extract, you do not fabricate. A figure you did not see in the input must be omitted, not estimated. Return the structured object only.`;
 }
 
 /** Intake user turn: the raw deal text. Attachment bytes ride as native blocks. */
 export function buildIntakeUserPrompt(userText: string): string {
-  return `Set up this deal for the valuation engine. Read any attached files too.\n\n---\n${userText.trim()}`;
+  return `Set up this deal for IC thesis memory and the valuation engine. Read any attached files too.\n\n---\n${userText.trim()}`;
 }
 
 export const CHAT_SYSTEM = `You are an institutional investment analyst answering follow-up questions about ONE asset already analyzed. Use ONLY the locked figures and the prior debate provided as context — never invent numbers. Be concise and direct, use markdown, and reason like a sharp buy-side analyst. You may stress-test, reframe, or challenge the prior thesis. You are an analyst, not a decision-maker.`;
@@ -125,6 +135,30 @@ export function attachedContextText(a: Analysis): string {
   return [`Attached context:`, ...lines].join("\n");
 }
 
+export function thesisMemoryText(a: Analysis): string {
+  const thesis = a.ic?.thesis;
+  if (!thesis) return "";
+  const lines: string[] = [];
+  if (thesis.summary.trim()) lines.push(`Summary: ${thesis.summary.trim()}`);
+  if (thesis.assumptions.length) {
+    lines.push("Assumptions:", ...thesis.assumptions.map((item) => `- ${item.text}`));
+  }
+  if (thesis.thesisBreakers.length) {
+    lines.push("Thesis breakers:", ...thesis.thesisBreakers.map((item) => `- ${item.text}`));
+  }
+  if (thesis.watchItems.length) {
+    lines.push("Watch items:", ...thesis.watchItems.map((item) => `- ${item.text}`));
+  }
+  if (thesis.valuationAssumptions.length) {
+    lines.push("Valuation assumptions:", ...thesis.valuationAssumptions.map((item) => `- ${item.text}`));
+  }
+  if (thesis.openQuestions.length) {
+    lines.push("Open questions:", ...thesis.openQuestions.map((item) => `- ${item.text}`));
+  }
+  if (!lines.length) return "";
+  return ["Confirmed thesis memory (user-confirmed; not lockable valuation figures):", ...lines].join("\n");
+}
+
 /** Pass 1 user turn: tell the model what to research. */
 export function buildResearchUserPrompt(a: Analysis): string {
   const links = a.sources.filter((s) => s.kind === "link");
@@ -133,7 +167,7 @@ export function buildResearchUserPrompt(a: Analysis): string {
   if (a.allowWebSearch) tasks.push(`Search the web for current, decision-relevant facts about this asset and its sector.`);
   const lensNames = personaFor(a.vertical).lenses.map((l) => l.name).join(", ");
   tasks.push(`Then write analyst notes: strongest bull evidence, strongest bear evidence, and observations for these lenses — ${lensNames}.`);
-  return [groundingText(a), attachedContextText(a), tasks.join("\n\n")].filter((s) => s !== "").join("\n\n");
+  return [groundingText(a), thesisMemoryText(a), attachedContextText(a), tasks.join("\n\n")].filter((s) => s !== "").join("\n\n");
 }
 
 /**
@@ -149,6 +183,7 @@ export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): st
     : "";
   return [
     groundingText(a),
+    thesisMemoryText(a),
     attachedContextText(a),
     notesBlock,
     `Produce the analysis as ${persona.label}, grounded strictly in the locked figures above.`,
@@ -189,7 +224,7 @@ export function debateContext(a: Analysis): string {
 }
 
 export function chatContextPreamble(a: Analysis): string {
-  return [groundingText(a), attachedContextText(a), debateContext(a)]
+  return [groundingText(a), thesisMemoryText(a), attachedContextText(a), debateContext(a)]
     .filter((s) => s !== "")
     .join("\n\n");
 }

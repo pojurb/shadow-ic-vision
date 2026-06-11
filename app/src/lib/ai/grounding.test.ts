@@ -9,6 +9,7 @@ import {
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
 import { computeMetrics } from "@/lib/finance/compute";
 import { BLANK_PARAMS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { Analysis, Metric, PortfolioAnalysis, PortfolioMember } from "@/lib/domain/types";
 
 /** Stock-shaped locked figures with id-ID + toFixed display formats (as the engine emits). */
@@ -92,6 +93,7 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
   return {
     id, title: name, vertical, assetName: name,
     assetMeta: { currency: "IDR" }, tags: [], folderId: null,
+    assetType: assetTypeForVertical(vertical), ic: createDefaultICState(0),
     parameters, metrics: computeMetrics(vertical, parameters),
     debate: null, advisory: null, persona: null,
     stance: stance ? { label: stance, basis: "" } : null,

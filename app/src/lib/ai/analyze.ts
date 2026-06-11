@@ -17,6 +17,8 @@ import {
   type IntakeOutput,
   type IntakeResult,
   type IntakeField,
+  type ThesisIntakeDraft,
+  type IntakeEvidenceCandidate,
 } from "./schemas";
 import {
   analysisSystem,
@@ -310,6 +312,83 @@ export async function runExpertReview(
 /* ----------------------------------------------------------------- intake */
 
 const VERTICALS: Vertical[] = ["stocks", "startups", "conventional"];
+const EVIDENCE_TYPES = new Set([
+  "filing",
+  "article",
+  "note",
+  "transcript",
+  "market_data",
+  "pitch_deck",
+  "memo",
+  "screenshot",
+  "pdf",
+  "deal_document",
+  "other",
+]);
+const EVIDENCE_RELATIONS = new Set(["supporting", "contradictory", "neutral", "unresolved"]);
+const EVIDENCE_RELIABILITY = new Set(["official", "third_party", "user_provided", "unknown"]);
+
+const EMPTY_THESIS_DRAFT: ThesisIntakeDraft = {
+  summary: "",
+  assumptions: [],
+  thesisBreakers: [],
+  watchItems: [],
+  valuationAssumptions: [],
+  catalysts: [],
+  openQuestions: [],
+  evidenceCandidates: [],
+};
+
+function cleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(cleanString).filter(Boolean);
+}
+
+function cleanChoice(value: unknown, allowed: Set<string>, fallback: string): string {
+  const clean = cleanString(value);
+  return allowed.has(clean) ? clean : fallback;
+}
+
+function cleanEvidenceCandidates(value: unknown): IntakeEvidenceCandidate[] {
+  if (!Array.isArray(value)) return [];
+  const candidates: IntakeEvidenceCandidate[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const title = cleanString(r.title) || cleanString(r.url) || cleanString(r.note);
+    if (!title) continue;
+    const url = cleanString(r.url);
+    const note = cleanString(r.note);
+    candidates.push({
+      title,
+      ...(url ? { url } : {}),
+      ...(note ? { note } : {}),
+      type: cleanChoice(r.type, EVIDENCE_TYPES, "other"),
+      relation: cleanChoice(r.relation, EVIDENCE_RELATIONS, "unresolved"),
+      reliability: cleanChoice(r.reliability, EVIDENCE_RELIABILITY, "unknown"),
+    });
+  }
+  return candidates;
+}
+
+function finalizeThesisDraft(raw: unknown): ThesisIntakeDraft {
+  if (!raw || typeof raw !== "object") return EMPTY_THESIS_DRAFT;
+  const r = raw as Partial<ThesisIntakeDraft>;
+  return {
+    summary: cleanString(r.summary),
+    assumptions: cleanStringList(r.assumptions),
+    thesisBreakers: cleanStringList(r.thesisBreakers),
+    watchItems: cleanStringList(r.watchItems),
+    valuationAssumptions: cleanStringList(r.valuationAssumptions),
+    catalysts: cleanStringList(r.catalysts),
+    openQuestions: cleanStringList(r.openQuestions),
+    evidenceCandidates: cleanEvidenceCandidates(r.evidenceCandidates),
+  };
+}
 
 /**
  * Validate + zip the raw intake output into an engine-ready draft. PURE — the
@@ -329,6 +408,7 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
   const allowed = new Set(paramKeysFor(vertical).map(String));
   // percent_raw fields are fractions (0–1); a value >1 is a whole-percent misread.
   const rawPctKeys = new Set(FIELDS[vertical].filter((f) => f.type === "percent_raw").map((f) => String(f.key)));
+  const wholePctKeys = new Set(FIELDS[vertical].filter((f) => f.type === "percent").map((f) => String(f.key)));
   const fields: IntakeField[] = [];
   const numbers: Record<string, number> = {};
   for (const f of raw?.fields ?? []) {
@@ -338,6 +418,7 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
     // Defensive unit guard: the model sometimes emits 70 for a 70% fraction field.
     // Every percent_raw field caps below 1, so any value >1 is a /100 unit error.
     if (rawPctKeys.has(f.key) && value > 1) value = value / 100;
+    if (wholePctKeys.has(f.key) && value > 0 && value <= 1) value = value * 100;
     const source: IntakeField["source"] = f.source === "stated" ? "stated" : "inferred";
     fields.push({ key: f.key, value, source });
     numbers[f.key] = value;
@@ -347,7 +428,18 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
   // kept figure ⇒ figures (the confirm card still gates inferred values before they
   // lock); nothing extractable ⇒ scoping (pre-numbers / macro questions). This keeps
   // the figures/scoping decision deterministic instead of trusting a flaky label.
-  const mode: IntakeResult["mode"] = fields.length >= 1 ? "figures" : "scoping";
+  if (vertical === "stocks" && numbers.price != null && numbers.invested == null) {
+    numbers.invested = numbers.price;
+    fields.push({ key: "invested", value: numbers.price, source: "inferred" });
+  }
+
+  const requiredByVertical: Record<Vertical, string[]> = {
+    stocks: ["price", "eps"],
+    startups: ["cash", "burn", "cac", "arpu", "margin", "churn"],
+    conventional: ["invested", "fixed", "price", "variable"],
+  };
+  const hasRequiredFields = requiredByVertical[vertical].every((key) => numbers[key] != null);
+  const mode: IntakeResult["mode"] = hasRequiredFields ? "figures" : "scoping";
 
   const params: AssetParameters = { ...BLANK_PARAMS[vertical], ...numbers };
   // Stocks DCF needs a cashflow series, but `cashflows` isn't an extractable field
@@ -367,6 +459,7 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
     note: typeof raw?.note === "string" ? raw.note : "",
     fields,
     params,
+    thesis: finalizeThesisDraft(raw?.thesis),
   };
 }
 
@@ -393,7 +486,7 @@ export async function runIntake(
     headers: anthropicHeaders(apiKey),
     body: JSON.stringify({
       model,
-      max_tokens: 2000,
+      max_tokens: 3500,
       system: intakeSystem(),
       messages: [{ role: "user", content }],
       output_config: { format: { type: "json_schema", schema: INTAKE_JSON_SCHEMA } },

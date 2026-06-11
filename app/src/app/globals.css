@@ -1436,6 +1436,32 @@ body.industrial-theme {
 .tp-confirm-btn { background: var(--tp-amber); color: #1a1205; border: none; border-radius: 8px; font-weight: 700; padding: 10px 16px; cursor: pointer; font-size: 13.5px; font-family: inherit; }
 .tp-confirm-btn:disabled { opacity: 0.6; cursor: default; }
 
+/* thesis intake + saved IC memory */
+.tp-thesis-confirm { margin: 14px 0; border-top: 1px solid var(--tp-line); border-bottom: 1px solid var(--tp-line); padding: 12px 0; }
+.tp-thesis-confirm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.tp-thesis-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tp-thesis-field span { font-size: var(--tp-fs-label); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--tp-muted); }
+.tp-thesis-field textarea { width: 100%; resize: vertical; min-height: 64px; background: #13161b; border: 1px solid var(--tp-line); border-radius: 7px; color: #e6e9ef; padding: 8px 10px; font-size: var(--tp-fs-meta); font-family: inherit; line-height: 1.45; }
+.tp-thesis-field textarea:focus { outline: none; border-color: var(--tp-acc); }
+.tp-thesis-field textarea:disabled { opacity: 0.65; }
+.tp-thesis-panel { display: flex; flex-direction: column; gap: 14px; }
+.tp-thesis-summary { color: #e6e9ef; font-size: var(--tp-fs-body); line-height: 1.55; border-left: 2px solid var(--tp-acc); padding-left: 12px; }
+.tp-thesis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.tp-thesis-mini { min-width: 0; }
+.tp-thesis-mini-h { font-size: var(--tp-fs-label); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--tp-muted); margin-bottom: 6px; }
+.tp-thesis-mini ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tp-thesis-mini li { font-size: var(--tp-fs-meta); line-height: 1.45; color: #cdd3dd; padding-left: 10px; position: relative; }
+.tp-thesis-mini li::before { content: "-"; position: absolute; left: 0; color: var(--tp-muted); }
+.tp-thesis-evidence { display: flex; flex-direction: column; gap: 6px; }
+.tp-thesis-evidence-h { font-size: var(--tp-fs-label); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--tp-muted); }
+.tp-thesis-evidence-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--tp-line); border-radius: 7px; padding: 7px 9px; background: rgba(255, 255, 255, 0.03); }
+.tp-thesis-evidence-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--tp-fs-meta); color: #cdd3dd; }
+.tp-thesis-evidence-row em { flex: 0 0 auto; font-style: normal; font-size: var(--tp-fs-label); color: var(--tp-amber); text-transform: uppercase; letter-spacing: 0.4px; }
+@media (max-width: 640px) {
+    .tp-thesis-confirm-grid,
+    .tp-thesis-grid { grid-template-columns: 1fr; }
+}
+
 /* written report message */
 .tp-report { font-size: 15px; line-height: 1.6; }
 .tp-report-p { margin: 0 0 12px; }

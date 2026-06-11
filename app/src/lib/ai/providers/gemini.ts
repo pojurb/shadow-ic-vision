@@ -345,7 +345,7 @@ async function runGeminiIntake(req: IntakeRequest): Promise<IntakeResult> {
       system_instruction: { parts: [{ text: intakeSystem() }] },
       contents: [{ role: "user", parts: userParts }],
       generationConfig: {
-        maxOutputTokens: 2000,
+        maxOutputTokens: 3500,
         responseMimeType: "application/json",
         responseSchema: toGeminiSchema(INTAKE_JSON_SCHEMA),
       },

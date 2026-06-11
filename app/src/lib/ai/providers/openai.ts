@@ -345,7 +345,7 @@ async function runOpenAIIntake(req: IntakeRequest): Promise<IntakeResult> {
     headers: openaiHeaders(apiKey),
     body: JSON.stringify({
       model,
-      max_tokens: 2000,
+      max_tokens: 3500,
       messages: [
         { role: "system", content: intakeSystem() },
         { role: "user", content: userContent },

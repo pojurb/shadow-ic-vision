@@ -40,6 +40,42 @@ export interface Stance {
 
 export type DecisionAction = "APPROVE" | "HOLD" | "REJECT";
 export type AnalysisStatus = "draft" | "decided" | "watching" | "archived";
+export type AssetType =
+  | "public_equity"
+  | "conventional_business"
+  | "startup"
+  | "real_estate"
+  | "crypto"
+  | "macro_view"
+  | "other";
+export type EvidenceRelation = "supporting" | "contradictory" | "neutral" | "unresolved";
+export type EvidenceType =
+  | "filing"
+  | "article"
+  | "note"
+  | "transcript"
+  | "market_data"
+  | "pitch_deck"
+  | "memo"
+  | "screenshot"
+  | "pdf"
+  | "deal_document"
+  | "other";
+export type EvidenceReliability = "official" | "third_party" | "user_provided" | "unknown";
+export type AssumptionStatus = "active" | "watch" | "broken" | "resolved";
+export type BreakerSeverity = "watch" | "material" | "fatal";
+export type ReviewCadence = "weekly" | "monthly" | "quarterly" | "event_driven";
+export type ConvictionLabel = "low" | "medium" | "high";
+export type ICAction =
+  | "no_action"
+  | "watch"
+  | "research_more"
+  | "increase_conviction"
+  | "decrease_conviction"
+  | "add_increase_position"
+  | "trim_reduce_position"
+  | "exit"
+  | "archive";
 
 export interface AssetMeta {
   ticker?: string;
@@ -82,6 +118,83 @@ export interface Decision {
   decidedAt: number;
 }
 
+export interface ThesisAssumption {
+  id: string;
+  text: string;
+  status: AssumptionStatus;
+  monitor?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ThesisBreaker {
+  id: string;
+  text: string;
+  severity: BreakerSeverity;
+  createdAt: number;
+}
+
+export interface WatchItem {
+  id: string;
+  text: string;
+  cadence?: ReviewCadence;
+  createdAt: number;
+}
+
+export interface ValuationAssumption {
+  id: string;
+  text: string;
+  source: "user" | "model" | "sourced";
+  createdAt: number;
+}
+
+export interface Catalyst {
+  id: string;
+  text: string;
+  timeframe?: string;
+  createdAt: number;
+}
+
+export interface OpenQuestion {
+  id: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface EvidenceCandidate {
+  id: string;
+  title: string;
+  url?: string;
+  note?: string;
+  type: EvidenceType;
+  relation: EvidenceRelation;
+  reliability: EvidenceReliability;
+  createdAt: number;
+}
+
+export interface ThesisMemory {
+  summary: string;
+  assumptions: ThesisAssumption[];
+  thesisBreakers: ThesisBreaker[];
+  watchItems: WatchItem[];
+  valuationAssumptions: ValuationAssumption[];
+  catalysts: Catalyst[];
+  openQuestions: OpenQuestion[];
+  evidenceCandidates: EvidenceCandidate[];
+  conviction: ConvictionLabel | null;
+}
+
+export interface ReviewState {
+  cadence: ReviewCadence;
+  lastReviewedAt: number | null;
+  nextReviewDue: number | null;
+}
+
+export interface ICState {
+  thesis: ThesisMemory;
+  review: ReviewState;
+}
+
 /**
  * Droppable context. Files (PDF/image) are native Claude content blocks; links and
  * web research use Anthropic's server-side web_fetch / web_search tools.
@@ -116,10 +229,12 @@ export interface Analysis {
   id: string;
   title: string;
   vertical: Vertical;
+  assetType: AssetType;
   assetName: string;
   assetMeta: AssetMeta;
   tags: string[];
   folderId: string | null;
+  ic: ICState;
   parameters: AssetParameters;
   metrics: ComputedMetrics;
   debate: DebateResult | null;

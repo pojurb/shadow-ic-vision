@@ -3,6 +3,7 @@ import { computePortfolioMetrics } from "./portfolio";
 import { computeMetrics } from "./compute";
 import { normalizePortfolio } from "@/lib/repo";
 import { BLANK_PARAMS, type Vertical } from "@/data/presets";
+import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import type { Analysis, PortfolioMember, PortfolioAnalysis } from "@/lib/domain/types";
 
 /** Minimal member analysis with real engine metrics and an explicit stance label. */
@@ -16,6 +17,8 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
     assetMeta: { currency: "IDR" },
     tags: [],
     folderId: null,
+    assetType: assetTypeForVertical(vertical),
+    ic: createDefaultICState(0),
     parameters,
     metrics: computeMetrics(vertical, parameters),
     debate: null,
