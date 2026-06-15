@@ -9,6 +9,7 @@ import type {
   Vertical,
 } from "@/lib/domain/types";
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
+import { createPortfolioDecisionEntry, type DecisionDraft } from "@/lib/domain/decisions";
 import { getProvider } from "@/lib/ai/registry";
 import { portfolioPersona } from "@/lib/ai/personas";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/lib/ai/grounding";
 import type { ProviderId } from "@/lib/ai/types";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
+import DecisionLedger from "./DecisionLedger";
 
 const MIN_W = 400;
 const MAX_W = 820;
@@ -66,7 +68,9 @@ export default function PortfolioView({
   const onGutterDown = useCallback(() => setDragging(true), []);
   // Restore a previously dragged width after mount (SSR-safe — fallback renders first).
   useEffect(() => {
-    setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+    void Promise.resolve().then(() => {
+      setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+    });
   }, []);
   useEffect(() => {
     if (!dragging) return;
@@ -417,6 +421,16 @@ export default function PortfolioView({
                     ))
                   )}
                 </div>
+              </div>
+
+              <div className="tp-card tp-card--wide">
+                <div className="tp-card-h">Decision Ledger</div>
+                <DecisionLedger
+                  history={portfolio.decisionHistory}
+                  subjectLabel="This portfolio"
+                  createEntry={(draft: DecisionDraft) => createPortfolioDecisionEntry(portfolio, metrics, draft)}
+                  onHistoryChange={(decisionHistory) => update({ decisionHistory })}
+                />
               </div>
             </div>
           </aside>

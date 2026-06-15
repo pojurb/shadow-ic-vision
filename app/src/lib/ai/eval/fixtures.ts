@@ -32,7 +32,7 @@ export function memberFromPreset(id: string, vertical: Vertical, idx = 0): Analy
     debate: null, advisory: null, persona: null,
     stance: d ? { label: d.label, basis: d.basis } : null,
     expertReview: null, sources: [], allowWebSearch: false, chat: [],
-    decision: null, model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
+    decision: null, decisionHistory: [], model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
   };
 }
 
@@ -58,7 +58,7 @@ export function mixedPortfolio(): {
   const portfolio: PortfolioAnalysis = {
     id: "p", title: "Eval Book", members: memberList, tags: [], folderId: null,
     chat: [], allowWebSearch: false, persona: null, stance: null,
-    debate: null, advisory: null, createdAt: 0, updatedAt: 0,
+    debate: null, advisory: null, decisionHistory: [], createdAt: 0, updatedAt: 0,
   };
   return { portfolio, members, byId, metrics };
 }

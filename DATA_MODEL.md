@@ -3,7 +3,7 @@
 The product is now a local-first AI Investment Committee workspace. The central
 object remains `Analysis`, but an analysis is now a thesis detail record: it
 carries investment committee memory, deterministic valuation figures, context
-sources, AI debate, chat, and a legacy decision.
+sources, AI debate, chat, and append-only decision history.
 
 Persistence: Dexie / IndexedDB in the browser. The app stores everything locally
 behind repository helpers so a server-backed implementation can be added later
@@ -75,11 +75,33 @@ Current scope:
 ```ts
 type DecisionAction = "APPROVE" | "HOLD" | "REJECT"; // legacy
 type AnalysisStatus = "draft" | "decided" | "watching" | "archived";
+type ICAction =
+  | "no_action"
+  | "watch"
+  | "research_more"
+  | "increase_conviction"
+  | "decrease_conviction"
+  | "add_increase_position"
+  | "trim_reduce_position"
+  | "exit"
+  | "archive";
 
 interface Decision {
   action: DecisionAction;
   rationale: string;
   decidedAt: number;
+}
+
+interface DecisionEntry {
+  id: string;
+  decidedAt: number;
+  action: ICAction | null;
+  legacyAction?: DecisionAction;
+  rationale: string;
+  preMortem?: string;
+  trigger: { dueAt: number; note: string } | null;
+  snapshot: DecisionSnapshot;
+  review: DecisionOutcomeReview | null;
 }
 
 interface Analysis {
@@ -108,6 +130,7 @@ interface Analysis {
   chat: ChatMessage[];
 
   decision: Decision | null;
+  decisionHistory: DecisionEntry[];
   model: string;
   status: AnalysisStatus;
   createdAt: number;
@@ -115,9 +138,16 @@ interface Analysis {
 }
 ```
 
-`Decision` is legacy. Milestone 6 will replace the user-facing
-approve/hold/reject workflow with IC actions, pre-mortems, linked thesis/evidence
-snapshots, review triggers, and outcome reviews.
+`Decision` is legacy read-compatibility only. The user-facing workflow writes
+`decisionHistory`. Legacy approve/hold/reject records normalize into a
+legacy-only history entry without inventing decision-time snapshots.
+
+Analysis status is derived from the newest decision history entry:
+
+- no entries -> `draft`
+- latest `watch` -> `watching`
+- latest `archive` -> `archived`
+- any other current IC action -> `decided`
 
 ## Deterministic Metrics
 
@@ -192,6 +222,7 @@ interface PortfolioAnalysis {
   stance: Stance | null;
   debate: DebateResult | null;
   advisory: LensResult[] | null;
+  decisionHistory: DecisionEntry[];
   createdAt: number;
   updatedAt: number;
 }
@@ -199,7 +230,8 @@ interface PortfolioAnalysis {
 
 Portfolio metrics are derived from member capital and referenced analyses. The
 portfolio record stores composition and AI outputs, while metrics are recomputed
-for grounding.
+for grounding. Portfolio decision/status badges are derived from
+`decisionHistory`; `PortfolioAnalysis` does not store a separate `status` field.
 
 ## Dexie Tables
 
@@ -213,6 +245,10 @@ for grounding.
 The repository normalizes older records on read, so newer fields like
 `assetType`, `ic`, portfolio members, persona, stance, and expert review can
 backfill without a Dexie version bump.
+
+Decision history is also normalized on read. Old single-decision analyses expose
+a one-entry legacy history in memory, while persistent write-back happens only
+through explicit save/import flows.
 
 ## Eval Harness And Improvement Loop
 

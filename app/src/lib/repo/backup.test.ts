@@ -82,4 +82,44 @@ describe("normalize-on-import", () => {
     // stance is engine-derived from the locked metrics on read
     expect(out.expertReview).toBeNull();
   });
+
+  it("preserves decision history and reviews on import", () => {
+    const member = memberFromPreset("decision-history", "stocks");
+    const analysis: Analysis = {
+      ...member,
+      decisionHistory: [{
+        id: "d1",
+        decidedAt: 100,
+        action: "watch",
+        rationale: "Wait for better entry",
+        trigger: { dueAt: 200, note: "Review after earnings" },
+        snapshot: {
+          kind: "analysis",
+          data: {
+            title: member.title,
+            assetType: member.assetType,
+            vertical: member.vertical,
+            thesis: member.ic.thesis,
+            review: member.ic.review,
+            metrics: member.metrics,
+            stance: member.stance,
+            sources: member.sources,
+            evidenceCandidates: member.ic.thesis.evidenceCandidates,
+            capturedAt: 100,
+          },
+        },
+        review: {
+          reviewedAt: 300,
+          outcome: "mixed",
+          reasoningAssessment: "unclear",
+          notes: "Partially played out",
+        },
+      }],
+    };
+    const json = JSON.stringify({ app: "jp-workspace", version: 1, analyses: [analysis] });
+    const out = parseBackup(json).analyses[0];
+    expect(out.decisionHistory).toHaveLength(1);
+    expect(out.decisionHistory[0].review?.notes).toBe("Partially played out");
+    expect(out.decisionHistory[0].snapshot.kind).toBe("analysis");
+  });
 });

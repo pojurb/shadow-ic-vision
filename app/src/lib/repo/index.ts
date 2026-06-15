@@ -5,6 +5,7 @@
  */
 import { getDB } from "./db";
 import { personaFor } from "@/lib/ai/personas";
+import { normalizeDecisionHistory, deriveStatusFromDecisionHistory } from "@/lib/domain/decisions";
 import { assetTypeForVertical, createDefaultICState, normalizeICState } from "@/lib/domain/ic";
 import {
   bytesToBase64,
@@ -54,6 +55,7 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     advisory: AdvisoryResult | LegacyAdvisory | null;
     assetType?: AssetType;
     ic?: ICState;
+    decisionHistory?: Analysis["decisionHistory"];
   };
 
   // advisory: object {operator,risk,predator} → lens array
@@ -88,6 +90,8 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     stance = d ? { label: d.label, basis: d.basis } : null;
   }
 
+  const decisionHistory = normalizeDecisionHistory(a.decisionHistory, a.decision);
+
   return {
     ...a,
     assetType: a.assetType ?? assetTypeForVertical(a.vertical),
@@ -97,6 +101,8 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     persona,
     stance,
     expertReview: a.expertReview ?? null,
+    decisionHistory,
+    status: deriveStatusFromDecisionHistory(decisionHistory),
   };
 }
 
@@ -125,7 +131,7 @@ export async function deleteAnalysis(id: string): Promise<void> {
 /** Derived ledger: every analysis with a committed decision, newest first. */
 export async function listLedger(): Promise<Analysis[]> {
   const all = await listAnalyses();
-  return all.filter((a) => a.decision != null);
+  return all.filter((a) => a.decisionHistory.length > 0);
 }
 
 /** Factory for a fresh draft analysis. */
@@ -164,6 +170,7 @@ export function createAnalysis(input: {
     allowWebSearch: false,
     chat: [],
     decision: null,
+    decisionHistory: [],
     model: input.model,
     status: "draft",
     createdAt: now,
@@ -213,7 +220,7 @@ export async function deleteFolder(id: string): Promise<void> {
  * sets capital later). Mirrors `normalizeAnalysis`; keeps the Dexie schema unchanged.
  */
 export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
-  const p = raw as PortfolioAnalysis & { memberIds?: string[] };
+  const p = raw as PortfolioAnalysis & { memberIds?: string[]; decisionHistory?: PortfolioAnalysis["decisionHistory"] };
   const hasMembers = Array.isArray(p.members);
   // Analysis-parity fields added with P7b (persona/stance/debate/advisory). The stance
   // is derived only when ANALYZE runs (it needs the member analyses), so a missing one
@@ -223,13 +230,15 @@ export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
     p.stance !== undefined &&
     p.debate !== undefined &&
     p.advisory !== undefined;
-  if (hasMembers && hasFields) return p; // already current-shape (idempotent)
+  if (hasMembers && hasFields && Array.isArray(p.decisionHistory)) return p; // already current-shape (idempotent)
 
   const members: PortfolioMember[] = hasMembers
     ? p.members
     : Array.isArray(p.memberIds)
       ? p.memberIds.map((analysisId) => ({ analysisId, capital: 0 }))
       : [];
+  const decisionHistory = normalizeDecisionHistory(p.decisionHistory);
+
   return {
     ...p,
     members,
@@ -237,6 +246,7 @@ export function normalizePortfolio(raw: PortfolioAnalysis): PortfolioAnalysis {
     stance: p.stance ?? null,
     debate: p.debate ?? null,
     advisory: p.advisory ?? null,
+    decisionHistory,
   };
 }
 
@@ -274,6 +284,7 @@ export function createPortfolio(title: string, members: PortfolioMember[] = []):
     stance: null,
     debate: null,
     advisory: null,
+    decisionHistory: [],
     createdAt: now,
     updatedAt: now,
   };

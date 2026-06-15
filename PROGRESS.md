@@ -11,11 +11,37 @@
 
 ---
 
+## Latest Snapshot - 2026-06-15
+
+M6 Decision Ledger + Review Loop is implemented and verified:
+
+- Added append-only `decisionHistory` to analyses and portfolios.
+- Added shared decision helpers for validation, snapshots, legacy normalization,
+  latest-decision lookup, outcome reviews, labels, and status derivation.
+- Replaced the legacy analysis decision card with a reusable Decision Ledger.
+- Added the same Decision Ledger workflow to portfolios.
+- Updated Library badges and filters to derive draft/watching/decided/archived
+  from decision history for both analyses and portfolios.
+- Added tests for decision helpers and backup/export/import preservation.
+- Updated `DATA_MODEL.md`, `BUILD_PLAN.md`, `EXECUTION_PLAN.md`, and
+  `docs/milestones/m6_spec.md` to reflect the implemented M6 shape.
+- Verification passed: `npm run lint -- --quiet`, `npm test`
+  (19 files / 151 tests), `npm run build`, and browser QA across analysis,
+  portfolio, due-review, invalid-form, and legacy-decision flows.
+- Browser QA was completed with local Playwright + Edge because the in-app
+  browser helper still crashes during setup in this environment.
+- Next execution step: start M3 Field Provenance using the Product Trio skill
+  workflow.
+
+---
+
 ## Latest Snapshot - 2026-06-11
 
 Saved before next build work:
 
 - `BUILD_PLAN.md` is now the current milestone tracker.
+- `DATA_MODEL.md`, `app/CODE_ANATOMY.md`, and `web/CODE_ANATOMY.md` were
+  refreshed to match the current app, eval harness, and legacy demo split.
 - Milestone 1 is mostly implemented: IC primitives, thesis memory, thesis intake,
   confirmation, and inspector display exist.
 - Milestone 2 is not implemented: manual real estate, crypto, macro, other, and
@@ -34,6 +60,8 @@ Saved before next build work:
 - Safe intake/self-improvement harness now guards the MBMA-style failure class
   through fixture cases, pure scorecards, an improvement log, and optional live
   provider eval.
+- Deployment docs were moved under `docs/deployment/`; the Vercel handoff note
+  is no longer at the repo root.
 - Verification after the recent app changes: `npm test` passed
   (18 files / 141 tests), `npm run build` passed, and `npm run eval` passed.
 - Recommended next implementation after documentation cleanup: Milestone 6
@@ -77,7 +105,7 @@ Root cleanup decision:
 | **P8** Guardrails + eval harness | ✅ 2026-06-07 · `tsc` clean · **110 Vitest pass** (+24) · `next build` green · live eval scorecard verified on Gemini (schema/stance gates 100%). See section below |
 | **P9a** Export / import (backup & restore) | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** (+10) · `next build` green · pure backup core + DB wrappers + Settings UI. See section below |
 | **P9b** UI readability & density pass | ✅ 2026-06-08 · `tsc` clean · **120 Vitest pass** · `next build` green · type-floor + spacing rhythm + chrome harmonization + persisted inspector width. See section below |
-| **P9c** Vercel cutover | 🟡 deploy doc drafted · production alias switch pending |
+| **P9c** Vercel cutover | 🟡 deploy doc now lives in `docs/deployment/VERCEL_CUTOVER.md` · production alias switch pending |
 
 Key files added in `app/src`: `lib/finance/*` (engine + tests + `compute.ts`), `lib/domain/types.ts`,
 `lib/repo/{db,index}.ts`, `lib/storage/index.ts`, `data/presets.ts`, `components/{Cockpit,charts}.tsx`,

@@ -118,6 +118,13 @@ export interface Decision {
   decidedAt: number;
 }
 
+export interface DecisionOutcomeReview {
+  reviewedAt: number;
+  outcome: "worked" | "mixed" | "did_not_work" | "unresolved";
+  reasoningAssessment: "right_right_reason" | "wrong_right_reason" | "lucky" | "unclear";
+  notes: string;
+}
+
 export interface ThesisAssumption {
   id: string;
   text: string;
@@ -218,6 +225,51 @@ export type ContextSource =
       createdAt: number;
     };
 
+export interface AnalysisDecisionSnapshot {
+  title: string;
+  assetType: AssetType;
+  vertical: Vertical;
+  thesis: ThesisMemory;
+  review: ReviewState;
+  metrics: ComputedMetrics;
+  stance: Stance | null;
+  sources: ContextSource[];
+  evidenceCandidates: EvidenceCandidate[];
+  capturedAt: number;
+}
+
+export interface PortfolioDecisionSnapshot {
+  title: string;
+  members: PortfolioMember[];
+  positions: PortfolioPosition[];
+  metrics: PortfolioMetrics;
+  stance: Stance | null;
+  tags: string[];
+  capturedAt: number;
+}
+
+export interface LegacyDecisionSnapshot {
+  reason: "legacy_decision_without_snapshot";
+  capturedAt: number;
+}
+
+export type DecisionSnapshot =
+  | { kind: "analysis"; data: AnalysisDecisionSnapshot }
+  | { kind: "portfolio"; data: PortfolioDecisionSnapshot }
+  | { kind: "legacy"; data: LegacyDecisionSnapshot };
+
+export interface DecisionEntry {
+  id: string;
+  decidedAt: number;
+  action: ICAction | null;
+  legacyAction?: DecisionAction;
+  rationale: string;
+  preMortem?: string;
+  trigger: { dueAt: number; note: string } | null;
+  snapshot: DecisionSnapshot;
+  review: DecisionOutcomeReview | null;
+}
+
 export interface Folder {
   id: string;
   name: string;
@@ -249,6 +301,7 @@ export interface Analysis {
   allowWebSearch: boolean;
   chat: ChatMessage[];
   decision: Decision | null;
+  decisionHistory: DecisionEntry[];
   model: string;
   status: AnalysisStatus;
   createdAt: number;
@@ -302,6 +355,7 @@ export interface PortfolioAnalysis {
   debate: DebateResult | null;
   /** Portfolio-level advisory lenses (capital allocation, concentration, conviction, risk). */
   advisory: AdvisoryResult | null;
+  decisionHistory: DecisionEntry[];
   createdAt: number;
   updatedAt: number;
 }

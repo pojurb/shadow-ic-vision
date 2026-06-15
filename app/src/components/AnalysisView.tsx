@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Analysis,
   AssetParameters,
-  DecisionAction,
   ChatMessage,
   ContextSource,
   DebateLine,
@@ -32,6 +31,12 @@ import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
+import {
+  createAnalysisDecisionEntry,
+  deriveStatusFromDecisionHistory,
+  type DecisionDraft,
+} from "@/lib/domain/decisions";
+import DecisionLedger from "./DecisionLedger";
 
 const MIN_W = 380;
 const MAX_W = 760;
@@ -165,9 +170,7 @@ export default function AnalysisView({
   model: string;
   onNeedSettings: () => void;
 }) {
-  const [action, setAction] = useState<DecisionAction>(analysis.decision?.action ?? "APPROVE");
   const [reviewing, setReviewing] = useState(false);
-  const [notes, setNotes] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [running, setRunning] = useState(false);
   const [runPhase, setRunPhase] = useState<"" | "research" | "debate">("");
@@ -195,7 +198,9 @@ export default function AnalysisView({
   const onGutterDown = useCallback(() => setDragging(true), []);
   // Restore a previously dragged width after mount (SSR-safe — fallback renders first).
   useEffect(() => {
-    setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+    void Promise.resolve().then(() => {
+      setInspectorW((w) => Math.min(MAX_W, Math.max(MIN_W, loadInspectorWidth(W_KEY, w))));
+    });
   }, []);
   useEffect(() => {
     if (!dragging) return;
@@ -467,16 +472,6 @@ export default function AnalysisView({
     setTagDraft("");
   }
 
-  function commitDecision(e: React.FormEvent) {
-    e.preventDefault();
-    if (!notes.trim()) return;
-    update({
-      decision: { action, rationale: notes.trim(), decidedAt: Date.now() },
-      status: "decided",
-    });
-    setNotes("");
-  }
-
   const metrics = analysis.metrics.metrics;
   const advisory = analysis.advisory ?? [];
   // Deterministic grounding guard (P8): flag any number in the model's prose that
@@ -744,27 +739,19 @@ export default function AnalysisView({
 
               {/* decision */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Make the call</div>
-                {analysis.decision && (
-                  <div className={`current-decision ${analysis.decision.action}`}>
-                    Current: <strong>{analysis.decision.action}</strong> — &quot;{analysis.decision.rationale}&quot;
-                  </div>
-                )}
-                <form className="decision-form" onSubmit={commitDecision}>
-                  <div className="form-row">
-                    <label htmlFor="decision-select">Executive action</label>
-                    <select id="decision-select" value={action} onChange={(e) => setAction(e.target.value as DecisionAction)}>
-                      <option value="APPROVE">APPROVE / SWING CAPITAL</option>
-                      <option value="HOLD">HOLD / MONITOR</option>
-                      <option value="REJECT">REJECT</option>
-                    </select>
-                  </div>
-                  <div className="form-row">
-                    <label htmlFor="decision-notes">Rationale</label>
-                    <textarea id="decision-notes" rows={2} placeholder="Investor's rationale…" value={notes} onChange={(e) => setNotes(e.target.value)} required />
-                  </div>
-                  <button type="submit" className="commit-btn">COMMIT DECISION</button>
-                </form>
+                <div className="tp-card-h">Decision Ledger</div>
+                <DecisionLedger
+                  history={analysis.decisionHistory}
+                  subjectLabel="This analysis"
+                  createEntry={(draft: DecisionDraft) => createAnalysisDecisionEntry(analysis, draft)}
+                  onHistoryChange={(decisionHistory) =>
+                    update({
+                      decision: null,
+                      decisionHistory,
+                      status: deriveStatusFromDecisionHistory(decisionHistory),
+                    })
+                  }
+                />
               </div>
 
               {/* expert review */}

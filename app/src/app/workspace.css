@@ -146,6 +146,16 @@
 .mini-badge.draft {
   color: #8b94a3;
 }
+.mini-badge.watching,
+.mini-badge.warning {
+  color: var(--yellow-caution);
+}
+.mini-badge.decided {
+  color: var(--bull-green);
+}
+.mini-badge.archived {
+  color: var(--bear-red);
+}
 .library-date {
   color: #6b7687;
 }
@@ -227,6 +237,14 @@
   color: var(--bull-green);
   border-color: var(--bull-green);
 }
+.status-pill.status-watching {
+  color: var(--yellow-caution);
+  border-color: var(--yellow-caution);
+}
+.status-pill.status-archived {
+  color: var(--bear-red);
+  border-color: var(--bear-red);
+}
 
 .meta-grid {
   display: grid;
@@ -279,6 +297,73 @@
 .APPROVE-text { color: var(--bull-green); }
 .HOLD-text { color: var(--yellow-caution); }
 .REJECT-text { color: var(--bear-red); }
+
+.decision-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.decision-form input,
+.decision-review-form select,
+.decision-review-form textarea {
+  background: #0f1013;
+  border: 1px solid var(--border-color);
+  color: #cbd5e1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.field-error {
+  color: var(--bear-red);
+  font-size: 11px;
+}
+
+.decision-history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.decision-entry {
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--border-accent);
+  background: #0f1013;
+  padding: 10px;
+}
+
+.decision-entry.is-due {
+  border-left-color: var(--yellow-caution);
+}
+
+.decision-entry-top,
+.decision-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.decision-date,
+.decision-detail,
+.decision-review {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.decision-rationale {
+  color: #e5e7eb;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.decision-review-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
 
 /* ---- New analysis modal ---- */
 .modal-overlay {

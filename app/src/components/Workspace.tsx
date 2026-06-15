@@ -51,7 +51,7 @@ export default function Workspace() {
   useEffect(() => {
     listAnalyses().then(setAnalyses);
     listPortfolios().then(setPortfolios);
-    setSettings(storage.getSettings());
+    void Promise.resolve().then(() => setSettings(storage.getSettings()));
   }, []);
 
   async function refresh() {

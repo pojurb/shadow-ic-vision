@@ -200,6 +200,7 @@ describe("normalizePortfolio (back-compat)", () => {
       stance: null,
       debate: null,
       advisory: null,
+      decisionHistory: [],
       createdAt: 0,
       updatedAt: 0,
     };
