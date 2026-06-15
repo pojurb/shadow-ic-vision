@@ -26,9 +26,9 @@ Current milestone status:
 
 Recommended next build order:
 
-1. Implement M2 Manual Private Asset IC Entry to support alternative assets.
-2. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
-3. Finish the remaining browser QA sweep (`m6`, `broken-m4`, full `npm run qa`) now that the canonical harness is stable for isolated M3/M4 runs.
+1. Finish the remaining browser QA sweep (`m6`, `broken-m4`, full `npm run qa`) now that the canonical harness is stable for isolated M3/M4 runs.
+2. Implement M2 Manual Private Asset IC Entry to support alternative assets.
+3. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 
@@ -62,7 +62,7 @@ Exit criteria:
 
 ## Milestone 2 - Manual Private Asset IC Entry
 
-Status: implemented, verification partial.
+Status: not implemented.
 
 Goal: support non-public/manual assets in the same workflow without pretending
 automated data coverage exists.
@@ -399,24 +399,26 @@ Exit criteria:
 
 ## Milestone 4 - Evidence Locker Primitives
 
-Status: partial primitives only.
+Status: implemented, broader QA sweep pending.
 
 Goal: reframe the library as evidence tied to theses.
 
 Implemented:
 
-- Thesis memory can store evidence candidates with type, relation, reliability,
-  URL, and notes.
-- Files and links can be attached to analyses.
+- Added first-class `Analysis.evidence` records plus normalize-on-read migration
+  from legacy `thesis.evidenceCandidates`.
+- Added shared evidence helpers for promotion, source linking, thesis-link
+  formatting, grouping, and filtering.
+- Added inline Evidence Locker UI in `AnalysisView` with note/URL creation,
+  candidate promotion, source linkage, relation/reliability editing, and
+  thesis-link rendering.
+- Preserved evidence through backup/export/import and M6 decision snapshots.
+- Isolated browser QA now passes for the M4 fixture through the canonical
+  harness; broader QA sweep remains open.
 
 Remaining:
 
-- Store evidence items as first-class records with type, source, date,
-  reliability, and linked thesis.
-- Classify evidence as supporting, contradictory, neutral, or unresolved.
-- Link files, URLs, notes, screenshots, PDFs, pitch decks, and memos to thesis
-  memory.
-- Show evidence linkage in the thesis detail page.
+- Run the remaining broader QA sweep (`m6`, `broken-m4`, full `npm run qa`).
 
 Detailed implementation plan:
 
@@ -561,7 +563,7 @@ Exit criteria:
 
 ## Milestone 5 - Watchlist IC Agenda + Assumption Monitoring
 
-Status: implemented and verified.
+Status: not implemented.
 
 Goal: make the dashboard answer what deserves attention.
 
@@ -742,7 +744,7 @@ Exit criteria:
 
 ## Milestone 6 - Decision Ledger + Review Loop
 
-Status: not implemented.
+Status: implemented, verified.
 
 Goal: preserve decisions and evaluate decision quality over time.
 

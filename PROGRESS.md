@@ -47,11 +47,14 @@ verification is green for M3 and M4:
 - Isolated browser QA is now green for:
   - M3 stock provenance
   - M4 Evidence Locker
+- Latest verified artifacts:
+  - `issues/qa/2026-06-15T08-40-17-658Z/report.json` (`m3` pass)
+  - `issues/qa/2026-06-15T09-26-39-168Z/report.json` (`m4` pass)
 - Remaining QA work:
-  - run isolated M6 browser QA
+  - run isolated M6 browser QA (no passing report yet; previous run was interrupted)
   - run `broken-m4` expected-failure classification
   - run full `npm run qa`
-  - clean old locked `.next-qa-*` residue left by earlier interrupted runs
+  - clean old locked `.next-qa-*` residue left by earlier interrupted runs (`app/.next-qa-2026-06-15T08-21-32-865Z`, `app/.next-qa-2026-06-15T08-22-03-701Z`)
 - Next execution step: finish the remaining QA sweep above, then proceed to M2
   Manual Private Asset IC Entry and M5 once M2/M3/M4 inputs are trustworthy
   enough.
