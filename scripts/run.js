@@ -29,6 +29,7 @@ ${YELLOW}COMMANDS:${RESET}
   parse <vertical>          Parse input files from inputs/ folder
   update-state              Update Portfolio_Master_State.md
   check                     Run environment health check
+  qa [fixture] [options]     Run the canonical browser QA harness
   help                      Show this help message
 
 ${YELLOW}EXAMPLES:${RESET}
@@ -36,6 +37,7 @@ ${YELLOW}EXAMPLES:${RESET}
   node scripts/run.js parse stocks
   node scripts/run.js update-state
   node scripts/run.js check
+  node scripts/run.js qa
 `);
 }
 
@@ -107,6 +109,17 @@ if (command === 'calc') {
     process.exit(1);
   }
   
+  nodeArgs = [scriptPath, ...restArgs];
+
+} else if (command === 'qa') {
+  scriptPath = path.join(SCRIPTS_DIR, 'qa', 'browser_qa.js');
+
+  if (!fs.existsSync(scriptPath)) {
+    console.error(`${RED}Script not found: ${scriptPath}${RESET}`);
+    process.exit(1);
+  }
+
+  console.log(`\n${GREEN}Running browser QA harness...${RESET}\n`);
   nodeArgs = [scriptPath, ...restArgs];
 
 } else {

@@ -27,6 +27,7 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
     stance: stance ? { label: stance, basis: "" } : null,
     expertReview: null,
     sources: [],
+    evidence: [],
     allowWebSearch: false,
     chat: [],
     decision: null,

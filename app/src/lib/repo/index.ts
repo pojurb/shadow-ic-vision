@@ -6,7 +6,9 @@
 import { getDB } from "./db";
 import { personaFor } from "@/lib/ai/personas";
 import { normalizeDecisionHistory, deriveStatusFromDecisionHistory } from "@/lib/domain/decisions";
+import { normalizeAnalysisEvidence } from "@/lib/domain/evidence";
 import { assetTypeForVertical, createDefaultICState, normalizeICState } from "@/lib/domain/ic";
+import { backfillLegacyStockFields, normalizePersistedStockFields } from "@/lib/domain/stockFields";
 import {
   bytesToBase64,
   base64ToBytes,
@@ -55,6 +57,7 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     advisory: AdvisoryResult | LegacyAdvisory | null;
     assetType?: AssetType;
     ic?: ICState;
+    evidence?: Analysis["evidence"];
     decisionHistory?: Analysis["decisionHistory"];
   };
 
@@ -91,16 +94,27 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
   }
 
   const decisionHistory = normalizeDecisionHistory(a.decisionHistory, a.decision);
+  const ic = normalizeICState(a.ic);
+  const evidence = normalizeAnalysisEvidence(a.evidence, ic.thesis);
+  const normalizedStockFields = normalizePersistedStockFields(a.stockFields);
+  const stockFields =
+    a.vertical === "stocks"
+      ? normalizedStockFields.length
+        ? normalizedStockFields
+        : backfillLegacyStockFields(a.parameters)
+      : [];
 
   return {
     ...a,
     assetType: a.assetType ?? assetTypeForVertical(a.vertical),
-    ic: normalizeICState(a.ic),
+    stockFields,
+    ic,
     advisory,
     debate,
     persona,
     stance,
     expertReview: a.expertReview ?? null,
+    evidence,
     decisionHistory,
     status: deriveStatusFromDecisionHistory(decisionHistory),
   };
@@ -156,6 +170,7 @@ export function createAnalysis(input: {
     assetType: assetTypeForVertical(input.vertical),
     assetName: input.assetName,
     assetMeta: { currency: "IDR" },
+    stockFields: input.vertical === "stocks" ? [] : undefined,
     tags: [],
     folderId: input.folderId ?? null,
     ic: createDefaultICState(now),
@@ -167,6 +182,7 @@ export function createAnalysis(input: {
     stance: input.stance ?? null,
     expertReview: null,
     sources: [],
+    evidence: [],
     allowWebSearch: false,
     chat: [],
     decision: null,

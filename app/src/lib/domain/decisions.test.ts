@@ -119,6 +119,18 @@ describe("decision snapshots", () => {
       reliability: "official",
       createdAt: 1,
     }];
+    analysis.evidence = [{
+      id: "evidence-1",
+      title: "Locker source",
+      type: "filing",
+      relation: "supporting",
+      reliability: "official",
+      sourceDate: null,
+      sourceRefIds: ["src1"],
+      thesisRefs: [{ target: "summary", id: null }],
+      createdAt: 1,
+      updatedAt: 1,
+    }];
     analysis.sources = [{ id: "src1", kind: "link", url: "https://example.com", createdAt: 1 }];
     analysis.stance = { label: "UNDERVALUED", basis: "Basis" };
 
@@ -127,10 +139,14 @@ describe("decision snapshots", () => {
     expect(snapshot.metrics.metrics).toEqual(analysis.metrics.metrics);
     expect(snapshot.stance?.label).toBe("UNDERVALUED");
     expect(snapshot.sources).toHaveLength(1);
+    expect(snapshot.evidence).toHaveLength(1);
+    expect(snapshot.evidence[0].sourceRefIds).toEqual(["src1"]);
     expect(snapshot.evidenceCandidates).toHaveLength(1);
 
     analysis.ic.thesis.summary = "Changed later";
+    analysis.evidence[0].title = "Changed evidence";
     expect(snapshot.thesis.summary).toBe("Durable thesis");
+    expect(snapshot.evidence[0].title).toBe("Locker source");
   });
 
   it("freezes portfolio members, weights, metrics, and linked analysis ids", () => {

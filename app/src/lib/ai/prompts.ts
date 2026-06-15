@@ -60,6 +60,14 @@ Steps:
    Use the exact key strings above, and convert each value to the unit shown in its [brackets] — this matters: some fields want a whole-number percent (19) and others a decimal fraction (0.19) for the SAME "19%". A margin of 70% → 0.70; a 4% churn → 0.04; "Rp 4.2k" → 4200. Omit any key you cannot find — NEVER invent or guess a number to fill a slot.
    For listed equities: do NOT fill discountRate or terminalMult unless the user/evidence explicitly states those assumptions. Do NOT fill invested unless a buy price/cost basis/current-price-as-entry figure is visible.
 3. Tag every field: "stated" if the user explicitly gave that number, "inferred" if you read it from an attachment or derived it. When unsure, use "inferred" so it gets confirmed.
+   For stock fields sourced from research evidence, include provenance whenever visible:
+   - title
+   - url
+   - asOf (period/timestamp)
+   - valueType: current, delayed, ttm, annual, or estimated
+   - confidence: high, medium, low, or needs_review
+   - sourceKind: official or third_party
+   Never invent missing provenance. Leave provenance absent if the evidence does not clearly show those fields.
 4. Extract a confirmable thesis draft for the IC memory:
    - summary: the shortest accurate statement of why the asset may deserve attention.
    - assumptions: explicit business, market, portfolio, execution, valuation, or macro assumptions.

@@ -6,6 +6,7 @@ import type { AIProvider, ProviderId } from "./types";
 import { anthropicProvider } from "./providers/anthropic";
 import { openaiProvider } from "./providers/openai";
 import { geminiProvider } from "./providers/gemini";
+import { isQaMockMode, qaMockProvider } from "./qa";
 
 const PROVIDERS: Record<ProviderId, AIProvider> = {
   anthropic: anthropicProvider,
@@ -17,5 +18,6 @@ const PROVIDERS: Record<ProviderId, AIProvider> = {
 export const PROVIDER_LIST: AIProvider[] = Object.values(PROVIDERS);
 
 export function getProvider(id: ProviderId): AIProvider {
+  if (isQaMockMode()) return qaMockProvider;
   return PROVIDERS[id] ?? anthropicProvider;
 }

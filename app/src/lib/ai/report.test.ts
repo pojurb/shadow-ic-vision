@@ -38,6 +38,7 @@ function fixture(vertical: Vertical): Analysis {
     stance: derived ? { label: derived.label, basis: "Valuation and quality verdicts taken together." } : null,
     expertReview: null,
     sources: [],
+    evidence: [],
     allowWebSearch: false,
     chat: [],
     decision: null,

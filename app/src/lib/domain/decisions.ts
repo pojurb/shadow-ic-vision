@@ -73,6 +73,7 @@ export function buildAnalysisDecisionSnapshot(analysis: Analysis, capturedAt = D
     metrics: clone(analysis.metrics),
     stance: clone(analysis.stance),
     sources: clone(analysis.sources),
+    evidence: clone(analysis.evidence),
     evidenceCandidates: clone(analysis.ic.thesis.evidenceCandidates),
     capturedAt,
   };

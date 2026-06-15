@@ -53,7 +53,7 @@ export default function Library({
   }, [analyses, query, status]);
 
   return (
-    <aside className="library-sidebar">
+    <aside className="library-sidebar" data-qa="library">
       <div className="panel-header warning-stripes">
         <span className="panel-title">LIBRARY</span>
         <div className="library-new-actions">
@@ -113,7 +113,7 @@ function AnalysisLibraryItem({
   const latest = latestDecision(analysis.decisionHistory);
   const status = deriveStatusFromDecisionHistory(analysis.decisionHistory);
   return (
-    <div className={`library-item${active ? " active" : ""}`} onClick={() => onOpen(analysis.id)}>
+    <div className={`library-item${active ? " active" : ""}`} data-qa={`library-analysis-${analysis.id}`} onClick={() => onOpen(analysis.id)}>
       <div className="library-item-top">
         <span className="library-vtag">{VERTICAL_TAG[analysis.vertical]}</span>
         <span className="library-item-title">{analysis.title}</span>
@@ -153,7 +153,7 @@ function PortfolioLibraryItem({
   const latest = latestDecision(portfolio.decisionHistory);
   const status = deriveStatusFromDecisionHistory(portfolio.decisionHistory);
   return (
-    <div className={`library-item${active ? " active" : ""}`} onClick={() => onOpen(portfolio.id)}>
+    <div className={`library-item${active ? " active" : ""}`} data-qa={`library-portfolio-${portfolio.id}`} onClick={() => onOpen(portfolio.id)}>
       <div className="library-item-top">
         <span className="library-vtag library-vtag--pf">PF</span>
         <span className="library-item-title">{portfolio.title}</span>

@@ -31,7 +31,7 @@ export function memberFromPreset(id: string, vertical: Vertical, idx = 0): Analy
     parameters, metrics,
     debate: null, advisory: null, persona: null,
     stance: d ? { label: d.label, basis: d.basis } : null,
-    expertReview: null, sources: [], allowWebSearch: false, chat: [],
+    expertReview: null, sources: [], evidence: [], allowWebSearch: false, chat: [],
     decision: null, decisionHistory: [], model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
   };
 }

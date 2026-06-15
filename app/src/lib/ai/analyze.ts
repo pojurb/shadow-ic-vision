@@ -43,6 +43,14 @@ import type {
   PortfolioAnalysis,
   PortfolioMetrics,
 } from "@/lib/domain/types";
+import {
+  buildDerivedStockProvenance,
+  buildUserProvidedStockProvenance,
+  hasCompleteStockProvenance,
+  isLockableStockConfidence,
+  normalizeStockFieldProvenance,
+  stockFieldLockNote,
+} from "@/lib/domain/stockFields";
 import type { AnalysisResult } from "./types";
 
 interface TextBlock {
@@ -420,6 +428,36 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
     if (rawPctKeys.has(f.key) && value > 1) value = value / 100;
     if (wholePctKeys.has(f.key) && value > 0 && value <= 1) value = value * 100;
     const source: IntakeField["source"] = f.source === "stated" ? "stated" : "inferred";
+    if (vertical === "stocks") {
+      if (source === "stated") {
+        fields.push({
+          key: f.key,
+          value,
+          source,
+          origin: "user_fact",
+          lockable: true,
+          provenance: buildUserProvidedStockProvenance(0),
+        });
+        numbers[f.key] = value;
+        continue;
+      }
+
+      const provenance = normalizeStockFieldProvenance(f.provenance);
+      const complete = hasCompleteStockProvenance(provenance);
+      const lockable = complete && provenance != null && isLockableStockConfidence(provenance.confidence);
+      fields.push({
+        key: f.key,
+        value,
+        source,
+        origin: lockable ? "sourced_fact" : "candidate",
+        lockable,
+        provenance,
+        ...(lockable ? {} : { note: stockFieldLockNote(provenance) }),
+      });
+      if (lockable) numbers[f.key] = value;
+      continue;
+    }
+
     fields.push({ key: f.key, value, source });
     numbers[f.key] = value;
   }
@@ -430,7 +468,15 @@ export function finalizeIntake(raw: IntakeOutput): IntakeResult {
   // the figures/scoping decision deterministic instead of trusting a flaky label.
   if (vertical === "stocks" && numbers.price != null && numbers.invested == null) {
     numbers.invested = numbers.price;
-    fields.push({ key: "invested", value: numbers.price, source: "inferred" });
+    fields.push({
+      key: "invested",
+      value: numbers.price,
+      source: "inferred",
+      origin: "derived_candidate",
+      lockable: false,
+      provenance: buildDerivedStockProvenance(0),
+      note: "Derived helper from price; review before relying on it as a buy-price assumption.",
+    });
   }
 
   const requiredByVertical: Record<Vertical, string[]> = {

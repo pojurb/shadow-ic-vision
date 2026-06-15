@@ -101,8 +101,8 @@ Each packet should use this structure:
 | Milestone | Packet Status | Dev Status | Notes |
 | :--- | :--- | :--- | :--- |
 | M6 - Decision Ledger | Implemented | Verified | Built from `docs/milestones/m6_spec.md`: decision history, analysis/portfolio ledger UI, legacy normalization, snapshots, outcome reviews, Library badges, and backup round-trip tests. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
-| M3 - Field Provenance | Pending | Pending | Spec after M6 pattern is proven. |
-| M4 - Evidence Locker | Pending | Pending | Spec after M3. |
+| M3 - Field Provenance | Implemented | Verified | Built from `docs/milestones/m3_spec.md`: stock provenance types/helpers, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, legacy normalization, intake eval fixture updates, `npm test`, `npm run build`, and browser QA passed. |
+| M4 - Evidence Locker | Implemented | Verification partial | Built from `docs/milestones/m4_spec.md`: first-class `Analysis.evidence`, pure evidence helpers, legacy candidate promotion on read, inline Evidence Locker UI, source/thesis links, backup/import tests, and M6 snapshot coverage. `npm test`, `npm run lint`, and `npm run build` passed. Browser fallback reached the app through headless Edge/CDP, but that session did not hydrate/respond to UI state changes; classify as tooling-limited pending a stable browser path. |
 | M2 - Manual Asset Entry | Pending | Pending | Spec before M5. |
 | M5 - IC Agenda Dashboard | Pending | Pending | Depends on M6, M3, M4, and M2 inputs. |
 

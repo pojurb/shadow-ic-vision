@@ -104,6 +104,7 @@ describe("normalize-on-import", () => {
             metrics: member.metrics,
             stance: member.stance,
             sources: member.sources,
+            evidence: member.evidence,
             evidenceCandidates: member.ic.thesis.evidenceCandidates,
             capturedAt: 100,
           },
@@ -121,5 +122,57 @@ describe("normalize-on-import", () => {
     expect(out.decisionHistory).toHaveLength(1);
     expect(out.decisionHistory[0].review?.notes).toBe("Partially played out");
     expect(out.decisionHistory[0].snapshot.kind).toBe("analysis");
+  });
+
+  it("preserves evidence records and linked source refs on import", () => {
+    const member = memberFromPreset("evidence-import", "stocks");
+    const analysis: Analysis = {
+      ...member,
+      sources: [{ id: "src1", kind: "link", url: "https://example.com", createdAt: 1 }],
+      evidence: [{
+        id: "ev1",
+        title: "Evidence source",
+        type: "article",
+        relation: "supporting",
+        reliability: "third_party",
+        sourceDate: "2026-01-01",
+        url: "https://example.com",
+        sourceRefIds: ["src1"],
+        thesisRefs: [{ target: "summary", id: null }],
+        createdAt: 1,
+        updatedAt: 2,
+      }],
+    };
+    const json = JSON.stringify({ app: "jp-workspace", version: 1, analyses: [analysis] });
+    const out = parseBackup(json).analyses[0];
+    expect(out.evidence).toHaveLength(1);
+    expect(out.evidence[0].sourceRefIds).toEqual(["src1"]);
+    expect(out.evidence[0].thesisRefs).toEqual([{ target: "summary", id: null }]);
+  });
+
+  it("normalizes legacy backup candidates into first-class evidence", () => {
+    const member = memberFromPreset("legacy-evidence-import", "stocks");
+    const legacy: Analysis = {
+      ...member,
+      evidence: undefined as unknown as Analysis["evidence"],
+      ic: {
+        ...member.ic,
+        thesis: {
+          ...member.ic.thesis,
+          evidenceCandidates: [{
+            id: "candidate-1",
+            title: "Legacy candidate",
+            type: "filing",
+            relation: "supporting",
+            reliability: "official",
+            createdAt: 1,
+          }],
+        },
+      },
+    };
+    const json = JSON.stringify({ app: "jp-workspace", version: 1, analyses: [legacy] });
+    const out = parseBackup(json).analyses[0];
+    expect(out.evidence).toHaveLength(1);
+    expect(out.evidence[0].id).toBe("candidate-1");
   });
 });

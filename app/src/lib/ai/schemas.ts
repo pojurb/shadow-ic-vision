@@ -4,11 +4,12 @@
  * Schema (Anthropic structured outputs require additionalProperties:false and no
  * numeric/length constraints; `enum` is allowed).
  *
- * The schema is intentionally GENERIC across verticals: the per-vertical lens ids
- * and debate slots are enumerated in the PROMPT, then enforced by a validate+zip
+ * The schema is intentionally generic across verticals: the per-vertical lens ids
+ * and debate slots are enumerated in the prompt, then enforced by a validate+zip
  * step in `analyze.ts`. This keeps one schema working across all three providers.
  */
 import type { ThesisSupport, DebateLine, Vertical, AssetParameters } from "@/data/presets";
+import type { StockFieldOrigin, StockFieldProvenance } from "@/lib/domain/types";
 
 export type { ThesisSupport, DebateLine };
 
@@ -20,9 +21,13 @@ export interface IntakeField {
   value: number;
   /** "stated" = the user typed it; "inferred" = the model read/derived it. */
   source: "stated" | "inferred";
+  provenance?: StockFieldProvenance | null;
+  origin?: StockFieldOrigin;
+  lockable?: boolean;
+  note?: string;
 }
 
-/** Raw intake output from the model (pre-validation — strings unvalidated). */
+/** Raw intake output from the model (pre-validation - strings unvalidated). */
 export interface IntakeOutput {
   vertical: string;
   mode: string;
@@ -68,12 +73,27 @@ export interface IntakeResult {
   thesis: ThesisIntakeDraft;
 }
 
+const intakeFieldProvenance = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Visible source title, or empty string when unavailable" },
+    url: { type: "string", description: "Visible source URL, or empty string when unavailable" },
+    asOf: { type: "string", description: "Visible period or timestamp for this figure, or empty string when unavailable" },
+    valueType: { type: "string", description: "One of: current, delayed, ttm, annual, estimated, user_provided, derived, legacy_unknown" },
+    confidence: { type: "string", description: "One of: high, medium, low, needs_review, legacy_unknown" },
+    sourceKind: { type: "string", description: "One of: official, third_party, user_provided, derived, legacy_unknown" },
+  },
+  required: ["title", "url", "asOf", "valueType", "confidence", "sourceKind"],
+  additionalProperties: false,
+} as const;
+
 const intakeField = {
   type: "object",
   properties: {
-    key: { type: "string", description: "An engine parameter key — one of the candidate keys named for the chosen vertical in the instructions" },
+    key: { type: "string", description: "An engine parameter key - one of the candidate keys named for the chosen vertical in the instructions" },
     value: { type: "number", description: "The numeric value (no units, no thousands separators)" },
     source: { type: "string", description: "'stated' if the user explicitly typed this number, 'inferred' if you read or derived it" },
+    provenance: intakeFieldProvenance,
   },
   required: ["key", "value", "source"],
   additionalProperties: false,
@@ -122,7 +142,7 @@ const thesisDraft = {
 
 /**
  * Generic intake schema. `vertical`/`mode`/`source` stay plain strings (not enum)
- * and are validated in `finalizeIntake` — same defensive approach as `thesisSupport`
+ * and are validated in `finalizeIntake` - same defensive approach as `thesisSupport`
  * (Gemini's `toGeminiSchema` strips enums, so the code is the real guard).
  */
 export const INTAKE_JSON_SCHEMA = {
@@ -134,7 +154,7 @@ export const INTAKE_JSON_SCHEMA = {
     title: { type: "string", description: "A short title for this analysis" },
     note: { type: "string", description: "In scoping mode: what numbers are missing. In figures mode: a one-line summary of what was found" },
     thesis: thesisDraft,
-    fields: { type: "array", items: intakeField, description: "The engine parameters you could extract (omit any you cannot find — never invent)" },
+    fields: { type: "array", items: intakeField, description: "The engine parameters you could extract (omit any you cannot find - never invent)" },
   },
   required: ["vertical", "mode", "assetName", "title", "note", "fields", "thesis"],
   additionalProperties: false,
@@ -194,9 +214,9 @@ export const DEBATE_JSON_SCHEMA = {
   type: "object",
   properties: {
     thesisSupport: { type: "string", enum: ["STRONG", "MIXED", "THIN"], description: "How strongly the locked figures support the thesis" },
-    stanceBasis: { type: "string", description: "One-line justification of the asset's standing using ONLY the locked verdicts/figures" },
-    bull: { type: "array", items: line, description: "Bull arguments — one per debate slot" },
-    bear: { type: "array", items: line, description: "Bear arguments — one per debate slot" },
+    stanceBasis: { type: "string", description: "One-line justification of the asset's standing using only the locked verdicts/figures" },
+    bull: { type: "array", items: line, description: "Bull arguments - one per debate slot" },
+    bear: { type: "array", items: line, description: "Bear arguments - one per debate slot" },
     advisory: { type: "array", items: lensItem, description: "One object per advisory lens, in the instructed set" },
   },
   required: ["thesisSupport", "stanceBasis", "bull", "bear", "advisory"],

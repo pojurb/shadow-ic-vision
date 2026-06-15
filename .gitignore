@@ -18,6 +18,7 @@ inputs/conventional_biz/*.csv
 .DS_Store
 Thumbs.db
 Desktop.ini
+.tmp-*
 
 # === NODE ===
 node_modules/

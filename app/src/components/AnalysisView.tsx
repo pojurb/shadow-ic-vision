@@ -7,10 +7,13 @@ import type {
   ChatMessage,
   ContextSource,
   DebateLine,
+  EvidenceItem,
   ICState,
   EvidenceRelation,
   EvidenceReliability,
   EvidenceType,
+  ThesisRef,
+  StockFieldRecord,
 } from "@/lib/domain/types";
 import { calcDCF, calcBEP } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
@@ -31,6 +34,19 @@ import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
+import { buildDerivedStockProvenance, buildUserProvidedStockProvenance } from "@/lib/domain/stockFields";
+import {
+  createEvidenceItem,
+  filterEvidence,
+  formatSourceRefLabel,
+  formatThesisRefLabel,
+  groupEvidenceByRelation,
+  isValidEvidenceUrl,
+  linkEvidenceSource,
+  promoteEvidenceCandidate,
+  thesisRefOptions,
+  unlinkEvidenceSource,
+} from "@/lib/domain/evidence";
 import {
   createAnalysisDecisionEntry,
   deriveStatusFromDecisionHistory,
@@ -64,6 +80,10 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+function nowMs(): number {
+  return Date.now();
+}
+
 function cleanLines(values: string[]): string[] {
   return values.map((v) => v.trim()).filter(Boolean);
 }
@@ -93,6 +113,67 @@ function clampEvidenceRelation(value?: string): EvidenceRelation {
 function clampEvidenceReliability(value?: string): EvidenceReliability {
   const allowed: EvidenceReliability[] = ["official", "third_party", "user_provided", "unknown"];
   return allowed.includes(value as EvidenceReliability) ? (value as EvidenceReliability) : "unknown";
+}
+
+function stockFieldTone(field: StockFieldRecord): string {
+  if (field.origin === "candidate" || field.origin === "derived_candidate" || field.origin === "legacy_unverified") return " is-inferred";
+  return "";
+}
+
+const STOCK_FIELD_BY_KEY = new Map(FIELDS.stocks.map((field) => [String(field.key), field] as const));
+
+function stockFieldBadge(field: StockFieldRecord): string {
+  switch (field.origin) {
+    case "user_fact":
+      return "user provided";
+    case "sourced_fact":
+      return "cited source";
+    case "derived_candidate":
+      return "derived helper";
+    case "legacy_unverified":
+      return "legacy non-audited";
+    default:
+      return "needs confirmation";
+  }
+}
+
+function prettifyStockFieldText(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
+function stockFieldLabel(field: StockFieldRecord): string {
+  return STOCK_FIELD_BY_KEY.get(field.key)?.label ?? field.key;
+}
+
+function stockFieldValue(field: StockFieldRecord): string {
+  const spec = STOCK_FIELD_BY_KEY.get(field.key);
+  return spec ? fmtVal(field.value, spec.type) : String(field.value);
+}
+
+function stockFieldBadgeTone(field: StockFieldRecord): string {
+  switch (field.origin) {
+    case "user_fact":
+      return " is-user";
+    case "sourced_fact":
+      return " is-sourced";
+    case "derived_candidate":
+      return " is-derived";
+    case "legacy_unverified":
+      return " is-legacy";
+    default:
+      return " is-candidate";
+  }
+}
+
+function stockFieldMeta(field: StockFieldRecord): string[] {
+  const provenance = field.provenance;
+  if (!provenance) return [];
+  const items: string[] = [];
+  if (provenance.asOf) items.push(`As of ${provenance.asOf}`);
+  if (provenance.valueType) items.push(`Type: ${prettifyStockFieldText(provenance.valueType)}`);
+  if (provenance.confidence) items.push(`Confidence: ${prettifyStockFieldText(provenance.confidence)}`);
+  if (provenance.sourceKind) items.push(`Source: ${prettifyStockFieldText(provenance.sourceKind)}`);
+  return items;
 }
 
 function hasThesisDraft(thesis: ThesisIntakeDraft): boolean {
@@ -406,9 +487,17 @@ export default function AnalysisView({
    * the persona debate, then post the written report. Builds the next Analysis
    * EXPLICITLY (the `analysis` prop won't reflect onChange synchronously).
    */
-  async function confirmIntake(vertical: Vertical, values: Record<string, number>, thesis: ThesisIntakeDraft) {
+  async function confirmIntake(
+    vertical: Vertical,
+    values: Record<string, number>,
+    thesis: ThesisIntakeDraft,
+    stockFields?: StockFieldRecord[],
+  ) {
     if (!pendingIntake) return;
-    const shouldRunDebate = pendingIntake.mode === "figures";
+    const shouldRunDebate =
+      vertical === "stocks"
+        ? Number.isFinite(values.price) && Number.isFinite(values.eps)
+        : pendingIntake.mode === "figures";
     if (shouldRunDebate && !apiKey) return onNeedSettings();
     const parameters: AssetParameters = { ...BLANK_PARAMS[vertical], ...values };
     // Stocks DCF cashflows aren't user-facing — proxy from the (confirmed) EPS.
@@ -420,6 +509,7 @@ export default function AnalysisView({
       assetType: assetTypeForVertical(vertical),
       assetName: pendingIntake.assetName || analysis.assetName,
       title: pendingIntake.title || analysis.title,
+      stockFields: vertical === "stocks" ? stockFields ?? analysis.stockFields ?? [] : undefined,
       ic: buildICStateFromThesis(thesis, analysis.ic),
       parameters,
       metrics: computeMetrics(vertical, parameters),
@@ -479,7 +569,7 @@ export default function AnalysisView({
   const grounding = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
 
   return (
-    <div className="tp-root" ref={rootRef} style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
+    <div className="tp-root" ref={rootRef} data-qa="analysis-view" style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
       {/* ---- top bar: title + status + primary RUN AI + inspector toggle ---- */}
       <header className="tp-topbar">
         <div className="tp-title-wrap">
@@ -673,6 +763,8 @@ export default function AnalysisView({
                 <ThesisMemoryPanel analysis={analysis} />
               </div>
 
+              <EvidenceLocker analysis={analysis} onChange={onChange} />
+
               {/* locked figures (sliders) */}
               <div className="tp-card">
                 <div className="tp-card-h">Locked figures <span className="tp-card-hint">editable</span></div>
@@ -741,6 +833,7 @@ export default function AnalysisView({
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">Decision Ledger</div>
                 <DecisionLedger
+                  dataQa="analysis-decision-ledger"
                   history={analysis.decisionHistory}
                   subjectLabel="This analysis"
                   createEntry={(draft: DecisionDraft) => createAnalysisDecisionEntry(analysis, draft)}
@@ -758,7 +851,7 @@ export default function AnalysisView({
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">
                   Expert review
-                  <button className="tp-mini-btn" onClick={runReview} disabled={reviewing || !analysis.debate} title={analysis.debate ? "Red-team this analysis — one extra AI call" : "Run AI first"}>
+                  <button data-qa="analysis-run-review" className="tp-mini-btn" onClick={runReview} disabled={reviewing || !analysis.debate} title={analysis.debate ? "Red-team this analysis — one extra AI call" : "Run AI first"}>
                     {reviewing ? "REVIEWING…" : analysis.expertReview ? "Re-review" : "⚖ Get review"}
                   </button>
                 </div>
@@ -805,6 +898,13 @@ export default function AnalysisView({
                   />
                 </div>
               </div>
+
+              {analysis.vertical === "stocks" && (analysis.stockFields?.length ?? 0) > 0 && (
+                <div className="tp-card tp-card--wide" data-qa="stock-provenance">
+                  <div className="tp-card-h">Stock field provenance</div>
+                  <StockFieldInspectorPanel fields={analysis.stockFields!} />
+                </div>
+              )}
             </div>
           </aside>
         )}
@@ -846,17 +946,341 @@ function ThesisMemoryPanel({ analysis }: { analysis: Analysis }) {
         <ThesisMiniList title="Catalysts" items={thesis.catalysts.map((item) => item.text)} tone="bull" />
         <ThesisMiniList title="Open questions" items={thesis.openQuestions.map((item) => item.text)} tone="warning" />
       </div>
+    </div>
+  );
+}
+
+const EVIDENCE_RELATIONS: EvidenceRelation[] = ["supporting", "contradictory", "neutral", "unresolved"];
+const EVIDENCE_TYPES: EvidenceType[] = [
+  "filing",
+  "article",
+  "note",
+  "transcript",
+  "market_data",
+  "pitch_deck",
+  "memo",
+  "screenshot",
+  "pdf",
+  "deal_document",
+  "other",
+];
+const EVIDENCE_RELIABILITIES: EvidenceReliability[] = ["official", "third_party", "user_provided", "unknown"];
+
+function evidenceMatchesCandidate(item: EvidenceItem, candidate: Analysis["ic"]["thesis"]["evidenceCandidates"][number]): boolean {
+  const candidateUrl = candidate.url?.trim().toLowerCase();
+  if (candidateUrl && item.url?.trim().toLowerCase() === candidateUrl) return true;
+  return !candidateUrl && !item.url && item.title.trim().toLowerCase() === candidate.title.trim().toLowerCase();
+}
+
+function refKey(ref: ThesisRef): string {
+  return `${ref.target}:${ref.id ?? "summary"}`;
+}
+
+function EvidenceLocker({ analysis, onChange }: { analysis: Analysis; onChange: (next: Analysis) => void }) {
+  const [relationFilter, setRelationFilter] = useState<EvidenceRelation | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<EvidenceType | "all">("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<EvidenceItem | null>(null);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const thesis = analysis.ic.thesis;
+  const evidence = analysis.evidence ?? [];
+  const visibleEvidence = filterEvidence(evidence, { relation: relationFilter, type: typeFilter });
+  const grouped = groupEvidenceByRelation(visibleEvidence);
+  const thesisOptions = thesisRefOptions(thesis);
+  const sourceIds = new Set(analysis.sources.map((source) => source.id));
+
+  function setEvidence(next: EvidenceItem[]) {
+    onChange({ ...analysis, evidence: next });
+  }
+
+  function addItem(kind: "note" | "link") {
+    setError(null);
+    const title = kind === "note" ? noteTitle.trim() : linkTitle.trim();
+    const url = linkUrl.trim();
+    if (!title) {
+      setError("Evidence title is required.");
+      return;
+    }
+    if (kind === "link" && !isValidEvidenceUrl(url)) {
+      setError("Enter a valid http(s) URL.");
+      return;
+    }
+    const item = createEvidenceItem({
+      title,
+      type: kind === "link" ? "article" : "note",
+      url: kind === "link" ? url : undefined,
+    });
+    setEvidence([item, ...evidence]);
+    setExpandedId(item.id);
+    setDraft(item);
+    setNoteTitle("");
+    setLinkTitle("");
+    setLinkUrl("");
+  }
+
+  function promoteCandidate(candidate: Analysis["ic"]["thesis"]["evidenceCandidates"][number]) {
+    if (evidence.some((item) => evidenceMatchesCandidate(item, candidate))) return;
+    const item = promoteEvidenceCandidate(candidate);
+    setEvidence([item, ...evidence]);
+    setExpandedId(item.id);
+    setDraft(item);
+  }
+
+  function openEditor(item: EvidenceItem) {
+    setError(null);
+    setExpandedId(expandedId === item.id ? null : item.id);
+    setDraft(expandedId === item.id ? null : { ...item, sourceRefIds: [...item.sourceRefIds], thesisRefs: [...item.thesisRefs] });
+  }
+
+  function saveDraft() {
+    if (!draft) return;
+    const title = draft.title.trim();
+    if (!title) {
+      setError("Evidence title is required.");
+      return;
+    }
+    if (draft.url && !isValidEvidenceUrl(draft.url)) {
+      setError("Enter a valid http(s) URL.");
+      return;
+    }
+    const next: EvidenceItem = {
+      ...draft,
+      title,
+      sourceDate: draft.sourceDate?.trim() || null,
+      ...(draft.url?.trim() ? { url: draft.url.trim() } : { url: undefined }),
+      ...(draft.note?.trim() ? { note: draft.note.trim() } : { note: undefined }),
+      updatedAt: nowMs(),
+    };
+    setEvidence(evidence.map((item) => (item.id === next.id ? next : item)));
+    setExpandedId(null);
+    setDraft(null);
+    setError(null);
+  }
+
+  function deleteItem(id: string) {
+    setEvidence(evidence.filter((item) => item.id !== id));
+    if (expandedId === id) {
+      setExpandedId(null);
+      setDraft(null);
+    }
+  }
+
+  function toggleSource(sourceId: string, checked: boolean) {
+    if (!draft) return;
+    setDraft(checked ? linkEvidenceSource(draft, sourceId) : unlinkEvidenceSource(draft, sourceId));
+  }
+
+  function toggleThesisRef(ref: ThesisRef, checked: boolean) {
+    if (!draft) return;
+    const key = refKey(ref);
+    const refs = checked
+      ? [...draft.thesisRefs.filter((item) => refKey(item) !== key), ref]
+      : draft.thesisRefs.filter((item) => refKey(item) !== key);
+    setDraft({ ...draft, thesisRefs: refs, updatedAt: nowMs() });
+  }
+
+  return (
+    <div className="tp-card tp-card--wide" data-qa="evidence-locker">
+      <div className="tp-card-h">
+        Evidence Locker
+        <span className="tp-card-hint">{evidence.length} item{evidence.length === 1 ? "" : "s"}</span>
+      </div>
+
+      <div className="tp-evidence-create">
+        <input data-qa="evidence-note-title" className="tp-evidence-input" placeholder="New note title" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} />
+        <button type="button" data-qa="evidence-add-note" className="tp-mini-btn" onClick={() => addItem("note")}>Add note</button>
+        <input data-qa="evidence-link-title" className="tp-evidence-input" placeholder="Link title" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} />
+        <input data-qa="evidence-link-url" className="tp-evidence-input" placeholder="https://..." value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
+        <button type="button" data-qa="evidence-add-link" className="tp-mini-btn" onClick={() => addItem("link")}>Add link</button>
+      </div>
+
       {thesis.evidenceCandidates.length > 0 && (
-        <div className="tp-thesis-evidence">
-          <div className="tp-thesis-evidence-h">Evidence candidates</div>
-          {thesis.evidenceCandidates.map((candidate) => (
-            <div className="tp-thesis-evidence-row" key={candidate.id}>
-              <span>{candidate.title}</span>
-              <em>{candidate.relation}</em>
-            </div>
+        <div className="tp-evidence-candidates">
+          <div className="tp-thesis-evidence-h">Candidate queue</div>
+          {thesis.evidenceCandidates.map((candidate) => {
+            const promoted = evidence.some((item) => evidenceMatchesCandidate(item, candidate));
+            return (
+              <div className="tp-evidence-candidate" key={candidate.id}>
+                <span>{candidate.title}</span>
+                <em>{candidate.relation}</em>
+                <button type="button" data-qa={`evidence-promote-${candidate.id}`} className="tp-mini-btn" onClick={() => promoteCandidate(candidate)} disabled={promoted}>
+                  {promoted ? "In locker" : "Promote"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="tp-evidence-filters">
+        <select value={relationFilter} onChange={(e) => setRelationFilter(e.target.value as EvidenceRelation | "all")}>
+          <option value="all">All relations</option>
+          {EVIDENCE_RELATIONS.map((relation) => <option key={relation} value={relation}>{relation}</option>)}
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as EvidenceType | "all")}>
+          <option value="all">All types</option>
+          {EVIDENCE_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, " ")}</option>)}
+        </select>
+      </div>
+
+      {error && <div className="tp-evidence-error">{error}</div>}
+
+      {evidence.length === 0 ? (
+        <div className="tp-muted-note">Create a note/link or promote an intake candidate to preserve evidence for this analysis.</div>
+      ) : (
+        <div className="tp-evidence-list">
+          {EVIDENCE_RELATIONS.map((relation) => {
+            const rows = grouped[relation];
+            if (!rows.length) return null;
+            return (
+              <div className="tp-evidence-group" key={relation}>
+                <div className="tp-thesis-evidence-h">{relation}</div>
+                {rows.map((item) => {
+                  const activeRefs = item.sourceRefIds.filter((id) => sourceIds.has(id)).length;
+                  const brokenRefs = item.sourceRefIds.length - activeRefs;
+                  const isOpen = expandedId === item.id && draft?.id === item.id;
+                  return (
+                    <div className="tp-evidence-row" key={item.id}>
+                      <button type="button" className="tp-evidence-row-main" onClick={() => openEditor(item)}>
+                        <span className="tp-evidence-title">{item.title}</span>
+                        <span className="tp-evidence-meta">
+                          {item.type.replace(/_/g, " ")} / {item.reliability.replace(/_/g, " ")}
+                          {activeRefs > 0 && ` / ${activeRefs} active source${activeRefs === 1 ? "" : "s"}`}
+                          {brokenRefs > 0 && ` / ${brokenRefs} broken ref${brokenRefs === 1 ? "" : "s"}`}
+                        </span>
+                      </button>
+                      {item.url && <a className="tp-evidence-url" href={item.url} target="_blank" rel="noreferrer">open</a>}
+                      <button type="button" className="tp-pos-del" onClick={() => deleteItem(item.id)} title="Delete evidence">x</button>
+                      {isOpen && draft && (
+                        <div className="tp-evidence-editor">
+                          <input className="tp-evidence-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Title" />
+                          <div className="tp-evidence-editor-grid">
+                            <select value={draft.relation} onChange={(e) => setDraft({ ...draft, relation: e.target.value as EvidenceRelation })}>
+                              {EVIDENCE_RELATIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+                            </select>
+                            <select value={draft.reliability} onChange={(e) => setDraft({ ...draft, reliability: e.target.value as EvidenceReliability })}>
+                              {EVIDENCE_RELIABILITIES.map((value) => <option key={value} value={value}>{value.replace(/_/g, " ")}</option>)}
+                            </select>
+                            <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as EvidenceType })}>
+                              {EVIDENCE_TYPES.map((value) => <option key={value} value={value}>{value.replace(/_/g, " ")}</option>)}
+                            </select>
+                            <input data-qa="evidence-source-date" className="tp-evidence-input" value={draft.sourceDate ?? ""} onChange={(e) => setDraft({ ...draft, sourceDate: e.target.value })} placeholder="Source date" />
+                          </div>
+                          <input data-qa="evidence-url" className="tp-evidence-input" value={draft.url ?? ""} onChange={(e) => setDraft({ ...draft, url: e.target.value })} placeholder="https://..." />
+                          <textarea data-qa="evidence-note" className="tp-evidence-note" rows={3} value={draft.note ?? ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="Note" />
+
+                          <div className="tp-evidence-linkers">
+                            <div>
+                              <div className="tp-thesis-evidence-h">Source links</div>
+                              {analysis.sources.length === 0 ? (
+                                <div className="tp-evidence-empty">No attached sources.</div>
+                              ) : (
+                                analysis.sources.map((source) => (
+                                  <label className="tp-evidence-check" key={source.id}>
+                                    <input type="checkbox" checked={draft.sourceRefIds.includes(source.id)} onChange={(e) => toggleSource(source.id, e.target.checked)} />
+                                    <span>{formatSourceRefLabel(source.id, analysis.sources)}</span>
+                                  </label>
+                                ))
+                              )}
+                              {draft.sourceRefIds.filter((id) => !sourceIds.has(id)).map((id) => (
+                                <div className="tp-evidence-broken" key={id}>{formatSourceRefLabel(id, analysis.sources)}</div>
+                              ))}
+                            </div>
+                            <div>
+                              <div className="tp-thesis-evidence-h">Thesis refs</div>
+                              {thesisOptions.length === 0 ? (
+                                <div className="tp-evidence-empty">No thesis refs available.</div>
+                              ) : (
+                                thesisOptions.map(({ ref, label }) => (
+                                  <label className="tp-evidence-check" key={refKey(ref)}>
+                                    <input type="checkbox" checked={draft.thesisRefs.some((item) => refKey(item) === refKey(ref))} onChange={(e) => toggleThesisRef(ref, e.target.checked)} />
+                                    <span>{label}</span>
+                                  </label>
+                                ))
+                              )}
+                              {draft.thesisRefs.filter((ref) => !thesisOptions.some((option) => refKey(option.ref) === refKey(ref))).map((ref) => (
+                                <div className="tp-evidence-broken" key={refKey(ref)}>{formatThesisRefLabel(ref, thesis)}</div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="tp-evidence-actions">
+                            <button type="button" data-qa="evidence-save" className="tp-confirm-btn" onClick={saveDraft}>Save</button>
+                            <button type="button" className="tp-ghost" onClick={() => { setExpandedId(null); setDraft(null); setError(null); }}>Cancel</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StockFieldBadgePill({ field }: { field: StockFieldRecord }) {
+  return <span className={`tp-stock-pill${stockFieldBadgeTone(field)}`}>{stockFieldBadge(field)}</span>;
+}
+
+function StockFieldSourceDetails({ field }: { field: StockFieldRecord }) {
+  const provenance = field.provenance;
+  const title = provenance?.title || "";
+  const url = provenance?.url || "";
+  const meta = stockFieldMeta(field);
+  const note = field.note?.trim() || "";
+
+  if (!title && !url && !meta.length && !note) return null;
+
+  return (
+    <div className="tp-stock-source">
+      {(title || url) && (
+        <div className="tp-stock-source-head">
+          {url ? (
+            <a className="tp-stock-source-link" href={url} target="_blank" rel="noreferrer">
+              {title || url}
+            </a>
+          ) : (
+            <span className="tp-stock-source-title">{title}</span>
+          )}
+        </div>
+      )}
+      {meta.length > 0 && (
+        <div className="tp-stock-meta">
+          {meta.map((item) => (
+            <span className="tp-stock-meta-item" key={`${field.key}-${item}`}>
+              {item}
+            </span>
           ))}
         </div>
       )}
+      {note && <div className="tp-stock-note">{note}</div>}
+    </div>
+  );
+}
+
+function StockFieldInspectorPanel({ fields }: { fields: StockFieldRecord[] }) {
+  return (
+    <div className="tp-stock-fields" data-qa="stock-fields">
+      {fields.map((field) => (
+        <div className={`tp-stock-row${stockFieldTone(field)}`} data-qa={`stock-field-${field.key}`} key={`${field.key}-${field.origin}-${field.value}`}>
+          <div className="tp-stock-row-top">
+            <div className="tp-stock-row-copy">
+              <div className="tp-stock-label">{stockFieldLabel(field)}</div>
+              <div className="tp-stock-value">{stockFieldValue(field)}</div>
+            </div>
+            <StockFieldBadgePill field={field} />
+          </div>
+          <StockFieldSourceDetails field={field} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -951,7 +1375,12 @@ function ConfirmCard({
 }: {
   intake: IntakeResult;
   busy: boolean;
-  onConfirm: (vertical: Vertical, values: Record<string, number>, thesis: ThesisIntakeDraft) => void;
+  onConfirm: (
+    vertical: Vertical,
+    values: Record<string, number>,
+    thesis: ThesisIntakeDraft,
+    stockFields?: StockFieldRecord[],
+  ) => void;
   onCancel: () => void;
 }) {
   const [vertical, setVertical] = useState<Vertical>(intake.vertical);
@@ -959,6 +1388,13 @@ function ConfirmCard({
     Object.fromEntries(intake.fields.map((f) => [f.key, f.value])),
   );
   const [thesis, setThesis] = useState<ThesisIntakeDraft>(intake.thesis);
+  const [manualUse, setManualUse] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      intake.fields
+        .filter((field) => field.origin === "candidate" || field.origin === "derived_candidate")
+        .map((field) => [field.key, false]),
+    ),
+  );
 
   const known = new Map(intake.fields.map((f) => [String(f.key), f]));
   // Only show this vertical's fields that we actually extracted a value for.
@@ -969,13 +1405,68 @@ function ConfirmCard({
   }
 
   function confirm() {
-    // Pass only finite values for keys valid in the chosen vertical.
     const out: Record<string, number> = {};
+    const confirmedStockFields: StockFieldRecord[] = [];
+    const now = nowMs();
     for (const f of rows) {
-      const v = Number(values[String(f.key)] ?? known.get(String(f.key))!.value);
-      if (Number.isFinite(v)) out[String(f.key)] = v;
+      const key = String(f.key);
+      const meta = known.get(key)!;
+      const value = Number(values[key] ?? meta.value);
+      if (!Number.isFinite(value)) continue;
+      if (vertical !== "stocks") {
+        out[key] = value;
+        continue;
+      }
+
+      const origin = meta.origin ?? (meta.source === "stated" ? "user_fact" : "candidate");
+      const autoLock = origin === "user_fact" || origin === "sourced_fact";
+      const manualLock = manualUse[key] === true;
+      const shouldLock = autoLock || manualLock;
+
+      let record: StockFieldRecord = {
+        key,
+        value,
+        source: meta.source,
+        origin,
+        lockable: Boolean(meta.lockable),
+        provenance: meta.provenance ?? null,
+        ...(meta.note ? { note: meta.note } : {}),
+      };
+
+      if (origin === "user_fact" || manualLock) {
+        record = {
+          key,
+          value,
+          source: "stated",
+          origin: "user_fact",
+          lockable: true,
+          provenance: buildUserProvidedStockProvenance(now),
+        };
+      }
+
+      confirmedStockFields.push(record);
+      if (shouldLock && key !== "invested") out[key] = value;
     }
-    onConfirm(vertical, out, thesis);
+
+    if (vertical === "stocks" && Number.isFinite(out.price) && !Number.isFinite(out.invested)) {
+      out.invested = out.price;
+      const invested = confirmedStockFields.find((field) => field.key === "invested");
+      if (invested) {
+        invested.value = out.price;
+        invested.provenance = buildDerivedStockProvenance(now);
+      } else {
+        confirmedStockFields.push({
+          key: "invested",
+          value: out.price,
+          source: "inferred",
+          origin: "derived_candidate",
+          lockable: false,
+          provenance: buildDerivedStockProvenance(now),
+          note: "Derived from the locked share price for engine continuity.",
+        });
+      }
+    }
+    onConfirm(vertical, out, thesis, vertical === "stocks" ? confirmedStockFields : undefined);
   }
 
   function setThesisList(key: keyof Pick<ThesisIntakeDraft, "assumptions" | "thesisBreakers" | "watchItems" | "valuationAssumptions" | "catalysts" | "openQuestions">, text: string) {
@@ -1035,9 +1526,13 @@ function ConfirmCard({
         rows.map((f) => {
           const meta = known.get(String(f.key))!;
           const inferred = meta.source === "inferred";
+          const candidate = meta.origin === "candidate" || meta.origin === "derived_candidate";
+          const stockMeta = meta as StockFieldRecord;
+          const rowTone = vertical === "stocks" ? stockFieldTone(stockMeta) : inferred ? " is-inferred" : "";
           return (
-            <div className={`tp-confirm-row${inferred ? " is-inferred" : ""}`} key={String(f.key)}>
-              <span className="tp-confirm-k">{f.label}</span>
+            <div className={`tp-confirm-row${rowTone}`} key={String(f.key)}>
+              <div className="tp-confirm-main">
+                <span className="tp-confirm-k">{f.label}</span>
               {inferred ? (
                 <input
                   className="tp-confirm-input"
@@ -1049,9 +1544,27 @@ function ConfirmCard({
               ) : (
                 <span className="tp-confirm-v">{fmtVal(Number(values[String(f.key)] ?? meta.value), f.type)}</span>
               )}
-              <span className={inferred ? "tp-confirm-flag" : "tp-confirm-ok"}>
+              {vertical === "stocks" && <StockFieldBadgePill field={stockMeta} />}
+              <span className={inferred ? "tp-confirm-flag" : "tp-confirm-ok"} style={vertical === "stocks" ? { display: "none" } : undefined}>
                 {inferred ? "inferred · check" : "✓ you typed"}
               </span>
+              </div>
+              {vertical === "stocks" && (
+                <div className="tp-confirm-prov">
+                  {candidate && (
+                    <label className="tp-confirm-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={manualUse[String(f.key)] === true}
+                        onChange={(e) => setManualUse((current) => ({ ...current, [String(f.key)]: e.target.checked }))}
+                        disabled={busy}
+                      />
+                      <span>Use as my locked value</span>
+                    </label>
+                  )}
+                  <StockFieldSourceDetails field={stockMeta} />
+                </div>
+              )}
             </div>
           );
         })

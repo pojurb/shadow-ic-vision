@@ -34,11 +34,13 @@ export default function DecisionLedger({
   onHistoryChange,
   createEntry,
   subjectLabel,
+  dataQa,
 }: {
   history: DecisionEntry[];
   onHistoryChange: (history: DecisionEntry[]) => void;
   createEntry: (draft: DecisionDraft) => DecisionEntry;
   subjectLabel: string;
+  dataQa?: string;
 }) {
   const [action, setAction] = useState<ICAction>("watch");
   const [rationale, setRationale] = useState("");
@@ -82,7 +84,7 @@ export default function DecisionLedger({
   }
 
   return (
-    <div className="decision-ledger">
+    <div className="decision-ledger" data-qa={dataQa ?? "decision-ledger"}>
       {history.length === 0 ? (
         <div className="tp-muted-note">No decisions logged yet. {subjectLabel} is still in draft mode.</div>
       ) : null}
@@ -151,7 +153,7 @@ export default function DecisionLedger({
           </>
         )}
 
-        <button type="submit" className="commit-btn">COMMIT DECISION</button>
+        <button type="submit" className="commit-btn" data-qa="decision-commit">COMMIT DECISION</button>
       </form>
 
       {newestFirst.length > 0 && (
@@ -214,7 +216,7 @@ function DecisionHistoryEntry({
       ) : reviewing ? (
         <ReviewForm onCancel={onCancelReview} onSave={onSaveReview} />
       ) : (
-        <button className="tp-mini-btn" type="button" onClick={onReview}>
+        <button className="tp-mini-btn" data-qa="decision-review-open" type="button" onClick={onReview}>
           Log outcome review
         </button>
       )}
@@ -262,7 +264,7 @@ function ReviewForm({
       <textarea rows={2} placeholder="What actually happened?" value={notes} onChange={(e) => setNotes(e.target.value)} />
       {error && <div className="field-error">{error}</div>}
       <div className="decision-review-actions">
-        <button type="submit" className="commit-btn">SAVE REVIEW</button>
+        <button type="submit" className="commit-btn" data-qa="decision-review-save">SAVE REVIEW</button>
         <button type="button" className="tp-mini-btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>

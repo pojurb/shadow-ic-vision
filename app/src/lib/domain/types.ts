@@ -66,6 +66,16 @@ export type AssumptionStatus = "active" | "watch" | "broken" | "resolved";
 export type BreakerSeverity = "watch" | "material" | "fatal";
 export type ReviewCadence = "weekly" | "monthly" | "quarterly" | "event_driven";
 export type ConvictionLabel = "low" | "medium" | "high";
+export type StockFieldValueType = "current" | "delayed" | "ttm" | "annual" | "estimated" | "user_provided" | "derived" | "legacy_unknown";
+export type StockFieldConfidence = "high" | "medium" | "low" | "needs_review" | "legacy_unknown";
+export type StockFieldSourceKind = "official" | "third_party" | "user_provided" | "derived" | "legacy_unknown";
+export type StockFieldOrigin =
+  | "user_fact"
+  | "sourced_fact"
+  | "candidate"
+  | "derived_candidate"
+  | "default_assumption"
+  | "legacy_unverified";
 export type ICAction =
   | "no_action"
   | "watch"
@@ -84,6 +94,25 @@ export interface AssetMeta {
   region?: string;
   dataAsOf?: string;
   source?: string;
+}
+
+export interface StockFieldProvenance {
+  title: string;
+  url: string;
+  asOf: string;
+  valueType: StockFieldValueType;
+  confidence: StockFieldConfidence;
+  sourceKind: StockFieldSourceKind;
+}
+
+export interface StockFieldRecord {
+  key: string;
+  value: number;
+  source: "stated" | "inferred";
+  origin: StockFieldOrigin;
+  lockable: boolean;
+  provenance: StockFieldProvenance | null;
+  note?: string;
 }
 
 /** A single deterministic figure — the engine output in serializable, prompt-ready form. */
@@ -179,6 +208,35 @@ export interface EvidenceCandidate {
   createdAt: number;
 }
 
+export type ThesisRefTarget =
+  | "summary"
+  | "assumption"
+  | "breaker"
+  | "watch_item"
+  | "valuation_assumption"
+  | "catalyst"
+  | "open_question";
+
+export interface ThesisRef {
+  target: ThesisRefTarget;
+  id: string | null;
+}
+
+export interface EvidenceItem {
+  id: string;
+  title: string;
+  type: EvidenceType;
+  relation: EvidenceRelation;
+  reliability: EvidenceReliability;
+  sourceDate: string | null;
+  url?: string;
+  note?: string;
+  sourceRefIds: string[];
+  thesisRefs: ThesisRef[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ThesisMemory {
   summary: string;
   assumptions: ThesisAssumption[];
@@ -234,6 +292,7 @@ export interface AnalysisDecisionSnapshot {
   metrics: ComputedMetrics;
   stance: Stance | null;
   sources: ContextSource[];
+  evidence: EvidenceItem[];
   evidenceCandidates: EvidenceCandidate[];
   capturedAt: number;
 }
@@ -284,6 +343,7 @@ export interface Analysis {
   assetType: AssetType;
   assetName: string;
   assetMeta: AssetMeta;
+  stockFields?: StockFieldRecord[];
   tags: string[];
   folderId: string | null;
   ic: ICState;
@@ -298,6 +358,7 @@ export interface Analysis {
   /** Optional, on-demand second-expert review of the produced analysis. */
   expertReview: ExpertReview | null;
   sources: ContextSource[];
+  evidence: EvidenceItem[];
   allowWebSearch: boolean;
   chat: ChatMessage[];
   decision: Decision | null;

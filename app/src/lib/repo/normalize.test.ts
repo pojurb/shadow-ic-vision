@@ -47,6 +47,8 @@ describe("normalizeAnalysis — back-compat on read", () => {
     expect(n.ic.thesis.summary).toBe("");
     expect(n.ic.thesis.assumptions).toEqual([]);
     expect(n.ic.review.cadence).toBe("weekly");
+    expect(Array.isArray(n.stockFields)).toBe(true);
+    expect(n.evidence).toEqual([]);
   });
 
   it("is idempotent — re-normalizing a current-shape record is a no-op", () => {
@@ -55,5 +57,86 @@ describe("normalizeAnalysis — back-compat on read", () => {
     expect(twice.advisory).toEqual(once.advisory);
     expect(twice.debate?.thesisSupport).toBe(once.debate?.thesisSupport);
     expect(twice.persona).toEqual(once.persona);
+  });
+});
+
+describe("normalizeAnalysis evidence compatibility", () => {
+  it("promotes legacy evidence candidates into analysis evidence on read", () => {
+    const raw = legacyAnalysis();
+    raw.ic = {
+      thesis: {
+        summary: "",
+        assumptions: [],
+        thesisBreakers: [],
+        watchItems: [],
+        valuationAssumptions: [],
+        catalysts: [],
+        openQuestions: [],
+        conviction: null,
+        evidenceCandidates: [{
+          id: "candidate-1",
+          title: "Visible source",
+          url: "https://example.com/source",
+          type: "article",
+          relation: "supporting",
+          reliability: "third_party",
+          createdAt: 1,
+        }],
+      },
+      review: { cadence: "weekly", lastReviewedAt: null, nextReviewDue: null },
+    };
+
+    const n = normalizeAnalysis(raw);
+    expect(n.evidence).toHaveLength(1);
+    expect(n.evidence[0]).toMatchObject({
+      id: "candidate-1",
+      title: "Visible source",
+      url: "https://example.com/source",
+      relation: "supporting",
+    });
+  });
+
+  it("keeps persisted evidence and dedupes matching legacy candidates", () => {
+    const raw = legacyAnalysis();
+    raw.evidence = [{
+      id: "persisted",
+      title: "Persisted source",
+      type: "filing",
+      relation: "contradictory",
+      reliability: "official",
+      sourceDate: "2026-01-01",
+      url: "https://example.com/source",
+      sourceRefIds: ["src1"],
+      thesisRefs: [{ target: "summary", id: null }],
+      createdAt: 1,
+      updatedAt: 2,
+    }];
+    raw.ic = {
+      thesis: {
+        summary: "Thesis",
+        assumptions: [],
+        thesisBreakers: [],
+        watchItems: [],
+        valuationAssumptions: [],
+        catalysts: [],
+        openQuestions: [],
+        conviction: null,
+        evidenceCandidates: [{
+          id: "candidate-1",
+          title: "Candidate duplicate",
+          url: "https://example.com/source",
+          type: "article",
+          relation: "supporting",
+          reliability: "third_party",
+          createdAt: 1,
+        }],
+      },
+      review: { cadence: "weekly", lastReviewedAt: null, nextReviewDue: null },
+    };
+
+    const n = normalizeAnalysis(raw);
+    expect(n.evidence).toHaveLength(1);
+    expect(n.evidence[0].id).toBe("persisted");
+    expect(n.evidence[0].sourceRefIds).toEqual(["src1"]);
   });
 });

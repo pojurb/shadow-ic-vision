@@ -13,6 +13,53 @@
 
 ## Latest Snapshot - 2026-06-15
 
+QA stability work is partially landed and materially improved. The canonical
+browser path now runs through a dedicated harness, and isolated browser
+verification is green for M3 and M4:
+
+- Added a canonical browser QA runner at `scripts/qa/browser_qa.js`, exposed as
+  `npm run qa` via `scripts/run.js qa`.
+- The harness now builds the app into a unique `NEXT_DIST_DIR`, starts a clean
+  production server on a dedicated port, launches headless Edge on a dedicated
+  debug port, seeds deterministic fixtures through the app import path, writes a
+  structured JSON report, captures screenshots, and tears its process tree down
+  cleanly on Windows.
+- Browser QA now classifies failures as `app`, `data`, or `tooling` and records
+  the failing step, console errors, runtime exceptions, and artifacts under
+  `issues/qa/<run-id>/`.
+- Added deterministic QA fixtures for M3 stock provenance, M4 Evidence Locker,
+  M6 analysis/portfolio decision ledgers, and `broken-m4` intentional
+  failure-classification coverage.
+- Added QA mock-provider routing so browser verification no longer depends on
+  live model/network variance.
+- Added explicit `data-qa` selectors across Library, AnalysisView,
+  PortfolioView, and DecisionLedger so browser checks use stable UI hooks
+  instead of brittle ad hoc DOM probing.
+- Fixed a real app bug surfaced by the new harness: a React hydration mismatch
+  in `Workspace.tsx` caused runtime error `#418` during M3 reload flows. The QA
+  fixture loading state is now server/client consistent.
+- Hardened M4 verification to wait for seeded evidence/candidate state and to
+  respect the app's 500ms debounced persistence before reload.
+- Hardened harness teardown so successful runs exit cleanly instead of hanging
+  after completion.
+- Verification remains green for `npm test`, `npm run lint`, and
+  `npm run build`.
+- Isolated browser QA is now green for:
+  - M3 stock provenance
+  - M4 Evidence Locker
+- Remaining QA work:
+  - run isolated M6 browser QA
+  - run `broken-m4` expected-failure classification
+  - run full `npm run qa`
+  - clean old locked `.next-qa-*` residue left by earlier interrupted runs
+- Next execution step: finish the remaining QA sweep above, then proceed to M2
+  Manual Private Asset IC Entry and M5 once M2/M3/M4 inputs are trustworthy
+  enough.
+
+---
+
+## Previous Snapshot - 2026-06-15
+
 M6 Decision Ledger + Review Loop is implemented and verified:
 
 - Added append-only `decisionHistory` to analyses and portfolios.

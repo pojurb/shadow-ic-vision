@@ -205,7 +205,7 @@ export default function PortfolioView({
   const chatGround = useMemo(() => portfolioChatExtras(metrics, byId), [metrics, byId]);
 
   return (
-    <div className="tp-root" ref={rootRef} style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
+    <div className="tp-root" ref={rootRef} data-qa="portfolio-view" style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
       {/* ---- top bar ---- */}
       <header className="tp-topbar">
         <div className="tp-title-wrap">
@@ -426,6 +426,7 @@ export default function PortfolioView({
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">Decision Ledger</div>
                 <DecisionLedger
+                  dataQa="portfolio-decision-ledger"
                   history={portfolio.decisionHistory}
                   subjectLabel="This portfolio"
                   createEntry={(draft: DecisionDraft) => createPortfolioDecisionEntry(portfolio, metrics, draft)}

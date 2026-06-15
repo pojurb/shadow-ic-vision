@@ -9,7 +9,8 @@
     "options": "node scripts/sandbox/options_pricing.js",
     "parse": "node scripts/ingestion/parse_inputs.js",
     "state": "node scripts/portfolio/update_state.js",
-    "check": "node scripts/health_check.js"
+    "check": "node scripts/health_check.js",
+    "qa": "node scripts/run.js qa"
   },
   "engines": {
     "node": ">=18.0.0"

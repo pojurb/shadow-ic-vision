@@ -40,9 +40,11 @@ describe("finalizeIntake", () => {
     // numbers overlay the blank defaults; untouched defaults remain
     expect(r.params.price).toBe(4200);
     expect(r.params.eps).toBe(380);
-    expect(r.params.roe).toBe(19);
+    expect(r.params.roe).toBe(BLANK_PARAMS.stocks.roe);
     expect(r.params.invested).toBe(4200);
     expect(r.params.discountRate).toBe(BLANK_PARAMS.stocks.discountRate);
+    expect(r.fields.find((f) => f.key === "price")).toMatchObject({ origin: "user_fact", lockable: true });
+    expect(r.fields.find((f) => f.key === "roe")).toMatchObject({ origin: "candidate", lockable: false });
   });
 
   it("drops unknown keys and non-numeric values", () => {
@@ -98,7 +100,19 @@ describe("finalizeIntake", () => {
         mode: "scoping",
         fields: [
           { key: "price", value: 4200, source: "stated" },
-          { key: "eps", value: 380, source: "inferred" },
+          {
+            key: "eps",
+            value: 380,
+            source: "inferred",
+            provenance: {
+              title: "Annual report",
+              url: "https://example.com/ar",
+              asOf: "FY2025",
+              valueType: "annual",
+              confidence: "high",
+              sourceKind: "official",
+            },
+          },
         ],
       }),
     );
@@ -168,7 +182,7 @@ describe("finalizeIntake", () => {
         ],
       }),
     );
-    expect(r.params.roe).toBeCloseTo(19, 10);
+    expect(r.params.roe).toBeCloseTo(BLANK_PARAMS.stocks.roe, 10);
     expect(r.fields.find((f) => f.key === "roe")!.value).toBeCloseTo(19, 10);
   });
 
@@ -219,5 +233,87 @@ describe("finalizeIntake", () => {
       relation: "supporting",
       reliability: "official",
     });
+  });
+
+  it("locks sourced stock facts only when provenance is complete and confidence is sufficient", () => {
+    const r = finalizeIntake(
+      raw({
+        vertical: "stocks",
+        fields: [
+          {
+            key: "price",
+            value: 4200,
+            source: "inferred",
+            provenance: {
+              title: "IDX quote",
+              url: "https://example.com/quote",
+              asOf: "2026-06-15T09:00:00Z",
+              valueType: "current",
+              confidence: "high",
+              sourceKind: "third_party",
+            },
+          },
+          {
+            key: "eps",
+            value: 380,
+            source: "inferred",
+            provenance: {
+              title: "Annual report",
+              url: "https://example.com/ar",
+              asOf: "FY2025",
+              valueType: "annual",
+              confidence: "medium",
+              sourceKind: "official",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(r.mode).toBe("figures");
+    expect(r.fields.find((f) => f.key === "price")).toMatchObject({ origin: "sourced_fact", lockable: true });
+    expect(r.params.price).toBe(4200);
+    expect(r.params.eps).toBe(380);
+  });
+
+  it("downgrades incomplete sourced stock provenance to candidates and keeps stocks in scoping", () => {
+    const r = finalizeIntake(
+      raw({
+        vertical: "stocks",
+        fields: [
+          {
+            key: "price",
+            value: 4200,
+            source: "inferred",
+            provenance: {
+              title: "Snippet only",
+              url: "",
+              asOf: "",
+              valueType: "current",
+              confidence: "low",
+              sourceKind: "third_party",
+            },
+          },
+          {
+            key: "eps",
+            value: 380,
+            source: "inferred",
+            provenance: {
+              title: "Snippet only",
+              url: "",
+              asOf: "",
+              valueType: "ttm",
+              confidence: "low",
+              sourceKind: "third_party",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(r.mode).toBe("scoping");
+    expect(r.fields.find((f) => f.key === "price")).toMatchObject({ origin: "candidate", lockable: false });
+    expect(r.params.price).toBe(BLANK_PARAMS.stocks.price);
+    expect(r.params.eps).toBe(BLANK_PARAMS.stocks.eps);
   });
 });

@@ -5,11 +5,13 @@ Source of truth: `PRODUCT_STRATEGY.md`.
 This plan turns the current single-asset cockpit into the broader AI Investment
 Committee product while preserving the local-first Next.js/Dexie architecture.
 
-## Latest Status - 2026-06-14
+## Latest Status - 2026-06-15
 
 The app has moved beyond the original single-asset cockpit. It now supports
 thesis intake, IC thesis memory, grounded debate, portfolio composition,
-cross-asset chat, export/import, and improved stock-intake guardrails.
+cross-asset chat, export/import, verified stock-intake field provenance, and an
+analysis-scoped Evidence Locker. Browser QA now has a canonical dedicated
+harness instead of relying on ad hoc browser state.
 
 Current milestone status:
 
@@ -17,19 +19,16 @@ Current milestone status:
 |---|---|---|
 | M1 - IC Primitives + Frictionless Thesis Intake | Mostly implemented | IC state, thesis memory, review defaults, intake extraction, user confirmation, and inspector display exist. |
 | M2 - Manual Private Asset IC Entry | Not implemented | Asset-type enums/labels exist, but the UI still creates only the three valuation verticals. |
-| M3 - Stock Intake Trust + Field Provenance | Partial | Ticker search and weak-value guardrails improved, but lockable figures still do not carry full cited provenance. |
-| M4 - Evidence Locker Primitives | Partial primitives only | Evidence candidates exist in thesis memory; no first-class evidence locker/table/workflow yet. |
+| M3 - Stock Intake Trust + Field Provenance | Implemented, verified | Stock provenance types, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, `npm test`, `npm run build`, and isolated browser QA are complete. |
+| M4 - Evidence Locker Primitives | Implemented, QA sweep in progress | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, and `npm run build` passed. The canonical Edge/CDP harness is now stable enough to pass the isolated M4 browser flow; remaining work is the broader QA sweep (`m6`, `broken-m4`, and full `npm run qa`). |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Not implemented | Review cadence is stored, but there is no agenda ranking or monitoring engine. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
 
 Recommended next build order:
 
-1. Finish this documentation/status alignment.
-2. Finish M3 field-level stock provenance so decisions can link to trustworthy facts.
-3. Promote M4 evidence candidates into a first-class Evidence Locker.
-4. Implement M2 Manual Private Asset IC Entry to support alternative assets.
-5. Build M5 Watchlist IC Agenda once M2/M3/M4 inputs are trustworthy enough.
-6. Build M5 IC Agenda and assumption monitoring on top of all asset types.
+1. Implement M2 Manual Private Asset IC Entry to support alternative assets.
+2. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
+3. Finish the remaining browser QA sweep (`m6`, `broken-m4`, full `npm run qa`) now that the canonical harness is stable for isolated M3/M4 runs.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 
@@ -222,7 +221,7 @@ Exit criteria:
 
 ## Milestone 3 - Stock Intake Trust + Field Provenance
 
-Status: partial.
+Status: implemented, verified.
 
 Goal: prevent weak or uncited numbers from becoming locked valuation figures.
 
@@ -238,15 +237,34 @@ Implemented:
   explicitly supplied.
 - Intake eval fixtures and pure scorecards now guard ticker detection, evidence
   relevance, no-fabrication behavior, and scoping-vs-figures mode.
+- Stock field/domain types now distinguish user facts, sourced facts,
+  candidates, derived candidates, default assumptions, and legacy unverified
+  values.
+- Stock intake schema and `finalizeIntake()` now accept and validate field-level
+  provenance for stock figures.
+- Inferred stock figures only become lockable sourced facts when provenance is
+  complete and confidence is high enough; incomplete or low-confidence values
+  remain candidates.
+- Auto-derived stock `invested` is now stored as a derived candidate instead of
+  pretending it was directly sourced.
+- Stock analyses now persist `stockFields`, and repo normalization backfills
+  older saved stock analyses into readable non-audited provenance state.
+- The stock confirm card now carries stock field records through confirmation
+  and allows explicit manual promotion of a candidate into a user-provided
+  locked value.
+- The stock confirm card and saved-analysis inspector now render sourced,
+  candidate, user-provided, and derived stock field provenance in distinct,
+  scannable states.
+- Intake tests, repo normalization tests, and eval fixtures now cover stock
+  provenance behavior.
+- Verification passed with `npm test`, `npm run build`, and browser QA for cited
+  evidence, partial evidence, uncited candidate promotion, and reload
+  persistence.
 
 Remaining:
 
-- Add field-level provenance for market price, EPS, ROE, and other auto-filled
-  stock figures.
-- Separate sourced facts, inferred candidates, user assumptions, and defaults in
-  stored data, not only in prompt behavior.
-- Require source title, URL, period/timestamp, confidence, and value type before
-  a figure can be locked.
+- None for M3. Additional stock fields beyond `price`, `eps`, `roe`, and
+  derived `invested` can be added later if needed.
 
 Detailed implementation plan:
 
@@ -375,9 +393,9 @@ Implementation sequencing inside M3:
 
 Exit criteria:
 
-- Search snippets cannot lock valuation numbers.
-- Low-confidence values become confirmation candidates, not facts.
-- Every lockable stock figure has auditable provenance.
+- Met: search snippets cannot lock valuation numbers.
+- Met: low-confidence values become confirmation candidates, not facts.
+- Met: every lockable stock figure has auditable provenance.
 
 ## Milestone 4 - Evidence Locker Primitives
 

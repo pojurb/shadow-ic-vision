@@ -24,10 +24,13 @@ import {
 } from "@/lib/repo";
 import type { Analysis, PortfolioAnalysis } from "@/lib/domain/types";
 import { storage, DEFAULT_SETTINGS, type Settings } from "@/lib/storage";
+import { importAll } from "@/lib/repo";
+import { serializeBackup } from "@/lib/repo/backup";
 import Library from "./Library";
 import AnalysisView from "./AnalysisView";
 import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
+import { buildQaBackup, type QaFixtureName, qaFixtureNames } from "@/lib/qa/fixtures";
 
 /** What the main pane is showing — a single analysis, a portfolio, or nothing. */
 type Active =
@@ -42,6 +45,9 @@ export default function Workspace() {
   const [showNew, setShowNew] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
+  const [qaBootstrapped, setQaBootstrapped] = useState(false);
+  const [qaFixtureRequested, setQaFixtureRequested] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const portfolioSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -49,9 +55,48 @@ export default function Workspace() {
   const activePortfolioId = active?.type === "portfolio" ? active.data.id : null;
 
   useEffect(() => {
-    listAnalyses().then(setAnalyses);
-    listPortfolios().then(setPortfolios);
-    void Promise.resolve().then(() => setSettings(storage.getSettings()));
+    let cancelled = false;
+
+    async function bootstrap() {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const fixture = params.get("qaFixture");
+        const mock = params.get("qaMode") === "mock";
+        setQaFixtureRequested(Boolean(fixture));
+        const seedKey = fixture ? `jp-qa-seeded:${fixture}:${mock ? "mock" : "real"}` : null;
+        if (fixture && qaFixtureNames().includes(fixture as QaFixtureName)) {
+          const shouldSeed = !window.sessionStorage.getItem(seedKey!);
+          if (shouldSeed) {
+            try {
+              const backup = buildQaBackup(fixture as QaFixtureName);
+              await importAll(serializeBackup(backup), "replace");
+              window.sessionStorage.setItem(seedKey!, "1");
+              if (mock) {
+                storage.saveSettings({
+                  ...DEFAULT_SETTINGS,
+                  apiKeys: { anthropic: "qa-mock", openai: "qa-mock", gemini: "qa-mock" },
+                  model: "qa-mock",
+                });
+              }
+            } catch (error) {
+              setQaError(error instanceof Error ? error.message : String(error));
+            }
+          }
+        }
+      }
+
+      const [nextAnalyses, nextPortfolios] = await Promise.all([listAnalyses(), listPortfolios()]);
+      if (cancelled) return;
+      setAnalyses(nextAnalyses);
+      setPortfolios(nextPortfolios);
+      setSettings(storage.getSettings());
+      setQaBootstrapped(true);
+    }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function refresh() {
@@ -181,7 +226,12 @@ export default function Workspace() {
   }
 
   return (
-    <div className="workspace">
+    <div className="workspace" data-qa="workspace">
+      {qaError && (
+        <div className="workspace-qa-error" data-qa="qa-error">
+          {qaError}
+        </div>
+      )}
       <Library
         analyses={analyses}
         portfolios={portfolios}
@@ -260,6 +310,11 @@ export default function Workspace() {
             setActive(null);
           }}
         />
+      )}
+      {!qaBootstrapped && qaFixtureRequested && (
+        <div className="workspace-qa-loading" data-qa="qa-loading">
+          Loading QA fixture...
+        </div>
       )}
     </div>
   );

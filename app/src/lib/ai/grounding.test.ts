@@ -97,7 +97,7 @@ function analysis(id: string, vertical: Vertical, name: string, stance: string |
     parameters, metrics: computeMetrics(vertical, parameters),
     debate: null, advisory: null, persona: null,
     stance: stance ? { label: stance, basis: "" } : null,
-    expertReview: null, sources: [], allowWebSearch: false, chat: [],
+    expertReview: null, sources: [], evidence: [], allowWebSearch: false, chat: [],
     decision: null, model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
   };
 }
