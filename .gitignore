@@ -4,6 +4,7 @@ data/Portfolio_Master_State.md
 # === GENERATED OUTPUTS (regenerable by AI) ===
 outputs/living_thesis/*.md
 !outputs/living_thesis/_example_BBCA.md
+app/.next-qa-*
 
 # === USER-UPLOADED RAW DATA ===
 inputs/stocks/*.csv

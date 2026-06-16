@@ -18,7 +18,7 @@ Current milestone status:
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 - IC Primitives + Frictionless Thesis Intake | Mostly implemented | IC state, thesis memory, review defaults, intake extraction, user confirmation, and inspector display exist. |
-| M2 - Manual Private Asset IC Entry | Implemented, verification pending | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, and portfolio-picker exclusion. `npm test`, `npm run lint`, and `npm run build` passed. Manual browser-path verification is still pending because the local in-app browser tool crashed during setup in this environment. |
+| M2 - Manual Private Asset IC Entry | Implemented, verification pending | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, portfolio-picker exclusion, and a new review-cadence editor. `npm test`, `npm run lint`, and `npm run build` passed. A canonical `m2` browser scenario now exists, but manual browser-path verification is still pending because the in-app browser helper crashes locally and the fallback Edge/CDP harness still fails to expose a stable DevTools endpoint in this environment. |
 | M3 - Stock Intake Trust + Field Provenance | Implemented, verified | Stock provenance types, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, `npm test`, `npm run build`, and isolated browser QA are complete. |
 | M4 - Evidence Locker Primitives | Implemented, verified | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, `npm run build`, isolated `m6`, expected-failure `broken-m4`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-16. |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Not implemented | Review cadence is stored, but there is no agenda ranking or monitoring engine. |
@@ -26,7 +26,7 @@ Current milestone status:
 
 Recommended next build order:
 
-1. Complete the pending browser verification pass for the new M2 manual-asset workflow.
+1. Repair the local browser-control path enough to run the new canonical `m2` QA scenario end to end.
 2. Close any UX or browser issues found in that M2 manual-flow verification.
 3. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
 

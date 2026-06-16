@@ -300,8 +300,8 @@ export default function Workspace() {
             <div className="empty-card">
               <h2>Start a new analysis</h2>
               <p>Paste or describe a deal — the analyst detects the type, pulls the figures, and confirms before locking.</p>
-              <button className="commit-btn" onClick={newIntake}>+ NEW ANALYSIS</button>
-              <button className="example-link" onClick={() => setShowNew(true)}>+ MANUAL ASSET</button>
+              <button className="commit-btn" data-qa="empty-new-analysis" onClick={newIntake}>+ NEW ANALYSIS</button>
+              <button className="example-link" data-qa="empty-new-manual" onClick={() => setShowNew(true)}>+ MANUAL ASSET</button>
               <button className="example-link" onClick={() => setShowNew(true)}>or start from an example…</button>
               <button className="example-link" onClick={newPortfolio}>or compose a portfolio…</button>
             </div>
@@ -379,7 +379,7 @@ function NewAnalysisDialog({
           <div className="label-text">3. Manual asset</div>
           <div className="template-list">
             {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
-              <button key={assetType} className="template-item" onClick={() => onManual(assetType)}>
+              <button key={assetType} className="template-item" data-qa={`manual-template-${assetType}`} onClick={() => onManual(assetType)}>
                 <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
                 <span className="template-hint">manual valuation, risk prompts, and IC memory</span>
               </button>

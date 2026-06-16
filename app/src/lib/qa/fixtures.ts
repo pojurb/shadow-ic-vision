@@ -1,7 +1,7 @@
 import { PRESETS } from "@/data/presets";
 import { computeMetrics } from "@/lib/finance/compute";
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
-import { buildEnvelope, type BackupData } from "@/lib/repo/backup";
+import { buildEnvelope } from "@/lib/repo/backup";
 import { buildAnalysisDecisionSnapshot, buildPortfolioDecisionSnapshot } from "@/lib/domain/decisions";
 import {
   buildDerivedStockProvenance,
@@ -17,7 +17,7 @@ import type {
   ThesisRef,
 } from "@/lib/domain/types";
 
-export type QaFixtureName = "m3" | "m4" | "m6" | "broken-m4";
+export type QaFixtureName = "m2" | "m3" | "m4" | "m6" | "broken-m4";
 
 const QA_NOW = Date.parse("2026-06-15T00:00:00Z");
 
@@ -342,6 +342,9 @@ function brokenM4Fixture(): ReturnType<typeof buildEnvelope> {
 }
 
 export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvelope> {
+  if (name === "m2") {
+    return buildEnvelope({ analyses: [], portfolios: [], folders: [], blobs: [] });
+  }
   if (name === "m3") {
     return buildEnvelope({ analyses: [stockProvenanceFixture()], portfolios: [], folders: [], blobs: [] });
   }
@@ -358,5 +361,5 @@ export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvel
 }
 
 export function qaFixtureNames(): QaFixtureName[] {
-  return ["m3", "m4", "m6", "broken-m4"];
+  return ["m2", "m3", "m4", "m6", "broken-m4"];
 }

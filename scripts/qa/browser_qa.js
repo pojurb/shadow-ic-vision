@@ -9,7 +9,8 @@ const { spawn, spawnSync } = require("child_process");
 const ROOT = path.resolve(__dirname, "..", "..");
 const APP_DIR = path.join(ROOT, "app");
 const ISSUES_DIR = path.join(ROOT, "issues", "qa");
-const NPM = "npm";
+const NODE = process.execPath;
+const NEXT_BIN = path.join(APP_DIR, "node_modules", "next", "dist", "bin", "next");
 const EDGE_CANDIDATES = [
   process.env.EDGE_PATH,
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -17,6 +18,7 @@ const EDGE_CANDIDATES = [
 ].filter(Boolean);
 
 const DEFAULT_SCENARIOS = [
+  { name: "m2", fixture: "m2", expectKind: null },
   { name: "m3", fixture: "m3", expectKind: null },
   { name: "m4", fixture: "m4", expectKind: null },
   { name: "m6", fixture: "m6", expectKind: null },
@@ -48,17 +50,16 @@ function parseArgs(argv) {
   return out;
 }
 
-function npmRun(args, opts = {}) {
-  const result = spawnSync(NPM, args, {
+function nextRun(args, opts = {}) {
+  const result = spawnSync(NODE, [NEXT_BIN, ...args], {
     cwd: APP_DIR,
     stdio: "inherit",
     env: { ...process.env },
-    shell: true,
     ...opts,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`Command failed: ${NPM} ${args.join(" ")}`);
+    throw new Error(`Command failed: ${NODE} ${NEXT_BIN} ${args.join(" ")}`);
   }
 }
 
@@ -373,10 +374,25 @@ class CdpSession {
 }
 
 async function openPage(debugPort, targetUrl) {
-  const listRes = await fetch(`http://127.0.0.1:${debugPort}/json/list`, { cache: "no-store" });
-  if (!listRes.ok) throw new Error(`Failed to enumerate targets: HTTP ${listRes.status}`);
-  const targets = await listRes.json();
-  const target = targets.find((item) => item.type === "page") || targets[0];
+  let target = null;
+  try {
+    const newRes = await fetch(`http://127.0.0.1:${debugPort}/json/new?${encodeURIComponent(targetUrl)}`, {
+      method: "PUT",
+      cache: "no-store",
+    });
+    if (newRes.ok) {
+      target = await newRes.json();
+    }
+  } catch {
+    // Older Edge builds may not support /json/new reliably; fall back to the
+    // existing page target below.
+  }
+  if (!target) {
+    const listRes = await fetch(`http://127.0.0.1:${debugPort}/json/list`, { cache: "no-store" });
+    if (!listRes.ok) throw new Error(`Failed to enumerate targets: HTTP ${listRes.status}`);
+    const targets = await listRes.json();
+    target = targets.find((item) => item.type === "page") || targets[0];
+  }
   if (!target?.webSocketDebuggerUrl) throw new Error("No debuggable page target was found.");
   const ws = new WebSocketClient(target.webSocketDebuggerUrl);
   await ws.connect();
@@ -407,9 +423,21 @@ async function openPage(debugPort, targetUrl) {
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
   await cdp.send("Log.enable");
-  await cdp.send("Page.navigate", { url: targetUrl });
   await waitFor(cdp, () => evaluateBoolean(cdp, "document.readyState === 'complete'"), 90_000);
   return { cdp, ws, runtimeErrors, consoleErrors };
+}
+
+async function openPageWithRetry(debugPort, targetUrl, attempts = 4) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      if (attempt > 1) await sleep(500 * attempt);
+      return await openPage(debugPort, targetUrl);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("Failed to attach to the browser page.");
 }
 
 async function evaluate(cdp, expression) {
@@ -463,6 +491,19 @@ async function click(cdp, selector) {
   })()`;
   const ok = await evaluateBoolean(cdp, expr);
   if (!ok) throw new ScenarioError(`Missing clickable element: ${selector}`, "app", `click ${selector}`);
+}
+
+async function clickByText(cdp, selector, text) {
+  const expr = `(() => {
+    const nodes = Array.from(document.querySelectorAll(${JSON.stringify(selector)}));
+    const match = nodes.find((node) => (node.textContent || "").includes(${JSON.stringify(text)}));
+    if (!match) return false;
+    match.scrollIntoView({ block: "center", inline: "center" });
+    match.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    return true;
+  })()`;
+  const ok = await evaluateBoolean(cdp, expr);
+  if (!ok) throw new ScenarioError(`Missing clickable text "${text}" in ${selector}`, "app", `click text ${text}`);
 }
 
 async function fillInput(cdp, selector, value) {
@@ -523,7 +564,7 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
   const profileDir = createTempDir(`jp-qa-${name}-`);
   const steps = [];
   const pageUrl = scenarioUrl(ctx.appPort, fixture);
-  const page = await openPage(ctx.debugPort, pageUrl);
+  const page = await openPageWithRetry(ctx.debugPort, pageUrl);
   const log = (step, status, detail) => steps.push({ step, status, detail, at: new Date().toISOString() });
 
   async function step(label, kind, fn) {
@@ -540,7 +581,93 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
   }
 
   try {
-    if (name === "m3") {
+    if (name === "m2") {
+      await step("create and persist real estate manual asset", "app", async () => {
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-new-manual"]'), 90_000, "manual entrypoint");
+        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-real_estate"]'), 30_000, "manual dialog");
+        await click(page.cdp, '[data-qa="manual-template-real_estate"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "manual asset panel");
+        await fillInput(page.cdp, ".tp-title", "QA Manual Real Estate");
+        await fillInput(page.cdp, '[data-qa="manual-asset-name"]', "Cikarang Warehouse");
+        await fillInput(page.cdp, 'textarea[placeholder="Why this asset matters, what must be true, and what could break."]', "Warehouse roll-up with repricing optionality.");
+        await fillInput(page.cdp, '[data-qa="manual-valuation-amount"]', "125000000000");
+        await fillInput(page.cdp, '[data-qa="manual-valuation-date"]', "2026-06-01");
+        await fillInput(page.cdp, '[data-qa="manual-valuation-source"]', "Sponsor mark");
+        await fillInput(page.cdp, '[data-qa="manual-pricing-freshness"]', "Quarterly appraisal");
+        await fillInput(page.cdp, '[data-qa="manual-liquidity"]', "Illiquid");
+        await fillInput(page.cdp, '[data-qa="manual-expected-duration"]', "3-5 years");
+        await fillInput(page.cdp, '[data-qa="manual-portfolio-role"]', "Yield compounder");
+        await fillInput(page.cdp, '[data-qa="manual-sizing-intent"]', "Pilot position");
+        await fillInput(page.cdp, '[data-qa="manual-macro-dependencies"]', "Rates\nIndustrial demand");
+        await fillInput(page.cdp, '[data-qa="manual-risk-note-real_estate_vacancy_tenant"]', "Tenant rollover is concentrated in 2027.");
+        await selectValue(page.cdp, '[data-qa="review-cadence"]', "monthly");
+        await fillInput(page.cdp, '[data-qa="review-next-due"]', "2026-07-15");
+        await fillInput(page.cdp, '[data-qa="evidence-note-title"]', "Broker tour note");
+        await click(page.cdp, '[data-qa="evidence-add-note"]');
+        await waitFor(page.cdp, () => textContains(page.cdp, "Broker tour note"), 30_000, "manual evidence note");
+        await sleep(900);
+        await page.cdp.send("Page.reload", { ignoreCache: true });
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library"]'), 60_000, "library after reload");
+        await clickByText(page.cdp, '[data-qa^="library-analysis-"]', "QA Manual Real Estate");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "manual panel after reload");
+        const title = await getInputValue(page.cdp, ".tp-title");
+        const assetName = await getInputValue(page.cdp, '[data-qa="manual-asset-name"]');
+        const valuationSource = await getInputValue(page.cdp, '[data-qa="manual-valuation-source"]');
+        const cadence = await getInputValue(page.cdp, '[data-qa="review-cadence"]');
+        const due = await getInputValue(page.cdp, '[data-qa="review-next-due"]');
+        if (title !== "QA Manual Real Estate") throw new ScenarioError(`Manual title did not persist: ${title}`, "app", "real estate reload");
+        if (assetName !== "Cikarang Warehouse") throw new ScenarioError(`Manual asset name did not persist: ${assetName}`, "app", "real estate reload");
+        if (valuationSource !== "Sponsor mark") throw new ScenarioError(`Manual valuation source did not persist: ${valuationSource}`, "app", "real estate reload");
+        if (cadence !== "monthly") throw new ScenarioError(`Review cadence did not persist: ${cadence}`, "app", "real estate reload");
+        if (due !== "2026-07-15") throw new ScenarioError(`Review due date did not persist: ${due}`, "app", "real estate reload");
+        const body = await evaluate(page.cdp, "document.body.innerText");
+        if (!String(body).includes("MANUAL ASSET")) throw new ScenarioError("manual state label missing", "app", "real estate reload");
+        if (String(body).includes("⚡ RUN AI")) throw new ScenarioError("engine-only run action rendered for manual asset", "app", "real estate reload");
+      });
+
+      await step("create macro, startup, and conventional manual assets", "app", async () => {
+        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-macro_view"]'), 30_000, "macro dialog");
+        await click(page.cdp, '[data-qa="manual-template-macro_view"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "macro manual panel");
+        await fillInput(page.cdp, ".tp-title", "QA Manual Macro View");
+        await fillInput(page.cdp, '[data-qa="manual-asset-name"]', "Rates Regime");
+        await fillInput(page.cdp, '[data-qa="manual-risk-note-macro_rates_fx"]', "Higher-for-longer rates pressure duration assets.");
+        await sleep(700);
+
+        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-startup"]'), 30_000, "startup dialog");
+        await click(page.cdp, '[data-qa="manual-template-startup"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "startup manual panel");
+        await fillInput(page.cdp, ".tp-title", "QA Manual Startup");
+        await fillInput(page.cdp, '[data-qa="manual-asset-name"]', "Fintech SeedCo");
+        await fillInput(page.cdp, '[data-qa="manual-risk-note-startup_dilution_funding"]', "Next round likely comes at flat terms.");
+        await sleep(700);
+
+        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-conventional_business"]'), 30_000, "conventional dialog");
+        await click(page.cdp, '[data-qa="manual-template-conventional_business"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "conventional manual panel");
+        await fillInput(page.cdp, ".tp-title", "QA Manual Conventional");
+        await fillInput(page.cdp, '[data-qa="manual-asset-name"]', "Regional Distributor");
+        await fillInput(page.cdp, '[data-qa="manual-risk-note-balance_sheet_burn"]', "Working-capital swings remain underwritten manually.");
+        const body = await evaluate(page.cdp, "document.body.innerText");
+        if (!String(body).includes("MANUAL ASSET")) throw new ScenarioError("startup/conventional path did not stay manual", "app", "manual creation variants");
+      });
+
+      await step("manual assets excluded from portfolio composition picker", "app", async () => {
+        await click(page.cdp, '[data-qa="library-new-portfolio"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="portfolio-view"]'), 30_000, "portfolio view");
+        const optionText = await evaluate(page.cdp, `(() => {
+          const select = document.querySelector('.tp-add-holding select');
+          return select ? Array.from(select.options).map((option) => option.textContent || "").join(" | ") : "";
+        })()`);
+        if (!String(optionText).includes("No more analyses to add")) {
+          throw new ScenarioError(`Manual assets leaked into the portfolio picker: ${optionText}`, "app", "portfolio picker exclusion");
+        }
+      });
+    } else if (name === "m3") {
       await step("open m3 analysis", "app", async () => {
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-analysis-qa-m3-stock"]'), 90_000, "library item");
         await click(page.cdp, '[data-qa="library-analysis-qa-m3-stock"]');
@@ -758,17 +885,16 @@ async function main() {
   const debugPort = await getFreePort();
 
   cleanupDir(path.join(APP_DIR, distDir));
-  npmRun(["run", "build", "--", "--webpack"], { env: { ...process.env, NEXT_DIST_DIR: distDir } });
+  nextRun(["build", "--webpack"], { env: { ...process.env, NEXT_DIST_DIR: distDir } });
   const appUrl = `http://127.0.0.1:${appPort}`;
   const edgePath = pickEdgePath();
   const profileBase = createTempDir("jp-qa-profile-");
-  const server = spawn(NPM, ["run", "start", "--", "-p", String(appPort), "-H", "127.0.0.1"], {
+  const server = spawn(NODE, [NEXT_BIN, "start", "-p", String(appPort), "-H", "127.0.0.1"], {
     cwd: APP_DIR,
     stdio: "pipe",
     env: { ...process.env, NEXT_DIST_DIR: distDir },
-    shell: true,
   });
-  const browser = spawn(edgePath, ["--headless=new", "--disable-gpu", "--remote-debugging-port=" + debugPort, `--user-data-dir=${profileBase}`, "about:blank"], {
+  const browser = spawn(edgePath, ["--headless", "--disable-gpu", "--remote-debugging-port=" + debugPort, `--user-data-dir=${profileBase}`, "about:blank"], {
     stdio: "ignore",
     windowsHide: true,
   });

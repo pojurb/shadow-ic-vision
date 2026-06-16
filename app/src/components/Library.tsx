@@ -60,9 +60,9 @@ export default function Library({
       <div className="panel-header warning-stripes">
         <span className="panel-title">LIBRARY</span>
         <div className="library-new-actions">
-          <button className="new-btn" onClick={onNew}>+ NEW</button>
-          <button className="new-btn" onClick={onNewManual}>+ MANUAL</button>
-          <button className="new-btn" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
+          <button className="new-btn" data-qa="library-new-analysis" onClick={onNew}>+ NEW</button>
+          <button className="new-btn" data-qa="library-new-manual" onClick={onNewManual}>+ MANUAL</button>
+          <button className="new-btn" data-qa="library-new-portfolio" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
         </div>
       </div>
 

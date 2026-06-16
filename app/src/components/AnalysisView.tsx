@@ -14,6 +14,7 @@ import type {
   EvidenceType,
   ThesisRef,
   StockFieldRecord,
+  ReviewCadence,
 } from "@/lib/domain/types";
 import { calcDCF, calcBEP } from "@/lib/finance";
 import { computeMetrics } from "@/lib/finance/compute";
@@ -87,6 +88,24 @@ function nowMs(): number {
 
 function cleanLines(values: string[]): string[] {
   return values.map((v) => v.trim()).filter(Boolean);
+}
+
+function cadenceMs(cadence: ReviewCadence): number | null {
+  if (cadence === "weekly") return 7 * 24 * 60 * 60 * 1000;
+  if (cadence === "monthly") return 30 * 24 * 60 * 60 * 1000;
+  if (cadence === "quarterly") return 90 * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function toDateInputValue(value: number | null): string {
+  if (!value) return "";
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function fromDateInputValue(value: string): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function clampEvidenceType(value?: string): EvidenceType {
@@ -776,6 +795,8 @@ export default function AnalysisView({
                 <ThesisMemoryPanel analysis={analysis} />
               </div>
 
+              <ReviewCadencePanel analysis={analysis} onChange={onChange} />
+
               <EvidenceLocker analysis={analysis} onChange={onChange} />
 
               {/* locked figures (sliders) */}
@@ -971,6 +992,8 @@ function ManualAnalysisView({
 
             <ManualAssetPanel analysis={analysis} onChange={onChange} />
 
+            <ReviewCadencePanel analysis={analysis} onChange={onChange} />
+
             <EvidenceLocker analysis={analysis} onChange={onChange} />
 
             <div className="tp-card tp-card--wide">
@@ -1132,25 +1155,27 @@ function ManualAssetPanel({
         <span className="tp-card-hint">No deterministic valuation model</span>
       </div>
       <div className="tp-meta-grid">
-        <input className="meta-input" placeholder="Asset name" value={analysis.assetName} onChange={(e) => onChange({ ...analysis, assetName: e.target.value })} />
+        <input data-qa="manual-asset-name" className="meta-input" placeholder="Asset name" value={analysis.assetName} onChange={(e) => onChange({ ...analysis, assetName: e.target.value })} />
         <input
+          data-qa="manual-valuation-amount"
           className="meta-input"
           placeholder="Manual valuation"
           type="number"
           value={manualMeta.valuationAmount ?? ""}
           onChange={(e) => updateManualMeta({ valuationAmount: e.target.value ? Number(e.target.value) : null })}
         />
-        <input className="meta-input" placeholder="Valuation date" value={manualMeta.valuationDate} onChange={(e) => updateManualMeta({ valuationDate: e.target.value })} />
-        <input className="meta-input" placeholder="Valuation source" value={manualMeta.valuationSource} onChange={(e) => updateManualMeta({ valuationSource: e.target.value })} />
-        <input className="meta-input" placeholder="Pricing freshness" value={manualMeta.pricingFreshness} onChange={(e) => updateManualMeta({ pricingFreshness: e.target.value })} />
-        <input className="meta-input" placeholder="Liquidity" value={manualMeta.liquidity} onChange={(e) => updateManualMeta({ liquidity: e.target.value })} />
-        <input className="meta-input" placeholder="Expected duration" value={manualMeta.expectedDuration} onChange={(e) => updateManualMeta({ expectedDuration: e.target.value })} />
-        <input className="meta-input" placeholder="Portfolio role" value={manualMeta.portfolioRole} onChange={(e) => updateManualMeta({ portfolioRole: e.target.value })} />
-        <input className="meta-input" placeholder="Sizing intent" value={manualMeta.sizingIntent} onChange={(e) => updateManualMeta({ sizingIntent: e.target.value })} />
+        <input data-qa="manual-valuation-date" className="meta-input" placeholder="Valuation date" value={manualMeta.valuationDate} onChange={(e) => updateManualMeta({ valuationDate: e.target.value })} />
+        <input data-qa="manual-valuation-source" className="meta-input" placeholder="Valuation source" value={manualMeta.valuationSource} onChange={(e) => updateManualMeta({ valuationSource: e.target.value })} />
+        <input data-qa="manual-pricing-freshness" className="meta-input" placeholder="Pricing freshness" value={manualMeta.pricingFreshness} onChange={(e) => updateManualMeta({ pricingFreshness: e.target.value })} />
+        <input data-qa="manual-liquidity" className="meta-input" placeholder="Liquidity" value={manualMeta.liquidity} onChange={(e) => updateManualMeta({ liquidity: e.target.value })} />
+        <input data-qa="manual-expected-duration" className="meta-input" placeholder="Expected duration" value={manualMeta.expectedDuration} onChange={(e) => updateManualMeta({ expectedDuration: e.target.value })} />
+        <input data-qa="manual-portfolio-role" className="meta-input" placeholder="Portfolio role" value={manualMeta.portfolioRole} onChange={(e) => updateManualMeta({ portfolioRole: e.target.value })} />
+        <input data-qa="manual-sizing-intent" className="meta-input" placeholder="Sizing intent" value={manualMeta.sizingIntent} onChange={(e) => updateManualMeta({ sizingIntent: e.target.value })} />
       </div>
       <label className="tp-thesis-field">
         <span>Macro dependencies</span>
         <textarea
+          data-qa="manual-macro-dependencies"
           rows={2}
           value={manualMeta.macroDependencies.join("\n")}
           onChange={(e) =>
@@ -1169,6 +1194,7 @@ function ManualAssetPanel({
             <label className="tp-thesis-field" key={prompt.id}>
               <span>{prompt.label}</span>
               <textarea
+                data-qa={`manual-risk-note-${prompt.id}`}
                 rows={3}
                 value={note}
                 onChange={(e) =>
@@ -1183,6 +1209,86 @@ function ManualAssetPanel({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ReviewCadencePanel({
+  analysis,
+  onChange,
+}: {
+  analysis: Analysis;
+  onChange: (next: Analysis) => void;
+}) {
+  const review = analysis.ic.review;
+
+  function updateReview(patch: Partial<ICState["review"]>) {
+    onChange({
+      ...analysis,
+      ic: {
+        ...analysis.ic,
+        review: {
+          ...review,
+          ...patch,
+        },
+      },
+    });
+  }
+
+  function markReviewed() {
+    const reviewedAt = nowMs();
+    const windowMs = cadenceMs(review.cadence);
+    updateReview({
+      lastReviewedAt: reviewedAt,
+      nextReviewDue: windowMs ? reviewedAt + windowMs : review.nextReviewDue,
+    });
+  }
+
+  return (
+    <div className="tp-card tp-card--wide" data-qa="review-panel">
+      <div className="tp-card-h">
+        Review cadence
+        <span className="tp-card-hint">agenda input</span>
+      </div>
+      <div className="tp-meta-grid">
+        <label className="tp-thesis-field">
+          <span>Cadence</span>
+          <select
+            data-qa="review-cadence"
+            className="meta-input"
+            value={review.cadence}
+            onChange={(e) => updateReview({ cadence: e.target.value as ReviewCadence })}
+          >
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="event_driven">Event driven</option>
+          </select>
+        </label>
+        <label className="tp-thesis-field">
+          <span>Next review due</span>
+          <input
+            data-qa="review-next-due"
+            className="meta-input"
+            type="date"
+            value={toDateInputValue(review.nextReviewDue)}
+            onChange={(e) => updateReview({ nextReviewDue: fromDateInputValue(e.target.value) })}
+          />
+        </label>
+        <label className="tp-thesis-field">
+          <span>Last reviewed</span>
+          <input
+            data-qa="review-last-reviewed"
+            className="meta-input"
+            type="date"
+            value={toDateInputValue(review.lastReviewedAt)}
+            onChange={(e) => updateReview({ lastReviewedAt: fromDateInputValue(e.target.value) })}
+          />
+        </label>
+      </div>
+      <button type="button" className="tp-mini-btn" data-qa="review-mark-reviewed" onClick={markReviewed}>
+        Mark reviewed today
+      </button>
     </div>
   );
 }

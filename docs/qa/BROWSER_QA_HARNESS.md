@@ -42,6 +42,7 @@ That command:
 
 The shipped fixtures cover:
 
+- `m2`: manual asset entry and portfolio-picker exclusion
 - `m3`: stock field provenance
 - `m4`: Evidence Locker
 - `m6`: analysis and portfolio decision ledgers

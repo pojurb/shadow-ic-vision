@@ -13,58 +13,54 @@
 
 ## Latest Snapshot - 2026-06-16
 
-QA closure is complete and M2 manual-asset implementation is now in repo.
+M2 implementation is extended and app-level gates remain green, but the browser
+verification blocker has shifted from the in-app browser helper to the local
+Edge/CDP harness.
 
 Commands run this session:
 - in `app/`:
   - `npm test`
   - `npm run lint`
   - `npm run build`
-- from repo root:
-  - `node scripts/run.js qa m6`
+- from repo root via the bundled Codex Node runtime:
+  - `node scripts/run.js qa m2` multiple times while fixing harness startup
   - `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
-  - `node scripts/run.js qa`
 
-Latest verified QA artifacts:
-- isolated `m6`: `issues/qa/2026-06-16T06-49-18-833Z/report.json`
-- expected-failure `broken-m4`: `issues/qa/2026-06-16T06-50-21-416Z/report.json`
-- first full sweep after harness fix: `issues/qa/2026-06-16T06-51-43-651Z/report.json`
-- latest full regression sweep after M2 changes: `issues/qa/2026-06-16T07-13-13-230Z/report.json`
+What changed:
+- Added a first-class `Review cadence` panel to `AnalysisView` for both engine
+  and manual analyses so the M2 browser path can actually set cadence and due
+  date.
+- Added QA selectors for manual-asset creation and editing.
+- Added an `m2` QA fixture/scenario to the canonical browser harness for manual
+  asset creation, persistence, and portfolio-picker exclusion.
+- Updated the harness to build/start Next directly from the local Next binary
+  instead of assuming `npm` is on the child-process PATH.
 
-QA/tooling notes:
-- `npm run lint` initially failed for a tooling reason because ESLint was
-  traversing stale `app/.next-qa-*` build artifacts. Fixed by ignoring
-  `.next-qa-*/**` in `app/eslint.config.mjs` and removing stale QA build dirs.
-- isolated `m6` initially failed because the canonical browser harness used the
-  `HTMLInputElement` setter for textarea fields. Fixed in
-  `scripts/qa/browser_qa.js`; the rerun passed.
-- Full canonical browser QA now passes for `m3`, `m4`, and `m6`, so M4 can be
-  treated as verified.
+Verification state:
+- `npm test` passed: 20 files / 168 tests.
+- `npm run lint` passed with existing warnings only.
+- `npm run build` passed.
+- Latest fully verified canonical browser artifacts are still:
+  - `issues/qa/2026-06-16T06-49-18-833Z/report.json` (`m6`)
+  - `issues/qa/2026-06-16T06-50-21-416Z/report.json` (`broken-m4`)
+  - `issues/qa/2026-06-16T07-13-13-230Z/report.json` (full `m3`/`m4`/`m6`)
 
-M2 current state:
-- Added the authoritative packet at `docs/milestones/m2_spec.md`.
-- Added manual `valuationMode`, nullable `vertical` / `metrics`, manual
-  metadata and risk prompts, manual thesis editing, and `+ MANUAL ASSET`
-  creation flow.
-- Manual assets are excluded from current portfolio composition pickers and
-  deterministic engine/UI paths.
-- Added normalization, snapshot, and backup tests for manual assets.
-- `npm test` now passes with 20 files / 168 tests.
-
-Remaining M2 verification gap:
-- Manual browser-path verification is still pending.
-- I attempted to use the local in-app browser tool for that pass, but the
-  browser runtime crashed during setup with a local `node_repl` sandbox error in
-  this environment before any page interaction began.
+Current tooling blocker:
+- The in-app browser helper still fails locally because `node_repl` crashes
+  during setup before any page interaction.
+- The fallback Edge/CDP harness now gets past the old `npm` PATH failure, but
+  `qa m2` still cannot complete in this shell because Edge never exposes a
+  stable DevTools endpoint on the requested debug port. The latest failed
+  attempt was `issues/qa/2026-06-16T08-04-08-742Z/` and failed as tooling
+  before any scenario step ran.
 
 Next exact step:
-- Run a live browser pass over the new manual flow once browser control is
-  healthy:
-  - create manual `real_estate`, `macro_view`, `startup`, and
-    `conventional_business` entries from `+ MANUAL ASSET`
-  - fill valuation, macro dependencies, and Risk Officer notes
-  - attach evidence, reload, and confirm persistence
-  - confirm manual assets do not appear in portfolio composition pickers
+- Finish the pending M2 browser pass from a healthy local browser-control path:
+  - either repair local Edge remote-debug startup for `scripts/qa/browser_qa.js`
+  - or run the same new `m2` scenario through another documented browser
+    automation path
+- Once that pass produces a real `report.json`, update milestone status docs and
+  move on to M5.
 
 ## Session Note - 2026-06-15
 
