@@ -13,51 +13,51 @@
 
 ## Latest Snapshot - 2026-06-15
 
-QA stability work is partially landed and materially improved. The canonical
-browser path now runs through a dedicated harness, and isolated browser
-verification is green for M3 and M4:
+QA harness stabilization is largely complete.
 
-- Added a canonical browser QA runner at `scripts/qa/browser_qa.js`, exposed as
-  `npm run qa` via `scripts/run.js qa`.
-- The harness now builds the app into a unique `NEXT_DIST_DIR`, starts a clean
-  production server on a dedicated port, launches headless Edge on a dedicated
-  debug port, seeds deterministic fixtures through the app import path, writes a
-  structured JSON report, captures screenshots, and tears its process tree down
-  cleanly on Windows.
-- Browser QA now classifies failures as `app`, `data`, or `tooling` and records
-  the failing step, console errors, runtime exceptions, and artifacts under
-  `issues/qa/<run-id>/`.
-- Added deterministic QA fixtures for M3 stock provenance, M4 Evidence Locker,
-  M6 analysis/portfolio decision ledgers, and `broken-m4` intentional
-  failure-classification coverage.
-- Added QA mock-provider routing so browser verification no longer depends on
-  live model/network variance.
-- Added explicit `data-qa` selectors across Library, AnalysisView,
-  PortfolioView, and DecisionLedger so browser checks use stable UI hooks
-  instead of brittle ad hoc DOM probing.
-- Fixed a real app bug surfaced by the new harness: a React hydration mismatch
-  in `Workspace.tsx` caused runtime error `#418` during M3 reload flows. The QA
-  fixture loading state is now server/client consistent.
-- Hardened M4 verification to wait for seeded evidence/candidate state and to
-  respect the app's 500ms debounced persistence before reload.
-- Hardened harness teardown so successful runs exit cleanly instead of hanging
-  after completion.
-- Verification remains green for `npm test`, `npm run lint`, and
-  `npm run build`.
-- Isolated browser QA is now green for:
-  - M3 stock provenance
-  - M4 Evidence Locker
-- Latest verified artifacts:
-  - `issues/qa/2026-06-15T08-40-17-658Z/report.json` (`m3` pass)
-  - `issues/qa/2026-06-15T09-26-39-168Z/report.json` (`m4` pass)
-- Remaining QA work:
-  - run isolated M6 browser QA (no passing report yet; previous run was interrupted)
-  - run `broken-m4` expected-failure classification
-  - run full `npm run qa`
-  - clean old locked `.next-qa-*` residue left by earlier interrupted runs (`app/.next-qa-2026-06-15T08-21-32-865Z`, `app/.next-qa-2026-06-15T08-22-03-701Z`)
-- Next execution step: finish the remaining QA sweep above, then proceed to M2
-  Manual Private Asset IC Entry and M5 once M2/M3/M4 inputs are trustworthy
-  enough.
+Current verified state:
+- `npm test`, `npm run lint`, and `npm run build` are green
+- isolated browser QA passes exist for:
+  - `m3`: `issues/qa/2026-06-15T08-40-17-658Z/report.json`
+  - `m4`: `issues/qa/2026-06-15T09-26-39-168Z/report.json`
+
+Remaining QA closure work:
+1. Run isolated M6 browser QA:
+   - `node scripts/run.js qa m6`
+2. Run expected-failure classification:
+   - `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
+3. Run the full canonical sweep:
+   - `node scripts/run.js qa`
+
+Before running QA:
+- in `app/`: `npm test`, `npm run lint`, `npm run build`
+- inspect stale `app/.next-qa-*` directories and remove them only if no active
+  QA process still holds them
+
+Success criteria:
+- isolated `m6` passes
+- `broken-m4` succeeds as an expected `data` failure
+- full `node scripts/run.js qa` passes
+- latest `issues/qa/<run-id>/report.json` paths are recorded here
+- update `BUILD_PLAN.md` only if M4 can move to `Implemented, verified`
+
+Canonical detailed runbook:
+- `docs/qa/BROWSER_QA_HARNESS.md`
+
+Next build step after QA closure:
+- `M2 - Manual Private Asset IC Entry`
+
+## Session Note - 2026-06-15
+
+Updated the Codex repo entrypoint at `AGENTS.md`:
+
+- rewrote the file in clean ASCII to remove visible encoding corruption
+- kept the `docs/process/DOC_SOT.md` source-of-truth chain explicit
+- preserved the `.codex/skills/product-trio-spec/SKILL.md` loading rule for milestone/spec work
+- preserved the strict lazy-loading gate around `system/core.md` and `data/Portfolio_Master_State.md`
+
+No milestone status, milestone spec, or execution-plan policy changed in this
+session.
 
 ---
 

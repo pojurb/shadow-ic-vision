@@ -83,3 +83,82 @@ When browser QA passes through a fallback path, record:
 - which path was used
 - why the fallback was needed
 - whether the remaining issue is product code or local tooling
+
+## QA Closure Plan - 2026-06-15
+
+This is the current closure plan for the outstanding browser-QA sweep after the
+M3 and isolated M4 passes.
+
+### Goal
+
+Close the remaining QA gap so roadmap/status docs can treat the canonical
+browser harness as the current verification source instead of a partially
+completed transition.
+
+### Preflight
+
+Run from the repo root unless noted otherwise.
+
+1. Confirm the app quality gates are still green:
+   - `cd app`
+   - `npm test`
+   - `npm run lint`
+   - `npm run build`
+2. Return to the repo root.
+3. Inspect stale QA build residue under `app/` before new runs. If old
+   `.next-qa-*` directories are present, remove them only after confirming no QA
+   server or Edge session is still using them.
+
+### Execution Order
+
+1. Isolated M6 pass
+   - Command: `node scripts/run.js qa m6`
+   - Expected result: pass
+   - Evidence: new `issues/qa/<run-id>/report.json`
+2. Expected-failure classification pass
+   - Command: `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
+   - Expected result: the run exits successfully because the failure is
+     intentional and classified as `data`
+   - Evidence: new `issues/qa/<run-id>/report.json`
+3. Full canonical sweep
+   - Command: `node scripts/run.js qa`
+   - Expected result: pass for `m3`, `m4`, and `m6`
+   - Evidence: new `issues/qa/<run-id>/report.json`
+
+### Triage Rules
+
+- If preflight fails, stop and fix the product/build issue before browser work.
+- If isolated `m6` fails, classify the failure from `report.json` before
+  changing code:
+  - `app`: fix product/runtime/UI behavior
+  - `data`: fix the `m6` fixture or compatibility seed
+  - `tooling`: fix harness/browser/server startup and rerun without changing
+    product scope
+- If `broken-m4` does not fail as `data`, treat that as a harness/classification
+  regression and fix the QA path before trusting the full sweep.
+- If the full sweep fails after isolated passes succeeded, prioritize shared
+  harness/state leakage causes before changing milestone code.
+
+### Closure Criteria
+
+QA closure is complete only when all of the following are true:
+
+- `npm test`, `npm run lint`, and `npm run build` are green
+- isolated `m6` browser QA passes
+- `broken-m4` succeeds as an expected `data` failure
+- the full canonical `node scripts/run.js qa` sweep passes
+- the latest artifact paths are recorded in `PROGRESS.md`
+- `BUILD_PLAN.md` is updated if M4 should move from `Implemented, QA sweep in progress`
+  to `Implemented, verified`
+
+### Documentation Closeout
+
+After the closure criteria pass:
+
+1. Update `PROGRESS.md` with:
+   - exact commands run
+   - latest artifact paths
+   - whether fallback browser tooling was needed
+   - the next build step after QA closure
+2. Update `BUILD_PLAN.md` milestone notes/status if the M4 verification gap is
+   fully closed.
