@@ -103,7 +103,7 @@ export default function PortfolioView({
     [metrics],
   );
   const available = useMemo(
-    () => analyses.filter((a) => !portfolio.members.some((m) => m.analysisId === a.id)),
+    () => analyses.filter((a) => a.valuationMode === "engine" && a.vertical && !portfolio.members.some((m) => m.analysisId === a.id)),
     [analyses, portfolio.members],
   );
 
@@ -330,7 +330,7 @@ export default function PortfolioView({
                       return (
                         <div className="tp-pos-row" key={m.analysisId}>
                           <span className={`library-vtag${a ? "" : " library-vtag--pf"}`}>
-                            {a ? VERTICAL_TAG[a.vertical] : "?"}
+                            {a?.vertical ? VERTICAL_TAG[a.vertical] : "?"}
                           </span>
                           <span className="tp-pos-name">
                             {a ? a.assetName || a.title : "(missing analysis)"}
@@ -357,7 +357,7 @@ export default function PortfolioView({
                     <option value="">{available.length === 0 ? "No more analyses to add" : "+ Add holding…"}</option>
                     {available.map((a) => (
                       <option key={a.id} value={a.id}>
-                        {VERTICAL_TAG[a.vertical]} · {a.assetName || a.title}
+                        {a.vertical ? VERTICAL_TAG[a.vertical] : "?"} · {a.assetName || a.title}
                       </option>
                     ))}
                   </select>

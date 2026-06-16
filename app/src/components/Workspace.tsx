@@ -16,13 +16,15 @@ import {
   saveAnalysis,
   deleteAnalysis,
   createAnalysis,
+  createManualAnalysis,
   listPortfolios,
   getPortfolio,
   savePortfolio,
   deletePortfolio,
   createPortfolio,
 } from "@/lib/repo";
-import type { Analysis, PortfolioAnalysis } from "@/lib/domain/types";
+import type { Analysis, AssetType, PortfolioAnalysis } from "@/lib/domain/types";
+import { ASSET_TYPE_LABELS } from "@/lib/domain/ic";
 import { storage, DEFAULT_SETTINGS, type Settings } from "@/lib/storage";
 import { importAll } from "@/lib/repo";
 import { serializeBackup } from "@/lib/repo/backup";
@@ -219,6 +221,18 @@ export default function Workspace() {
     setShowNew(false);
   }
 
+  async function newManualAsset(assetType: Exclude<AssetType, "public_equity">) {
+    const analysis = createManualAnalysis({
+      title: `New ${ASSET_TYPE_LABELS[assetType]}`,
+      assetType,
+      model: "manual",
+    });
+    await saveAnalysis(analysis);
+    await refresh();
+    setActive({ type: "analysis", data: analysis });
+    setShowNew(false);
+  }
+
   async function remove(id: string) {
     await deleteAnalysis(id);
     if (activeAnalysisId === id) setActive(null);
@@ -242,6 +256,7 @@ export default function Workspace() {
         onDelete={remove}
         onDeletePortfolio={removePortfolio}
         onNew={newIntake}
+        onNewManual={() => setShowNew(true)}
         onNewPortfolio={newPortfolio}
       />
 
@@ -286,6 +301,7 @@ export default function Workspace() {
               <h2>Start a new analysis</h2>
               <p>Paste or describe a deal — the analyst detects the type, pulls the figures, and confirms before locking.</p>
               <button className="commit-btn" onClick={newIntake}>+ NEW ANALYSIS</button>
+              <button className="example-link" onClick={() => setShowNew(true)}>+ MANUAL ASSET</button>
               <button className="example-link" onClick={() => setShowNew(true)}>or start from an example…</button>
               <button className="example-link" onClick={newPortfolio}>or compose a portfolio…</button>
             </div>
@@ -296,6 +312,7 @@ export default function Workspace() {
       {showNew && (
         <NewAnalysisDialog
           onBlank={newBlank}
+          onManual={newManualAsset}
           onPick={newFromPreset}
           onClose={() => setShowNew(false)}
         />
@@ -322,10 +339,12 @@ export default function Workspace() {
 
 function NewAnalysisDialog({
   onBlank,
+  onManual,
   onPick,
   onClose,
 }: {
   onBlank: (vertical: Vertical) => void;
+  onManual: (assetType: Exclude<AssetType, "public_equity">) => void;
   onPick: (preset: AssetPreset) => void;
   onClose: () => void;
 }) {
@@ -356,6 +375,16 @@ function NewAnalysisDialog({
               Empty {VERTICAL_SHORT[vertical]} entry — name it and set your own numbers
             </span>
           </button>
+
+          <div className="label-text">3. Manual asset</div>
+          <div className="template-list">
+            {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
+              <button key={assetType} className="template-item" onClick={() => onManual(assetType)}>
+                <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
+                <span className="template-hint">manual valuation, risk prompts, and IC memory</span>
+              </button>
+            ))}
+          </div>
 
           <details className="example-disclosure">
             <summary>○ Or load an example…</summary>

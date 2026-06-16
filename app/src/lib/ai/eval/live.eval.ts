@@ -104,7 +104,7 @@ async function runScorecard(rows: Row[]): Promise<void> {
       const out = await withRetry(() =>
         geminiProvider.runAnalysis({ apiKey: KEY, model: MODEL, analysis: a }),
       );
-      const expectedStance = persona.stance.derive(a.metrics)?.label;
+      const expectedStance = persona.stance.derive(a.metrics!)?.label;
       const produced: Analysis = { ...a, ...out };
       rows.push({
         name: `${v} debate`,
@@ -121,7 +121,7 @@ async function runScorecard(rows: Row[]): Promise<void> {
             onDelta: () => {},
           }),
         );
-        rows.push({ name: `${v} chat`, schemaValid: null, stanceMatch: null, groundingClean: lintChatReply(reply, a.metrics.metrics).clean });
+        rows.push({ name: `${v} chat`, schemaValid: null, stanceMatch: null, groundingClean: lintChatReply(reply, a.metrics!.metrics).clean });
       }
     }
 

@@ -34,6 +34,7 @@ import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
 import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
+import { isEngineAnalysis, manualRiskPromptsForAssetType } from "@/lib/domain/manualAssets";
 import { buildDerivedStockProvenance, buildUserProvidedStockProvenance } from "@/lib/domain/stockFields";
 import {
   createEvidenceItem,
@@ -251,6 +252,7 @@ export default function AnalysisView({
   model: string;
   onNeedSettings: () => void;
 }) {
+  const manualMode = analysis.valuationMode === "manual";
   const [reviewing, setReviewing] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [running, setRunning] = useState(false);
@@ -265,7 +267,7 @@ export default function AnalysisView({
 
   // Intake (Option C): when there's no debate yet, the composer drives a structured
   // intake → confirm-card → lock → debate flow instead of grounded follow-up chat.
-  const intakeMode = !analysis.debate;
+  const intakeMode = !manualMode && !analysis.debate;
   const [pendingIntake, setPendingIntake] = useState<IntakeResult | null>(null);
   const [intakeBusy, setIntakeBusy] = useState(false);
   const [intakePhase, setIntakePhase] = useState<"extract" | "research">("extract");
@@ -345,6 +347,7 @@ export default function AnalysisView({
   const isLive = !!analysis.model && analysis.model !== "seed";
 
   async function runAI() {
+    if (!isEngineAnalysis(analysis)) return;
     if (!apiKey) return onNeedSettings();
     setRunning(true);
     setAiError(null);
@@ -374,6 +377,7 @@ export default function AnalysisView({
   }
 
   async function runReview() {
+    if (!isEngineAnalysis(analysis)) return;
     if (!apiKey) return onNeedSettings();
     setReviewing(true);
     setAiError(null);
@@ -390,6 +394,7 @@ export default function AnalysisView({
   /** Composer submit — routes by mode: intake (no debate yet) vs grounded follow-up. */
   function onComposerSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
+    if (manualMode) return;
     const text = chatInput.trim();
     if (!text || chatBusy || intakeBusy || running) return;
     if (!apiKey) return onNeedSettings();
@@ -400,6 +405,7 @@ export default function AnalysisView({
 
   /** Grounded follow-up chat (only after a debate exists). */
   async function sendFollowUp(text: string) {
+    if (!isEngineAnalysis(analysis)) return;
     setPendingUser(text);
     setStreamingText("");
     setChatBusy(true);
@@ -427,6 +433,7 @@ export default function AnalysisView({
 
   /** Intake: structured pass that detects the vertical + extracts figures. */
   async function submitIntake(text: string) {
+    if (manualMode) return;
     const now = Date.now();
     const userMsg: ChatMessage = { id: `${now}-u`, role: "user", content: text, createdAt: now };
     // Persist the user turn explicitly so we don't read the stale `analysis` prop later.
@@ -552,6 +559,7 @@ export default function AnalysisView({
   }
 
   function setParam(key: keyof AssetParameters, value: number) {
+    if (!isEngineAnalysis(analysis)) return;
     const parameters = { ...analysis.parameters, [key]: value } as AssetParameters;
     update({ parameters, metrics: computeMetrics(analysis.vertical, parameters) });
   }
@@ -562,11 +570,16 @@ export default function AnalysisView({
     setTagDraft("");
   }
 
-  const metrics = analysis.metrics.metrics;
+  const groundingResult = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
+  if (manualMode) {
+    return <ManualAnalysisView analysis={analysis} onChange={onChange} />;
+  }
+
+  const metrics = analysis.metrics!.metrics;
   const advisory = analysis.advisory ?? [];
   // Deterministic grounding guard (P8): flag any number in the model's prose that
   // doesn't trace to the engine. Non-blocking — surfaced as a chip / message marker.
-  const grounding = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
+  const grounding = groundingResult;
 
   return (
     <div className="tp-root" ref={rootRef} data-qa="analysis-view" style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
@@ -769,7 +782,7 @@ export default function AnalysisView({
               <div className="tp-card">
                 <div className="tp-card-h">Locked figures <span className="tp-card-hint">editable</span></div>
                 <form className="tp-figs" onSubmit={(e) => e.preventDefault()}>
-                  {FIELDS[analysis.vertical].map((f) => {
+                  {FIELDS[analysis.vertical!].map((f) => {
                     const val = Number(analysis.parameters[f.key] ?? f.min);
                     return (
                       <div className="tp-fig" key={f.key}>
@@ -787,7 +800,7 @@ export default function AnalysisView({
               {/* chart */}
               <div className="tp-card">
                 <div className="tp-card-h">Engine chart <span className="tp-card-hint">deterministic</span></div>
-                <div className="chart-wrapper">{chartFor(analysis.vertical, analysis.parameters)}</div>
+                <div className="chart-wrapper">{chartFor(analysis.vertical!, analysis.parameters)}</div>
               </div>
 
               {/* debate */}
@@ -908,6 +921,267 @@ export default function AnalysisView({
             </div>
           </aside>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ManualAnalysisView({
+  analysis,
+  onChange,
+}: {
+  analysis: Analysis;
+  onChange: (next: Analysis) => void;
+}) {
+  return (
+    <div className="tp-root" data-qa="analysis-view">
+      <header className="tp-topbar">
+        <div className="tp-title-wrap">
+          <input className="tp-title" value={analysis.title} onChange={(e) => onChange({ ...analysis, title: e.target.value })} />
+          <span className={`status-pill status-${analysis.status}`}>{analysis.status.toUpperCase()}</span>
+          <span className="tp-mode">● MANUAL ASSET</span>
+          <span className="sim-badge">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
+        </div>
+      </header>
+
+      <div className="tp-split">
+        <main className="tp-convo">
+          <div className="tp-stream scrollable">
+            <div className="tp-stream-empty">
+              <div className="tp-stream-empty-h">Manual asset</div>
+              No deterministic valuation model is active for this analysis. Capture the thesis, manual valuation context, evidence, decisions, and Risk Officer notes here.
+            </div>
+          </div>
+        </main>
+
+        <aside className="tp-inspector scrollable" style={{ width: 520, flex: "0 0 520px" }}>
+          <div className="tp-inspector-head">
+            <span>INSPECTOR</span>
+            <span className="tp-inspector-sub">{analysis.assetName || ASSET_TYPE_LABELS[analysis.assetType]}</span>
+          </div>
+
+          <div className="tp-board">
+            <div className="tp-card tp-card--wide">
+              <div className="tp-card-h">
+                Thesis memory
+                <span className="tp-card-hint">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
+              </div>
+              <ManualThesisEditor analysis={analysis} onChange={onChange} />
+            </div>
+
+            <ManualAssetPanel analysis={analysis} onChange={onChange} />
+
+            <EvidenceLocker analysis={analysis} onChange={onChange} />
+
+            <div className="tp-card tp-card--wide">
+              <div className="tp-card-h">Decision Ledger</div>
+              <DecisionLedger
+                dataQa="analysis-decision-ledger"
+                history={analysis.decisionHistory}
+                subjectLabel="This analysis"
+                createEntry={(draft: DecisionDraft) => createAnalysisDecisionEntry(analysis, draft)}
+                onHistoryChange={(decisionHistory) =>
+                  onChange({
+                    ...analysis,
+                    decision: null,
+                    decisionHistory,
+                    status: deriveStatusFromDecisionHistory(decisionHistory),
+                  })
+                }
+              />
+            </div>
+
+            <div className="tp-card tp-card--wide">
+              <div className="tp-card-h">Asset details</div>
+              <div className="tp-meta-grid">
+                <input
+                  className="meta-input"
+                  placeholder="Asset name"
+                  value={analysis.assetName}
+                  onChange={(e) => onChange({ ...analysis, assetName: e.target.value })}
+                />
+                <input
+                  className="meta-input"
+                  placeholder="Sector or theme"
+                  value={analysis.assetMeta.sector ?? ""}
+                  onChange={(e) => onChange({ ...analysis, assetMeta: { ...analysis.assetMeta, sector: e.target.value } })}
+                />
+                <input
+                  className="meta-input"
+                  placeholder="Data as of (YYYY-MM-DD)"
+                  value={analysis.assetMeta.dataAsOf ?? ""}
+                  onChange={(e) => onChange({ ...analysis, assetMeta: { ...analysis.assetMeta, dataAsOf: e.target.value } })}
+                />
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function ManualThesisEditor({
+  analysis,
+  onChange,
+}: {
+  analysis: Analysis;
+  onChange: (next: Analysis) => void;
+}) {
+  const thesis = analysis.ic.thesis;
+
+  function updateList(
+    key: "assumptions" | "thesisBreakers" | "watchItems" | "valuationAssumptions" | "catalysts" | "openQuestions",
+    text: string,
+  ) {
+    const now = nowMs();
+    const lines = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const nextThesis = { ...thesis };
+    if (key === "assumptions") {
+      nextThesis.assumptions = lines.map((line, index) => ({
+        id: thesis.assumptions[index]?.id ?? uid(),
+        text: line,
+        status: thesis.assumptions[index]?.status ?? "active",
+        createdAt: thesis.assumptions[index]?.createdAt ?? now,
+        updatedAt: now,
+      }));
+    } else if (key === "thesisBreakers") {
+      nextThesis.thesisBreakers = lines.map((line, index) => ({
+        id: thesis.thesisBreakers[index]?.id ?? uid(),
+        text: line,
+        severity: thesis.thesisBreakers[index]?.severity ?? "material",
+        createdAt: thesis.thesisBreakers[index]?.createdAt ?? now,
+      }));
+    } else if (key === "watchItems") {
+      nextThesis.watchItems = lines.map((line, index) => ({
+        id: thesis.watchItems[index]?.id ?? uid(),
+        text: line,
+        cadence: thesis.watchItems[index]?.cadence ?? "weekly",
+        createdAt: thesis.watchItems[index]?.createdAt ?? now,
+      }));
+    } else if (key === "valuationAssumptions") {
+      nextThesis.valuationAssumptions = lines.map((line, index) => ({
+        id: thesis.valuationAssumptions[index]?.id ?? uid(),
+        text: line,
+        source: thesis.valuationAssumptions[index]?.source ?? "user",
+        createdAt: thesis.valuationAssumptions[index]?.createdAt ?? now,
+      }));
+    } else if (key === "catalysts") {
+      nextThesis.catalysts = lines.map((line, index) => ({
+        id: thesis.catalysts[index]?.id ?? uid(),
+        text: line,
+        createdAt: thesis.catalysts[index]?.createdAt ?? now,
+      }));
+    } else {
+      nextThesis.openQuestions = lines.map((line, index) => ({
+        id: thesis.openQuestions[index]?.id ?? uid(),
+        text: line,
+        createdAt: thesis.openQuestions[index]?.createdAt ?? now,
+      }));
+    }
+
+    onChange({ ...analysis, ic: { ...analysis.ic, thesis: nextThesis } });
+  }
+
+  return (
+    <div className="tp-thesis-panel">
+      <label className="tp-thesis-field">
+        <span>Thesis summary</span>
+        <textarea
+          rows={3}
+          value={thesis.summary}
+          onChange={(e) => onChange({ ...analysis, ic: { ...analysis.ic, thesis: { ...thesis, summary: e.target.value } } })}
+          placeholder="Why this asset matters, what must be true, and what could break."
+        />
+      </label>
+      <div className="tp-thesis-confirm-grid">
+        <ThesisListEditor label="Assumptions" value={thesis.assumptions.map((item) => item.text)} onChange={(text) => updateList("assumptions", text)} disabled={false} />
+        <ThesisListEditor label="Breakers" value={thesis.thesisBreakers.map((item) => item.text)} onChange={(text) => updateList("thesisBreakers", text)} disabled={false} />
+        <ThesisListEditor label="Watch items" value={thesis.watchItems.map((item) => item.text)} onChange={(text) => updateList("watchItems", text)} disabled={false} />
+        <ThesisListEditor label="Valuation assumptions" value={thesis.valuationAssumptions.map((item) => item.text)} onChange={(text) => updateList("valuationAssumptions", text)} disabled={false} />
+        <ThesisListEditor label="Catalysts" value={thesis.catalysts.map((item) => item.text)} onChange={(text) => updateList("catalysts", text)} disabled={false} />
+        <ThesisListEditor label="Open questions" value={thesis.openQuestions.map((item) => item.text)} onChange={(text) => updateList("openQuestions", text)} disabled={false} />
+      </div>
+    </div>
+  );
+}
+
+function ManualAssetPanel({
+  analysis,
+  onChange,
+}: {
+  analysis: Analysis;
+  onChange: (next: Analysis) => void;
+}) {
+  const manualMeta = analysis.manualMeta;
+  if (!manualMeta) return null;
+  const prompts = manualRiskPromptsForAssetType(analysis.assetType);
+
+  function updateManualMeta(patch: Partial<NonNullable<Analysis["manualMeta"]>>) {
+    onChange({ ...analysis, manualMeta: { ...manualMeta, ...patch } as NonNullable<Analysis["manualMeta"]> });
+  }
+
+  return (
+    <div className="tp-card tp-card--wide" data-qa="manual-asset-panel">
+      <div className="tp-card-h">
+        Manual asset
+        <span className="tp-card-hint">No deterministic valuation model</span>
+      </div>
+      <div className="tp-meta-grid">
+        <input className="meta-input" placeholder="Asset name" value={analysis.assetName} onChange={(e) => onChange({ ...analysis, assetName: e.target.value })} />
+        <input
+          className="meta-input"
+          placeholder="Manual valuation"
+          type="number"
+          value={manualMeta.valuationAmount ?? ""}
+          onChange={(e) => updateManualMeta({ valuationAmount: e.target.value ? Number(e.target.value) : null })}
+        />
+        <input className="meta-input" placeholder="Valuation date" value={manualMeta.valuationDate} onChange={(e) => updateManualMeta({ valuationDate: e.target.value })} />
+        <input className="meta-input" placeholder="Valuation source" value={manualMeta.valuationSource} onChange={(e) => updateManualMeta({ valuationSource: e.target.value })} />
+        <input className="meta-input" placeholder="Pricing freshness" value={manualMeta.pricingFreshness} onChange={(e) => updateManualMeta({ pricingFreshness: e.target.value })} />
+        <input className="meta-input" placeholder="Liquidity" value={manualMeta.liquidity} onChange={(e) => updateManualMeta({ liquidity: e.target.value })} />
+        <input className="meta-input" placeholder="Expected duration" value={manualMeta.expectedDuration} onChange={(e) => updateManualMeta({ expectedDuration: e.target.value })} />
+        <input className="meta-input" placeholder="Portfolio role" value={manualMeta.portfolioRole} onChange={(e) => updateManualMeta({ portfolioRole: e.target.value })} />
+        <input className="meta-input" placeholder="Sizing intent" value={manualMeta.sizingIntent} onChange={(e) => updateManualMeta({ sizingIntent: e.target.value })} />
+      </div>
+      <label className="tp-thesis-field">
+        <span>Macro dependencies</span>
+        <textarea
+          rows={2}
+          value={manualMeta.macroDependencies.join("\n")}
+          onChange={(e) =>
+            updateManualMeta({
+              macroDependencies: e.target.value.split("\n").map((line) => line.trim()).filter(Boolean),
+            })
+          }
+          placeholder="Rates, FX, regulation, commodity prices, hidden correlations..."
+        />
+      </label>
+      <div className="tp-card-h" style={{ marginTop: 12 }}>Risk Officer notes</div>
+      <div className="tp-thesis-confirm-grid">
+        {prompts.map((prompt) => {
+          const note = manualMeta.riskNotes.find((item) => item.promptId === prompt.id)?.note ?? "";
+          return (
+            <label className="tp-thesis-field" key={prompt.id}>
+              <span>{prompt.label}</span>
+              <textarea
+                rows={3}
+                value={note}
+                onChange={(e) =>
+                  updateManualMeta({
+                    riskNotes: manualMeta.riskNotes.map((item) =>
+                      item.promptId === prompt.id ? { ...item, note: e.target.value } : item,
+                    ),
+                  })
+                }
+              />
+            </label>
+          );
+        })}
       </div>
     </div>
   );

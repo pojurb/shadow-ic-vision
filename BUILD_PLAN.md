@@ -5,7 +5,7 @@ Source of truth: `PRODUCT_STRATEGY.md`.
 This plan turns the current single-asset cockpit into the broader AI Investment
 Committee product while preserving the local-first Next.js/Dexie architecture.
 
-## Latest Status - 2026-06-15
+## Latest Status - 2026-06-16
 
 The app has moved beyond the original single-asset cockpit. It now supports
 thesis intake, IC thesis memory, grounded debate, portfolio composition,
@@ -18,16 +18,16 @@ Current milestone status:
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 - IC Primitives + Frictionless Thesis Intake | Mostly implemented | IC state, thesis memory, review defaults, intake extraction, user confirmation, and inspector display exist. |
-| M2 - Manual Private Asset IC Entry | Not implemented | Asset-type enums/labels exist, but the UI still creates only the three valuation verticals. |
+| M2 - Manual Private Asset IC Entry | Implemented, verification pending | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, and portfolio-picker exclusion. `npm test`, `npm run lint`, and `npm run build` passed. Manual browser-path verification is still pending because the local in-app browser tool crashed during setup in this environment. |
 | M3 - Stock Intake Trust + Field Provenance | Implemented, verified | Stock provenance types, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, `npm test`, `npm run build`, and isolated browser QA are complete. |
-| M4 - Evidence Locker Primitives | Implemented, QA sweep in progress | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, and `npm run build` passed. The canonical Edge/CDP harness is now stable enough to pass the isolated M4 browser flow; remaining work is the broader QA sweep (`m6`, `broken-m4`, and full `npm run qa`). |
+| M4 - Evidence Locker Primitives | Implemented, verified | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, `npm run build`, isolated `m6`, expected-failure `broken-m4`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-16. |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Not implemented | Review cadence is stored, but there is no agenda ranking or monitoring engine. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
 
 Recommended next build order:
 
-1. Finish the remaining browser QA sweep (`m6`, `broken-m4`, full `npm run qa`) now that the canonical harness is stable for isolated M3/M4 runs.
-2. Implement M2 Manual Private Asset IC Entry to support alternative assets.
+1. Complete the pending browser verification pass for the new M2 manual-asset workflow.
+2. Close any UX or browser issues found in that M2 manual-flow verification.
 3. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
@@ -62,10 +62,24 @@ Exit criteria:
 
 ## Milestone 2 - Manual Private Asset IC Entry
 
-Status: not implemented.
+Status: implemented, verification pending.
 
 Goal: support non-public/manual assets in the same workflow without pretending
 automated data coverage exists.
+
+Current state:
+
+- Added the authoritative packet at `docs/milestones/m2_spec.md`.
+- `Analysis` now supports `valuationMode`, nullable `vertical` / `metrics`, and
+  manual `manualMeta`.
+- Manual assets can be created from a new `+ MANUAL ASSET` path and edited in
+  the existing thesis/detail page.
+- Manual assets now keep deterministic engine, provenance, debate, expert
+  review, grounded chat, and portfolio-composition paths disabled.
+- Added normalization, snapshot, and backup coverage for manual assets.
+- `npm test`, `npm run lint`, and `npm run build` passed on 2026-06-16.
+- Remaining verification gap: a live browser pass over the new manual flow is
+  still pending in this environment.
 
 Deliverables:
 
@@ -399,7 +413,7 @@ Exit criteria:
 
 ## Milestone 4 - Evidence Locker Primitives
 
-Status: implemented, broader QA sweep pending.
+Status: implemented, verified.
 
 Goal: reframe the library as evidence tied to theses.
 
@@ -418,7 +432,7 @@ Implemented:
 
 Remaining:
 
-- Run the remaining broader QA sweep (`m6`, `broken-m4`, full `npm run qa`).
+- None for M4. Browser QA closure completed on 2026-06-16.
 
 Detailed implementation plan:
 

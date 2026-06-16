@@ -10,14 +10,17 @@ import { personaFor, portfolioPersona } from "./personas";
 import { summarizeMetrics } from "@/lib/finance/compute";
 import { formatIDR } from "@/lib/finance/format";
 import { FIELDS, type Field } from "@/data/fields";
+import { isEngineAnalysis } from "@/lib/domain/manualAssets";
 
 /** System prompt for the structured analysis pass — the vertical's expert persona. */
 export function analysisSystem(a: Analysis): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support AI analysis prompts.");
   return personaFor(a.vertical).systemPrompt;
 }
 
 /** System prompt for the optional, on-demand expert-review pass. */
 export function reviewSystem(a: Analysis): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support expert review prompts.");
   return personaFor(a.vertical).reviewSystemPrompt;
 }
 
@@ -91,6 +94,7 @@ export const CHAT_SYSTEM = `You are an institutional investment analyst answerin
 
 /** Pass 1 of the two-pass analysis: free-form research using web tools (persona-aware). */
 export function researchSystem(a: Analysis): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support AI research prompts.");
   const persona = personaFor(a.vertical);
   const lensNames = persona.lenses.map((l) => l.name).join(", ");
   return `You are ${persona.label}, gathering evidence on a single asset before a formal red-team debate.
@@ -114,6 +118,14 @@ export function groundingText(a: Analysis): string {
   ]
     .filter(Boolean)
     .join(", ");
+
+  if (!isEngineAnalysis(a)) {
+    return [
+      `Asset: ${a.assetName || a.title} (${a.assetType})${metaBits ? ` — ${metaBits}` : ""}`,
+      ``,
+      `Manual asset state: no deterministic valuation engine is active for this analysis.`,
+    ].join("\n");
+  }
 
   const figures = a.metrics.metrics
     .map((m) => `- ${m.label}: ${m.display}${m.verdict ? ` (${m.verdict})` : ""}`)
@@ -169,6 +181,7 @@ export function thesisMemoryText(a: Analysis): string {
 
 /** Pass 1 user turn: tell the model what to research. */
 export function buildResearchUserPrompt(a: Analysis): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support AI research prompts.");
   const links = a.sources.filter((s) => s.kind === "link");
   const tasks: string[] = [];
   if (links.length) tasks.push(`Read these attached links with web_fetch:\n${links.map((s) => (s.kind === "link" ? `- ${s.url}` : "")).join("\n")}`);
@@ -183,6 +196,7 @@ export function buildResearchUserPrompt(a: Analysis): string {
  * context from pass 1 — explicitly NOT a source of numbers (those stay locked).
  */
 export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support AI analysis prompts.");
   const persona = personaFor(a.vertical);
   const slots = persona.debateSlots.map((s) => `${s.name} (slot id "${s.id}")`).join(", ");
   const lenses = persona.lenses.map((l) => `${l.name} (id "${l.id}")`).join("; ");
@@ -205,6 +219,7 @@ export function buildAnalysisUserPrompt(a: Analysis, researchNotes?: string): st
 
 /** Pass-3 (optional) user turn: red-team the produced analysis. */
 export function buildReviewUserPrompt(a: Analysis): string {
+  if (!isEngineAnalysis(a)) throw new Error("Manual assets do not support expert review prompts.");
   return [
     groundingText(a),
     debateContext(a),
@@ -259,7 +274,7 @@ export function portfolioGroundingText(
 
   const holdings = metrics.positions.map((p, i) => {
     const member = byId.get(p.analysisId);
-    const figs = member ? summarizeMetrics(member.metrics) : "(member analysis unavailable)";
+    const figs = member && member.metrics ? summarizeMetrics(member.metrics) : "(member analysis unavailable)";
     return [
       `${i + 1}. ${p.name} (${p.vertical}) — weight ${Math.round(p.weight * 100)}%, capital ${formatIDR(
         p.capital,

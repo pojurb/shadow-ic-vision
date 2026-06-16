@@ -7,6 +7,7 @@
  * report is a later upgrade; this keeps the no-numeric-hallucination guarantee.)
  */
 import type { Analysis } from "@/lib/domain/types";
+import { isEngineAnalysis } from "@/lib/domain/manualAssets";
 
 /** Build the markdown report string from a produced analysis. */
 export function buildReport(a: Analysis): string {
@@ -28,9 +29,11 @@ export function buildReport(a: Analysis): string {
   }
 
   // Locked figures — each printed verbatim from the engine's display strings.
-  const figs = a.metrics.metrics.map(
+  const figs = isEngineAnalysis(a)
+    ? a.metrics.metrics.map(
     (m) => `- ${m.label}: **${m.display}**${m.verdict ? ` _(${m.verdict})_` : ""}`,
-  );
+      )
+    : [];
   if (figs.length) {
     blocks.push("**Locked figures**");
     blocks.push(figs.join("\n"));

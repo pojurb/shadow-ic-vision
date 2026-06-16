@@ -86,6 +86,25 @@ export type ICAction =
   | "trim_reduce_position"
   | "exit"
   | "archive";
+export type ValuationMode = "engine" | "manual";
+export type ManualRiskPromptId =
+  | "illiquidity_exit"
+  | "valuation_quality"
+  | "concentration"
+  | "key_person"
+  | "balance_sheet_burn"
+  | "legal_regulatory"
+  | "macro_exposure"
+  | "startup_dilution_funding"
+  | "real_estate_vacancy_tenant"
+  | "real_estate_leverage_refinancing"
+  | "crypto_custody"
+  | "crypto_protocol"
+  | "crypto_liquidity"
+  | "crypto_regulatory"
+  | "crypto_smart_contract"
+  | "macro_rates_fx"
+  | "macro_hidden_correlation";
 
 export interface AssetMeta {
   ticker?: string;
@@ -255,6 +274,24 @@ export interface ReviewState {
   nextReviewDue: number | null;
 }
 
+export interface ManualRiskNote {
+  promptId: ManualRiskPromptId;
+  note: string;
+}
+
+export interface AnalysisManualMeta {
+  valuationAmount: number | null;
+  valuationDate: string;
+  valuationSource: string;
+  pricingFreshness: string;
+  liquidity: string;
+  expectedDuration: string;
+  portfolioRole: string;
+  sizingIntent: string;
+  macroDependencies: string[];
+  riskNotes: ManualRiskNote[];
+}
+
 export interface ICState {
   thesis: ThesisMemory;
   review: ReviewState;
@@ -286,10 +323,12 @@ export type ContextSource =
 export interface AnalysisDecisionSnapshot {
   title: string;
   assetType: AssetType;
-  vertical: Vertical;
+  valuationMode: ValuationMode;
+  vertical: Vertical | null;
   thesis: ThesisMemory;
   review: ReviewState;
-  metrics: ComputedMetrics;
+  metrics: ComputedMetrics | null;
+  manualMeta: AnalysisManualMeta | null;
   stance: Stance | null;
   sources: ContextSource[];
   evidence: EvidenceItem[];
@@ -339,16 +378,18 @@ export interface Folder {
 export interface Analysis {
   id: string;
   title: string;
-  vertical: Vertical;
+  valuationMode: ValuationMode;
+  vertical: Vertical | null;
   assetType: AssetType;
   assetName: string;
   assetMeta: AssetMeta;
+  manualMeta: AnalysisManualMeta | null;
   stockFields?: StockFieldRecord[];
   tags: string[];
   folderId: string | null;
   ic: ICState;
   parameters: AssetParameters;
-  metrics: ComputedMetrics;
+  metrics: ComputedMetrics | null;
   debate: DebateResult | null;
   advisory: AdvisoryResult | null;
   /** Visible expert persona that produced the analysis (per vertical). */

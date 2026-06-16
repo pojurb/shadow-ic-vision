@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Analysis, PortfolioAnalysis, Vertical } from "@/lib/domain/types";
 import { decisionLabel, deriveStatusFromDecisionHistory, latestDecision } from "@/lib/domain/decisions";
+import { ASSET_TYPE_LABELS, assetTypeTag } from "@/lib/domain/ic";
 
 const VERTICAL_TAG: Record<Vertical, string> = {
   stocks: "EQ",
@@ -22,6 +23,7 @@ export default function Library({
   onDelete,
   onDeletePortfolio,
   onNew,
+  onNewManual,
   onNewPortfolio,
 }: {
   analyses: Analysis[];
@@ -33,6 +35,7 @@ export default function Library({
   onDelete: (id: string) => void;
   onDeletePortfolio: (id: string) => void;
   onNew: () => void;
+  onNewManual: () => void;
   onNewPortfolio: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -58,6 +61,7 @@ export default function Library({
         <span className="panel-title">LIBRARY</span>
         <div className="library-new-actions">
           <button className="new-btn" onClick={onNew}>+ NEW</button>
+          <button className="new-btn" onClick={onNewManual}>+ MANUAL</button>
           <button className="new-btn" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
         </div>
       </div>
@@ -115,7 +119,9 @@ function AnalysisLibraryItem({
   return (
     <div className={`library-item${active ? " active" : ""}`} data-qa={`library-analysis-${analysis.id}`} onClick={() => onOpen(analysis.id)}>
       <div className="library-item-top">
-        <span className="library-vtag">{VERTICAL_TAG[analysis.vertical]}</span>
+        <span className="library-vtag" title={ASSET_TYPE_LABELS[analysis.assetType]}>
+          {analysis.vertical ? VERTICAL_TAG[analysis.vertical] : assetTypeTag(analysis.assetType)}
+        </span>
         <span className="library-item-title">{analysis.title}</span>
         <button
           className="library-del"

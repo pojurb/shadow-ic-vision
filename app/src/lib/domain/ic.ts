@@ -25,6 +25,16 @@ export function assetTypeForVertical(vertical: Vertical): AssetType {
   return "public_equity";
 }
 
+export function assetTypeTag(assetType: AssetType): string {
+  if (assetType === "public_equity") return "EQ";
+  if (assetType === "startup") return "VC";
+  if (assetType === "conventional_business") return "CB";
+  if (assetType === "real_estate") return "RE";
+  if (assetType === "crypto") return "CR";
+  if (assetType === "macro_view") return "MV";
+  return "OT";
+}
+
 function asArray<T>(value: T[] | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }

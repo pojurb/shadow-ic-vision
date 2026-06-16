@@ -91,14 +91,14 @@ describe("lintGrounding", () => {
 function analysis(id: string, vertical: Vertical, name: string, stance: string | null): Analysis {
   const parameters = { ...BLANK_PARAMS[vertical] };
   return {
-    id, title: name, vertical, assetName: name,
+    id, title: name, valuationMode: "engine", vertical, assetName: name,
     assetMeta: { currency: "IDR" }, tags: [], folderId: null,
-    assetType: assetTypeForVertical(vertical), ic: createDefaultICState(0),
+    assetType: assetTypeForVertical(vertical), manualMeta: null, ic: createDefaultICState(0),
     parameters, metrics: computeMetrics(vertical, parameters),
     debate: null, advisory: null, persona: null,
     stance: stance ? { label: stance, basis: "" } : null,
     expertReview: null, sources: [], evidence: [], allowWebSearch: false, chat: [],
-    decision: null, model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
+    decision: null, decisionHistory: [], model: "seed", status: "draft", createdAt: 0, updatedAt: 0,
   };
 }
 
@@ -133,7 +133,7 @@ describe("lintPortfolioGrounding", () => {
         bull: [{ agent: "Allocation Bull", text: "Anchored by BBCA at 11,1x — a discount name.", slot: "allocation" }],
         bear: [{ agent: "Concentration Bear", text: "100% in one name is fragile.", slot: "concentration" }],
       },
-      advisory: null, createdAt: 0, updatedAt: 0,
+      advisory: null, decisionHistory: [], createdAt: 0, updatedAt: 0,
     };
     const r = lintPortfolioGrounding(portfolio, metrics, byId);
     expect(r.clean).toBe(true);

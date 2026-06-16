@@ -34,14 +34,14 @@ export function computePortfolioMetrics(
   // Resolve members to their analyses; drop any whose analysis is gone (deleted holding).
   const resolved = (members ?? [])
     .map((m) => ({ capital: cleanCapital(m.capital), a: byId.get(m.analysisId) }))
-    .filter((x): x is { capital: number; a: Analysis } => !!x.a);
+    .filter((x): x is { capital: number; a: Analysis } => !!x.a && !!x.a.vertical);
 
   const totalCapital = resolved.reduce((s, x) => s + x.capital, 0);
 
   const positions: PortfolioPosition[] = resolved.map((x) => ({
     analysisId: x.a.id,
     name: x.a.assetName || x.a.title,
-    vertical: x.a.vertical,
+    vertical: x.a.vertical!,
     capital: x.capital,
     weight: totalCapital > 0 ? x.capital / totalCapital : 0,
     stance: x.a.stance?.label ?? null,

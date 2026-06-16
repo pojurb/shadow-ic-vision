@@ -8,6 +8,7 @@ import { personaFor } from "@/lib/ai/personas";
 import { normalizeDecisionHistory, deriveStatusFromDecisionHistory } from "@/lib/domain/decisions";
 import { normalizeAnalysisEvidence } from "@/lib/domain/evidence";
 import { assetTypeForVertical, createDefaultICState, normalizeICState } from "@/lib/domain/ic";
+import { emptyManualMeta, normalizeManualMeta } from "@/lib/domain/manualAssets";
 import { backfillLegacyStockFields, normalizePersistedStockFields } from "@/lib/domain/stockFields";
 import {
   bytesToBase64,
@@ -33,6 +34,7 @@ import type {
   AssetParameters,
   AssetType,
   ICState,
+  ValuationMode,
 } from "@/lib/domain/types";
 
 function uid(): string {
@@ -84,11 +86,12 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
 
   // backfill persona identity + engine stance
   const persona: PersonaRef = a.persona ?? (() => {
+    if (!a.vertical) return { id: "manual-asset", label: "Manual Asset" };
     const p = personaFor(a.vertical);
     return { id: p.id, label: p.label };
   })();
   let stance: Stance | null = a.stance ?? null;
-  if (!stance) {
+  if (!stance && a.vertical && a.metrics) {
     const d = personaFor(a.vertical).stance.derive(a.metrics);
     stance = d ? { label: d.label, basis: d.basis } : null;
   }
@@ -104,15 +107,25 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
         : backfillLegacyStockFields(a.parameters)
       : [];
 
+  const valuationMode: ValuationMode = a.valuationMode === "manual" ? "manual" : "engine";
+  const assetType = a.assetType ?? (a.vertical ? assetTypeForVertical(a.vertical) : "other");
+  const vertical = valuationMode === "manual" ? null : a.vertical ?? "stocks";
+  const metrics = valuationMode === "manual" ? null : a.metrics;
+  const manualMeta = normalizeManualMeta(a.manualMeta, assetType);
+
   return {
     ...a,
-    assetType: a.assetType ?? assetTypeForVertical(a.vertical),
+    valuationMode,
+    vertical,
+    assetType,
+    manualMeta,
     stockFields,
     ic,
     advisory,
     debate,
     persona,
     stance,
+    metrics,
     expertReview: a.expertReview ?? null,
     evidence,
     decisionHistory,
@@ -166,10 +179,12 @@ export function createAnalysis(input: {
   return {
     id: uid(),
     title: input.title,
+    valuationMode: "engine",
     vertical: input.vertical,
     assetType: assetTypeForVertical(input.vertical),
     assetName: input.assetName,
     assetMeta: { currency: "IDR" },
+    manualMeta: null,
     stockFields: input.vertical === "stocks" ? [] : undefined,
     tags: [],
     folderId: input.folderId ?? null,
@@ -188,6 +203,47 @@ export function createAnalysis(input: {
     decision: null,
     decisionHistory: [],
     model: input.model,
+    status: "draft",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export function createManualAnalysis(input: {
+  title: string;
+  assetType: Exclude<AssetType, "public_equity">;
+  assetName?: string;
+  folderId?: string | null;
+  model?: string;
+}): Analysis {
+  const now = Date.now();
+  return {
+    id: uid(),
+    title: input.title,
+    valuationMode: "manual",
+    vertical: null,
+    assetType: input.assetType,
+    assetName: input.assetName ?? "",
+    assetMeta: { currency: "IDR" },
+    manualMeta: normalizeManualMeta(emptyManualMeta(), input.assetType),
+    stockFields: [],
+    tags: [],
+    folderId: input.folderId ?? null,
+    ic: createDefaultICState(now),
+    parameters: {},
+    metrics: null,
+    debate: null,
+    advisory: null,
+    persona: null,
+    stance: null,
+    expertReview: null,
+    sources: [],
+    evidence: [],
+    allowWebSearch: false,
+    chat: [],
+    decision: null,
+    decisionHistory: [],
+    model: input.model ?? "manual",
     status: "draft",
     createdAt: now,
     updatedAt: now,

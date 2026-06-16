@@ -140,3 +140,32 @@ describe("normalizeAnalysis evidence compatibility", () => {
     expect(n.evidence[0].sourceRefIds).toEqual(["src1"]);
   });
 });
+
+describe("normalizeAnalysis manual asset compatibility", () => {
+  it("normalizes a manual asset with nullable vertical and metrics", () => {
+    const raw = legacyAnalysis();
+    raw.valuationMode = "manual";
+    raw.vertical = null as unknown as Analysis["vertical"];
+    raw.metrics = null as unknown as Analysis["metrics"];
+    raw.assetType = "real_estate";
+    raw.manualMeta = {
+      valuationAmount: 1_250_000_000,
+      valuationDate: "2026-06-16",
+      valuationSource: "Broker opinion",
+      pricingFreshness: "Quarterly",
+      liquidity: "Illiquid",
+      expectedDuration: "3-5 years",
+      portfolioRole: "Income",
+      sizingIntent: "Small starter",
+      macroDependencies: ["rates"],
+      riskNotes: [{ promptId: "illiquidity_exit", note: "Exit through sale only." }],
+    };
+
+    const n = normalizeAnalysis(raw);
+    expect(n.valuationMode).toBe("manual");
+    expect(n.vertical).toBeNull();
+    expect(n.metrics).toBeNull();
+    expect(n.manualMeta?.valuationAmount).toBe(1_250_000_000);
+    expect(n.manualMeta?.riskNotes.find((note) => note.promptId === "valuation_quality")).toBeTruthy();
+  });
+});

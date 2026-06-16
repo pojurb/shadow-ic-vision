@@ -25,9 +25,9 @@ export function memberFromPreset(id: string, vertical: Vertical, idx = 0): Analy
   const metrics = computeMetrics(vertical, parameters);
   const d = personaFor(vertical).stance.derive(metrics);
   return {
-    id, title: preset.name, vertical, assetName: preset.name,
+    id, title: preset.name, valuationMode: "engine", vertical, assetName: preset.name,
     assetMeta: { currency: "IDR" }, tags: [], folderId: null,
-    assetType: assetTypeForVertical(vertical), ic: createDefaultICState(0),
+    assetType: assetTypeForVertical(vertical), manualMeta: null, ic: createDefaultICState(0),
     parameters, metrics,
     debate: null, advisory: null, persona: null,
     stance: d ? { label: d.label, basis: d.basis } : null,

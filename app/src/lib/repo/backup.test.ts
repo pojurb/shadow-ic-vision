@@ -175,4 +175,32 @@ describe("normalize-on-import", () => {
     expect(out.evidence).toHaveLength(1);
     expect(out.evidence[0].id).toBe("candidate-1");
   });
+
+  it("round-trips manual asset metadata on import", () => {
+    const manual = {
+      ...memberFromPreset("manual-import", "stocks"),
+      valuationMode: "manual" as const,
+      vertical: null,
+      metrics: null,
+      assetType: "macro_view" as const,
+      manualMeta: {
+        valuationAmount: 250_000_000,
+        valuationDate: "2026-06-16",
+        valuationSource: "Manual mark",
+        pricingFreshness: "Monthly",
+        liquidity: "Variable",
+        expectedDuration: "Tactical",
+        portfolioRole: "Hedge",
+        sizingIntent: "Pilot",
+        macroDependencies: ["rates", "fx"],
+        riskNotes: [{ promptId: "macro_rates_fx" as const, note: "Rates and FX dominate." }],
+      },
+    } as Analysis;
+    const json = JSON.stringify({ app: "jp-workspace", version: 1, analyses: [manual] });
+    const out = parseBackup(json).analyses[0];
+    expect(out.valuationMode).toBe("manual");
+    expect(out.vertical).toBeNull();
+    expect(out.metrics).toBeNull();
+    expect(out.manualMeta?.macroDependencies).toEqual(["rates", "fx"]);
+  });
 });

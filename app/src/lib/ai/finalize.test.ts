@@ -6,7 +6,9 @@ import type { DebateOutput } from "./schemas";
 /** Minimal analysis — finalizeDebate only reads vertical + metrics. */
 function stockAnalysis(): Analysis {
   return {
+    valuationMode: "engine",
     vertical: "stocks",
+    manualMeta: null,
     metrics: {
       vertical: "stocks",
       metrics: [

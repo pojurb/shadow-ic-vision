@@ -33,6 +33,7 @@ import {
 } from "./prompts";
 import { buildFileBlocks } from "./content";
 import { personaFor, portfolioPersona } from "./personas";
+import { isEngineAnalysis } from "@/lib/domain/manualAssets";
 import { BLANK_PARAMS, type AssetParameters, type Vertical } from "@/data/presets";
 import { paramKeysFor, FIELDS } from "@/data/fields";
 import type {
@@ -165,6 +166,7 @@ export async function runAnalysis(
  * Pure — the unit-testable core, shared by all three providers.
  */
 export function finalizeDebate(analysis: Analysis, raw: DebateOutput): AnalysisResult {
+  if (!isEngineAnalysis(analysis)) throw new Error("Manual assets do not support AI debate.");
   const persona = personaFor(analysis.vertical);
   const slotIds = new Set(persona.debateSlots.map((s) => s.id));
   const clamp = (l: DebateLine): DebateLine => ({

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BLANK_PARAMS } from "@/data/presets";
 import { computeMetrics } from "@/lib/finance/compute";
 import { computePortfolioMetrics } from "@/lib/finance/portfolio";
-import { createAnalysis, createPortfolio } from "@/lib/repo";
+import { createAnalysis, createManualAnalysis, createPortfolio } from "@/lib/repo";
 import {
   addDecisionReview,
   buildAnalysisDecisionSnapshot,
@@ -166,6 +166,26 @@ describe("decision snapshots", () => {
     expect(snapshot.members).toEqual([{ analysisId: analysis.id, capital: 100 }]);
     expect(snapshot.positions[0].analysisId).toBe(analysis.id);
     expect(snapshot.metrics.totalCapital).toBe(100);
+  });
+
+  it("captures manual meta with nullable engine fields for manual assets", () => {
+    const analysis = createManualAnalysis({
+      title: "Manual asset",
+      assetType: "crypto",
+      assetName: "BTC Treasury",
+    });
+    analysis.manualMeta = {
+      ...analysis.manualMeta!,
+      valuationAmount: 100_000_000,
+      valuationSource: "Treasury note",
+      macroDependencies: ["usd_liquidity"],
+    };
+
+    const snapshot = buildAnalysisDecisionSnapshot(analysis, 999);
+    expect(snapshot.valuationMode).toBe("manual");
+    expect(snapshot.vertical).toBeNull();
+    expect(snapshot.metrics).toBeNull();
+    expect(snapshot.manualMeta?.valuationSource).toBe("Treasury note");
   });
 });
 

@@ -15,6 +15,7 @@
  *  - PURE (no JSX/IO) so the UI and the eval harness share one implementation.
  */
 import type { Analysis, Metric, PortfolioAnalysis, PortfolioMetrics } from "@/lib/domain/types";
+import { isEngineAnalysis } from "@/lib/domain/manualAssets";
 
 export interface GroundingFlag {
   /** The text the token appeared in. */
@@ -155,6 +156,7 @@ function analysisTexts(a: Analysis): string[] {
 }
 
 export function lintAnalysisGrounding(a: Analysis): GroundingResult {
+  if (!isEngineAnalysis(a)) return { clean: true, flagged: [] };
   return lintGrounding({ texts: analysisTexts(a), metrics: a.metrics.metrics });
 }
 
@@ -177,7 +179,7 @@ export function lintPortfolioGrounding(
   for (const pos of metrics.positions) {
     extra.push(Math.round(pos.weight * 100), pos.capital);
     const m = byId.get(pos.analysisId);
-    if (m) allMetrics.push(...m.metrics.metrics);
+    if (m?.metrics) allMetrics.push(...m.metrics.metrics);
   }
   return lintGrounding({ texts, metrics: allMetrics, extra });
 }
@@ -197,7 +199,7 @@ export function portfolioChatExtras(
   for (const pos of metrics.positions) {
     extra.push(Math.round(pos.weight * 100), pos.capital);
     const m = byId.get(pos.analysisId);
-    if (m) allMetrics.push(...m.metrics.metrics);
+    if (m?.metrics) allMetrics.push(...m.metrics.metrics);
   }
   return { metrics: allMetrics, extra };
 }

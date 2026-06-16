@@ -469,7 +469,14 @@ async function fillInput(cdp, selector, value) {
   const expr = `(() => {
     const el = document.querySelector(${JSON.stringify(selector)});
     if (!el) return false;
-    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value") || Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+    const inputDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    const textAreaDesc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+    const desc =
+      el instanceof HTMLTextAreaElement
+        ? textAreaDesc
+        : el instanceof HTMLInputElement
+          ? inputDesc
+          : null;
     if (desc && desc.set) desc.set.call(el, ${JSON.stringify(value)});
     else el.value = ${JSON.stringify(value)};
     el.dispatchEvent(new Event("input", { bubbles: true }));

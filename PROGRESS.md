@@ -11,41 +11,60 @@
 
 ---
 
-## Latest Snapshot - 2026-06-15
+## Latest Snapshot - 2026-06-16
 
-QA harness stabilization is largely complete.
+QA closure is complete and M2 manual-asset implementation is now in repo.
 
-Current verified state:
-- `npm test`, `npm run lint`, and `npm run build` are green
-- isolated browser QA passes exist for:
-  - `m3`: `issues/qa/2026-06-15T08-40-17-658Z/report.json`
-  - `m4`: `issues/qa/2026-06-15T09-26-39-168Z/report.json`
+Commands run this session:
+- in `app/`:
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+- from repo root:
+  - `node scripts/run.js qa m6`
+  - `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
+  - `node scripts/run.js qa`
 
-Remaining QA closure work:
-1. Run isolated M6 browser QA:
-   - `node scripts/run.js qa m6`
-2. Run expected-failure classification:
-   - `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
-3. Run the full canonical sweep:
-   - `node scripts/run.js qa`
+Latest verified QA artifacts:
+- isolated `m6`: `issues/qa/2026-06-16T06-49-18-833Z/report.json`
+- expected-failure `broken-m4`: `issues/qa/2026-06-16T06-50-21-416Z/report.json`
+- first full sweep after harness fix: `issues/qa/2026-06-16T06-51-43-651Z/report.json`
+- latest full regression sweep after M2 changes: `issues/qa/2026-06-16T07-13-13-230Z/report.json`
 
-Before running QA:
-- in `app/`: `npm test`, `npm run lint`, `npm run build`
-- inspect stale `app/.next-qa-*` directories and remove them only if no active
-  QA process still holds them
+QA/tooling notes:
+- `npm run lint` initially failed for a tooling reason because ESLint was
+  traversing stale `app/.next-qa-*` build artifacts. Fixed by ignoring
+  `.next-qa-*/**` in `app/eslint.config.mjs` and removing stale QA build dirs.
+- isolated `m6` initially failed because the canonical browser harness used the
+  `HTMLInputElement` setter for textarea fields. Fixed in
+  `scripts/qa/browser_qa.js`; the rerun passed.
+- Full canonical browser QA now passes for `m3`, `m4`, and `m6`, so M4 can be
+  treated as verified.
 
-Success criteria:
-- isolated `m6` passes
-- `broken-m4` succeeds as an expected `data` failure
-- full `node scripts/run.js qa` passes
-- latest `issues/qa/<run-id>/report.json` paths are recorded here
-- update `BUILD_PLAN.md` only if M4 can move to `Implemented, verified`
+M2 current state:
+- Added the authoritative packet at `docs/milestones/m2_spec.md`.
+- Added manual `valuationMode`, nullable `vertical` / `metrics`, manual
+  metadata and risk prompts, manual thesis editing, and `+ MANUAL ASSET`
+  creation flow.
+- Manual assets are excluded from current portfolio composition pickers and
+  deterministic engine/UI paths.
+- Added normalization, snapshot, and backup tests for manual assets.
+- `npm test` now passes with 20 files / 168 tests.
 
-Canonical detailed runbook:
-- `docs/qa/BROWSER_QA_HARNESS.md`
+Remaining M2 verification gap:
+- Manual browser-path verification is still pending.
+- I attempted to use the local in-app browser tool for that pass, but the
+  browser runtime crashed during setup with a local `node_repl` sandbox error in
+  this environment before any page interaction began.
 
-Next build step after QA closure:
-- `M2 - Manual Private Asset IC Entry`
+Next exact step:
+- Run a live browser pass over the new manual flow once browser control is
+  healthy:
+  - create manual `real_estate`, `macro_view`, `startup`, and
+    `conventional_business` entries from `+ MANUAL ASSET`
+  - fill valuation, macro dependencies, and Risk Officer notes
+  - attach evidence, reload, and confirm persistence
+  - confirm manual assets do not appear in portfolio composition pickers
 
 ## Session Note - 2026-06-15
 

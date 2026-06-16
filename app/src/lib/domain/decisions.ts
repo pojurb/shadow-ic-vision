@@ -67,10 +67,12 @@ export function buildAnalysisDecisionSnapshot(analysis: Analysis, capturedAt = D
   return {
     title: analysis.title,
     assetType: analysis.assetType,
+    valuationMode: analysis.valuationMode,
     vertical: analysis.vertical,
     thesis: clone(analysis.ic.thesis),
     review: clone(analysis.ic.review),
     metrics: clone(analysis.metrics),
+    manualMeta: clone(analysis.manualMeta),
     stance: clone(analysis.stance),
     sources: clone(analysis.sources),
     evidence: clone(analysis.evidence),
