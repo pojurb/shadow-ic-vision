@@ -13,54 +13,65 @@
 
 ## Latest Snapshot - 2026-06-16
 
-M2 implementation is extended and app-level gates remain green, but the browser
-verification blocker has shifted from the in-app browser helper to the local
-Edge/CDP harness.
+M2 remains implemented and verification-pending. The Edge/CDP harness is now
+hardened for startup diagnostics and retained tooling reports, and app-level
+quality gates are green, but isolated `qa m2` still needs one unsandboxed rerun
+to produce a real browser artifact.
 
 Commands run this session:
 - in `app/`:
   - `npm test`
   - `npm run lint`
   - `npm run build`
-- from repo root via the bundled Codex Node runtime:
-  - `node scripts/run.js qa m2` multiple times while fixing harness startup
-  - `node scripts/run.js qa broken-m4 --expect-failure --expect-kind data`
+- from repo root:
+  - `node --check scripts/qa/browser_qa.js`
+  - `node scripts/run.js qa m2`
 
 What changed:
-- Added a first-class `Review cadence` panel to `AnalysisView` for both engine
-  and manual analyses so the M2 browser path can actually set cadence and due
-  date.
-- Added QA selectors for manual-asset creation and editing.
-- Added an `m2` QA fixture/scenario to the canonical browser harness for manual
-  asset creation, persistence, and portfolio-picker exclusion.
-- Updated the harness to build/start Next directly from the local Next binary
-  instead of assuming `npm` is on the child-process PATH.
+- Restored the Edge launch mode in `scripts/qa/browser_qa.js` to
+  `--headless=new`, which is the last known-working mode from `2026-06-15`.
+- Hardened `scripts/qa/browser_qa.js` to retain browser startup diagnostics in
+  the run report:
+  - browser stdout/stderr are now captured
+  - browser exit/close/error events and exit codes are now recorded
+  - chosen Edge path, launch args, debug port, and temp user-data-dir are now
+    included in the report payload
+  - the report is now written after child shutdown so those diagnostics are
+    retained in the artifact
+- Updated `docs/qa/BROWSER_QA_HARNESS.md` with the isolated `qa m2` recovery
+  path and the rule that startup/tooling failures should still retain a
+  `report.json`.
 
 Verification state:
 - `npm test` passed: 20 files / 168 tests.
 - `npm run lint` passed with existing warnings only.
 - `npm run build` passed.
-- Latest fully verified canonical browser artifacts are still:
-  - `issues/qa/2026-06-16T06-49-18-833Z/report.json` (`m6`)
-  - `issues/qa/2026-06-16T06-50-21-416Z/report.json` (`broken-m4`)
-  - `issues/qa/2026-06-16T07-13-13-230Z/report.json` (full `m3`/`m4`/`m6`)
+- Retained browser QA evidence currently present in-repo under `issues/qa/`
+  is 9 `report.json` files from `2026-06-15`; the latest retained artifact is
+  `issues/qa/2026-06-15T09-26-39-168Z/report.json`.
+- A sandboxed `node scripts/run.js qa m2` attempt created
+  `issues/qa/2026-06-16T14-43-30-300Z/` but failed before a retained
+  `report.json` could be written because `next build --webpack` inside the
+  harness hit `spawn EPERM`. Treat that directory as empty residue, not QA
+  evidence.
 
 Current tooling blocker:
 - The in-app browser helper still fails locally because `node_repl` crashes
   during setup before any page interaction.
-- The fallback Edge/CDP harness now gets past the old `npm` PATH failure, but
-  `qa m2` still cannot complete in this shell because Edge never exposes a
-  stable DevTools endpoint on the requested debug port. The latest failed
-  attempt was `issues/qa/2026-06-16T08-04-08-742Z/` and failed as tooling
-  before any scenario step ran.
+- The hardened Edge/CDP harness has not yet been exercised end-to-end because
+  this Codex shell blocks the harness's child-process startup with sandbox
+  `spawn EPERM` before the browser run begins.
+- Until `node scripts/run.js qa m2` is rerun outside the sandbox, there is
+  still no new retained M2 artifact under `issues/qa/` for `2026-06-16`.
 
 Next exact step:
-- Finish the pending M2 browser pass from a healthy local browser-control path:
-  - either repair local Edge remote-debug startup for `scripts/qa/browser_qa.js`
-  - or run the same new `m2` scenario through another documented browser
-    automation path
-- Once that pass produces a real `report.json`, update milestone status docs and
-  move on to M5.
+- Rerun `node scripts/run.js qa m2` outside the sandbox or in a normal local
+  shell so the hardened harness can complete startup and write a real artifact.
+- If the rerun passes, update `BUILD_PLAN.md` to move M2 from verification
+  pending to verified and point both `BUILD_PLAN.md` and `PROGRESS.md` at the
+  new `issues/qa/<run-id>/report.json`.
+- If the rerun still fails before scenario execution, stop after inspecting the
+  retained tooling report and reassess the harness instead of expanding scope.
 
 ## Session Note - 2026-06-15
 

@@ -13,6 +13,10 @@ Those need explicit classification. The runner now writes a structured report
 with `app`, `data`, or `tooling` as the failure kind, plus the exact failed
 step, console/runtime errors, and screenshot artifact paths.
 
+Startup/tooling failures are expected to retain a `report.json` too. If Edge
+never exposes the DevTools endpoint, the run should still leave a retained
+artifact with browser startup diagnostics instead of failing without evidence.
+
 ## Canonical Command
 
 - `npm run qa`
@@ -47,6 +51,31 @@ The shipped fixtures cover:
 - `m4`: Evidence Locker
 - `m6`: analysis and portfolio decision ledgers
 - `broken-m4`: intentionally broken evidence seed for failure classification
+
+## Isolated M2 Recovery - 2026-06-16
+
+This is the current recovery path for the outstanding M2 verification gap.
+
+### Command
+
+- `node scripts/run.js qa m2`
+
+### Expected outcomes
+
+- pass: `issues/qa/<run-id>/report.json` records the `m2` scenario as passed
+- startup/tooling failure: the same artifact path still exists and records:
+  - `classification: "tooling"`
+  - a failed step such as `browser startup`
+  - chosen Edge path
+  - launch args and debug port
+  - browser stdout/stderr
+  - browser exit/close events and exit codes
+
+### Triage rule
+
+- If `m2` still fails before scenario execution, stop after capturing the new
+  tooling report and reassess the harness.
+- Do not expand this slice into a Playwright migration.
 
 ## Triage Order
 

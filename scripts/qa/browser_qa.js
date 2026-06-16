@@ -128,6 +128,82 @@ function cleanupDir(dir) {
   }
 }
 
+function createProcessTelemetry(name, child, extra = {}) {
+  const telemetry = {
+    name,
+    pid: child?.pid ?? null,
+    startedAt: new Date().toISOString(),
+    exitCode: null,
+    exitSignal: null,
+    closeCode: null,
+    closeSignal: null,
+    stdout: [],
+    stderr: [],
+    events: [],
+    ...extra,
+  };
+  if (!child) return telemetry;
+  child.stdout?.on("data", (chunk) => telemetry.stdout.push(chunk.toString("utf8")));
+  child.stderr?.on("data", (chunk) => telemetry.stderr.push(chunk.toString("utf8")));
+  child.on("exit", (code, signal) => {
+    telemetry.exitCode = code;
+    telemetry.exitSignal = signal;
+    telemetry.events.push({ event: "exit", at: new Date().toISOString(), code, signal });
+  });
+  child.on("close", (code, signal) => {
+    telemetry.closeCode = code;
+    telemetry.closeSignal = signal;
+    telemetry.events.push({ event: "close", at: new Date().toISOString(), code, signal });
+  });
+  child.on("error", (error) => {
+    telemetry.events.push({ event: "error", at: new Date().toISOString(), message: error.message });
+  });
+  return telemetry;
+}
+
+function createHarnessFailureResult({ name, fixture, step, error, startedAt, expectedFailure }) {
+  return {
+    name,
+    fixture,
+    status: "failed",
+    classification: "tooling",
+    failedStep: step,
+    error: error instanceof Error ? error.message : String(error),
+    steps: [],
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    consoleErrors: [],
+    runtimeErrors: [],
+    expectedFailure,
+  };
+}
+
+function buildRunReport({
+  runId,
+  args,
+  appUrl,
+  appPort,
+  debugPort,
+  startedAt,
+  results,
+  serverTelemetry,
+  browserTelemetry,
+}) {
+  return {
+    runId,
+    appUrl,
+    appPort,
+    debugPort,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    requestedFixture: args.fixture,
+    expectFailure: args.expectFailure,
+    results,
+    server: serverTelemetry,
+    browser: browserTelemetry,
+  };
+}
+
 function killProcessTree(pid) {
   if (!pid) return;
   const result = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
@@ -876,7 +952,9 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
+  const startedAt = new Date().toISOString();
   const resultDir = path.join(ISSUES_DIR, runId);
+  const reportPath = path.join(resultDir, "report.json");
   ensureDir(resultDir);
   const distDir = `.next-qa-${runId}`;
   const tsconfigPath = path.join(APP_DIR, "tsconfig.json");
@@ -889,31 +967,74 @@ async function main() {
   const appUrl = `http://127.0.0.1:${appPort}`;
   const edgePath = pickEdgePath();
   const profileBase = createTempDir("jp-qa-profile-");
+  const browserArgs = [
+    "--headless=new",
+    "--disable-gpu",
+    "--remote-debugging-port=" + debugPort,
+    `--user-data-dir=${profileBase}`,
+    "about:blank",
+  ];
   const server = spawn(NODE, [NEXT_BIN, "start", "-p", String(appPort), "-H", "127.0.0.1"], {
     cwd: APP_DIR,
     stdio: "pipe",
     env: { ...process.env, NEXT_DIST_DIR: distDir },
   });
-  const browser = spawn(edgePath, ["--headless", "--disable-gpu", "--remote-debugging-port=" + debugPort, `--user-data-dir=${profileBase}`, "about:blank"], {
-    stdio: "ignore",
+  const browser = spawn(edgePath, browserArgs, {
+    stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
   server.unref();
   browser.unref();
-
-  const serverLogs = [];
-  server.stdout.on("data", (chunk) => serverLogs.push(chunk.toString("utf8")));
-  server.stderr.on("data", (chunk) => serverLogs.push(chunk.toString("utf8")));
+  const serverTelemetry = createProcessTelemetry("next-start", server, {
+    command: NODE,
+    args: [NEXT_BIN, "start", "-p", String(appPort), "-H", "127.0.0.1"],
+  });
+  const browserTelemetry = createProcessTelemetry("edge", browser, {
+    path: edgePath,
+    debugPort,
+    userDataDir: profileBase,
+    args: browserArgs,
+  });
+  const scenarios = args.fixture
+    ? [{ name: args.fixture, fixture: args.fixture, expectKind: args.expectFailure ? args.expectKind : null }]
+    : DEFAULT_SCENARIOS;
+  let results = [];
+  let finalError = null;
+  let summaryMessage = null;
 
   try {
-    await waitForHttp(appUrl, 120_000);
-    await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`, 120_000);
+    try {
+      await waitForHttp(appUrl, 120_000);
+    } catch (error) {
+      results = [
+        createHarnessFailureResult({
+          name: scenarios[0]?.name || "startup",
+          fixture: scenarios[0]?.fixture || null,
+          step: "app startup",
+          error,
+          startedAt,
+          expectedFailure: Boolean(args.expectFailure),
+        }),
+      ];
+      throw error;
+    }
 
-    const scenarios = args.fixture
-      ? [{ name: args.fixture, fixture: args.fixture, expectKind: args.expectFailure ? args.expectKind : null }]
-      : DEFAULT_SCENARIOS;
+    try {
+      await waitForHttp(`http://127.0.0.1:${debugPort}/json/version`, 120_000);
+    } catch (error) {
+      results = [
+        createHarnessFailureResult({
+          name: scenarios[0]?.name || "startup",
+          fixture: scenarios[0]?.fixture || null,
+          step: "browser startup",
+          error,
+          startedAt,
+          expectedFailure: Boolean(args.expectFailure),
+        }),
+      ];
+      throw error;
+    }
 
-    const results = [];
     for (const scenario of scenarios) {
       const result = await runScenario(scenario, { runId, appPort, debugPort });
       results.push(result);
@@ -922,16 +1043,6 @@ async function main() {
     }
 
     const failed = results.find((item) => item.status === "failed");
-    const report = {
-      runId,
-      appUrl,
-      appPort,
-      debugPort,
-      startedAt: new Date().toISOString(),
-      results,
-      serverLogs,
-    };
-    writeJson(path.join(resultDir, "report.json"), report);
 
     if (args.expectFailure) {
       if (!failed) {
@@ -940,7 +1051,7 @@ async function main() {
       if (failed.classification !== args.expectKind) {
         throw new Error(`Broken fixture failed as ${failed.classification}, expected ${args.expectKind}.`);
       }
-      console.log(`QA expected failure recorded as ${failed.classification} at ${failed.failedStep}.`);
+      summaryMessage = `QA expected failure recorded as ${failed.classification} at ${failed.failedStep}.`;
       return;
     }
 
@@ -948,10 +1059,38 @@ async function main() {
       throw new Error(`QA failed in ${failed.name} at ${failed.failedStep}: ${failed.error}`);
     }
 
-    console.log(`QA passed for ${results.length} scenario(s). Report: ${path.join(resultDir, "report.json")}`);
+    summaryMessage = `QA passed for ${results.length} scenario(s). Report: ${path.join(resultDir, "report.json")}`;
+  } catch (error) {
+    finalError = error;
+    if (!results.length) {
+      results = [
+        createHarnessFailureResult({
+          name: scenarios[0]?.name || "startup",
+          fixture: scenarios[0]?.fixture || null,
+          step: "harness",
+          error,
+          startedAt,
+          expectedFailure: Boolean(args.expectFailure),
+        }),
+      ];
+    }
   } finally {
     await terminateChild(server);
     await terminateChild(browser);
+    writeJson(
+      reportPath,
+      buildRunReport({
+        runId,
+        args,
+        appUrl,
+        appPort,
+        debugPort,
+        startedAt,
+        results,
+        serverTelemetry,
+        browserTelemetry,
+      }),
+    );
     try {
       fs.writeFileSync(tsconfigPath, tsconfigSnapshot, "utf8");
     } catch {
@@ -960,6 +1099,9 @@ async function main() {
     cleanupDir(path.join(APP_DIR, distDir));
     cleanupDir(profileBase);
   }
+
+  if (finalError) throw finalError;
+  if (summaryMessage) console.log(summaryMessage);
 }
 
 main().catch((error) => {
