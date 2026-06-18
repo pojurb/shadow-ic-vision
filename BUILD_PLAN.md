@@ -25,11 +25,14 @@ Current milestone status:
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | Added `docs/milestones/m5_spec.md`, the pure agenda derivation layer, Agenda home/default landing view, sidebar Agenda entry, canonical `m5` QA fixture, and a workspace create-flow race fix needed for the full sweep. `npm test`, `npm run lint`, and `npm run build` passed, and the canonical browser QA sweep `node scripts/run.js qa` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T08-58-14-514Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
 
-Recommended next build order:
+Post-roadmap state:
 
-1. Reassess remaining roadmap and documentation debt now that M1-M6 are implemented and verified.
-2. Keep using the fallback Edge/CDP QA harness for product work.
-3. Defer the local in-app browser-control repair until after the build roadmap is settled.
+- M1-M6 are implemented and verified.
+- There is no active M7 and no pending P9c item in the active roadmap.
+- The local in-app browser-control repair is deferred tooling work, not the next
+  build milestone.
+- Keep using the fallback Edge/CDP QA harness for product verification until
+  browser-control repair is explicitly reprioritized.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 

@@ -30,7 +30,8 @@ The first target user is the serious self-directed investor with a watchlist of 
 - BYOK provider settings stored locally in the browser.
 - File and link context: PDF, image, URL fetch, and web research.
 - Grounded follow-up chat after an analysis is generated.
-- Decision logging with approve/hold/reject rationale.
+- Append-only Decision Ledger with IC action history, review triggers, and
+  outcome reviews.
 - Portfolio composition and cross-asset analysis.
 
 ## Strategic Direction
@@ -121,7 +122,7 @@ This is needed for `/api/web-search` and deployed web-research fallback behavior
 ## Key Docs
 
 - [PRODUCT_STRATEGY.md](PRODUCT_STRATEGY.md): current product strategy, decisions, and roadmap direction.
-- [BUILD_PLAN.md](BUILD_PLAN.md): current milestone tracker and next build order.
+- [BUILD_PLAN.md](BUILD_PLAN.md): current milestone tracker and post-roadmap state.
 - [PROGRESS.md](PROGRESS.md): implementation log and latest saved status.
 - [DATA_MODEL.md](DATA_MODEL.md): domain model, storage, and data flow.
 - [app/CODE_ANATOMY.md](app/CODE_ANATOMY.md): app architecture and code map.

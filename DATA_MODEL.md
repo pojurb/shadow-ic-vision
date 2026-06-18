@@ -65,10 +65,10 @@ interface ICState {
 Current scope:
 
 - Thesis memory is first-class on `Analysis`.
-- Evidence is currently stored as thesis `evidenceCandidates`, not yet as a
-  first-class Evidence Locker table.
-- Review cadence exists, but there is no IC Agenda or assumption-monitoring
-  engine yet.
+- Evidence Locker records are first-class on `Analysis`, with legacy thesis
+  `evidenceCandidates` normalized for compatibility.
+- Review cadence feeds the implemented IC Agenda and assumption-monitoring
+  read model.
 
 ## Analysis
 
@@ -284,11 +284,8 @@ does not modify prompts, code, or persisted user data.
 
 ## Current Gaps
 
-- Manual private/alternative asset metadata is not yet modeled in full.
-- Evidence Locker has candidates but no first-class evidence table.
-- Stock figure provenance is not yet stored at field level.
 - Eval/self-improvement is fixture-based only; there is no in-app feedback inbox
   or persisted user-facing improvement queue.
-- IC Agenda and assumption monitoring are not implemented.
-- Decision Ledger / review loop is still legacy and is the recommended next
-  implementation milestone.
+- The in-app browser helper repair is deferred; product QA currently uses the
+  fallback Edge/CDP harness.
+- No M7 or next build milestone is currently active.
