@@ -24,9 +24,6 @@ export default function Library({
   onOpenPortfolio,
   onDelete,
   onDeletePortfolio,
-  onNew,
-  onNewManual,
-  onNewPortfolio,
 }: {
   analyses: Analysis[];
   portfolios: PortfolioAnalysis[];
@@ -38,9 +35,6 @@ export default function Library({
   onOpenPortfolio: (id: string) => void;
   onDelete: (id: string) => void;
   onDeletePortfolio: (id: string) => void;
-  onNew: () => void;
-  onNewManual: () => void;
-  onNewPortfolio: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -61,13 +55,9 @@ export default function Library({
 
   return (
     <aside className="library-sidebar" data-qa="library">
-      <div className="panel-header warning-stripes">
+      <div className="panel-header library-header">
         <span className="panel-title">LIBRARY</span>
-        <div className="library-new-actions">
-          <button className="new-btn" data-qa="library-new-analysis" onClick={onNew}>+ NEW</button>
-          <button className="new-btn" data-qa="library-new-manual" onClick={onNewManual}>+ MANUAL</button>
-          <button className="new-btn" data-qa="library-new-portfolio" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
-        </div>
+        <span className="library-header-note">browse saved work</span>
       </div>
 
       <div className="library-section">
@@ -115,7 +105,7 @@ export default function Library({
 
       <div className="library-list scrollable">
         {filtered.length === 0 ? (
-          <div className="library-empty">No analyses yet. Hit + NEW to start.</div>
+          <div className="library-empty">No analyses yet. Start from Agenda to create a new analysis, manual asset, or portfolio.</div>
         ) : (
           filtered.map((a) => <AnalysisLibraryItem key={a.id} analysis={a} active={a.id === activeId} onOpen={onOpen} onDelete={onDelete} />)
         )}

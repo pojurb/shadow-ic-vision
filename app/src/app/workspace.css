@@ -19,6 +19,24 @@
   border-right: 1px solid var(--tp-line, #2a2e37);
 }
 
+.library-header {
+  justify-content: space-between;
+  gap: 12px;
+  background: #171a20;
+}
+
+.library-header .panel-title {
+  color: #f8fafc;
+}
+
+.library-header-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7687;
+}
+
 .new-btn {
   background: var(--yellow-caution);
   color: #000;

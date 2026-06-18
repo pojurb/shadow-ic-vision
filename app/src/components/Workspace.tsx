@@ -269,9 +269,6 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         onOpenPortfolio={openPortfolio}
         onDelete={remove}
         onDeletePortfolio={removePortfolio}
-        onNew={newIntake}
-        onNewManual={() => setShowNew(true)}
-        onNewPortfolio={newPortfolio}
       />
 
       <main className="workspace-main">

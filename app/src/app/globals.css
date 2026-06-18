@@ -1545,7 +1545,6 @@ body.industrial-theme {
 .tp-report-list b { color: #fff; }
 
 /* ===================== library: portfolios section ===================== */
-.library-new-actions { display: flex; gap: 6px; }
 .library-section { border-bottom: 1px solid var(--tp-line, #2a2e37); padding: 8px 0 10px; }
 .library-section-h { font-size: var(--tp-fs-label, 11.5px); font-weight: 700; letter-spacing: 1px; color: #8b94a3; padding: 8px 14px 4px; }
 .library-vtag--pf { background: rgba(34, 211, 238, 0.16) !important; color: #22d3ee !important; }
