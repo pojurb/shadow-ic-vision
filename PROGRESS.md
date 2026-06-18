@@ -38,11 +38,9 @@ Latest full verification snapshot:
   - `app/src/components/charts.tsx` unused `CYAN_STROKE`
   - `app/src/lib/ai/providers/gemini.ts` unused `_drop` and `_enum`
 - `npm run build` passed.
-- `node scripts/run.js qa m1` passed via fallback Edge/CDP with retained
-  evidence at `issues/qa/2026-06-18T04-12-06-241Z/report.json`.
-- Full canonical `node scripts/run.js qa` passed via fallback Edge/CDP across
-  `m1`, `m2`, `m3`, `m4`, `m5`, and `m6`, with latest retained evidence at
-  `issues/qa/2026-06-18T04-15-23-825Z/report.json`.
+- Full canonical browser QA passed via fallback Edge/CDP across `m1`, `m2`,
+  `m3`, `m4`, `m5`, and `m6`, with latest retained evidence at
+  `issues/qa/2026-06-18T07-07-18-098Z/report.json`.
 
 Current tooling note:
 
