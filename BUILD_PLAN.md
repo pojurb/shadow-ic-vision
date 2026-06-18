@@ -5,34 +5,35 @@ Source of truth: `PRODUCT_STRATEGY.md`.
 This plan turns the current single-asset cockpit into the broader AI Investment
 Committee product while preserving the local-first Next.js/Dexie architecture.
 
-## Latest Status - 2026-06-16
+## Latest Status - 2026-06-18
 
 The app has moved beyond the original single-asset cockpit. It now supports
 thesis intake, IC thesis memory, grounded debate, portfolio composition,
-cross-asset chat, export/import, verified stock-intake field provenance, and an
-analysis-scoped Evidence Locker. Browser QA now has a canonical dedicated
-harness instead of relying on ad hoc browser state.
+cross-asset chat, export/import, verified stock-intake field provenance, an
+analysis-scoped Evidence Locker, a verified IC Agenda home, and a verified M1
+IC memory/review-state foundation. Browser QA uses the canonical fallback
+Edge/CDP harness while the in-app browser helper remains deferred.
 
 Current milestone status:
 
 | Milestone | Status | Notes |
 |---|---|---|
-| M1 - IC Primitives + Frictionless Thesis Intake | Mostly implemented | IC state, thesis memory, review defaults, intake extraction, user confirmation, and inspector display exist. |
-| M2 - Manual Private Asset IC Entry | Implemented, verification pending | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, portfolio-picker exclusion, and a new review-cadence editor. `npm test`, `npm run lint`, and `npm run build` passed. A canonical `m2` browser scenario now exists, but manual browser-path verification is still pending because the in-app browser helper crashes locally and the fallback Edge/CDP harness still fails to expose a stable DevTools endpoint in this environment. |
+| M1 - IC Primitives + Frictionless Thesis Intake | Implemented, verified | Added `docs/milestones/m1_spec.md`, review-state status visibility, tested recurring/manual review behavior, hardened malformed legacy IC normalization, and added canonical `m1` browser QA. `npm test`, `npm run lint`, `npm run build`, isolated `node scripts/run.js qa m1`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-18 with retained evidence at `issues/qa/2026-06-18T04-15-23-825Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper is intentionally deferred. |
+| M2 - Manual Private Asset IC Entry | Implemented, verified | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, portfolio-picker exclusion, and a new review-cadence editor. `npm test`, `npm run lint`, and `npm run build` passed, and isolated browser QA for `node scripts/run.js qa m2` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T05-02-10-481Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
 | M3 - Stock Intake Trust + Field Provenance | Implemented, verified | Stock provenance types, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, `npm test`, `npm run build`, and isolated browser QA are complete. |
 | M4 - Evidence Locker Primitives | Implemented, verified | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, `npm run build`, isolated `m6`, expected-failure `broken-m4`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-16. |
-| M5 - Watchlist IC Agenda + Assumption Monitoring | Not implemented | Review cadence is stored, but there is no agenda ranking or monitoring engine. |
+| M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | Added `docs/milestones/m5_spec.md`, the pure agenda derivation layer, Agenda home/default landing view, sidebar Agenda entry, canonical `m5` QA fixture, and a workspace create-flow race fix needed for the full sweep. `npm test`, `npm run lint`, and `npm run build` passed, and the canonical browser QA sweep `node scripts/run.js qa` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T08-58-14-514Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
 
 Recommended next build order:
 
-1. Repair the local browser-control path enough to run the new canonical `m2` QA scenario end to end.
-2. Close any UX or browser issues found in that M2 manual-flow verification.
-3. Build M5 IC Agenda and assumption monitoring once M2/M3/M4 inputs are trustworthy enough.
+1. Reassess remaining roadmap and documentation debt now that M1-M6 are implemented and verified.
+2. Keep using the fallback Edge/CDP QA harness for product work.
+3. Defer the local in-app browser-control repair until after the build roadmap is settled.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 
-Status: mostly implemented.
+Status: implemented, verified.
 
 Goal: make every analysis carry asset-agnostic investment committee memory.
 
@@ -47,22 +48,18 @@ Implemented:
 - Saved thesis memory is surfaced in the analysis inspector.
 - Legacy analyses normalize into the new IC shape.
 
-Remaining:
-
-- Polish review-state editing and visibility.
-- Continue hardening old-record normalization as new IC fields are added.
-
 Exit criteria:
 
-- Public equities, startups, and conventional businesses share the same IC
+- Met: public equities, startups, and conventional businesses share the same IC
   memory shape.
-- Legacy saved analyses normalize into the new shape.
-- Intake can produce a confirmed thesis record even when valuation figures are
+- Met: legacy saved analyses normalize into the new shape, including malformed
+  legacy IC fields.
+- Met: intake can produce a confirmed thesis record even when valuation figures are
   incomplete.
 
 ## Milestone 2 - Manual Private Asset IC Entry
 
-Status: implemented, verification pending.
+Status: implemented, verified.
 
 Goal: support non-public/manual assets in the same workflow without pretending
 automated data coverage exists.
@@ -78,8 +75,11 @@ Current state:
   review, grounded chat, and portfolio-composition paths disabled.
 - Added normalization, snapshot, and backup coverage for manual assets.
 - `npm test`, `npm run lint`, and `npm run build` passed on 2026-06-16.
-- Remaining verification gap: a live browser pass over the new manual flow is
-  still pending in this environment.
+- Isolated browser QA `node scripts/run.js qa m2` passed on 2026-06-17 with
+  retained evidence at `issues/qa/2026-06-17T05-02-10-481Z/report.json`.
+- The full canonical browser QA sweep `node scripts/run.js qa` also passed on
+  2026-06-17 with retained evidence at
+  `issues/qa/2026-06-17T08-58-14-514Z/report.json`.
 
 Deliverables:
 
@@ -577,9 +577,29 @@ Exit criteria:
 
 ## Milestone 5 - Watchlist IC Agenda + Assumption Monitoring
 
-Status: not implemented.
+Status: implemented, verified.
 
 Goal: make the dashboard answer what deserves attention.
+
+Current state:
+
+- Added the authoritative packet at `docs/milestones/m5_spec.md`.
+- Added a pure agenda derivation layer with deterministic reason taxonomy,
+  ranking, and filter helpers for analyses and portfolios.
+- Added the Agenda home as the default workspace landing view plus a sidebar
+  Agenda entry.
+- Added automated helper coverage for review due vs stale, contradiction
+  pressure, valuation drift, shared exposure, decision follow-up, ranking, and
+  manual/portfolio compatibility.
+- Fixed a workspace creation-flow race so newly created manual assets and other
+  records become active immediately instead of allowing the previous record to
+  remain interactive during persistence.
+- `npm test`, `npm run lint`, and `npm run build` passed on 2026-06-17.
+- Isolated browser QA `node scripts/run.js qa m5` passed on 2026-06-17 with
+  retained evidence at `issues/qa/2026-06-17T06-26-45-045Z/report.json`.
+- The full canonical browser QA sweep `node scripts/run.js qa` passed on
+  2026-06-17 with retained evidence at
+  `issues/qa/2026-06-17T08-58-14-514Z/report.json`.
 
 Deliverables:
 

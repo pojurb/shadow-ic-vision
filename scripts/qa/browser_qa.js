@@ -18,9 +18,11 @@ const EDGE_CANDIDATES = [
 ].filter(Boolean);
 
 const DEFAULT_SCENARIOS = [
+  { name: "m1", fixture: "m1", expectKind: null },
   { name: "m2", fixture: "m2", expectKind: null },
   { name: "m3", fixture: "m3", expectKind: null },
   { name: "m4", fixture: "m4", expectKind: null },
+  { name: "m5", fixture: "m5", expectKind: null },
   { name: "m6", fixture: "m6", expectKind: null },
 ];
 
@@ -657,7 +659,48 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
   }
 
   try {
-    if (name === "m2") {
+    if (name === "m1") {
+      await step("open m1 thesis memory and review state", "app", async () => {
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-analysis-qa-m1-thesis"]'), 90_000, "library item");
+        await click(page.cdp, '[data-qa="library-analysis-qa-m1-thesis"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="review-panel"]'), 30_000, "review panel");
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        if (!body.includes("Confirmed thesis memory should render")) throw new ScenarioError("thesis summary missing", "app", "m1 thesis memory");
+        if (!body.includes("Margins stay resilient")) throw new ScenarioError("assumption missing", "app", "m1 thesis memory");
+        if (!body.includes("Cost inflation breaks")) throw new ScenarioError("breaker missing", "app", "m1 thesis memory");
+        const status = String(await evaluate(page.cdp, "document.querySelector('[data-qa=\"review-status\"]')?.textContent || ''"));
+        if (!status.includes("Overdue")) throw new ScenarioError(`review status did not show overdue state: ${status}`, "app", "m1 review state");
+      });
+
+      await step("edit event-driven review state and persist after reload", "app", async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        await selectValue(page.cdp, '[data-qa="review-cadence"]', "event_driven");
+        await fillInput(page.cdp, '[data-qa="review-next-due"]', "2026-07-20");
+        await fillInput(page.cdp, '[data-qa="review-last-reviewed"]', "2026-06-10");
+        await click(page.cdp, '[data-qa="review-mark-reviewed"]');
+        await sleep(900);
+        let cadence = await getInputValue(page.cdp, '[data-qa="review-cadence"]');
+        let due = await getInputValue(page.cdp, '[data-qa="review-next-due"]');
+        let reviewed = await getInputValue(page.cdp, '[data-qa="review-last-reviewed"]');
+        if (cadence !== "event_driven") throw new ScenarioError(`Review cadence did not update: ${cadence}`, "app", "m1 review edit");
+        if (due !== "2026-07-20") throw new ScenarioError(`Event-driven due date should stay manual: ${due}`, "app", "m1 review edit");
+        if (reviewed !== today) throw new ScenarioError(`Reviewed date did not update to today: ${reviewed}`, "app", "m1 review edit");
+
+        await page.cdp.send("Page.reload", { ignoreCache: true });
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-analysis-qa-m1-thesis"]'), 60_000, "analysis item after reload");
+        await click(page.cdp, '[data-qa="library-analysis-qa-m1-thesis"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="review-panel"]'), 30_000, "review panel after reload");
+        cadence = await getInputValue(page.cdp, '[data-qa="review-cadence"]');
+        due = await getInputValue(page.cdp, '[data-qa="review-next-due"]');
+        reviewed = await getInputValue(page.cdp, '[data-qa="review-last-reviewed"]');
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        if (cadence !== "event_driven") throw new ScenarioError(`Review cadence did not persist: ${cadence}`, "app", "m1 reload");
+        if (due !== "2026-07-20") throw new ScenarioError(`Review due date did not persist: ${due}`, "app", "m1 reload");
+        if (reviewed !== today) throw new ScenarioError(`Reviewed date did not persist: ${reviewed}`, "app", "m1 reload");
+        if (!body.includes("Event-driven dates stay manual.")) throw new ScenarioError("event-driven helper text missing", "app", "m1 reload");
+        if (!body.includes("Confirmed thesis memory should render")) throw new ScenarioError("thesis summary missing after reload", "app", "m1 reload");
+      });
+    } else if (name === "m2") {
       await step("create and persist real estate manual asset", "app", async () => {
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-new-manual"]'), 90_000, "manual entrypoint");
         await click(page.cdp, '[data-qa="library-new-manual"]');
@@ -809,6 +852,70 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         await click(page.cdp, '[data-qa="library-analysis-qa-m4-evidence"]');
         await waitFor(page.cdp, () => textContains(page.cdp, "QA note evidence"), 30_000, "persisted evidence");
         await waitFor(page.cdp, () => textContains(page.cdp, "Management commentary"), 30_000, "persisted promoted candidate");
+      });
+    } else if (name === "m5") {
+      await step("agenda opens as the default home", "app", async () => {
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-view"]'), 90_000, "agenda home");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-agenda"]'), 30_000, "agenda sidebar entry");
+      });
+
+      await step("agenda ranks overdue work above softer overlap signals", "app", async () => {
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-row-analysis-qa-m5-stale"]'), 30_000, "stale row");
+        const titles = await evaluate(page.cdp, `Array.from(document.querySelectorAll('.agenda-row-title')).map((node) => node.textContent || "")`);
+        if (!Array.isArray(titles) || titles[0] !== "QA M5 Stale Contradiction") {
+          throw new ScenarioError(`Agenda ranking unexpected: ${JSON.stringify(titles)}`, "app", "agenda ranking");
+        }
+        if (titles.includes("QA M5 Quiet Name")) {
+          throw new ScenarioError("quiet name should not surface in the ranked queue", "data", "agenda ranking");
+        }
+      });
+
+      await step("agenda shows plain-language contradiction and drift reasons", "app", async () => {
+        const body = await evaluate(page.cdp, "document.body.innerText");
+        if (!String(body).includes("contradictory evidence item")) {
+          throw new ScenarioError("contradiction reason copy missing", "app", "agenda reasons");
+        }
+        if (!String(body).includes("Valuation stance drifted from UNDERVALUED to FAIR")) {
+          throw new ScenarioError("valuation drift reason copy missing", "app", "agenda reasons");
+        }
+        if (String(body).includes("news alert") || String(body).includes("price alert")) {
+          throw new ScenarioError("generic alert copy leaked into Agenda", "app", "agenda reasons");
+        }
+      });
+
+      await step("contradictory evidence filter narrows the queue", "app", async () => {
+        await click(page.cdp, '[data-qa="agenda-filter-contradictory_evidence"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-row-analysis-qa-m5-stale"]'), 10_000, "contradiction filter row");
+        const rowCount = await evaluate(page.cdp, "document.querySelectorAll('.agenda-row').length");
+        if (rowCount !== 1) throw new ScenarioError(`Contradiction filter returned ${rowCount} rows`, "app", "contradiction filter");
+      });
+
+      await step("agenda row opens the analysis detail view", "app", async () => {
+        await click(page.cdp, '[data-qa="agenda-row-analysis-qa-m5-stale"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="analysis-view"]'), 30_000, "analysis detail");
+        const title = await getInputValue(page.cdp, ".tp-title");
+        if (title !== "QA M5 Stale Contradiction") {
+          throw new ScenarioError(`Agenda row opened the wrong analysis: ${title}`, "app", "analysis open");
+        }
+      });
+
+      await step("sidebar agenda entry returns to the queue", "app", async () => {
+        await click(page.cdp, '[data-qa="library-agenda"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-view"]'), 30_000, "agenda return");
+      });
+
+      await step("due-now filter includes the overdue portfolio follow-up", "app", async () => {
+        await click(page.cdp, '[data-qa="agenda-filter-due_now"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-row-portfolio-qa-m5-portfolio"]'), 10_000, "portfolio due row");
+      });
+
+      await step("agenda portfolio row opens the portfolio detail view", "app", async () => {
+        await click(page.cdp, '[data-qa="agenda-row-portfolio-qa-m5-portfolio"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="portfolio-view"]'), 30_000, "portfolio detail");
+        const title = await getInputValue(page.cdp, ".tp-title");
+        if (title !== "QA M5 Portfolio Follow-Up") {
+          throw new ScenarioError(`Agenda row opened the wrong portfolio: ${title}`, "app", "portfolio open");
+        }
       });
     } else if (name === "m6") {
       await step("open m6 analysis", "app", async () => {

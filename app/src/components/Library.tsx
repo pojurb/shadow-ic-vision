@@ -16,8 +16,10 @@ type StatusFilter = "all" | "draft" | "watching" | "decided" | "archived";
 export default function Library({
   analyses,
   portfolios,
+  activeView,
   activeId,
   activePortfolioId,
+  onOpenAgenda,
   onOpen,
   onOpenPortfolio,
   onDelete,
@@ -28,8 +30,10 @@ export default function Library({
 }: {
   analyses: Analysis[];
   portfolios: PortfolioAnalysis[];
+  activeView: "agenda" | "analysis" | "portfolio";
   activeId: string | null;
   activePortfolioId: string | null;
+  onOpenAgenda: () => void;
   onOpen: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
   onDelete: (id: string) => void;
@@ -64,6 +68,23 @@ export default function Library({
           <button className="new-btn" data-qa="library-new-manual" onClick={onNewManual}>+ MANUAL</button>
           <button className="new-btn" data-qa="library-new-portfolio" onClick={onNewPortfolio} title="Compose a portfolio from existing analyses">+ PORTFOLIO</button>
         </div>
+      </div>
+
+      <div className="library-section">
+        <div className="library-section-h">HOME</div>
+        <button
+          className={`library-item library-home${activeView === "agenda" ? " active" : ""}`}
+          data-qa="library-agenda"
+          onClick={onOpenAgenda}
+        >
+          <div className="library-item-top">
+            <span className="library-vtag">AG</span>
+            <span className="library-item-title">Agenda</span>
+          </div>
+          <div className="library-item-meta">
+            <span className="mini-badge warning">attention queue</span>
+          </div>
+        </button>
       </div>
 
       {portfolios.length > 0 && (

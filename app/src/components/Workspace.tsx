@@ -29,6 +29,7 @@ import { storage, DEFAULT_SETTINGS, type Settings } from "@/lib/storage";
 import { importAll } from "@/lib/repo";
 import { serializeBackup } from "@/lib/repo/backup";
 import Library from "./Library";
+import AgendaView from "./AgendaView";
 import AnalysisView from "./AnalysisView";
 import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
@@ -36,25 +37,26 @@ import { buildQaBackup, type QaFixtureName, qaFixtureNames } from "@/lib/qa/fixt
 
 /** What the main pane is showing — a single analysis, a portfolio, or nothing. */
 type Active =
+  | { type: "agenda" }
   | { type: "analysis"; data: Analysis }
-  | { type: "portfolio"; data: PortfolioAnalysis }
-  | null;
+  | { type: "portfolio"; data: PortfolioAnalysis };
 
-export default function Workspace() {
+export default function Workspace({ initialQaFixtureRequested = false }: { initialQaFixtureRequested?: boolean }) {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [portfolios, setPortfolios] = useState<PortfolioAnalysis[]>([]);
-  const [active, setActive] = useState<Active>(null);
+  const [active, setActive] = useState<Active>({ type: "agenda" });
   const [showNew, setShowNew] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   const [qaBootstrapped, setQaBootstrapped] = useState(false);
-  const [qaFixtureRequested, setQaFixtureRequested] = useState(false);
+  const [qaFixtureRequested, setQaFixtureRequested] = useState(initialQaFixtureRequested);
   const [qaError, setQaError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const portfolioSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeAnalysisId = active?.type === "analysis" ? active.data.id : null;
   const activePortfolioId = active?.type === "portfolio" ? active.data.id : null;
+  const qaLoading = qaFixtureRequested && !qaBootstrapped;
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +121,10 @@ export default function Workspace() {
     if (p) setActive({ type: "portfolio", data: p });
   }
 
+  function openAgenda() {
+    setActive({ type: "agenda" });
+  }
+
   function handleChange(next: Analysis) {
     setActive({ type: "analysis", data: next });
     // optimistic list update
@@ -147,14 +153,14 @@ export default function Workspace() {
 
   async function newPortfolio() {
     const p = createPortfolio("New portfolio");
+    setActive({ type: "portfolio", data: p });
     await savePortfolio(p);
     await refreshPortfolios();
-    setActive({ type: "portfolio", data: p });
   }
 
   async function removePortfolio(id: string) {
     await deletePortfolio(id);
-    if (activePortfolioId === id) setActive(null);
+    if (activePortfolioId === id) setActive({ type: "agenda" });
     await refreshPortfolios();
   }
 
@@ -175,10 +181,10 @@ export default function Workspace() {
       stance: derived ? { label: derived.label, basis: preset.seed.stanceBasis || derived.basis } : null,
       model: "seed",
     });
-    await saveAnalysis(analysis);
-    await refresh();
     setActive({ type: "analysis", data: analysis });
     setShowNew(false);
+    await saveAnalysis(analysis);
+    await refresh();
   }
 
   /**
@@ -198,10 +204,10 @@ export default function Workspace() {
       // No debate, no persona — the composer's intake flow fills these in.
       model: "seed",
     });
-    await saveAnalysis(analysis);
-    await refresh();
     setActive({ type: "analysis", data: analysis });
     setShowNew(false);
+    await saveAnalysis(analysis);
+    await refresh();
   }
 
   async function newBlank(vertical: Vertical) {
@@ -215,10 +221,10 @@ export default function Workspace() {
       // No seed debate — a blank entry starts empty and waits for ⚡ RUN AI.
       model: "seed",
     });
-    await saveAnalysis(analysis);
-    await refresh();
     setActive({ type: "analysis", data: analysis });
     setShowNew(false);
+    await saveAnalysis(analysis);
+    await refresh();
   }
 
   async function newManualAsset(assetType: Exclude<AssetType, "public_equity">) {
@@ -227,15 +233,15 @@ export default function Workspace() {
       assetType,
       model: "manual",
     });
-    await saveAnalysis(analysis);
-    await refresh();
     setActive({ type: "analysis", data: analysis });
     setShowNew(false);
+    await saveAnalysis(analysis);
+    await refresh();
   }
 
   async function remove(id: string) {
     await deleteAnalysis(id);
-    if (activeAnalysisId === id) setActive(null);
+    if (activeAnalysisId === id) setActive({ type: "agenda" });
     await refresh();
   }
 
@@ -246,11 +252,19 @@ export default function Workspace() {
           {qaError}
         </div>
       )}
+      {qaLoading ? (
+        <div className="workspace-qa-loading" data-qa="qa-loading">
+          Loading QA fixture...
+        </div>
+      ) : (
+        <>
       <Library
         analyses={analyses}
         portfolios={portfolios}
+        activeView={active.type}
         activeId={activeAnalysisId}
         activePortfolioId={activePortfolioId}
+        onOpenAgenda={openAgenda}
         onOpen={open}
         onOpenPortfolio={openPortfolio}
         onDelete={remove}
@@ -276,7 +290,17 @@ export default function Workspace() {
           </div>
         </header>
 
-        {active?.type === "analysis" ? (
+        {active.type === "agenda" ? (
+          <AgendaView
+            analyses={analyses}
+            portfolios={portfolios}
+            onOpenAnalysis={open}
+            onOpenPortfolio={openPortfolio}
+            onNewAnalysis={newIntake}
+            onNewManual={() => setShowNew(true)}
+            onNewPortfolio={newPortfolio}
+          />
+        ) : active.type === "analysis" ? (
           <AnalysisView
             analysis={active.data}
             onChange={handleChange}
@@ -285,7 +309,7 @@ export default function Workspace() {
             model={settings.model}
             onNeedSettings={() => setShowSettings(true)}
           />
-        ) : active?.type === "portfolio" ? (
+        ) : active.type === "portfolio" ? (
           <PortfolioView
             portfolio={active.data}
             analyses={analyses}
@@ -324,14 +348,11 @@ export default function Workspace() {
           onClose={() => setShowSettings(false)}
           onImported={async () => {
             await Promise.all([refresh(), refreshPortfolios()]);
-            setActive(null);
+            setActive({ type: "agenda" });
           }}
         />
       )}
-      {!qaBootstrapped && qaFixtureRequested && (
-        <div className="workspace-qa-loading" data-qa="qa-loading">
-          Loading QA fixture...
-        </div>
+        </>
       )}
     </div>
   );

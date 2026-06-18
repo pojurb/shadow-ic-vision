@@ -11,15 +11,17 @@ import { assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
 import { memberFromPreset, mixedPortfolio } from "@/lib/ai/eval/fixtures";
 import type {
   Analysis,
+  DecisionEntry,
   EvidenceItem,
   Folder,
   PortfolioAnalysis,
   ThesisRef,
 } from "@/lib/domain/types";
 
-export type QaFixtureName = "m2" | "m3" | "m4" | "m6" | "broken-m4";
+export type QaFixtureName = "m1" | "m2" | "m3" | "m4" | "m5" | "m6" | "broken-m4";
 
 const QA_NOW = Date.parse("2026-06-15T00:00:00Z");
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function baseAnalysis(id: string, vertical: keyof typeof PRESETS, idx = 0): Analysis {
   const preset = PRESETS[vertical][idx];
@@ -36,6 +38,59 @@ function baseAnalysis(id: string, vertical: keyof typeof PRESETS, idx = 0): Anal
   analysis.createdAt = QA_NOW;
   analysis.updatedAt = QA_NOW;
   return analysis;
+}
+
+function m1Fixture(): ReturnType<typeof buildEnvelope> {
+  const now = Date.now();
+  const analysis = baseAnalysis("qa-m1-thesis", "stocks");
+  analysis.title = "QA M1 Thesis Memory";
+  analysis.assetName = "QA Thesis Asset";
+  analysis.ic.thesis = {
+    summary: "Confirmed thesis memory should render and persist with review state.",
+    assumptions: [{
+      id: "m1-assumption",
+      text: "Margins stay resilient while volume normalizes.",
+      status: "active",
+      createdAt: QA_NOW,
+      updatedAt: QA_NOW,
+    }],
+    thesisBreakers: [{
+      id: "m1-breaker",
+      text: "Cost inflation breaks the margin thesis.",
+      severity: "material",
+      createdAt: QA_NOW,
+    }],
+    watchItems: [{
+      id: "m1-watch",
+      text: "Quarterly gross margin trend",
+      cadence: "weekly",
+      createdAt: QA_NOW,
+    }],
+    valuationAssumptions: [{
+      id: "m1-valuation",
+      text: "Terminal multiple remains near peer median.",
+      source: "user",
+      createdAt: QA_NOW,
+    }],
+    catalysts: [{
+      id: "m1-catalyst",
+      text: "New capacity comes online.",
+      createdAt: QA_NOW,
+    }],
+    openQuestions: [{
+      id: "m1-question",
+      text: "How durable is customer demand?",
+      createdAt: QA_NOW,
+    }],
+    evidenceCandidates: [],
+    conviction: "medium",
+  };
+  analysis.ic.review = {
+    cadence: "weekly",
+    lastReviewedAt: now - 3 * DAY_MS,
+    nextReviewDue: now - DAY_MS,
+  };
+  return buildEnvelope({ analyses: [analysis], portfolios: [], folders: [], blobs: [] });
 }
 
 function stockProvenanceFixture(): Analysis {
@@ -318,6 +373,164 @@ function m6Fixture(): ReturnType<typeof buildEnvelope> {
   });
 }
 
+function m5Fixture(): ReturnType<typeof buildEnvelope> {
+  const stale = baseAnalysis("qa-m5-stale", "stocks");
+  stale.title = "QA M5 Stale Contradiction";
+  stale.assetName = stale.title;
+  stale.ic.review.lastReviewedAt = QA_NOW - 16 * DAY_MS;
+  stale.ic.review.nextReviewDue = QA_NOW - 9 * DAY_MS;
+  stale.ic.thesis.summary = "Deposit costs stay low while management keeps repricing discipline.";
+  stale.ic.thesis.assumptions = [
+    {
+      id: "m5-assumption-deposit",
+      text: "Deposit costs stay low",
+      status: "active",
+      createdAt: QA_NOW - 20 * DAY_MS,
+      updatedAt: QA_NOW - 12 * DAY_MS,
+    },
+  ];
+  stale.ic.thesis.thesisBreakers = [
+    {
+      id: "m5-breaker-funding",
+      text: "Funding costs break the spread thesis",
+      severity: "material",
+      createdAt: QA_NOW - 18 * DAY_MS,
+    },
+  ];
+  stale.ic.thesis.watchItems = [
+    {
+      id: "m5-watch-spread",
+      text: "Track deposit spread pressure",
+      cadence: "weekly",
+      createdAt: QA_NOW - 15 * DAY_MS,
+    },
+  ];
+  stale.ic.thesis.conviction = "high";
+  stale.tags = ["rates", "deposit-beta"];
+  stale.evidence = [
+    {
+      id: "m5-ev-contradiction",
+      title: "Deposit beta warning",
+      type: "article",
+      relation: "contradictory",
+      reliability: "third_party",
+      sourceDate: "2026-06-10",
+      url: "https://example.com/deposit-beta-warning",
+      note: "Deposit pricing is moving against the underwriting.",
+      sourceRefIds: [],
+      thesisRefs: [{ target: "assumption", id: "m5-assumption-deposit" }],
+      createdAt: QA_NOW - 5 * DAY_MS,
+      updatedAt: QA_NOW - 5 * DAY_MS,
+    },
+  ];
+  stale.stance = { label: "UNDERVALUED", basis: "Old underwriting still looks optically cheap." };
+
+  const drift = baseAnalysis("qa-m5-drift", "stocks");
+  drift.title = "QA M5 Valuation Drift";
+  drift.assetName = drift.title;
+  drift.ic.review.lastReviewedAt = QA_NOW - 3 * DAY_MS;
+  drift.ic.review.nextReviewDue = QA_NOW + 4 * DAY_MS;
+  drift.tags = ["rates", "duration"];
+  drift.ic.thesis.assumptions = [
+    {
+      id: "m5-assumption-multiple",
+      text: "Rates normalize and duration rerates",
+      status: "active",
+      createdAt: QA_NOW - 12 * DAY_MS,
+      updatedAt: QA_NOW - 4 * DAY_MS,
+    },
+  ];
+  drift.stance = { label: "FAIR", basis: "Current multiples already reflect the upside." };
+  const driftSnapshotSource = baseAnalysis("qa-m5-drift-snapshot", "stocks");
+  driftSnapshotSource.title = drift.title;
+  driftSnapshotSource.assetName = drift.assetName;
+  driftSnapshotSource.ic = structuredClone(drift.ic);
+  driftSnapshotSource.tags = [...drift.tags];
+  driftSnapshotSource.stance = { label: "UNDERVALUED", basis: "Snapshot before the rerating." };
+  drift.decisionHistory = [
+    createHistoryEntry(
+      "m5-drift-decision",
+      "watch",
+      "Watch while waiting for the rerating.",
+      QA_NOW - 6 * DAY_MS,
+      QA_NOW + 10 * DAY_MS,
+      "Check whether the rerating already played out.",
+      { kind: "analysis", data: buildAnalysisDecisionSnapshot(driftSnapshotSource, QA_NOW - 6 * DAY_MS) },
+    ),
+  ];
+
+  const shared = baseAnalysis("qa-m5-shared", "conventional");
+  shared.title = "QA M5 Shared Exposure";
+  shared.assetName = shared.title;
+  shared.ic.review.lastReviewedAt = QA_NOW - DAY_MS;
+  shared.ic.review.nextReviewDue = QA_NOW + 6 * DAY_MS;
+  shared.tags = ["rates"];
+  shared.ic.thesis.assumptions = [
+    {
+      id: "m5-shared-assumption",
+      text: "Rates and refinancing costs drive the next review.",
+      status: "active",
+      createdAt: QA_NOW - 8 * DAY_MS,
+      updatedAt: QA_NOW - DAY_MS,
+    },
+  ];
+
+  const quiet = baseAnalysis("qa-m5-quiet", "startups");
+  quiet.title = "QA M5 Quiet Name";
+  quiet.assetName = quiet.title;
+  quiet.ic.review.lastReviewedAt = QA_NOW - DAY_MS;
+  quiet.ic.review.nextReviewDue = QA_NOW + 14 * DAY_MS;
+  quiet.tags = [];
+  quiet.ic.thesis.assumptions = [];
+  quiet.evidence = [];
+
+  const analyses = [stale, drift, shared, quiet];
+  const memberById = new Map(analyses.map((analysis) => [analysis.id, analysis] as const));
+  const portfolio: PortfolioAnalysis = {
+    id: "qa-m5-portfolio",
+    title: "QA M5 Portfolio Follow-Up",
+    members: [
+      { analysisId: stale.id, capital: 600_000_000 },
+      { analysisId: drift.id, capital: 250_000_000 },
+      { analysisId: shared.id, capital: 150_000_000 },
+    ],
+    tags: ["rates", "shared_exposure"],
+    folderId: null,
+    chat: [],
+    allowWebSearch: false,
+    persona: null,
+    stance: { label: "CONCENTRATED", basis: "Largest position still dominates capital." },
+    debate: null,
+    advisory: null,
+    decisionHistory: [],
+    createdAt: QA_NOW,
+    updatedAt: QA_NOW,
+  };
+  const portfolioMetrics = computePortfolioMetrics(portfolio.members, memberById);
+  const portfolioSnapshot = {
+    ...portfolio,
+    stance: { label: "BALANCED", basis: "Older snapshot before concentration increased." },
+  };
+  portfolio.decisionHistory = [
+    createHistoryEntry(
+      "m5-portfolio-follow-up",
+      "watch",
+      "Revisit the concentration after the next review window.",
+      QA_NOW - 8 * DAY_MS,
+      QA_NOW - 2 * DAY_MS,
+      "Review portfolio concentration follow-up.",
+      { kind: "portfolio", data: buildPortfolioDecisionSnapshot(portfolioSnapshot, portfolioMetrics, QA_NOW - 8 * DAY_MS) },
+    ),
+  ];
+
+  return buildEnvelope({
+    analyses,
+    portfolios: [portfolio],
+    folders: [] as Folder[],
+    blobs: [],
+  });
+}
+
 function brokenM4Fixture(): ReturnType<typeof buildEnvelope> {
   const analysis = evidenceFixture();
   analysis.title = "QA Broken Evidence";
@@ -342,6 +555,9 @@ function brokenM4Fixture(): ReturnType<typeof buildEnvelope> {
 }
 
 export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvelope> {
+  if (name === "m1") {
+    return m1Fixture();
+  }
   if (name === "m2") {
     return buildEnvelope({ analyses: [], portfolios: [], folders: [], blobs: [] });
   }
@@ -350,6 +566,9 @@ export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvel
   }
   if (name === "m4") {
     return buildEnvelope({ analyses: [evidenceFixture()], portfolios: [], folders: [], blobs: [] });
+  }
+  if (name === "m5") {
+    return m5Fixture();
   }
   if (name === "m6") {
     return m6Fixture();
@@ -361,5 +580,25 @@ export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvel
 }
 
 export function qaFixtureNames(): QaFixtureName[] {
-  return ["m2", "m3", "m4", "m6", "broken-m4"];
+  return ["m1", "m2", "m3", "m4", "m5", "m6", "broken-m4"];
+}
+
+function createHistoryEntry(
+  id: string,
+  action: NonNullable<DecisionEntry["action"]>,
+  rationale: string,
+  decidedAt: number,
+  dueAt: number,
+  note: string,
+  snapshot: DecisionEntry["snapshot"],
+): DecisionEntry {
+  return {
+    id,
+    decidedAt,
+    action,
+    rationale,
+    trigger: { dueAt, note },
+    snapshot,
+    review: null,
+  };
 }

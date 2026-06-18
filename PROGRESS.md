@@ -11,12 +11,79 @@
 
 ---
 
-## Latest Snapshot - 2026-06-16
+## Latest Snapshot - 2026-06-18
 
-M2 remains implemented and verification-pending. The Edge/CDP harness is now
-hardened for startup diagnostics and retained tooling reports, and app-level
-quality gates are green, but isolated `qa m2` still needs one unsandboxed rerun
-to produce a real browser artifact.
+M1 IC Primitives + Frictionless Thesis Intake is now implemented and verified.
+The in-app browser helper repair is intentionally deferred; product QA uses the
+canonical fallback Edge/CDP harness.
+
+Commands run this session:
+- in `app/`:
+  - `npm test -- --run src/lib/domain/ic.test.ts src/lib/repo/normalize.test.ts`
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+- from repo root:
+  - `node scripts/run.js qa m1` -> failed first at
+    `issues/qa/2026-06-18T04-00-33-641Z/report.json` because the M1 fixture
+    used a fixed review due date that was not deterministic enough for the
+    status assertion.
+  - after making the fixture overdue relative to runtime:
+    - `node scripts/run.js qa m1`
+    - `node scripts/run.js qa`
+
+What changed:
+- Added `docs/milestones/m1_spec.md` in the Product Trio packet format.
+- Added review recurrence helpers in `app/src/lib/domain/ic.ts`, including the
+  locked rule that `event_driven` keeps manually set due dates instead of
+  auto-advancing.
+- Hardened IC normalization for malformed legacy thesis/review fields and added
+  focused coverage in `app/src/lib/domain/ic.test.ts` and
+  `app/src/lib/repo/normalize.test.ts`.
+- Updated `app/src/components/AnalysisView.tsx` and
+  `app/src/app/globals.css` so the review card shows a due/upcoming/overdue/no
+  date status chip plus readable last/next review context.
+- Added a canonical `m1` QA fixture and scenario covering thesis memory,
+  review-state visibility, event-driven manual due dates, and reload
+  persistence.
+- Added `m1` to the default canonical browser QA sweep.
+- Updated `BUILD_PLAN.md` and `EXECUTION_PLAN.md` so M1 is marked implemented
+  and verified, and in-app browser repair is no longer the immediate next build
+  step.
+
+Verification state:
+- Focused M1 tests passed: 2 files / 13 tests.
+- `npm test` passed: 22 files / 182 tests.
+- `npm run lint` passed with pre-existing warnings only:
+  - `app/src/app/layout.tsx` custom font warning
+  - `app/src/components/charts.tsx` unused `CYAN_STROKE`
+  - `app/src/lib/ai/providers/gemini.ts` unused `_drop` and `_enum`
+- `npm run build` passed.
+- `node scripts/run.js qa m1` passed outside the sandbox using the fallback
+  Edge/CDP harness with retained evidence at
+  `issues/qa/2026-06-18T04-12-06-241Z/report.json`.
+- The full canonical `node scripts/run.js qa` sweep passed outside the sandbox
+  using the fallback Edge/CDP harness across `m1`, `m2`, `m3`, `m4`, `m5`, and
+  `m6`.
+- Latest retained QA artifact: `issues/qa/2026-06-18T04-15-23-825Z/report.json`.
+
+Current tooling note:
+- The in-app browser helper remains deferred by decision.
+- Browser QA should continue using the fallback Edge/CDP harness for product
+  work until the build roadmap is settled.
+
+Next exact step:
+- Reassess remaining roadmap and documentation debt now that M1-M6 are
+  implemented and verified.
+
+---
+
+## Latest Snapshot - 2026-06-17
+
+M5 IC Agenda and assumption monitoring is now implemented and verified. The
+closeout sequence exposed one real app regression in the manual-asset creation
+flow during the full canonical QA sweep, that race is fixed, and the full sweep
+is now current with `m5` included.
 
 Commands run this session:
 - in `app/`:
@@ -24,54 +91,107 @@ Commands run this session:
   - `npm run lint`
   - `npm run build`
 - from repo root:
-  - `node --check scripts/qa/browser_qa.js`
+  - `node scripts/run.js qa` -> failed first at `issues/qa/2026-06-17T08-55-22-168Z/report.json`
+  - after fixing `app/src/components/Workspace.tsx`:
+    - `npm test`
+    - `npm run lint`
+    - `npm run build`
+  - `node scripts/run.js qa m5`
+  - `node scripts/run.js qa`
+
+What changed:
+- Added `docs/milestones/m5_spec.md` in the Product Trio packet format and
+  aligned M5 packet status in `BUILD_PLAN.md` and `EXECUTION_PLAN.md`.
+- Added `app/src/lib/domain/agenda.ts` with deterministic agenda item, reason,
+  filter, and ranking helpers over analyses and portfolios without adding new
+  persisted schema.
+- Added `app/src/lib/domain/agenda.test.ts` covering review due vs stale,
+  contradiction pressure, valuation drift, shared exposure, decision follow-up,
+  ranking order, manual-asset compatibility, and filter behavior.
+- Added `app/src/components/AgendaView.tsx` and replaced the empty-only home
+  with an Agenda home in `Workspace`, while keeping `+ NEW ANALYSIS`,
+  `+ MANUAL ASSET`, and `+ PORTFOLIO` available from the home surface.
+- Updated `app/src/components/Library.tsx` to expose a first-class sidebar
+  Agenda entry and updated `app/src/app/workspace.css` with the new Agenda
+  layout and interaction styles.
+- Added an `m5` fixture plus an Agenda-specific scenario in the canonical
+  browser QA harness so M5 verification now runs through the same retained
+  report path as the other milestones.
+- Updated `app/src/components/Workspace.tsx` so newly created analyses, manual
+  assets, and portfolios become active immediately instead of leaving the
+  previous record interactive during async save/refresh work.
+
+Verification state:
+- `npm test` passed: 21 files / 177 tests.
+- `npm run lint` passed with pre-existing warnings only:
+  - `app/src/app/layout.tsx` custom font warning
+  - `app/src/components/charts.tsx` unused `CYAN_STROKE`
+  - `app/src/lib/ai/providers/gemini.ts` unused `_drop` and `_enum`
+- `npm run build` passed.
+- First canonical `node scripts/run.js qa` failed in `m2` with
+  `classification: "app"` because the old manual-asset panel stayed active long
+  enough for the macro asset flow to type into the wrong record. Failure
+  artifact: `issues/qa/2026-06-17T08-55-22-168Z/report.json`.
+- `node scripts/run.js qa m5` passed outside the sandbox using the fallback
+  Edge/CDP harness.
+- The rerun of canonical `node scripts/run.js qa` passed outside the sandbox
+  using the fallback Edge/CDP harness across `m2`, `m3`, `m4`, `m5`, and `m6`.
+- Latest retained QA artifact: `issues/qa/2026-06-17T08-58-14-514Z/report.json`.
+
+Current tooling note:
+- The in-app browser helper still fails locally because `node_repl` crashes
+  during setup before any page interaction.
+- Browser QA still needs the fallback Edge/CDP harness in this environment.
+
+Next exact step:
+- Repair the local in-app browser helper / `node_repl` crash so browser QA can
+  use the primary control path again.
+- After that, clean up remaining fallback Edge/CDP QA ergonomics without
+  opening a new milestone.
+
+## Previous Snapshot - 2026-06-17
+
+M2 is now implemented and verified. The isolated fallback browser path passed
+for `qa m2`, and the remaining app change in this session was a QA bootstrap
+fix so fixture-backed runs do not expose interactive UI before fixture import
+completes.
+
+Commands run this session:
+- in `app/`:
+  - `npm test`
+  - `npm run lint`
+  - `npm run build`
+- from repo root:
   - `node scripts/run.js qa m2`
 
 What changed:
-- Restored the Edge launch mode in `scripts/qa/browser_qa.js` to
-  `--headless=new`, which is the last known-working mode from `2026-06-15`.
-- Hardened `scripts/qa/browser_qa.js` to retain browser startup diagnostics in
-  the run report:
-  - browser stdout/stderr are now captured
-  - browser exit/close/error events and exit codes are now recorded
-  - chosen Edge path, launch args, debug port, and temp user-data-dir are now
-    included in the report payload
-  - the report is now written after child shutdown so those diagnostics are
-    retained in the artifact
-- Updated `docs/qa/BROWSER_QA_HARNESS.md` with the isolated `qa m2` recovery
-  path and the rule that startup/tooling failures should still retain a
-  `report.json`.
+- Updated `app/src/components/Workspace.tsx` so QA fixture runs block
+  interactive UI until bootstrap completes.
+- Updated `app/src/app/page.tsx` to pass the initial `qaFixture` signal from
+  the server render into `Workspace`, avoiding a production hydration mismatch
+  while keeping the QA bootstrap gate active from first paint.
+- This removed the race where the M2 browser scenario could create a manual
+  asset while the fixture import was still running, after which the still-active
+  `replace` import would wipe the saved record.
 
 Verification state:
 - `npm test` passed: 20 files / 168 tests.
 - `npm run lint` passed with existing warnings only.
 - `npm run build` passed.
-- Retained browser QA evidence currently present in-repo under `issues/qa/`
-  is 9 `report.json` files from `2026-06-15`; the latest retained artifact is
-  `issues/qa/2026-06-15T09-26-39-168Z/report.json`.
-- A sandboxed `node scripts/run.js qa m2` attempt created
-  `issues/qa/2026-06-16T14-43-30-300Z/` but failed before a retained
-  `report.json` could be written because `next build --webpack` inside the
-  harness hit `spawn EPERM`. Treat that directory as empty residue, not QA
-  evidence.
+- `node scripts/run.js qa m2` passed outside the sandbox.
+- Latest retained QA artifact: `issues/qa/2026-06-17T05-02-10-481Z/report.json`.
 
-Current tooling blocker:
+Current tooling note:
 - The in-app browser helper still fails locally because `node_repl` crashes
   during setup before any page interaction.
-- The hardened Edge/CDP harness has not yet been exercised end-to-end because
-  this Codex shell blocks the harness's child-process startup with sandbox
-  `spawn EPERM` before the browser run begins.
-- Until `node scripts/run.js qa m2` is rerun outside the sandbox, there is
-  still no new retained M2 artifact under `issues/qa/` for `2026-06-16`.
+- Browser QA currently relies on the fallback Edge/CDP harness in this
+  environment, but that fallback is now working for isolated `m2`.
 
 Next exact step:
-- Rerun `node scripts/run.js qa m2` outside the sandbox or in a normal local
-  shell so the hardened harness can complete startup and write a real artifact.
-- If the rerun passes, update `BUILD_PLAN.md` to move M2 from verification
-  pending to verified and point both `BUILD_PLAN.md` and `PROGRESS.md` at the
-  new `issues/qa/<run-id>/report.json`.
-- If the rerun still fails before scenario execution, stop after inspecting the
-  retained tooling report and reassess the harness instead of expanding scope.
+- Start M5 IC Agenda and assumption monitoring from the verified M2/M3/M4/M6
+  base.
+- Keep the in-app browser helper crash as tooling follow-up work, not a blocker
+  to milestone scope.
 
 ## Session Note - 2026-06-15
 

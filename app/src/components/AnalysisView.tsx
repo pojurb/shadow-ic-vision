@@ -34,7 +34,7 @@ import { StocksChart, StartupsChart, ConventionalChart } from "./charts";
 import { BLANK_PARAMS, VERTICAL_SHORT, type Vertical } from "@/data/presets";
 import { FIELDS, fmtVal } from "@/data/fields";
 import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth";
-import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState } from "@/lib/domain/ic";
+import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState, nextReviewDueAfter } from "@/lib/domain/ic";
 import { isEngineAnalysis, manualRiskPromptsForAssetType } from "@/lib/domain/manualAssets";
 import { buildDerivedStockProvenance, buildUserProvidedStockProvenance } from "@/lib/domain/stockFields";
 import {
@@ -90,13 +90,6 @@ function cleanLines(values: string[]): string[] {
   return values.map((v) => v.trim()).filter(Boolean);
 }
 
-function cadenceMs(cadence: ReviewCadence): number | null {
-  if (cadence === "weekly") return 7 * 24 * 60 * 60 * 1000;
-  if (cadence === "monthly") return 30 * 24 * 60 * 60 * 1000;
-  if (cadence === "quarterly") return 90 * 24 * 60 * 60 * 1000;
-  return null;
-}
-
 function toDateInputValue(value: number | null): string {
   if (!value) return "";
   return new Date(value).toISOString().slice(0, 10);
@@ -106,6 +99,23 @@ function fromDateInputValue(value: string): number | null {
   if (!value) return null;
   const parsed = Date.parse(`${value}T00:00:00Z`);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatReviewDate(value: number | null): string {
+  if (!value) return "Not set";
+  return new Date(value).toLocaleDateString("id-ID");
+}
+
+function daysBetween(start: number, end: number): number {
+  return Math.ceil((end - start) / (24 * 60 * 60 * 1000));
+}
+
+function reviewStatus(review: ICState["review"], now = nowMs()): { label: string; tone: "ok" | "warning" | "danger" | "muted" } {
+  if (!review.nextReviewDue) return { label: "No review date", tone: "muted" };
+  const days = daysBetween(now, review.nextReviewDue);
+  if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, tone: "danger" };
+  if (days === 0) return { label: "Due today", tone: "warning" };
+  return { label: `Due in ${days}d`, tone: "ok" };
 }
 
 function clampEvidenceType(value?: string): EvidenceType {
@@ -1237,18 +1247,24 @@ function ReviewCadencePanel({
 
   function markReviewed() {
     const reviewedAt = nowMs();
-    const windowMs = cadenceMs(review.cadence);
     updateReview({
       lastReviewedAt: reviewedAt,
-      nextReviewDue: windowMs ? reviewedAt + windowMs : review.nextReviewDue,
+      nextReviewDue: nextReviewDueAfter(review, reviewedAt),
     });
   }
+
+  const status = reviewStatus(review);
 
   return (
     <div className="tp-card tp-card--wide" data-qa="review-panel">
       <div className="tp-card-h">
         Review cadence
-        <span className="tp-card-hint">agenda input</span>
+        <span className={`review-status is-${status.tone}`} data-qa="review-status">{status.label}</span>
+      </div>
+      <div className="review-summary" data-qa="review-summary">
+        <span>Last reviewed: {formatReviewDate(review.lastReviewedAt)}</span>
+        <span>Next review: {formatReviewDate(review.nextReviewDue)}</span>
+        {review.cadence === "event_driven" && <span>Event-driven dates stay manual.</span>}
       </div>
       <div className="tp-meta-grid">
         <label className="tp-thesis-field">

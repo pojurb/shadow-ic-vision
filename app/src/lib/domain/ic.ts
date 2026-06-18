@@ -2,12 +2,15 @@ import type {
   AssetType,
   ConvictionLabel,
   ICState,
+  ReviewState,
   ReviewCadence,
   ThesisMemory,
   Vertical,
 } from "@/lib/domain/types";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+const QUARTER_MS = 90 * 24 * 60 * 60 * 1000;
 
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   public_equity: "Public Equity",
@@ -35,7 +38,11 @@ export function assetTypeTag(assetType: AssetType): string {
   return "OT";
 }
 
-function asArray<T>(value: T[] | undefined): T[] {
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value : [];
 }
 
@@ -72,12 +79,25 @@ export function createDefaultICState(now = Date.now()): ICState {
   };
 }
 
+export function reviewCadenceMs(cadence: ReviewCadence): number | null {
+  if (cadence === "weekly") return WEEK_MS;
+  if (cadence === "monthly") return MONTH_MS;
+  if (cadence === "quarterly") return QUARTER_MS;
+  return null;
+}
+
+export function nextReviewDueAfter(review: ReviewState, reviewedAt: number): number | null {
+  const windowMs = reviewCadenceMs(review.cadence);
+  return windowMs ? reviewedAt + windowMs : review.nextReviewDue;
+}
+
 export function normalizeICState(raw: ICState | undefined, now = Date.now()): ICState {
   const base = createDefaultICState(now);
   if (!raw) return base;
 
-  const thesis = raw.thesis ?? base.thesis;
-  const review = raw.review ?? base.review;
+  const rawRecord = asRecord(raw);
+  const thesis = asRecord(rawRecord.thesis ?? base.thesis);
+  const review = asRecord(rawRecord.review ?? base.review);
 
   return {
     thesis: {

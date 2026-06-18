@@ -46,9 +46,11 @@ That command:
 
 The shipped fixtures cover:
 
+- `m1`: thesis memory and review-state visibility/persistence
 - `m2`: manual asset entry and portfolio-picker exclusion
 - `m3`: stock field provenance
 - `m4`: Evidence Locker
+- `m5`: Agenda home, ranking, filters, and portfolio follow-up routing
 - `m6`: analysis and portfolio decision ledgers
 - `broken-m4`: intentionally broken evidence seed for failure classification
 
@@ -152,7 +154,7 @@ Run from the repo root unless noted otherwise.
    - Evidence: new `issues/qa/<run-id>/report.json`
 3. Full canonical sweep
    - Command: `node scripts/run.js qa`
-   - Expected result: pass for `m3`, `m4`, and `m6`
+   - Expected result: pass for `m1`, `m2`, `m3`, `m4`, `m5`, and `m6`
    - Evidence: new `issues/qa/<run-id>/report.json`
 
 ### Triage Rules

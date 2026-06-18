@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./index";
 import type { Analysis } from "@/lib/domain/types";
 
-/** An analysis persisted in the OLD shape (pre-persona migration). */
+/** An analysis persisted in the old shape before persona migration. */
 function legacyAnalysis(): Analysis {
   return {
     vertical: "stocks",
@@ -22,7 +22,7 @@ function legacyAnalysis(): Analysis {
   } as unknown as Analysis;
 }
 
-describe("normalizeAnalysis — back-compat on read", () => {
+describe("normalizeAnalysis back-compat on read", () => {
   it("converts the old advisory object to a lens array", () => {
     const n = normalizeAnalysis(legacyAnalysis());
     expect(Array.isArray(n.advisory)).toBe(true);
@@ -31,7 +31,7 @@ describe("normalizeAnalysis — back-compat on read", () => {
   });
 
   it("buckets numeric confidence into a discrete thesisSupport", () => {
-    expect(normalizeAnalysis(legacyAnalysis()).debate?.thesisSupport).toBe("STRONG"); // 85
+    expect(normalizeAnalysis(legacyAnalysis()).debate?.thesisSupport).toBe("STRONG");
   });
 
   it("backfills persona identity and the engine stance", () => {
@@ -51,7 +51,43 @@ describe("normalizeAnalysis — back-compat on read", () => {
     expect(n.evidence).toEqual([]);
   });
 
-  it("is idempotent — re-normalizing a current-shape record is a no-op", () => {
+  it("normalizes malformed legacy IC fields into the current shape", () => {
+    const raw = legacyAnalysis();
+    raw.assetType = undefined as unknown as Analysis["assetType"];
+    raw.ic = {
+      thesis: {
+        summary: "Legacy thesis",
+        assumptions: "not an array",
+        thesisBreakers: [{ id: "breaker", text: "Funding breaks", severity: "material", createdAt: 1 }],
+        watchItems: undefined,
+        valuationAssumptions: null,
+        catalysts: [{ id: "cat", text: "Catalyst", createdAt: 1 }],
+        openQuestions: "none",
+        evidenceCandidates: [{ id: "candidate", title: "Candidate", createdAt: 1 }],
+        conviction: "certain",
+      },
+      review: {
+        cadence: "daily",
+        lastReviewedAt: "2026-06-01",
+        nextReviewDue: "2026-06-15",
+      },
+    } as unknown as Analysis["ic"];
+
+    const n = normalizeAnalysis(raw);
+    expect(n.assetType).toBe("public_equity");
+    expect(n.ic.thesis.summary).toBe("Legacy thesis");
+    expect(n.ic.thesis.assumptions).toEqual([]);
+    expect(n.ic.thesis.thesisBreakers).toHaveLength(1);
+    expect(n.ic.thesis.catalysts).toHaveLength(1);
+    expect(n.ic.thesis.openQuestions).toEqual([]);
+    expect(n.ic.thesis.evidenceCandidates).toHaveLength(1);
+    expect(n.ic.thesis.conviction).toBeNull();
+    expect(n.ic.review.cadence).toBe("weekly");
+    expect(n.ic.review.lastReviewedAt).toBeNull();
+    expect(typeof n.ic.review.nextReviewDue).toBe("number");
+  });
+
+  it("keeps normalization idempotent for current-shape records", () => {
     const once = normalizeAnalysis(legacyAnalysis());
     const twice = normalizeAnalysis(once);
     expect(twice.advisory).toEqual(once.advisory);

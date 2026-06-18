@@ -1356,6 +1356,12 @@ body.industrial-theme {
 .tp-mini-btn { margin-left: auto; background: transparent; border: 1px solid var(--tp-line); color: var(--tp-acc); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .tp-mini-btn:disabled { opacity: 0.5; cursor: default; color: var(--tp-muted); }
 .tp-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.review-status { margin-left: auto; border-radius: 999px; padding: 3px 9px; font-family: var(--tp-mono); font-size: var(--tp-fs-label); font-weight: 700; text-transform: uppercase; }
+.review-status.is-ok { color: var(--tp-bull); background: rgba(52, 211, 153, 0.12); }
+.review-status.is-warning { color: var(--tp-amber); background: rgba(240, 168, 41, 0.14); }
+.review-status.is-danger { color: var(--tp-bear); background: rgba(251, 113, 133, 0.14); }
+.review-status.is-muted { color: var(--tp-muted); background: rgba(148, 163, 184, 0.12); }
+.review-summary { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: -4px 0 12px; color: var(--tp-muted); font-size: var(--tp-fs-meta); line-height: 1.4; }
 
 /* let reused industrial inner elements flow inside auto-height cards */
 .tp-card .parameter-form { overflow: visible; flex: none; padding-right: 0; }
