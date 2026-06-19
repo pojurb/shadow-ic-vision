@@ -606,6 +606,13 @@ export default function AnalysisView({
 
   const metrics = analysis.metrics!.metrics;
   const advisory = analysis.advisory ?? [];
+  const caseStage = analysis.decisionHistory.length > 0
+    ? "DECISION LOGGED"
+    : intakeMode
+      ? pendingIntake
+        ? "NEEDS VERIFICATION"
+        : "DRAFT THESIS"
+      : "FIGURES LOCKED";
   // Deterministic grounding guard (P8): flag any number in the model's prose that
   // doesn't trace to the engine. Non-blocking — surfaced as a chip / message marker.
   const grounding = groundingResult;
@@ -620,15 +627,15 @@ export default function AnalysisView({
           {analysis.persona && (
             <span className="persona-badge" title="Domain expert that produced this analysis">{analysis.persona.label}</span>
           )}
-          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Intake — describe a deal to extract & confirm figures" : "Figures locked through the deterministic engine"}>
-            ● {intakeMode ? "INTAKE" : "FIGURES LOCKED"}
+          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Case building - paste thesis notes or evidence for verification" : "Figures locked through the deterministic engine"}>
+            ● {caseStage}
           </span>
           <span className={`sim-badge${isLive ? " live" : ""}`} title={isLive ? `Live AI (${analysis.model})` : "Seed content — run AI for a grounded debate"}>
             {isLive ? "LIVE" : "SEED"}
           </span>
         </div>
         <div className="tp-topbar-actions">
-          <button className="tp-run-btn" onClick={runAI} disabled={running}>
+          <button className="tp-run-btn" onClick={runAI} disabled={running || intakeMode} title={intakeMode ? "Verify thesis and facts before committee review" : "Run the committee debate"}>
             {running ? (runPhase === "research" ? "RESEARCHING…" : "DEBATING…") : "⚡ RUN AI"}
           </button>
           <button className="tp-ghost" onClick={() => setInspectorOpen((v) => !v)}>
@@ -644,11 +651,10 @@ export default function AnalysisView({
           <div className="tp-stream scrollable">
             {analysis.chat.length === 0 && !pendingUser && !pendingIntake && !intakeBusy && (
               <div className="tp-stream-empty">
-                <div className="tp-stream-empty-h">Start with {analysis.persona?.label ?? "the analyst"}</div>
-                Paste or describe a deal — I&apos;ll detect the type, pull the figures, and confirm before
-                locking. Once the figures lock, the persona debate runs and a written read posts here; then
-                you can follow up — e.g. &quot;stress-test the discount rate&quot;, &quot;why is the bear wrong?&quot;.
-                Numbers stay locked to the deterministic engine.
+                <div className="tp-stream-empty-h">Build the case file</div>
+                Paste thesis notes, filings, links, or evidence for this concrete asset. The analyst will extract
+                thesis memory and candidate figures for verification. Broad screening belongs in Idea triage; this
+                surface changes the case only after you verify the extracted facts.
               </div>
             )}
             {analysis.chat.map((m) => (
@@ -748,7 +754,7 @@ export default function AnalysisView({
               <textarea
                 className="tp-input"
                 rows={2}
-                placeholder={intakeMode ? "Paste or describe a deal to analyze…" : "Ask a grounded follow-up…"}
+                placeholder={intakeMode ? "Paste thesis notes or evidence for this case…" : "Ask a grounded follow-up…"}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -760,7 +766,7 @@ export default function AnalysisView({
                 disabled={chatBusy || intakeBusy || running}
               />
               <button type="submit" className="tp-send" disabled={chatBusy || intakeBusy || running}>
-                {intakeMode ? (intakeBusy ? "…" : "Analyze ↵") : chatBusy ? "…" : "Send ↵"}
+                {intakeMode ? (intakeBusy ? "…" : "Extract ↵") : chatBusy ? "…" : "Send ↵"}
               </button>
             </form>
           </div>
@@ -1871,7 +1877,7 @@ function ConfirmCard({
 
   return (
     <div className="tp-confirm">
-      <div className="tp-confirm-h">Confirm before locking</div>
+      <div className="tp-confirm-h">Verify thesis and facts</div>
       <div className="tp-confirm-vrow">
         <span className="tp-confirm-vlbl">Type</span>
         <span className="tp-confirm-vchip">{VERTICAL_SHORT[vertical]}</span>

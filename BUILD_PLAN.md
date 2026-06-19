@@ -10,9 +10,10 @@ Committee product while preserving the local-first Next.js/Dexie architecture.
 The app has moved beyond the original single-asset cockpit. It now supports
 thesis intake, IC thesis memory, grounded debate, portfolio composition,
 cross-asset chat, export/import, verified stock-intake field provenance, an
-analysis-scoped Evidence Locker, a verified IC Agenda home, and a verified M1
-IC memory/review-state foundation. Browser QA uses the canonical fallback
-Edge/CDP harness while the in-app browser helper remains deferred.
+analysis-scoped Evidence Locker, a verified IC Agenda home, a verified M1 IC
+memory/review-state foundation, and a verified M7 IC Chair triage intent gate.
+Browser QA uses the canonical fallback Edge/CDP harness while the
+in-app browser helper remains deferred.
 
 Current milestone status:
 
@@ -24,15 +25,47 @@ Current milestone status:
 | M4 - Evidence Locker Primitives | Implemented, verified | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, `npm run build`, isolated `m6`, expected-failure `broken-m4`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-16. |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | Added `docs/milestones/m5_spec.md`, the pure agenda derivation layer, Agenda home/default landing view, sidebar Agenda entry, canonical `m5` QA fixture, and a workspace create-flow race fix needed for the full sweep. `npm test`, `npm run lint`, and `npm run build` passed, and the canonical browser QA sweep `node scripts/run.js qa` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T08-58-14-514Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
+| M7 - IC Chair Triage + Intake Intent Gate | Implemented, verified | Added `docs/milestones/m7_spec.md`, a non-persistent Idea Triage surface, deterministic triage helper/tests, explicit `Start case` / `Add to watchlist` transitions, Agenda `Investigate idea` primary action, case-stage labels, and verification-first case-file copy. `npm test`, `npm run lint`, `npm run build`, and isolated browser QA `node scripts/run.js qa m7` passed on 2026-06-18 with retained evidence at `issues/qa/2026-06-18T13-53-23-771Z/report.json`. Browser QA also refreshed the fallback harness selectors after creation actions moved from the Library rail into Agenda / Idea Triage. |
 
 Post-roadmap state:
 
 - M1-M6 are implemented and verified.
-- There is no active M7 and no pending P9c item in the active roadmap.
+- M7 is implemented and verified.
+- There is no pending P9c item in the active roadmap.
 - The local in-app browser-control repair is deferred tooling work, not the next
   build milestone.
 - Keep using the fallback Edge/CDP QA harness for product verification until
   browser-control repair is explicitly reprioritized.
+
+## Milestone 7 - IC Chair Triage + Intake Intent Gate
+
+Status: implemented, verified.
+
+Goal: prevent broad advisory questions and casual text from being treated as
+state-changing intake while preserving the Family Office / IC workflow.
+
+Current state:
+
+- Added the authoritative packet at `docs/milestones/m7_spec.md`.
+- Added a non-persistent Idea Triage surface launched from Agenda through
+  `Investigate idea`.
+- Added deterministic triage behavior for casual prompts, broad Indonesian
+  equity screens, and direct ticker prompts.
+- Added explicit `Start case` and `Add to watchlist` transitions; saved records
+  are created only after those user actions.
+- Reframed case files with `DRAFT THESIS`, `NEEDS VERIFICATION`,
+  `FIGURES LOCKED`, and `DECISION LOGGED` stages.
+- Reworded the stock intake confirmation card to `Verify thesis and facts` and
+  disabled committee review while a case is still in draft/verification mode.
+- `npm test`, `npm run lint`, `npm run build`, and isolated browser QA
+  `node scripts/run.js qa m7` passed on 2026-06-18 with retained evidence at
+  `issues/qa/2026-06-18T13-53-23-771Z/report.json`.
+
+Completed verification additions:
+
+- Added browser QA coverage for the M7 triage path.
+- Updated stale browser-harness selectors that previously expected creation
+  actions in the Library rail.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 

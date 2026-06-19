@@ -24,6 +24,7 @@ const DEFAULT_SCENARIOS = [
   { name: "m4", fixture: "m4", expectKind: null },
   { name: "m5", fixture: "m5", expectKind: null },
   { name: "m6", fixture: "m6", expectKind: null },
+  { name: "m7", fixture: "m7", expectKind: null },
 ];
 
 class ScenarioError extends Error {
@@ -702,8 +703,8 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
       });
     } else if (name === "m2") {
       await step("create and persist real estate manual asset", "app", async () => {
-        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-new-manual"]'), 90_000, "manual entrypoint");
-        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-new-manual"]'), 90_000, "manual entrypoint");
+        await click(page.cdp, '[data-qa="agenda-new-manual"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-real_estate"]'), 30_000, "manual dialog");
         await click(page.cdp, '[data-qa="manual-template-real_estate"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "manual asset panel");
@@ -746,7 +747,9 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
       });
 
       await step("create macro, startup, and conventional manual assets", "app", async () => {
-        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await click(page.cdp, '[data-qa="library-agenda"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-new-manual"]'), 30_000, "agenda manual action");
+        await click(page.cdp, '[data-qa="agenda-new-manual"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-macro_view"]'), 30_000, "macro dialog");
         await click(page.cdp, '[data-qa="manual-template-macro_view"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "macro manual panel");
@@ -755,7 +758,9 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         await fillInput(page.cdp, '[data-qa="manual-risk-note-macro_rates_fx"]', "Higher-for-longer rates pressure duration assets.");
         await sleep(700);
 
-        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await click(page.cdp, '[data-qa="library-agenda"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-new-manual"]'), 30_000, "agenda manual action");
+        await click(page.cdp, '[data-qa="agenda-new-manual"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-startup"]'), 30_000, "startup dialog");
         await click(page.cdp, '[data-qa="manual-template-startup"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "startup manual panel");
@@ -764,7 +769,9 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         await fillInput(page.cdp, '[data-qa="manual-risk-note-startup_dilution_funding"]', "Next round likely comes at flat terms.");
         await sleep(700);
 
-        await click(page.cdp, '[data-qa="library-new-manual"]');
+        await click(page.cdp, '[data-qa="library-agenda"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-new-manual"]'), 30_000, "agenda manual action");
+        await click(page.cdp, '[data-qa="agenda-new-manual"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-template-conventional_business"]'), 30_000, "conventional dialog");
         await click(page.cdp, '[data-qa="manual-template-conventional_business"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-asset-panel"]'), 30_000, "conventional manual panel");
@@ -776,7 +783,9 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
       });
 
       await step("manual assets excluded from portfolio composition picker", "app", async () => {
-        await click(page.cdp, '[data-qa="library-new-portfolio"]');
+        await click(page.cdp, '[data-qa="library-agenda"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-new-portfolio"]'), 30_000, "agenda portfolio action");
+        await click(page.cdp, '[data-qa="agenda-new-portfolio"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="portfolio-view"]'), 30_000, "portfolio view");
         const optionText = await evaluate(page.cdp, `(() => {
           const select = document.querySelector('.tp-add-holding select');
@@ -989,6 +998,65 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         await fillInput(page.cdp, '[data-qa="portfolio-decision-ledger"] textarea[placeholder="What actually happened?"]', "Portfolio review captured in QA.");
         await click(page.cdp, '[data-qa="portfolio-decision-ledger"] [data-qa="decision-review-save"]');
         await waitFor(page.cdp, () => textContains(page.cdp, "REVIEWED"), 30_000, "portfolio review saved");
+      });
+    } else if (name === "m7") {
+      await step("agenda exposes investigate idea and triage entry", "app", async () => {
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-view"]'), 90_000, "agenda home");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="agenda-investigate-idea"]'), 30_000, "investigate idea action");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="library-triage"]'), 30_000, "triage sidebar entry");
+      });
+
+      await step("investigate idea opens triage without creating a library record", "app", async () => {
+        const beforeCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        await click(page.cdp, '[data-qa="agenda-investigate-idea"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="idea-triage-view"]'), 30_000, "idea triage");
+        const afterCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        if (beforeCount !== 0 || afterCount !== 0) {
+          throw new ScenarioError(`Triage should not create Library records: before=${beforeCount} after=${afterCount}`, "app", "triage entry");
+        }
+      });
+
+      await step("casual text returns no candidates and no saved record", "app", async () => {
+        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "hi there");
+        await click(page.cdp, '[data-qa="triage-run"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-result"]'), 30_000, "triage result");
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        const libraryCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        if (!body.includes("No case file opened")) throw new ScenarioError("casual triage response missing non-persistent message", "app", "casual triage");
+        if (await exists(page.cdp, '[data-qa="triage-candidates"]')) throw new ScenarioError("casual triage should not render candidates", "app", "casual triage");
+        if (libraryCount !== 0) throw new ScenarioError(`casual triage created ${libraryCount} library records`, "app", "casual triage");
+      });
+
+      await step("Indonesian stock screen returns candidates without persistence", "app", async () => {
+        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "any Indonesian stocks worth digging into?");
+        await click(page.cdp, '[data-qa="triage-run"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-candidate-idx-bbca"]'), 30_000, "bbca candidate");
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        const libraryCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        if (!body.includes("not buy/sell recommendations")) throw new ScenarioError("triage framing copy missing", "app", "broad triage");
+        if (libraryCount !== 0) throw new ScenarioError(`broad triage created ${libraryCount} library records`, "app", "broad triage");
+      });
+
+      await step("add to watchlist creates a saved draft", "app", async () => {
+        await click(page.cdp, '[data-qa="triage-watch-idx-bbca"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa^="library-analysis-"]'), 30_000, "saved watchlist draft");
+        const titles = await evaluate(page.cdp, `Array.from(document.querySelectorAll('[data-qa^="library-analysis-"] .library-item-title')).map((node) => node.textContent || "")`);
+        if (!Array.isArray(titles) || !titles.includes("BBCA thesis case")) {
+          throw new ScenarioError(`watchlist draft missing from Library: ${JSON.stringify(titles)}`, "app", "watchlist save");
+        }
+      });
+
+      await step("direct asset prompt starts a case explicitly", "app", async () => {
+        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "analyze TLKM");
+        await click(page.cdp, '[data-qa="triage-run"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-candidate-direct-tlkm"]'), 30_000, "direct asset candidate");
+        await click(page.cdp, '[data-qa="triage-start-direct-tlkm"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="analysis-view"]'), 30_000, "case file view");
+        const title = await getInputValue(page.cdp, ".tp-title");
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        if (title !== "TLKM thesis case") throw new ScenarioError(`unexpected case title: ${title}`, "app", "start case");
+        if (!body.includes("DRAFT THESIS")) throw new ScenarioError("draft thesis stage label missing", "app", "start case");
+        if (!body.includes("Build the case file")) throw new ScenarioError("case file draft copy missing", "app", "start case");
       });
     } else if (name === "broken-m4") {
       await step("open broken evidence fixture", "app", async () => {

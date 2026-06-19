@@ -30,14 +30,17 @@ import { importAll } from "@/lib/repo";
 import { serializeBackup } from "@/lib/repo/backup";
 import Library from "./Library";
 import AgendaView from "./AgendaView";
+import IdeaTriageView from "./IdeaTriageView";
 import AnalysisView from "./AnalysisView";
 import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
 import { buildQaBackup, type QaFixtureName, qaFixtureNames } from "@/lib/qa/fixtures";
+import type { TriageCandidate } from "@/lib/domain/triage";
 
 /** What the main pane is showing — a single analysis, a portfolio, or nothing. */
 type Active =
   | { type: "agenda" }
+  | { type: "triage" }
   | { type: "analysis"; data: Analysis }
   | { type: "portfolio"; data: PortfolioAnalysis };
 
@@ -125,6 +128,10 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     setActive({ type: "agenda" });
   }
 
+  function openTriage() {
+    setActive({ type: "triage" });
+  }
+
   function handleChange(next: Analysis) {
     setActive({ type: "analysis", data: next });
     // optimistic list update
@@ -210,6 +217,54 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     await refresh();
   }
 
+  function buildCaseFromTriage(candidate: TriageCandidate, prompt: string): Analysis {
+    if (candidate.assetType === "public_equity") {
+      const vertical: Vertical = "stocks";
+      const parameters = { ...BLANK_PARAMS[vertical] };
+      const now = Date.now();
+      const analysis = createAnalysis({
+        title: candidate.assetName ? `${candidate.assetName} thesis case` : candidate.title,
+        vertical,
+        assetName: candidate.assetName,
+        parameters,
+        metrics: computeMetrics(vertical, parameters),
+        model: "seed",
+      });
+      analysis.tags = ["triage"];
+      analysis.ic.thesis.openQuestions = [
+        {
+          id: crypto.randomUUID(),
+          text: `Triage prompt: ${prompt.trim() || candidate.thesisAngle}`,
+          createdAt: now,
+        },
+      ];
+      return analysis;
+    }
+
+    const analysis = createManualAnalysis({
+      title: candidate.assetName || candidate.title,
+      assetName: candidate.assetName,
+      assetType: candidate.assetType as Exclude<AssetType, "public_equity">,
+      model: "manual",
+    });
+    analysis.tags = ["triage"];
+    analysis.ic.thesis.summary = candidate.thesisAngle;
+    return analysis;
+  }
+
+  async function startCaseFromTriage(candidate: TriageCandidate, prompt: string) {
+    const analysis = buildCaseFromTriage(candidate, prompt);
+    setActive({ type: "analysis", data: analysis });
+    await saveAnalysis(analysis);
+    await refresh();
+  }
+
+  async function addWatchlistFromTriage(candidate: TriageCandidate, prompt: string) {
+    const analysis = buildCaseFromTriage(candidate, prompt);
+    await saveAnalysis(analysis);
+    await refresh();
+  }
+
   async function newBlank(vertical: Vertical) {
     const parameters = { ...BLANK_PARAMS[vertical] };
     const analysis = createAnalysis({
@@ -265,6 +320,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         activeId={activeAnalysisId}
         activePortfolioId={activePortfolioId}
         onOpenAgenda={openAgenda}
+        onOpenTriage={openTriage}
         onOpen={open}
         onOpenPortfolio={openPortfolio}
         onDelete={remove}
@@ -293,9 +349,15 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             portfolios={portfolios}
             onOpenAnalysis={open}
             onOpenPortfolio={openPortfolio}
-            onNewAnalysis={newIntake}
+            onInvestigateIdea={openTriage}
             onNewManual={() => setShowNew(true)}
             onNewPortfolio={newPortfolio}
+          />
+        ) : active.type === "triage" ? (
+          <IdeaTriageView
+            onStartCase={startCaseFromTriage}
+            onAddToWatchlist={addWatchlistFromTriage}
+            onBackAgenda={openAgenda}
           />
         ) : active.type === "analysis" ? (
           <AnalysisView

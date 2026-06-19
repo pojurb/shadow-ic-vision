@@ -20,6 +20,7 @@ export default function Library({
   activeId,
   activePortfolioId,
   onOpenAgenda,
+  onOpenTriage,
   onOpen,
   onOpenPortfolio,
   onDelete,
@@ -27,10 +28,11 @@ export default function Library({
 }: {
   analyses: Analysis[];
   portfolios: PortfolioAnalysis[];
-  activeView: "agenda" | "analysis" | "portfolio";
+  activeView: "agenda" | "triage" | "analysis" | "portfolio";
   activeId: string | null;
   activePortfolioId: string | null;
   onOpenAgenda: () => void;
+  onOpenTriage: () => void;
   onOpen: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
   onDelete: (id: string) => void;
@@ -75,6 +77,19 @@ export default function Library({
             <span className="mini-badge warning">attention queue</span>
           </div>
         </button>
+        <button
+          className={`library-item library-home${activeView === "triage" ? " active" : ""}`}
+          data-qa="library-triage"
+          onClick={onOpenTriage}
+        >
+          <div className="library-item-top">
+            <span className="library-vtag">IC</span>
+            <span className="library-item-title">Idea triage</span>
+          </div>
+          <div className="library-item-meta">
+            <span className="mini-badge warning">screen first</span>
+          </div>
+        </button>
       </div>
 
       {portfolios.length > 0 && (
@@ -105,7 +120,7 @@ export default function Library({
 
       <div className="library-list scrollable">
         {filtered.length === 0 ? (
-          <div className="library-empty">No analyses yet. Start from Agenda to create a new analysis, manual asset, or portfolio.</div>
+          <div className="library-empty">No analyses yet. Use Idea triage first, then start a case when the idea deserves a file.</div>
         ) : (
           filtered.map((a) => <AnalysisLibraryItem key={a.id} analysis={a} active={a.id === activeId} onOpen={onOpen} onDelete={onDelete} />)
         )}

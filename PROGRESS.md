@@ -14,10 +14,10 @@ history, chat, portfolio composition, and decision review.
 
 ## Active Handoff - 2026-06-18
 
-M1-M6 are implemented and verified. There is no active build milestone, no M7,
-and no pending P9c item in the active roadmap. The in-app browser helper repair
-is deferred; product QA should continue to use the canonical fallback Edge/CDP
-harness until that tooling work is explicitly reprioritized.
+M1-M7 are implemented and verified. There is no pending P9c item in the active
+roadmap. The in-app browser helper repair is deferred; product QA should continue to use the
+canonical fallback Edge/CDP harness until that tooling work is explicitly
+reprioritized.
 
 Verified milestone state:
 
@@ -29,18 +29,22 @@ Verified milestone state:
 | M4 - Evidence Locker Primitives | Implemented, verified | Full canonical QA sweep passed on 2026-06-16 |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | `issues/qa/2026-06-17T08-58-14-514Z/report.json` |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Browser QA, unit tests, lint, and build passed |
+| M7 - IC Chair Triage + Intake Intent Gate | Implemented, verified | `npm test`, `npm run lint`, `npm run build`, and `node scripts/run.js qa m7` passed on 2026-06-18; evidence at `issues/qa/2026-06-18T13-53-23-771Z/report.json` |
 
 Latest full verification snapshot:
 
-- `npm test` passed on 2026-06-18: 22 files / 182 tests.
+- `npm test` passed on 2026-06-18: 23 files / 185 tests.
 - `npm run lint` passed with pre-existing warnings only:
   - `app/src/app/layout.tsx` custom font warning
   - `app/src/components/charts.tsx` unused `CYAN_STROKE`
   - `app/src/lib/ai/providers/gemini.ts` unused `_drop` and `_enum`
 - `npm run build` passed.
-- Full canonical browser QA passed via fallback Edge/CDP across `m1`, `m2`,
-  `m3`, `m4`, `m5`, and `m6`, with latest retained evidence at
-  `issues/qa/2026-06-18T07-07-18-098Z/report.json`.
+- Latest full canonical browser QA evidence remains
+  `issues/qa/2026-06-18T07-07-18-098Z/report.json` for M1-M6.
+- Isolated M7 browser QA passed:
+  `issues/qa/2026-06-18T13-53-23-771Z/report.json`.
+- The fallback browser harness now includes the M7 triage scenario and updated
+  Agenda / Idea Triage creation selectors.
 
 Current tooling note:
 
@@ -50,7 +54,8 @@ Current tooling note:
 
 Next exact step:
 
-- No active build milestone; choose the next product/business priority.
+- Keep using the retained M7 browser artifact when validating triage regressions:
+  `issues/qa/2026-06-18T13-53-23-771Z/report.json`.
 
 ---
 
@@ -66,9 +71,9 @@ single-asset cockpit into the current IC system:
   the eval harness.
 - P9a-P9c completed backup/restore, UI readability/density improvements, and
   deployment handoff/cutover documentation.
-- M1-M6 then verified the current product roadmap: IC thesis memory, manual
-  private assets, stock provenance, Evidence Locker, IC Agenda, and Decision
-  Ledger/review loop.
+- M1-M7 then implemented the current product roadmap: IC thesis memory, manual
+  private assets, stock provenance, Evidence Locker, IC Agenda, Decision
+  Ledger/review loop, and IC Chair triage before case files.
 
 Durable implementation details live in `BUILD_PLAN.md`, `DATA_MODEL.md`,
 `EXECUTION_PLAN.md`, milestone packets under `docs/milestones/`, and retained QA

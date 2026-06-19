@@ -28,7 +28,7 @@ export default function AgendaView({
   portfolios,
   onOpenAnalysis,
   onOpenPortfolio,
-  onNewAnalysis,
+  onInvestigateIdea,
   onNewManual,
   onNewPortfolio,
 }: {
@@ -36,7 +36,7 @@ export default function AgendaView({
   portfolios: PortfolioAnalysis[];
   onOpenAnalysis: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
-  onNewAnalysis: () => void;
+  onInvestigateIdea: () => void;
   onNewManual: () => void;
   onNewPortfolio: () => void;
 }) {
@@ -78,14 +78,14 @@ export default function AgendaView({
         </section>
 
         <section className="agenda-actions">
-          <button className="commit-btn" data-qa="agenda-new-analysis" onClick={onNewAnalysis}>
-            + NEW ANALYSIS
+          <button className="commit-btn" data-qa="agenda-investigate-idea" onClick={onInvestigateIdea}>
+            Investigate idea
           </button>
           <button className="ghost-btn" data-qa="agenda-new-manual" onClick={onNewManual}>
-            + MANUAL ASSET
+            Manual asset
           </button>
           <button className="ghost-btn" data-qa="agenda-new-portfolio" onClick={onNewPortfolio}>
-            + PORTFOLIO
+            Portfolio
           </button>
         </section>
 
@@ -106,7 +106,7 @@ export default function AgendaView({
           {visibleItems.length === 0 ? (
             <div className="agenda-empty">
               <h3>No immediate agenda items</h3>
-              <p>The queue is clear for this filter. You can still start a fresh analysis, add a manual asset, or compose a portfolio.</p>
+              <p>The queue is clear for this filter. Use triage to investigate an idea, or add a manual asset or portfolio when the case is already concrete.</p>
             </div>
           ) : (
             visibleItems.map((item, index) => (

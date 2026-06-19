@@ -18,7 +18,7 @@ import type {
   ThesisRef,
 } from "@/lib/domain/types";
 
-export type QaFixtureName = "m1" | "m2" | "m3" | "m4" | "m5" | "m6" | "broken-m4";
+export type QaFixtureName = "m1" | "m2" | "m3" | "m4" | "m5" | "m6" | "m7" | "broken-m4";
 
 const QA_NOW = Date.parse("2026-06-15T00:00:00Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -573,6 +573,9 @@ export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvel
   if (name === "m6") {
     return m6Fixture();
   }
+  if (name === "m7") {
+    return buildEnvelope({ analyses: [], portfolios: [], folders: [], blobs: [] });
+  }
   if (name === "broken-m4") {
     return brokenM4Fixture();
   }
@@ -580,7 +583,7 @@ export function buildQaBackup(name: QaFixtureName): ReturnType<typeof buildEnvel
 }
 
 export function qaFixtureNames(): QaFixtureName[] {
-  return ["m1", "m2", "m3", "m4", "m5", "m6", "broken-m4"];
+  return ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "broken-m4"];
 }
 
 function createHistoryEntry(
