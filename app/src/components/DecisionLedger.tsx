@@ -86,12 +86,12 @@ export default function DecisionLedger({
   return (
     <div className="decision-ledger" data-qa={dataQa ?? "decision-ledger"}>
       {history.length === 0 ? (
-        <div className="tp-muted-note">No decisions logged yet. {subjectLabel} is still in draft mode.</div>
+        <div className="tp-muted-note">No decisions logged yet. {subjectLabel} is still in review mode.</div>
       ) : null}
 
       <form className="decision-form" onSubmit={commit}>
         <div className="form-row">
-          <label htmlFor="decision-action">IC action</label>
+          <label htmlFor="decision-action">Decision</label>
           <select id="decision-action" value={action} onChange={(e) => setAction(e.target.value as ICAction)}>
             {ACTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -102,11 +102,11 @@ export default function DecisionLedger({
         </div>
 
         <div className="form-row">
-          <label htmlFor="decision-rationale">Rationale</label>
+          <label htmlFor="decision-rationale">Why this decision makes sense</label>
           <textarea
             id="decision-rationale"
             rows={2}
-            placeholder="Why this is the right committee action now..."
+            placeholder="Why is this the right move right now?"
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
           />
@@ -115,7 +115,7 @@ export default function DecisionLedger({
 
         {action === "add_increase_position" && (
           <div className="form-row">
-            <label htmlFor="decision-premortem">Pre-mortem</label>
+            <label htmlFor="decision-premortem">What could make this go wrong</label>
             <textarea
               id="decision-premortem"
               rows={2}
@@ -130,7 +130,7 @@ export default function DecisionLedger({
         {action !== "archive" && (
           <>
             <div className="form-row">
-              <label htmlFor="decision-trigger-date">Review trigger date</label>
+              <label htmlFor="decision-trigger-date">Next review date</label>
               <input
                 id="decision-trigger-date"
                 type="date"
@@ -140,11 +140,11 @@ export default function DecisionLedger({
               {errors.triggerDueAt && <div className="field-error">{errors.triggerDueAt}</div>}
             </div>
             <div className="form-row">
-              <label htmlFor="decision-trigger-note">Trigger note</label>
+              <label htmlFor="decision-trigger-note">What should make you revisit this?</label>
               <textarea
                 id="decision-trigger-note"
                 rows={2}
-                placeholder="What event or condition should force review?"
+                placeholder="What event or condition should make you review this?"
                 value={triggerNote}
                 onChange={(e) => setTriggerNote(e.target.value)}
               />
@@ -153,7 +153,7 @@ export default function DecisionLedger({
           </>
         )}
 
-        <button type="submit" className="commit-btn" data-qa="decision-commit">COMMIT DECISION</button>
+        <button type="submit" className="commit-btn" data-qa="decision-commit">SAVE DECISION</button>
       </form>
 
       {newestFirst.length > 0 && (
@@ -200,13 +200,13 @@ function DecisionHistoryEntry({
         <span className="decision-date">{new Date(entry.decidedAt).toLocaleDateString("id-ID")}</span>
       </div>
       <div className="decision-rationale">{entry.rationale}</div>
-      {entry.preMortem && <div className="decision-detail">Pre-mortem: {entry.preMortem}</div>}
+      {entry.preMortem && <div className="decision-detail">What could go wrong: {entry.preMortem}</div>}
       {entry.trigger && (
         <div className="decision-detail">
-          Review {new Date(entry.trigger.dueAt).toLocaleDateString("id-ID")}: {entry.trigger.note}
+          Review on {new Date(entry.trigger.dueAt).toLocaleDateString("id-ID")}: {entry.trigger.note}
         </div>
       )}
-      <div className="decision-detail">Snapshot: {snapshotLabel(entry)}</div>
+      <div className="decision-detail">Saved snapshot: {snapshotLabel(entry)}</div>
       {entry.legacyAction && <div className="decision-detail">Legacy action preserved: {entry.legacyAction}</div>}
       {entry.review ? (
         <div className="decision-review">
@@ -217,7 +217,7 @@ function DecisionHistoryEntry({
         <ReviewForm onCancel={onCancelReview} onSave={onSaveReview} />
       ) : (
         <button className="tp-mini-btn" data-qa="decision-review-open" type="button" onClick={onReview}>
-          Log outcome review
+          Add outcome review
         </button>
       )}
     </div>

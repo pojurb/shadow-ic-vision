@@ -23,6 +23,7 @@ export default function Library({
   onOpenTriage,
   onOpen,
   onOpenPortfolio,
+  onOpenSettings,
   onDelete,
   onDeletePortfolio,
 }: {
@@ -35,6 +36,7 @@ export default function Library({
   onOpenTriage: () => void;
   onOpen: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
+  onOpenSettings: () => void;
   onDelete: (id: string) => void;
   onDeletePortfolio: (id: string) => void;
 }) {
@@ -58,36 +60,45 @@ export default function Library({
   return (
     <aside className="library-sidebar" data-qa="library">
       <div className="panel-header library-header">
-        <span className="panel-title">LIBRARY</span>
-        <span className="library-header-note">browse saved work</span>
+        <span className="panel-title">WORKSPACE</span>
+        <span className="library-header-note">home and saved investments</span>
       </div>
 
       <div className="library-section">
         <div className="library-section-h">HOME</div>
         <button
-          className={`library-item library-home${activeView === "agenda" ? " active" : ""}`}
+          className={`library-home-card${activeView === "agenda" ? " active" : ""}`}
           data-qa="library-agenda"
           onClick={onOpenAgenda}
         >
-          <div className="library-item-top">
-            <span className="library-vtag">AG</span>
-            <span className="library-item-title">Agenda</span>
+          <div className="library-home-top">
+            <span className="library-vtag">HQ</span>
+            <span className="library-home-title">What needs attention</span>
           </div>
-          <div className="library-item-meta">
-            <span className="mini-badge warning">attention queue</span>
+          <div className="library-home-note">
+            Your next money decisions, reviews, and follow-ups in one feed.
           </div>
         </button>
         <button
-          className={`library-item library-home${activeView === "triage" ? " active" : ""}`}
+          className={`library-home-card${activeView === "triage" ? " active" : ""}`}
           data-qa="library-triage"
           onClick={onOpenTriage}
         >
-          <div className="library-item-top">
-            <span className="library-vtag">IC</span>
-            <span className="library-item-title">Idea triage</span>
+          <div className="library-home-top">
+            <span className="library-vtag">XP</span>
+            <span className="library-home-title">Explore an idea</span>
           </div>
-          <div className="library-item-meta">
-            <span className="mini-badge warning">screen first</span>
+          <div className="library-home-note">
+            Research a new idea first without saving it as an investment review.
+          </div>
+        </button>
+        <button className="library-home-card" data-qa="library-settings" onClick={onOpenSettings}>
+          <div className="library-home-top">
+            <span className="library-vtag">ST</span>
+            <span className="library-home-title">Settings</span>
+          </div>
+          <div className="library-home-note">
+            Manage AI provider keys, backup, and restore for this device.
           </div>
         </button>
       </div>
@@ -107,12 +118,14 @@ export default function Library({
         </div>
       )}
 
+      <div className="library-section">
+        <div className="library-section-h">INVESTMENTS</div>
       <div className="library-controls">
-        <input className="library-search" placeholder="Search analyses..." value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input className="library-search" placeholder="Search investments..." value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="library-filter">
           {(["all", "draft", "watching", "decided", "archived"] as const).map((s) => (
             <button key={s} className={`filter-btn${status === s ? " active" : ""}`} onClick={() => setStatus(s)}>
-              {s.toUpperCase()}
+              {s === "all" ? "ALL" : s === "watching" ? "WATCHLIST" : s.toUpperCase()}
             </button>
           ))}
         </div>
@@ -120,10 +133,11 @@ export default function Library({
 
       <div className="library-list scrollable">
         {filtered.length === 0 ? (
-          <div className="library-empty">No analyses yet. Use Idea triage first, then start a case when the idea deserves a file.</div>
+          <div className="library-empty">No investment reviews yet. Explore an idea first, or add something you already own.</div>
         ) : (
           filtered.map((a) => <AnalysisLibraryItem key={a.id} analysis={a} active={a.id === activeId} onOpen={onOpen} onDelete={onDelete} />)
         )}
+      </div>
       </div>
     </aside>
   );
@@ -161,7 +175,7 @@ function AnalysisLibraryItem({
         </button>
       </div>
       <div className="library-item-meta">
-        <span className={`mini-badge ${status}`}>{latest ? decisionLabel(latest).replaceAll("_", " ") : "DRAFT"}</span>
+        <span className={`mini-badge ${status}`}>{latest ? decisionLabel(latest).replaceAll("_", " ") : "REVIEW"}</span>
         <span className="library-date">{new Date(analysis.updatedAt).toLocaleDateString("id-ID")}</span>
       </div>
       {analysis.tags.length > 0 && (

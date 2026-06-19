@@ -13,12 +13,12 @@ import { ASSET_TYPE_LABELS } from "@/lib/domain/ic";
 
 const FILTERS: Array<{ id: AgendaFilter; label: string }> = [
   { id: "all", label: "All" },
-  { id: "due_now", label: "Due now" },
-  { id: "stale", label: "Stale" },
-  { id: "contradictory_evidence", label: "Contradictory evidence" },
-  { id: "valuation_drift", label: "Valuation drift" },
+  { id: "due_now", label: "Review due" },
+  { id: "stale", label: "Overdue" },
+  { id: "contradictory_evidence", label: "Conflicting evidence" },
+  { id: "valuation_drift", label: "Thesis changed" },
   { id: "shared_exposure", label: "Shared exposure" },
-  { id: "watching", label: "Watching" },
+  { id: "watching", label: "Watchlist" },
   { id: "decided", label: "Decided" },
   { id: "archived", label: "Archived" },
 ];
@@ -29,7 +29,7 @@ export default function AgendaView({
   onOpenAnalysis,
   onOpenPortfolio,
   onInvestigateIdea,
-  onNewManual,
+  onNewInvestment,
   onNewPortfolio,
 }: {
   analyses: Analysis[];
@@ -37,7 +37,7 @@ export default function AgendaView({
   onOpenAnalysis: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
   onInvestigateIdea: () => void;
-  onNewManual: () => void;
+  onNewInvestment: () => void;
   onNewPortfolio: () => void;
 }) {
   const [filter, setFilter] = useState<AgendaFilter>("all");
@@ -48,44 +48,51 @@ export default function AgendaView({
     () => analyses.filter((analysis) => deriveStatusFromDecisionHistory(analysis.decisionHistory) === "watching").length,
     [analyses],
   );
+  const recentDecisionCount = useMemo(
+    () => analyses.filter((analysis) => analysis.decisionHistory.length > 0).length + portfolios.filter((portfolio) => portfolio.decisionHistory.length > 0).length,
+    [analyses, portfolios],
+  );
 
   return (
     <div className="agenda-view" data-qa="agenda-view">
       <div className="agenda-shell">
         <section className="agenda-hero">
           <div>
-            <div className="agenda-kicker">IC Agenda</div>
-            <h2>What deserves attention now</h2>
+            <div className="agenda-kicker">Home</div>
+            <h2>What should I do next with my money?</h2>
             <p>
-              Ranked from saved review cadence, evidence pressure, valuation drift, decision follow-ups,
-              and shared exposure. No generic alert stream, only thesis-linked signals.
+              Track your investments, see what needs attention, and review the next decision that actually matters.
             </p>
           </div>
           <div className="agenda-hero-stats">
             <div className="agenda-stat">
-              <span className="agenda-stat-label">Active queue</span>
-              <strong>{items.length}</strong>
+              <span className="agenda-stat-label">My holdings</span>
+              <strong>{analyses.length}</strong>
             </div>
             <div className="agenda-stat">
-              <span className="agenda-stat-label">Watching</span>
+              <span className="agenda-stat-label">Watchlist</span>
               <strong>{watchingCount}</strong>
             </div>
             <div className="agenda-stat">
-              <span className="agenda-stat-label">Portfolios</span>
-              <strong>{portfolios.length}</strong>
+              <span className="agenda-stat-label">Needs attention</span>
+              <strong>{items.length}</strong>
+            </div>
+            <div className="agenda-stat">
+              <span className="agenda-stat-label">Recent decisions</span>
+              <strong>{recentDecisionCount}</strong>
             </div>
           </div>
         </section>
 
         <section className="agenda-actions">
           <button className="commit-btn" data-qa="agenda-investigate-idea" onClick={onInvestigateIdea}>
-            Investigate idea
+            Explore investment idea
           </button>
-          <button className="ghost-btn" data-qa="agenda-new-manual" onClick={onNewManual}>
-            Manual asset
+          <button className="ghost-btn" data-qa="agenda-new-manual" onClick={onNewInvestment}>
+            Add investment
           </button>
           <button className="ghost-btn" data-qa="agenda-new-portfolio" onClick={onNewPortfolio}>
-            Portfolio
+            Create portfolio
           </button>
         </section>
 
@@ -105,8 +112,8 @@ export default function AgendaView({
         <section className="agenda-list" data-qa="agenda-list">
           {visibleItems.length === 0 ? (
             <div className="agenda-empty">
-              <h3>No immediate agenda items</h3>
-              <p>The queue is clear for this filter. Use triage to investigate an idea, or add a manual asset or portfolio when the case is already concrete.</p>
+              <h3>No urgent money tasks right now</h3>
+              <p>You are clear for this filter. Explore a new idea, add an investment you already own, or create a portfolio when you are ready.</p>
             </div>
           ) : (
             visibleItems.map((item, index) => (
@@ -141,6 +148,7 @@ function AgendaRow({
 }) {
   const assetLabel = item.assetType === "portfolio" ? "Portfolio" : ASSET_TYPE_LABELS[item.assetType];
   const dueLabel = formatDueLabel(item, now);
+  const nextAction = actionLabel(item);
   const open = () => {
     if (item.target.kind === "analysis") onOpenAnalysis(item.target.id);
     else onOpenPortfolio(item.target.id);
@@ -165,7 +173,7 @@ function AgendaRow({
           </div>
           <div className="agenda-row-side">
             {dueLabel && <span className="agenda-row-due">{dueLabel}</span>}
-            <span className="agenda-row-score">score {item.priorityScore}</span>
+            <span className="agenda-row-score">{nextAction}</span>
           </div>
         </div>
         <div className="agenda-reasons">
@@ -179,6 +187,14 @@ function AgendaRow({
       </div>
     </button>
   );
+}
+
+function actionLabel(item: AgendaItem): string {
+  const categories = item.reasons.map((reason) => reason.category);
+  if (categories.includes("contradiction_pressure")) return "Check evidence";
+  if (categories.includes("valuation_drift")) return "Update thesis";
+  if (categories.includes("decision_follow_up")) return "Follow up";
+  return "Review now";
 }
 
 function formatDueLabel(item: AgendaItem, now: number): string | null {

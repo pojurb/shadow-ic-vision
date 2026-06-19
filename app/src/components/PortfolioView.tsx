@@ -211,18 +211,18 @@ export default function PortfolioView({
         <div className="tp-title-wrap">
           <input className="tp-title" value={portfolio.title} onChange={(e) => update({ title: e.target.value })} />
           <span className="persona-badge" title="Cross-asset strategist for this portfolio">
-            {portfolio.persona?.label ?? "Portfolio Strategist"}
+            {portfolio.persona?.label ?? "Portfolio review"}
           </span>
           <span className="tp-mode is-locked" title="Portfolio figures are deterministic (capital + weights)">
             ● PORTFOLIO
           </span>
         </div>
         <div className="tp-topbar-actions">
-          <button className="tp-run-btn" onClick={runAnalyze} disabled={running || !hasMembers} title={hasMembers ? "Run the cross-asset strategist debate" : "Add a holding first"}>
-            {running ? "DEBATING…" : "⚡ ANALYZE PORTFOLIO"}
+          <button className="tp-run-btn" onClick={runAnalyze} disabled={running || !hasMembers} title={hasMembers ? "Run the AI portfolio review" : "Add a holding first"}>
+            {running ? "ANALYZING…" : "Run AI review"}
           </button>
           <button className="tp-ghost" onClick={() => setInspectorOpen((v) => !v)}>
-            {inspectorOpen ? "Hide inspector ›" : "‹ Show inspector"}
+            {inspectorOpen ? "Hide details ›" : "‹ Show details"}
           </button>
         </div>
       </header>
@@ -234,16 +234,16 @@ export default function PortfolioView({
           <div className="tp-stream scrollable">
             {portfolio.chat.length === 0 && !pendingUser && (
               <div className="tp-stream-empty">
-                <div className="tp-stream-empty-h">Cross-asset chat</div>
-                Compose the portfolio in the inspector — add holdings and set the capital for each. Then run the
-                strategist debate, and ask grounded questions across the book — e.g. <b>&quot;which holding has the
-                strongest margin of safety?&quot;</b>, <b>&quot;is the book too concentrated?&quot;</b>. Numbers stay
-                locked to the deterministic portfolio engine and each holding&apos;s figures.
+                <div className="tp-stream-empty-h">Portfolio review</div>
+                Build the portfolio in the details panel — add holdings and set the capital for each. Then run the
+                AI review and ask grounded questions across everything you own — e.g. <b>&quot;which holding looks
+                strongest?&quot;</b>, <b>&quot;is the portfolio too concentrated?&quot;</b>. Numbers stay tied to the
+                saved portfolio and each holding&apos;s figures.
               </div>
             )}
             {portfolio.chat.map((m) => (
               <div key={m.id} className={`tp-msg tp-msg--${m.role}`}>
-                <div className="tp-msg-role">{m.role === "user" ? "You" : "Strategist"}</div>
+                <div className="tp-msg-role">{m.role === "user" ? "You" : "Portfolio review"}</div>
                 <div className="tp-msg-body">{m.content}</div>
                 {m.role === "assistant" && (
                   <ChatGroundFlag result={lintChatReply(m.content, chatGround.metrics, chatGround.extra)} />
@@ -257,7 +257,7 @@ export default function PortfolioView({
                   <div className="tp-msg-body">{pendingUser}</div>
                 </div>
                 <div className="tp-msg tp-msg--assistant">
-                  <div className="tp-msg-role">Strategist</div>
+                  <div className="tp-msg-role">Portfolio review</div>
                   <div className="tp-msg-body">{streamingText || "…"}</div>
                 </div>
               </>
@@ -269,7 +269,7 @@ export default function PortfolioView({
               <textarea
                 className="tp-input"
                 rows={2}
-                placeholder={hasMembers ? "Ask a grounded cross-asset question…" : "Add holdings in the inspector first…"}
+                placeholder={hasMembers ? "Ask a grounded question about your portfolio..." : "Add holdings in the details panel first..."}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -295,7 +295,7 @@ export default function PortfolioView({
         {inspectorOpen && (
           <aside className="tp-inspector scrollable" style={{ width: inspectorW, flex: `0 0 ${inspectorW}px` }}>
             <div className="tp-inspector-head">
-              <span>PORTFOLIO</span>
+              <span>PORTFOLIO REVIEW</span>
               <span className="tp-inspector-sub">{portfolio.members.length} holdings</span>
             </div>
 
@@ -319,9 +319,9 @@ export default function PortfolioView({
             <div className="tp-board">
               {/* composition — the editable core of P7b */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Composition <span className="tp-card-hint">capital drives weights</span></div>
+                <div className="tp-card-h">My holdings <span className="tp-card-hint">capital drives weights</span></div>
                 {!hasMembers ? (
-                  <div className="tp-muted-note">No holdings yet. Add an existing analysis below to start composing.</div>
+                  <div className="tp-muted-note">No holdings yet. Add a saved investment review below to start building the portfolio.</div>
                 ) : (
                   <div className="tp-pos-list">
                     {portfolio.members.map((m) => {
@@ -354,7 +354,7 @@ export default function PortfolioView({
                 )}
                 <div className="tp-add-holding">
                   <select value={addPick} onChange={(e) => addMember(e.target.value)} disabled={available.length === 0}>
-                    <option value="">{available.length === 0 ? "No more analyses to add" : "+ Add holding…"}</option>
+                    <option value="">{available.length === 0 ? "No more investment reviews to add" : "+ Add holding..."}</option>
                     {available.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.vertical ? VERTICAL_TAG[a.vertical] : "?"} · {a.assetName || a.title}
@@ -387,14 +387,14 @@ export default function PortfolioView({
               {/* portfolio debate */}
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">
-                  Strategist debate
+                  Portfolio bull vs bear view
                   {portfolio.debate && (
                     <span className="tp-badge tp-badge-support">THESIS {portfolio.debate.thesisSupport}</span>
                   )}
                   {portfolio.debate && <GroundChip result={grounding} />}
                 </div>
                 {!portfolio.debate ? (
-                  <div className="tp-muted-note">Compose the portfolio, then ⚡ ANALYZE PORTFOLIO for a grounded bull/bear debate across the book.</div>
+                  <div className="tp-muted-note">Build the portfolio, then run the AI review for a grounded bull vs bear view across everything you own.</div>
                 ) : (
                   <div className="tp-debate">
                     <DebateSide side="bull" label="▲ BULL" lines={portfolio.debate.bull} />
@@ -405,10 +405,10 @@ export default function PortfolioView({
 
               {/* advisory lenses */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Advisory board <span className="tp-card-hint">{portfolio.persona?.label ?? "lenses"}</span></div>
+                <div className="tp-card-h">Extra perspectives <span className="tp-card-hint">{portfolio.persona?.label ?? "lenses"}</span></div>
                 <div className="tp-lenses">
                   {advisory.length === 0 ? (
-                    <div className="tp-muted-note">Run the portfolio analysis to generate the advisory lenses.</div>
+                    <div className="tp-muted-note">Run the portfolio analysis to generate extra perspectives.</div>
                   ) : (
                     advisory.map((l) => (
                       <div className="tp-lens-row" key={l.id}>
@@ -424,7 +424,7 @@ export default function PortfolioView({
               </div>
 
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Decision Ledger</div>
+                <div className="tp-card-h">Decision history</div>
                 <DecisionLedger
                   dataQa="portfolio-decision-ledger"
                   history={portfolio.decisionHistory}

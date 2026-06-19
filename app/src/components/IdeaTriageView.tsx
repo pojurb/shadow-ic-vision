@@ -51,36 +51,36 @@ export default function IdeaTriageView({
       <div className="triage-shell">
         <section className="triage-hero">
           <div>
-            <div className="agenda-kicker">IC Chair Triage</div>
-            <h2>Decide whether an idea deserves a case file</h2>
+            <div className="agenda-kicker">Explore</div>
+            <h2>Research an investment idea before you save it</h2>
             <p>
-              Temporary workspace for broad questions, opportunity screens, and first-pass framing.
-              Nothing enters Library until you start a case or add it to the watchlist.
+              Use this space for broad questions, quick screens, and first-pass framing.
+              Nothing enters your saved investments until you open a real review or add it to your watchlist.
             </p>
           </div>
           <button className="tp-ghost" type="button" onClick={onBackAgenda}>
-            Back to Agenda
+            Back home
           </button>
         </section>
 
         <form className="triage-input-panel" onSubmit={runTriage}>
           <label className="label-text" htmlFor="triage-prompt">
-            Advisory prompt
+            What investment are you thinking about?
           </label>
           <textarea
             id="triage-prompt"
             className="triage-input"
             data-qa="triage-prompt"
             rows={4}
-            placeholder="Ask the IC Chair, e.g. any Indonesian stocks worth digging into?"
+            placeholder="Example: any Indonesian stocks worth digging into?"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
           />
           <div className="triage-input-actions">
             <button className="commit-btn" data-qa="triage-run" type="submit">
-              Run triage
+              Explore idea
             </button>
-            <span>Advisory only. No thesis memory, evidence, or figures are created here.</span>
+            <span>Exploration only. No saved investment, evidence, or key numbers are created here.</span>
           </div>
         </form>
 
@@ -88,7 +88,7 @@ export default function IdeaTriageView({
           <section className="triage-result" data-qa="triage-result">
             <div className="triage-result-head">
               <div>
-                <div className="agenda-kicker">Triage output</div>
+                <div className="agenda-kicker">Idea summary</div>
                 <h3>{result.heading}</h3>
               </div>
               <span className={`triage-mode triage-mode--${result.mode}`}>{result.mode.replaceAll("_", " ")}</span>
@@ -120,11 +120,11 @@ export default function IdeaTriageView({
                       {savedIds.includes(candidate.id) && <span className="mini-badge watching">added</span>}
                     </div>
                     <p>{candidate.thesisAngle}</p>
-                    <TriageList title="Missing evidence" items={candidate.missingEvidence} />
-                    <TriageList title="Risk lens" items={candidate.riskLens} />
+                    <TriageList title="What still needs checking" items={candidate.missingEvidence} />
+                    <TriageList title="Main risks" items={candidate.riskLens} />
                     <div className="triage-actions">
                       <button className="commit-btn" type="button" data-qa={`triage-start-${candidate.id}`} onClick={() => onStartCase(candidate, prompt)}>
-                        Start case
+                        Open investment review
                       </button>
                       <button className="ghost-btn" type="button" data-qa={`triage-watch-${candidate.id}`} onClick={() => addToWatchlist(candidate)}>
                         Add to watchlist
@@ -141,8 +141,8 @@ export default function IdeaTriageView({
               </div>
             ) : (
               <div className="agenda-empty">
-                <h3>No case candidate yet</h3>
-                <p>Ask about an opportunity set or name a concrete asset to begin triage.</p>
+                <h3>No investment candidate yet</h3>
+                <p>Ask about an opportunity set or name a specific asset to start exploring.</p>
               </div>
             )}
           </section>
@@ -150,18 +150,18 @@ export default function IdeaTriageView({
           <section className="triage-empty">
             <div>
               <span className="library-vtag">01</span>
-              <h3>Screen before saving</h3>
-              <p>Use this area for questions that should not become a case file yet.</p>
+              <h3>Explore before saving</h3>
+              <p>Use this area for questions that should not become a saved investment yet.</p>
             </div>
             <div>
               <span className="library-vtag">02</span>
-              <h3>Open cases deliberately</h3>
-              <p>Start a case only when the idea deserves thesis memory, evidence, and review cadence.</p>
+              <h3>Open reviews deliberately</h3>
+              <p>Open an investment review only when the idea deserves notes, evidence, and follow-up.</p>
             </div>
             <div>
               <span className="library-vtag">03</span>
-              <h3>Lock facts later</h3>
-              <p>Verification stays inside the case file, after cited evidence exists.</p>
+              <h3>Verify facts later</h3>
+              <p>Save and verify the details only after you have enough evidence to act.</p>
             </div>
           </section>
         )}

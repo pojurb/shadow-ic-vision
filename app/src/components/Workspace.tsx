@@ -132,6 +132,10 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     setActive({ type: "triage" });
   }
 
+  function openSettings() {
+    setShowSettings(true);
+  }
+
   function handleChange(next: Analysis) {
     setActive({ type: "analysis", data: next });
     // optimistic list update
@@ -186,29 +190,6 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
       advisory: preset.seed.advisory,
       persona: { id: persona.id, label: persona.label },
       stance: derived ? { label: derived.label, basis: preset.seed.stanceBasis || derived.basis } : null,
-      model: "seed",
-    });
-    setActive({ type: "analysis", data: analysis });
-    setShowNew(false);
-    await saveAnalysis(analysis);
-    await refresh();
-  }
-
-  /**
-   * Chat-first front door (Option C): create a blank intake draft and open it. No
-   * vertical is forced — the conversation's intake pass detects it. Presets remain
-   * reachable as examples (the secondary affordance below).
-   */
-  async function newIntake() {
-    const vertical: Vertical = "stocks"; // a neutral starting point; intake reclassifies
-    const parameters = { ...BLANK_PARAMS[vertical] };
-    const analysis = createAnalysis({
-      title: "New analysis",
-      vertical,
-      assetName: "",
-      parameters,
-      metrics: computeMetrics(vertical, parameters),
-      // No debate, no persona — the composer's intake flow fills these in.
       model: "seed",
     });
     setActive({ type: "analysis", data: analysis });
@@ -323,6 +304,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         onOpenTriage={openTriage}
         onOpen={open}
         onOpenPortfolio={openPortfolio}
+        onOpenSettings={openSettings}
         onDelete={remove}
         onDeletePortfolio={removePortfolio}
       />
@@ -330,15 +312,15 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
       <main className="workspace-main">
         <header className="cockpit-header">
           <div className="branding">
-            <span className="system-tag">JP-INVEST WORKSPACE V3.0</span>
+            <span className="system-tag">MY WEALTH WORKSPACE</span>
             <span className="status-light-container">
               <span className="status-light blinking-green" />
-              <span className="status-text">LOCAL-FIRST · BYOK</span>
+              <span className="status-text">Private on this device</span>
             </span>
           </div>
           <div className="header-actions">
             <button className="gear-btn" onClick={() => setShowSettings(true)}>
-              ⚙ SETTINGS{settings.apiKeys?.[settings.provider] ? "" : " ⚠"}
+              Settings{settings.apiKeys?.[settings.provider] ? "" : " *"}
             </button>
           </div>
         </header>
@@ -350,7 +332,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             onOpenAnalysis={open}
             onOpenPortfolio={openPortfolio}
             onInvestigateIdea={openTriage}
-            onNewManual={() => setShowNew(true)}
+            onNewInvestment={() => setShowNew(true)}
             onNewPortfolio={newPortfolio}
           />
         ) : active.type === "triage" ? (
@@ -381,22 +363,24 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         ) : (
           <div className="workspace-empty">
             <div className="empty-card">
-              <h2>Start a new analysis</h2>
-              <p>Paste or describe a deal — the analyst detects the type, pulls the figures, and confirms before locking.</p>
-              <button className="commit-btn" data-qa="empty-new-analysis" onClick={newIntake}>+ NEW ANALYSIS</button>
-              <button className="example-link" data-qa="empty-new-manual" onClick={() => setShowNew(true)}>+ MANUAL ASSET</button>
-              <button className="example-link" onClick={() => setShowNew(true)}>or start from an example…</button>
-              <button className="example-link" onClick={newPortfolio}>or compose a portfolio…</button>
+              <h2>Start managing your wealth</h2>
+              <p>Add an investment you already own, explore a new idea, or create a portfolio to see everything together.</p>
+              <button className="commit-btn" data-qa="empty-new-analysis" onClick={() => setShowNew(true)}>Add investment</button>
+              <button className="example-link" data-qa="empty-new-manual" onClick={openTriage}>Explore investment idea</button>
+              <button className="example-link" onClick={() => setShowNew(true)}>Track a private or custom asset</button>
+              <button className="example-link" onClick={newPortfolio}>Create a portfolio</button>
             </div>
           </div>
         )}
       </main>
 
       {showNew && (
-        <NewAnalysisDialog
+        <NewInvestmentDialog
           onBlank={newBlank}
           onManual={newManualAsset}
           onPick={newFromPreset}
+          onExploreIdea={openTriage}
+          onCreatePortfolio={newPortfolio}
           onClose={() => setShowNew(false)}
         />
       )}
@@ -417,66 +401,135 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
   );
 }
 
-function NewAnalysisDialog({
+function NewInvestmentDialog({
   onBlank,
   onManual,
   onPick,
+  onExploreIdea,
+  onCreatePortfolio,
   onClose,
 }: {
   onBlank: (vertical: Vertical) => void;
   onManual: (assetType: Exclude<AssetType, "public_equity">) => void;
   onPick: (preset: AssetPreset) => void;
+  onExploreIdea: () => void;
+  onCreatePortfolio: () => Promise<void>;
   onClose: () => void;
 }) {
+  const [intent, setIntent] = useState<"owned" | "research" | "private" | "portfolio">("owned");
   const [vertical, setVertical] = useState<Vertical>("stocks");
+
+  function openExploreIdea() {
+    onClose();
+    onExploreIdea();
+  }
+
+  function createPortfolioFromModal() {
+    onClose();
+    void onCreatePortfolio();
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header warning-stripes">
-          <span className="panel-title">NEW ANALYSIS</span>
-          <button className="new-btn" onClick={onClose}>✕</button>
+          <span className="panel-title">ADD TO YOUR WEALTH WORKSPACE</span>
+          <button className="new-btn" onClick={onClose}>×</button>
         </div>
         <div className="panel-body new-analysis-body">
-          <div className="label-text">1. Choose category</div>
+          <div className="new-investment-intro">
+            <h3>What do you want to do?</h3>
+            <p>Start from your goal, not from the system setup.</p>
+          </div>
+
+          <div className="intent-grid">
+            <button className={`intent-card${intent === "owned" ? " active" : ""}`} onClick={() => setIntent("owned")}>
+              <strong>Add something I already own</strong>
+              <span>Open an investment review for a stock, fund, or operating business you want to track.</span>
+            </button>
+            <button className={`intent-card${intent === "research" ? " active" : ""}`} onClick={() => setIntent("research")}>
+              <strong>Research a new investment idea</strong>
+              <span>Explore an idea before it becomes a saved investment review.</span>
+            </button>
+            <button className={`intent-card${intent === "private" ? " active" : ""}`} onClick={() => setIntent("private")}>
+              <strong>Track a private or custom asset</strong>
+              <span>Use your own notes, valuation, and risk checks for assets without live market data.</span>
+            </button>
+            <button className={`intent-card${intent === "portfolio" ? " active" : ""}`} onClick={() => setIntent("portfolio")}>
+              <strong>Create a portfolio</strong>
+              <span>Group your saved investment reviews and see your overall allocation in one place.</span>
+            </button>
+          </div>
+
+          {intent === "owned" && (
+            <>
+          <div className="label-text">Choose the investment type</div>
           <div className="vertical-selector-group">
             {(Object.keys(PRESETS) as Vertical[]).map((v, i) => (
               <button key={v} className={`selector-btn${v === vertical ? " active" : ""}`} onClick={() => setVertical(v)}>
                 <span className="btn-num">{`[0${i + 1}]`}</span>{" "}
-                {v === "stocks" ? "STOCKS" : v === "startups" ? "STARTUP / VC" : "CONVENTIONAL"}
+                {v === "stocks" ? "PUBLIC STOCK" : v === "startups" ? "STARTUP / VC" : "OPERATING BUSINESS"}
               </button>
             ))}
           </div>
 
-          <div className="label-text">2. Start</div>
+          <div className="label-text">Start your investment review</div>
           <button className="blank-start-btn" onClick={() => onBlank(vertical)}>
-            <span className="blank-start-title">◉ START BLANK</span>
+            <span className="blank-start-title">Start investment review</span>
             <span className="blank-start-hint">
-              Empty {VERTICAL_SHORT[vertical]} entry — name it and set your own numbers
+              Blank {VERTICAL_SHORT[vertical]} review — name it, verify the facts, and save your view.
             </span>
           </button>
 
-          <div className="label-text">3. Manual asset</div>
-          <div className="template-list">
-            {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
-              <button key={assetType} className="template-item" data-qa={`manual-template-${assetType}`} onClick={() => onManual(assetType)}>
-                <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
-                <span className="template-hint">manual valuation, risk prompts, and IC memory</span>
-              </button>
-            ))}
-          </div>
-
           <details className="example-disclosure">
-            <summary>○ Or load an example…</summary>
+            <summary>Or start from an example...</summary>
             <div className="template-list">
               {PRESETS[vertical].map((p) => (
                 <button key={p.id} className="template-item" onClick={() => onPick(p)}>
                   <strong>{p.name}</strong>
-                  <span className="template-hint">seed thesis {p.seed.thesisSupport}</span>
+                  <span className="template-hint">example investment review</span>
                 </button>
               ))}
             </div>
           </details>
+            </>
+          )}
+
+          {intent === "research" && (
+            <div className="intent-detail">
+              <div className="label-text">Guided exploration</div>
+              <p className="intent-copy">You will start with simple prompts like what the investment is, why it interests you, and what still needs to be checked.</p>
+              <button className="blank-start-btn" onClick={openExploreIdea}>
+                <span className="blank-start-title">Explore investment idea</span>
+                <span className="blank-start-hint">Nothing is saved until you choose to open a real investment review.</span>
+              </button>
+            </div>
+          )}
+
+          {intent === "private" && (
+            <>
+              <div className="label-text">Choose the private or custom asset type</div>
+              <div className="template-list">
+                {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
+                  <button key={assetType} className="template-item" data-qa={`manual-template-${assetType}`} onClick={() => onManual(assetType)}>
+                    <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
+                    <span className="template-hint">your own valuation, notes, and risk checks</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {intent === "portfolio" && (
+            <div className="intent-detail">
+              <div className="label-text">Portfolio workspace</div>
+              <p className="intent-copy">Build a portfolio from your saved investment reviews and track your overall allocation in one place.</p>
+              <button className="blank-start-btn" onClick={createPortfolioFromModal}>
+                <span className="blank-start-title">Create portfolio</span>
+                <span className="blank-start-hint">You can add holdings and capital amounts after the portfolio opens.</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

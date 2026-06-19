@@ -625,9 +625,9 @@ export default function AnalysisView({
           <input className="tp-title" value={analysis.title} onChange={(e) => update({ title: e.target.value })} />
           <span className={`status-pill status-${analysis.status}`}>{analysis.status.toUpperCase()}</span>
           {analysis.persona && (
-            <span className="persona-badge" title="Domain expert that produced this analysis">{analysis.persona.label}</span>
+            <span className="persona-badge" title="Domain expert that produced this investment review">{analysis.persona.label}</span>
           )}
-          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Case building - paste thesis notes or evidence for verification" : "Figures locked through the deterministic engine"}>
+          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Review building - paste notes or evidence for verification" : "Key figures locked through the deterministic engine"}>
             ● {caseStage}
           </span>
           <span className={`sim-badge${isLive ? " live" : ""}`} title={isLive ? `Live AI (${analysis.model})` : "Seed content — run AI for a grounded debate"}>
@@ -635,11 +635,11 @@ export default function AnalysisView({
           </span>
         </div>
         <div className="tp-topbar-actions">
-          <button className="tp-run-btn" onClick={runAI} disabled={running || intakeMode} title={intakeMode ? "Verify thesis and facts before committee review" : "Run the committee debate"}>
-            {running ? (runPhase === "research" ? "RESEARCHING…" : "DEBATING…") : "⚡ RUN AI"}
+          <button className="tp-run-btn" onClick={runAI} disabled={running || intakeMode} title={intakeMode ? "Verify the investment view before running the AI review" : "Run the AI review"}>
+            {running ? (runPhase === "research" ? "RESEARCHING…" : "ANALYZING…") : "Run AI review"}
           </button>
           <button className="tp-ghost" onClick={() => setInspectorOpen((v) => !v)}>
-            {inspectorOpen ? "Hide inspector ›" : "‹ Show inspector"}
+            {inspectorOpen ? "Hide details ›" : "‹ Show details"}
           </button>
         </div>
       </header>
@@ -651,10 +651,10 @@ export default function AnalysisView({
           <div className="tp-stream scrollable">
             {analysis.chat.length === 0 && !pendingUser && !pendingIntake && !intakeBusy && (
               <div className="tp-stream-empty">
-                <div className="tp-stream-empty-h">Build the case file</div>
+                <div className="tp-stream-empty-h">Build your investment review</div>
                 Paste thesis notes, filings, links, or evidence for this concrete asset. The analyst will extract
-                thesis memory and candidate figures for verification. Broad screening belongs in Idea triage; this
-                surface changes the case only after you verify the extracted facts.
+                your working view and candidate figures for verification. Broad screening belongs in Explore an idea; this
+                surface changes the investment review only after you verify the extracted facts.
               </div>
             )}
             {analysis.chat.map((m) => (
@@ -754,7 +754,7 @@ export default function AnalysisView({
               <textarea
                 className="tp-input"
                 rows={2}
-                placeholder={intakeMode ? "Paste thesis notes or evidence for this case…" : "Ask a grounded follow-up…"}
+                placeholder={intakeMode ? "Paste notes or evidence for this investment..." : "Ask a grounded follow-up..."}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -781,7 +781,7 @@ export default function AnalysisView({
         {inspectorOpen && (
           <aside className="tp-inspector scrollable" style={{ width: inspectorW, flex: `0 0 ${inspectorW}px` }}>
             <div className="tp-inspector-head">
-              <span>INSPECTOR</span>
+              <span>INVESTMENT REVIEW</span>
               <span className="tp-inspector-sub">{analysis.assetName || "—"}</span>
             </div>
 
@@ -805,7 +805,7 @@ export default function AnalysisView({
             <div className="tp-board">
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">
-                  Thesis memory
+                  Why I might invest
                   <span className="tp-card-hint">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
                 </div>
                 <ThesisMemoryPanel analysis={analysis} />
@@ -817,7 +817,7 @@ export default function AnalysisView({
 
               {/* locked figures (sliders) */}
               <div className="tp-card">
-                <div className="tp-card-h">Locked figures <span className="tp-card-hint">editable</span></div>
+                <div className="tp-card-h">Key numbers <span className="tp-card-hint">editable</span></div>
                 <form className="tp-figs" onSubmit={(e) => e.preventDefault()}>
                   {FIELDS[analysis.vertical!].map((f) => {
                     const val = Number(analysis.parameters[f.key] ?? f.min);
@@ -836,21 +836,21 @@ export default function AnalysisView({
 
               {/* chart */}
               <div className="tp-card">
-                <div className="tp-card-h">Engine chart <span className="tp-card-hint">deterministic</span></div>
+                <div className="tp-card-h">Value snapshot <span className="tp-card-hint">deterministic</span></div>
                 <div className="chart-wrapper">{chartFor(analysis.vertical!, analysis.parameters)}</div>
               </div>
 
               {/* debate */}
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">
-                  Red-team debate
+                  Bull vs bear view
                   {analysis.debate && (
                     <span className="tp-badge tp-badge-support">THESIS {analysis.debate.thesisSupport}</span>
                   )}
                   {analysis.debate && <GroundChip result={grounding} />}
                 </div>
                 {!analysis.debate ? (
-                  <div className="tp-muted-note">Run AI to generate the grounded bull/bear debate.</div>
+                  <div className="tp-muted-note">Run AI to generate a grounded bull vs bear view.</div>
                 ) : (
                   <div className="tp-debate">
                     <DebateSide side="bull" label="▲ BULL" lines={analysis.debate.bull} />
@@ -861,10 +861,10 @@ export default function AnalysisView({
 
               {/* advisory lenses */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Advisory board <span className="tp-card-hint">{analysis.persona?.label ?? "lenses"}</span></div>
+                <div className="tp-card-h">Extra perspectives <span className="tp-card-hint">{analysis.persona?.label ?? "lenses"}</span></div>
                 <div className="tp-lenses">
                   {advisory.length === 0 ? (
-                    <div className="tp-muted-note">Run AI to generate the advisory lenses.</div>
+                    <div className="tp-muted-note">Run AI to generate extra perspectives on this investment.</div>
                   ) : (
                     advisory.map((l) => (
                       <div className="tp-lens-row" key={l.id}>
@@ -881,11 +881,11 @@ export default function AnalysisView({
 
               {/* decision */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Decision Ledger</div>
+                <div className="tp-card-h">Decision history</div>
                 <DecisionLedger
                   dataQa="analysis-decision-ledger"
                   history={analysis.decisionHistory}
-                  subjectLabel="This analysis"
+                  subjectLabel="This investment review"
                   createEntry={(draft: DecisionDraft) => createAnalysisDecisionEntry(analysis, draft)}
                   onHistoryChange={(decisionHistory) =>
                     update({
@@ -900,13 +900,13 @@ export default function AnalysisView({
               {/* expert review */}
               <div className="tp-card tp-card--wide">
                 <div className="tp-card-h">
-                  Expert review
+                  Second opinion
                   <button data-qa="analysis-run-review" className="tp-mini-btn" onClick={runReview} disabled={reviewing || !analysis.debate} title={analysis.debate ? "Red-team this analysis — one extra AI call" : "Run AI first"}>
                     {reviewing ? "REVIEWING…" : analysis.expertReview ? "Re-review" : "⚖ Get review"}
                   </button>
                 </div>
                 {!analysis.expertReview ? (
-                  <div className="tp-muted-note">A second {analysis.persona?.label ?? "expert"} red-teams the analysis (strengths, gaps, grounding check). On demand — one extra AI call.</div>
+                  <div className="tp-muted-note">A second {analysis.persona?.label ?? "expert"} reviews the investment, highlights strengths and gaps, and checks the grounding. On demand — one extra AI call.</div>
                 ) : (
                   <div className="review-body">
                     <div className="review-verdict">{analysis.expertReview.verdictLine}</div>
@@ -924,7 +924,7 @@ export default function AnalysisView({
 
               {/* asset details */}
               <div className="tp-card tp-card--wide">
-                <div className="tp-card-h">Asset details</div>
+                <div className="tp-card-h">Investment details</div>
                 <div className="tp-meta-grid">
                   <input className="meta-input" placeholder="Ticker" value={analysis.assetMeta.ticker ?? ""} onChange={(e) => update({ assetMeta: { ...analysis.assetMeta, ticker: e.target.value } })} />
                   <input className="meta-input" placeholder="Sector" value={analysis.assetMeta.sector ?? ""} onChange={(e) => update({ assetMeta: { ...analysis.assetMeta, sector: e.target.value } })} />
@@ -951,7 +951,7 @@ export default function AnalysisView({
 
               {analysis.vertical === "stocks" && (analysis.stockFields?.length ?? 0) > 0 && (
                 <div className="tp-card tp-card--wide" data-qa="stock-provenance">
-                  <div className="tp-card-h">Stock field provenance</div>
+                  <div className="tp-card-h">Source trail for key numbers</div>
                   <StockFieldInspectorPanel fields={analysis.stockFields!} />
                 </div>
               )}
@@ -976,7 +976,7 @@ function ManualAnalysisView({
         <div className="tp-title-wrap">
           <input className="tp-title" value={analysis.title} onChange={(e) => onChange({ ...analysis, title: e.target.value })} />
           <span className={`status-pill status-${analysis.status}`}>{analysis.status.toUpperCase()}</span>
-          <span className="tp-mode">● MANUAL ASSET</span>
+          <span className="tp-mode">● PRIVATE ASSET</span>
           <span className="sim-badge">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
         </div>
       </header>
@@ -985,15 +985,15 @@ function ManualAnalysisView({
         <main className="tp-convo">
           <div className="tp-stream scrollable">
             <div className="tp-stream-empty">
-              <div className="tp-stream-empty-h">Manual asset</div>
-              No deterministic valuation model is active for this analysis. Capture the thesis, manual valuation context, evidence, decisions, and Risk Officer notes here.
+              <div className="tp-stream-empty-h">Private or custom asset</div>
+              No automatic market model is active for this investment review. Capture your notes, valuation context, evidence, decisions, and risk checks here.
             </div>
           </div>
         </main>
 
         <aside className="tp-inspector scrollable" style={{ width: 520, flex: "0 0 520px" }}>
           <div className="tp-inspector-head">
-            <span>INSPECTOR</span>
+            <span>INVESTMENT REVIEW</span>
             <span className="tp-inspector-sub">{analysis.assetName || ASSET_TYPE_LABELS[analysis.assetType]}</span>
           </div>
 
@@ -1013,11 +1013,11 @@ function ManualAnalysisView({
             <EvidenceLocker analysis={analysis} onChange={onChange} />
 
             <div className="tp-card tp-card--wide">
-              <div className="tp-card-h">Decision Ledger</div>
+              <div className="tp-card-h">Decision history</div>
               <DecisionLedger
                 dataQa="analysis-decision-ledger"
                 history={analysis.decisionHistory}
-                subjectLabel="This analysis"
+                subjectLabel="This investment review"
                 createEntry={(draft: DecisionDraft) => createAnalysisDecisionEntry(analysis, draft)}
                 onHistoryChange={(decisionHistory) =>
                   onChange({
@@ -1031,7 +1031,7 @@ function ManualAnalysisView({
             </div>
 
             <div className="tp-card tp-card--wide">
-              <div className="tp-card-h">Asset details</div>
+              <div className="tp-card-h">Investment details</div>
               <div className="tp-meta-grid">
                 <input
                   className="meta-input"
@@ -1129,21 +1129,21 @@ function ManualThesisEditor({
   return (
     <div className="tp-thesis-panel">
       <label className="tp-thesis-field">
-        <span>Thesis summary</span>
+        <span>Why I might invest</span>
         <textarea
           rows={3}
           value={thesis.summary}
           onChange={(e) => onChange({ ...analysis, ic: { ...analysis.ic, thesis: { ...thesis, summary: e.target.value } } })}
-          placeholder="Why this asset matters, what must be true, and what could break."
+          placeholder="What this investment is, why it may be attractive, and what could go wrong."
         />
       </label>
       <div className="tp-thesis-confirm-grid">
-        <ThesisListEditor label="Assumptions" value={thesis.assumptions.map((item) => item.text)} onChange={(text) => updateList("assumptions", text)} disabled={false} />
-        <ThesisListEditor label="Breakers" value={thesis.thesisBreakers.map((item) => item.text)} onChange={(text) => updateList("thesisBreakers", text)} disabled={false} />
-        <ThesisListEditor label="Watch items" value={thesis.watchItems.map((item) => item.text)} onChange={(text) => updateList("watchItems", text)} disabled={false} />
-        <ThesisListEditor label="Valuation assumptions" value={thesis.valuationAssumptions.map((item) => item.text)} onChange={(text) => updateList("valuationAssumptions", text)} disabled={false} />
+        <ThesisListEditor label="Why this could work" value={thesis.assumptions.map((item) => item.text)} onChange={(text) => updateList("assumptions", text)} disabled={false} />
+        <ThesisListEditor label="What could go wrong" value={thesis.thesisBreakers.map((item) => item.text)} onChange={(text) => updateList("thesisBreakers", text)} disabled={false} />
+        <ThesisListEditor label="What to watch" value={thesis.watchItems.map((item) => item.text)} onChange={(text) => updateList("watchItems", text)} disabled={false} />
+        <ThesisListEditor label="Price assumptions" value={thesis.valuationAssumptions.map((item) => item.text)} onChange={(text) => updateList("valuationAssumptions", text)} disabled={false} />
         <ThesisListEditor label="Catalysts" value={thesis.catalysts.map((item) => item.text)} onChange={(text) => updateList("catalysts", text)} disabled={false} />
-        <ThesisListEditor label="Open questions" value={thesis.openQuestions.map((item) => item.text)} onChange={(text) => updateList("openQuestions", text)} disabled={false} />
+        <ThesisListEditor label="What I still need to verify" value={thesis.openQuestions.map((item) => item.text)} onChange={(text) => updateList("openQuestions", text)} disabled={false} />
       </div>
     </div>
   );
@@ -1167,8 +1167,8 @@ function ManualAssetPanel({
   return (
     <div className="tp-card tp-card--wide" data-qa="manual-asset-panel">
       <div className="tp-card-h">
-        Manual asset
-        <span className="tp-card-hint">No deterministic valuation model</span>
+        Private or custom asset
+        <span className="tp-card-hint">Uses your own valuation and notes</span>
       </div>
       <div className="tp-meta-grid">
         <input data-qa="manual-asset-name" className="meta-input" placeholder="Asset name" value={analysis.assetName} onChange={(e) => onChange({ ...analysis, assetName: e.target.value })} />
@@ -1189,7 +1189,7 @@ function ManualAssetPanel({
         <input data-qa="manual-sizing-intent" className="meta-input" placeholder="Sizing intent" value={manualMeta.sizingIntent} onChange={(e) => updateManualMeta({ sizingIntent: e.target.value })} />
       </div>
       <label className="tp-thesis-field">
-        <span>Macro dependencies</span>
+        <span>Outside forces to watch</span>
         <textarea
           data-qa="manual-macro-dependencies"
           rows={2}
@@ -1199,10 +1199,10 @@ function ManualAssetPanel({
               macroDependencies: e.target.value.split("\n").map((line) => line.trim()).filter(Boolean),
             })
           }
-          placeholder="Rates, FX, regulation, commodity prices, hidden correlations..."
+          placeholder="Rates, FX, regulation, commodity prices, or other outside forces..."
         />
       </label>
-      <div className="tp-card-h" style={{ marginTop: 12 }}>Risk Officer notes</div>
+      <div className="tp-card-h" style={{ marginTop: 12 }}>Risk notes</div>
       <div className="tp-thesis-confirm-grid">
         {prompts.map((prompt) => {
           const note = manualMeta.riskNotes.find((item) => item.promptId === prompt.id)?.note ?? "";
@@ -1264,17 +1264,17 @@ function ReviewCadencePanel({
   return (
     <div className="tp-card tp-card--wide" data-qa="review-panel">
       <div className="tp-card-h">
-        Review cadence
+        Check-in schedule
         <span className={`review-status is-${status.tone}`} data-qa="review-status">{status.label}</span>
       </div>
       <div className="review-summary" data-qa="review-summary">
         <span>Last reviewed: {formatReviewDate(review.lastReviewedAt)}</span>
-        <span>Next review: {formatReviewDate(review.nextReviewDue)}</span>
+        <span>Next check-in: {formatReviewDate(review.nextReviewDue)}</span>
         {review.cadence === "event_driven" && <span>Event-driven dates stay manual.</span>}
       </div>
       <div className="tp-meta-grid">
         <label className="tp-thesis-field">
-          <span>Cadence</span>
+          <span>Check-in rhythm</span>
           <select
             data-qa="review-cadence"
             className="meta-input"
@@ -1288,7 +1288,7 @@ function ReviewCadencePanel({
           </select>
         </label>
         <label className="tp-thesis-field">
-          <span>Next review due</span>
+          <span>Next check-in</span>
           <input
             data-qa="review-next-due"
             className="meta-input"
@@ -1298,7 +1298,7 @@ function ReviewCadencePanel({
           />
         </label>
         <label className="tp-thesis-field">
-          <span>Last reviewed</span>
+          <span>Last review</span>
           <input
             data-qa="review-last-reviewed"
             className="meta-input"
@@ -1332,7 +1332,7 @@ function ThesisMemoryPanel({ analysis }: { analysis: Analysis }) {
   if (!hasMemory) {
     return (
       <div className="tp-muted-note">
-        Paste rough notes in intake to extract a thesis summary, assumptions, breakers, watch items, and evidence candidates.
+        Paste rough notes in intake to extract your investment summary, what could make it work, what could go wrong, and the evidence you still need.
       </div>
     );
   }
@@ -1341,12 +1341,12 @@ function ThesisMemoryPanel({ analysis }: { analysis: Analysis }) {
     <div className="tp-thesis-panel">
       {thesis.summary && <div className="tp-thesis-summary">{thesis.summary}</div>}
       <div className="tp-thesis-grid">
-        <ThesisMiniList title="Assumptions" items={thesis.assumptions.map((item) => item.text)} tone="neutral" />
-        <ThesisMiniList title="Breakers" items={thesis.thesisBreakers.map((item) => item.text)} tone="bear" />
-        <ThesisMiniList title="Watch items" items={thesis.watchItems.map((item) => item.text)} tone="warning" />
-        <ThesisMiniList title="Valuation assumptions" items={thesis.valuationAssumptions.map((item) => item.text)} tone="neutral" />
+        <ThesisMiniList title="Why this could work" items={thesis.assumptions.map((item) => item.text)} tone="neutral" />
+        <ThesisMiniList title="What could go wrong" items={thesis.thesisBreakers.map((item) => item.text)} tone="bear" />
+        <ThesisMiniList title="What to watch" items={thesis.watchItems.map((item) => item.text)} tone="warning" />
+        <ThesisMiniList title="Price assumptions" items={thesis.valuationAssumptions.map((item) => item.text)} tone="neutral" />
         <ThesisMiniList title="Catalysts" items={thesis.catalysts.map((item) => item.text)} tone="bull" />
-        <ThesisMiniList title="Open questions" items={thesis.openQuestions.map((item) => item.text)} tone="warning" />
+        <ThesisMiniList title="What I still need to verify" items={thesis.openQuestions.map((item) => item.text)} tone="warning" />
       </div>
     </div>
   );
@@ -1488,7 +1488,7 @@ function EvidenceLocker({ analysis, onChange }: { analysis: Analysis; onChange: 
   return (
     <div className="tp-card tp-card--wide" data-qa="evidence-locker">
       <div className="tp-card-h">
-        Evidence Locker
+        What I still need to verify
         <span className="tp-card-hint">{evidence.length} item{evidence.length === 1 ? "" : "s"}</span>
       </div>
 
@@ -1532,7 +1532,7 @@ function EvidenceLocker({ analysis, onChange }: { analysis: Analysis; onChange: 
       {error && <div className="tp-evidence-error">{error}</div>}
 
       {evidence.length === 0 ? (
-        <div className="tp-muted-note">Create a note/link or promote an intake candidate to preserve evidence for this analysis.</div>
+        <div className="tp-muted-note">Create a note or link, or promote an intake candidate to preserve evidence for this investment review.</div>
       ) : (
         <div className="tp-evidence-list">
           {EVIDENCE_RELATIONS.map((relation) => {
@@ -1877,9 +1877,9 @@ function ConfirmCard({
 
   return (
     <div className="tp-confirm">
-      <div className="tp-confirm-h">Verify thesis and facts</div>
+      <div className="tp-confirm-h">Verify the investment view and key facts</div>
       <div className="tp-confirm-vrow">
-        <span className="tp-confirm-vlbl">Type</span>
+        <span className="tp-confirm-vlbl">Investment type</span>
         <span className="tp-confirm-vchip">{VERTICAL_SHORT[vertical]}</span>
         <button type="button" className="tp-confirm-change" onClick={cycleVertical} disabled={busy}>
           change
@@ -1891,26 +1891,26 @@ function ConfirmCard({
       </div>
       <div className="tp-thesis-confirm">
         <label className="tp-thesis-field">
-          <span>Thesis summary</span>
+          <span>Why I might invest</span>
           <textarea
             rows={2}
             value={thesis.summary}
             onChange={(e) => setThesis((current) => ({ ...current, summary: e.target.value }))}
             disabled={busy}
-            placeholder="Why this asset may deserve attention..."
+            placeholder="Why this investment may deserve attention..."
           />
         </label>
         <div className="tp-thesis-confirm-grid">
-          <ThesisListEditor label="Assumptions" value={thesis.assumptions} onChange={(text) => setThesisList("assumptions", text)} disabled={busy} />
-          <ThesisListEditor label="Breakers" value={thesis.thesisBreakers} onChange={(text) => setThesisList("thesisBreakers", text)} disabled={busy} />
-          <ThesisListEditor label="Watch items" value={thesis.watchItems} onChange={(text) => setThesisList("watchItems", text)} disabled={busy} />
-          <ThesisListEditor label="Valuation assumptions" value={thesis.valuationAssumptions} onChange={(text) => setThesisList("valuationAssumptions", text)} disabled={busy} />
+          <ThesisListEditor label="Why this could work" value={thesis.assumptions} onChange={(text) => setThesisList("assumptions", text)} disabled={busy} />
+          <ThesisListEditor label="What could go wrong" value={thesis.thesisBreakers} onChange={(text) => setThesisList("thesisBreakers", text)} disabled={busy} />
+          <ThesisListEditor label="What to watch" value={thesis.watchItems} onChange={(text) => setThesisList("watchItems", text)} disabled={busy} />
+          <ThesisListEditor label="Price assumptions" value={thesis.valuationAssumptions} onChange={(text) => setThesisList("valuationAssumptions", text)} disabled={busy} />
           <ThesisListEditor label="Catalysts" value={thesis.catalysts} onChange={(text) => setThesisList("catalysts", text)} disabled={busy} />
-          <ThesisListEditor label="Open questions" value={thesis.openQuestions} onChange={(text) => setThesisList("openQuestions", text)} disabled={busy} />
+          <ThesisListEditor label="What I still need to verify" value={thesis.openQuestions} onChange={(text) => setThesisList("openQuestions", text)} disabled={busy} />
         </div>
         {thesis.evidenceCandidates.length > 0 && (
           <div className="tp-thesis-evidence">
-            <div className="tp-thesis-evidence-h">Evidence candidates</div>
+            <div className="tp-thesis-evidence-h">Evidence to review</div>
             {thesis.evidenceCandidates.map((candidate, i) => (
               <div className="tp-thesis-evidence-row" key={`${candidate.title}-${i}`}>
                 <span>{candidate.title}</span>
@@ -1922,7 +1922,7 @@ function ConfirmCard({
       </div>
       {rows.length === 0 ? (
         <div className="tp-muted-note">
-          No figures map to {VERTICAL_SHORT[vertical]} — thesis memory can still be saved; add valuation figures later.
+          No figures map to {VERTICAL_SHORT[vertical]} — your investment view can still be saved; add valuation figures later.
         </div>
       ) : (
         rows.map((f) => {
@@ -1973,7 +1973,7 @@ function ConfirmCard({
       )}
       <div className="tp-confirm-actions">
         <button type="button" className="tp-confirm-btn" onClick={confirm} disabled={busy}>
-          {busy ? "Locking..." : intake.mode === "scoping" ? "Save thesis memory" : "Confirm & lock figures"}
+          {busy ? "Saving..." : intake.mode === "scoping" ? "Save investment view" : "Confirm key facts"}
         </button>
         <button type="button" className="tp-ghost" onClick={onCancel} disabled={busy}>
           Dismiss
