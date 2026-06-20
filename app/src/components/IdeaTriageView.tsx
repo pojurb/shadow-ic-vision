@@ -52,10 +52,11 @@ export default function IdeaTriageView({
         <section className="triage-hero">
           <div>
             <div className="agenda-kicker">Explore</div>
-            <h2>Research an investment idea before you save it</h2>
+            <div className="triage-temp-badge">Temporary sandbox · Not saved</div>
+            <h2>Explore an idea before you save it</h2>
             <p>
               Use this space for broad questions, quick screens, and first-pass framing.
-              Nothing enters your saved investments until you open a real review or add it to your watchlist.
+              Nothing enters your saved investments until you start a review or save it to your watchlist.
             </p>
           </div>
           <button className="tp-ghost" type="button" onClick={onBackAgenda}>
@@ -78,7 +79,7 @@ export default function IdeaTriageView({
           />
           <div className="triage-input-actions">
             <button className="commit-btn" data-qa="triage-run" type="submit">
-              Explore idea
+              Explore an idea
             </button>
             <span>Exploration only. No saved investment, evidence, or key numbers are created here.</span>
           </div>
@@ -117,17 +118,17 @@ export default function IdeaTriageView({
                           {candidate.ticker && <span className="library-vtag">{candidate.ticker}</span>}
                         </div>
                       </div>
-                      {savedIds.includes(candidate.id) && <span className="mini-badge watching">added</span>}
+                      {savedIds.includes(candidate.id) && <span className="mini-badge watching">saved to watchlist</span>}
                     </div>
                     <p>{candidate.thesisAngle}</p>
                     <TriageList title="What still needs checking" items={candidate.missingEvidence} />
                     <TriageList title="Main risks" items={candidate.riskLens} />
                     <div className="triage-actions">
                       <button className="commit-btn" type="button" data-qa={`triage-start-${candidate.id}`} onClick={() => onStartCase(candidate, prompt)}>
-                        Open investment review
+                        Start review
                       </button>
                       <button className="ghost-btn" type="button" data-qa={`triage-watch-${candidate.id}`} onClick={() => addToWatchlist(candidate)}>
-                        Add to watchlist
+                        Save to watchlist
                       </button>
                       <button className="tp-mini-btn" type="button" onClick={() => toggleCompare(candidate.id)}>
                         {compareIds.includes(candidate.id) ? "Remove compare" : "Compare"}
@@ -155,13 +156,13 @@ export default function IdeaTriageView({
             </div>
             <div>
               <span className="library-vtag">02</span>
-              <h3>Open reviews deliberately</h3>
-              <p>Open an investment review only when the idea deserves notes, evidence, and follow-up.</p>
+              <h3>Start reviews deliberately</h3>
+              <p>Start a saved review only when the idea deserves notes, evidence, and follow-up.</p>
             </div>
             <div>
               <span className="library-vtag">03</span>
-              <h3>Verify facts later</h3>
-              <p>Save and verify the details only after you have enough evidence to act.</p>
+              <h3>Check the facts next</h3>
+              <p>Save the idea first, then check the facts before you make a decision.</p>
             </div>
           </section>
         )}

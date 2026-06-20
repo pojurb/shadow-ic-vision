@@ -1382,6 +1382,8 @@ body.industrial-theme {
 .tp-mode { font-family: var(--tp-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 .tp-mode.is-intake { color: var(--tp-amber); background: rgba(240, 168, 41, 0.14); }
 .tp-mode.is-locked { color: var(--tp-bull); background: rgba(52, 211, 153, 0.14); }
+.tp-mode.is-saved { color: var(--tp-bull); background: rgba(52, 211, 153, 0.14); }
+.tp-mode.is-watchlist { color: var(--tp-amber); background: rgba(240, 168, 41, 0.14); }
 
 /* stance banner — engine-derived valuation verdict */
 .tp-stance { display: flex; align-items: baseline; gap: 10px; padding: 13px 18px; background: rgba(52, 211, 153, 0.06); border-bottom: 1px solid var(--tp-line); flex-wrap: wrap; }
@@ -1422,6 +1424,15 @@ body.industrial-theme {
 
 /* intake confirm card (amber inferred rows) */
 .tp-confirm { max-width: 680px; margin: 0 auto 20px; padding: 14px 16px; background: var(--tp-panel2); border: 1px solid var(--tp-line); border-radius: 12px; }
+.tp-imported-note,
+.tp-recovery-note,
+.tp-recovery-panel { max-width: 680px; margin: 0 auto 20px; padding: 14px 16px; border: 1px solid var(--tp-line); border-radius: 12px; }
+.tp-imported-note,
+.tp-recovery-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(34, 197, 94, 0.08); color: #d8dde7; font-size: 12.5px; line-height: 1.5; }
+.tp-recovery-panel { background: rgba(255, 255, 255, 0.03); }
+.tp-recovery-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.tp-recovery-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--tp-line); color: #cdd3dd; font-size: 12.5px; line-height: 1.5; }
+.tp-recovery-row:first-child { border-top: none; padding-top: 0; }
 .tp-confirm-h { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
 .tp-confirm-vrow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .tp-confirm-vlbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--tp-muted); }
@@ -1529,6 +1540,9 @@ body.industrial-theme {
     .tp-confirm-k { flex-basis: 100%; }
     .tp-confirm-flag,
     .tp-confirm-ok { margin-left: 0; }
+    .tp-imported-note,
+    .tp-recovery-note,
+    .tp-recovery-row { flex-direction: column; align-items: flex-start; }
     .tp-stock-row-top { flex-direction: column; align-items: stretch; }
     .tp-evidence-create,
     .tp-evidence-editor-grid,

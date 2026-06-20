@@ -191,10 +191,11 @@ This is the demo version of the investment cockpit. When you open it in a browse
 
 **What is the `app/` folder?**
 
-2026-06-11 update: `app/` is now the active local-first Next.js product. It
+2026-06-18 update: `app/` is now the active local-first Next.js product. It
 supports BYOK live AI providers, thesis memory, portfolio analysis, intake
-grounding, offline evals, optional live provider scorecards, and the safe
-self-improvement loop.
+grounding, offline evals, optional live provider scorecards, the safe
+self-improvement loop, plus IC Agenda, Evidence Locker, Decision Ledger,
+and IC Chair Triage flows.
 Inside the same project folder (`D:\jp-invest\`), there is a second, completely separate product called `app/`. This is the real, production version being actively built. Unlike this demo, `app/` actually connects to an AI model (Claude by Anthropic), stores your analysis data permanently on your machine, and is designed for actual daily use — not just to demonstrate the concept to others.
 
 **Why does this matter for the roadmap?**

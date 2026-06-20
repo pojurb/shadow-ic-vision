@@ -107,25 +107,29 @@ interface DecisionEntry {
 interface Analysis {
   id: string;
   title: string;
-  vertical: Vertical;
+  valuationMode: ValuationMode;
+  vertical: Vertical | null;
   assetType: AssetType;
   assetName: string;
   assetMeta: AssetMeta;
+  manualMeta: AnalysisManualMeta | null;
+  stockFields?: StockFieldRecord[];
   tags: string[];
   folderId: string | null;
 
   ic: ICState;
 
   parameters: AssetParameters;
-  metrics: ComputedMetrics;
+  metrics: ComputedMetrics | null;
 
   debate: DebateResult | null;
-  advisory: LensResult[] | null;
+  advisory: AdvisoryResult | null;
   persona: PersonaRef | null;
   stance: Stance | null;
   expertReview: ExpertReview | null;
 
   sources: ContextSource[];
+  evidence: EvidenceItem[];
   allowWebSearch: boolean;
   chat: ChatMessage[];
 
@@ -288,4 +292,4 @@ does not modify prompts, code, or persisted user data.
   or persisted user-facing improvement queue.
 - The in-app browser helper repair is deferred; product QA currently uses the
   fallback Edge/CDP harness.
-- No M7 or next build milestone is currently active.
+- M7 is implemented and verified. There is no pending P9c item in the active roadmap.

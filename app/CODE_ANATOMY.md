@@ -259,7 +259,8 @@ Important distinction:
 Analysis {
   id
   title
-  vertical       // valuation-engine route
+  valuationMode  // "engine" | "manual"
+  vertical       // valuation-engine route, nullable
   assetType     // IC/product classification
   assetName
   assetMeta {
@@ -270,6 +271,8 @@ Analysis {
     dataAsOf?
     source?
   }
+  manualMeta    // metadata for manual/private assets
+  stockFields[] // provenance tracking for engine figures
   tags
   folderId
 
@@ -293,18 +296,20 @@ Analysis {
   }
 
   parameters                    // vertical-specific engine inputs
-  metrics                       // ComputedMetrics from computeMetrics()
+  metrics                       // ComputedMetrics from computeMetrics() | null
   debate                        // DebateResult | null
-  advisory                      // LensResult[] | null
+  advisory                      // AdvisoryResult | null
   persona                       // visible expert persona | null
   stance                        // engine-derived stance | null
   expertReview                  // optional second-expert review | null
 
   sources                       // uploaded files and pasted links
+  evidence[]                    // first-class Evidence Locker records
   allowWebSearch
   chat
 
-  decision                      // legacy APPROVE/HOLD/REJECT decision memory (migrating to ICAction)
+  decision                      // legacy APPROVE/HOLD/REJECT decision memory
+  decisionHistory[]             // append-only ICAction ledger
   model
   status                        // draft/decided/watching/archived
   createdAt
@@ -504,23 +509,22 @@ candidate changes; it does not autonomously rewrite the system.
 - Web research through native tools or `/api/` fallbacks.
 - Grounded follow-up chat with numeric grounding checks.
 - Optional second-expert review.
-- Legacy APPROVE / HOLD / REJECT decision log with rationale.
 - Portfolio composition: manual holdings, capital weights, deterministic portfolio metrics, strategist debate, and cross-asset chat.
 - Full local persistence for analyses, portfolios, chat, decisions, sources, blobs, and IC memory.
 - Settings: provider, BYOK key, model selector, and workspace backup import/export.
 - Offline intake/grounding eval harness plus optional live provider scorecards.
 - Review-only improvement log linking observed failures to regression cases.
+- Manual Private Asset IC Entry without pretending automated data coverage exists.
+- Stock Intake Trust + Field Provenance with confirm-before-lock checking.
+- Evidence Locker workflow with durable records and thesis linkage.
+- Watchlist IC Agenda + Assumption Monitoring surfacing review-due, stale, contradiction, and drift signals.
+- Append-only Decision Ledger + Review Loop.
+- IC Chair Triage + Everyday-User Front Door to route temporary broad questions vs. saved review cases.
 
 **Still incomplete / product gaps:**
 
-- Full IC agenda/watchlist dashboard that ranks assets by review need, assumption pressure, stale thesis, risk triggers, or capital relevance.
-- Evidence locker linkage: sources and evidence candidates exist, but there is no first-class linked evidence table/workflow yet.
-- Assumption monitoring: assumptions/review cadence are stored, but no monitoring engine flags thesis drift or breaker events.
-- Stock intake provenance: intake tags fields as stated/inferred, but lockable public-equity figures do not yet carry cited field-level provenance.
 - In-app feedback inbox / user-facing improvement queue; the current self-improvement loop is developer-facing fixtures only.
-- IC action vocabulary: user-facing decisions still use legacy APPROVE/HOLD/REJECT rather than the fuller IC actions (which exist in `types.ts` pending UI integration).
 - Folder organization UI, despite the schema existing.
-- Rich private/alternative asset metadata such as liquidity, duration, pricing freshness, portfolio role, and sizing intent.
 - Data import from CSV/XLSX or official financial statement extraction.
 - Shareable investment memo/report export beyond workspace backup.
 - Auth, sync, scheduled monitoring, and cloud backup.

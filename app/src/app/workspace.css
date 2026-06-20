@@ -232,6 +232,26 @@
   overflow: hidden;
 }
 
+.workspace-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--tp-line, #2a2e37);
+  background: rgba(34, 197, 94, 0.08);
+  color: #d8f3dc;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.workspace-notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .cockpit-header {
   display: flex;
   justify-content: space-between;
@@ -553,6 +573,22 @@
   margin-bottom: 8px;
 }
 
+.triage-temp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 10px;
+  padding: 4px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .triage-hero p,
 .triage-result p,
 .triage-candidate p,
@@ -716,6 +752,10 @@
   .intent-grid {
     grid-template-columns: 1fr;
   }
+
+  .intent-subgrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -807,6 +847,15 @@
 .status-pill.status-archived {
   color: var(--bear-red);
   border-color: var(--bear-red);
+}
+.status-pill.status-needs-fact-check {
+  color: var(--yellow-caution);
+  border-color: var(--yellow-caution);
+}
+.status-pill.status-ready-for-review,
+.status-pill.status-decision-made {
+  color: var(--bull-green);
+  border-color: var(--bull-green);
 }
 
 .meta-grid {
@@ -998,6 +1047,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.intent-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
 }
 .template-list {
   display: flex;

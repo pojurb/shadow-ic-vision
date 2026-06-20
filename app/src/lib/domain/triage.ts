@@ -1,4 +1,5 @@
-import type { AssetType } from "./types";
+import { createEvidenceItem } from "./evidence";
+import type { AssetType, EvidenceItem } from "./types";
 
 export type TriageMode = "casual" | "broad_screen" | "direct_asset";
 
@@ -19,6 +20,18 @@ export interface TriageResult {
   summary: string;
   candidates: TriageCandidate[];
   chairNotes: string[];
+}
+
+export function buildExplorationCarryForwardEvidence(prompt: string): EvidenceItem | null {
+  const note = prompt.trim();
+  if (!note) return null;
+  return createEvidenceItem({
+    title: "Imported from Exploration",
+    type: "transcript",
+    relation: "unresolved",
+    reliability: "user_provided",
+    note,
+  });
 }
 
 const IDX_CANDIDATES: TriageCandidate[] = [
@@ -102,11 +115,11 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
     return {
       mode: "casual",
       heading: "IC Chair triage",
-      summary: "No case file opened. Ask about an opportunity set, name an asset, or paste a thesis note when you want the desk to start triage.",
+      summary: "Nothing saved yet. Ask about an opportunity set, name an asset, or paste a thesis note when you want to start exploring.",
       candidates: [],
       chairNotes: [
-        "Broad questions stay temporary until you start a case.",
-        "Case files are only created when you choose Start case or Add to watchlist.",
+        "Broad questions stay temporary until you start a review.",
+        "Saved reviews are only created when you choose Start review or Save to watchlist.",
       ],
     };
   }
@@ -115,21 +128,21 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
   if (directTicker) {
     return {
       mode: "direct_asset",
-      heading: `Open a case for ${directTicker}?`,
-      summary: "This looks like a concrete asset request. Start a case when you want thesis intake, evidence, and valuation verification to begin.",
+      heading: `Start a review for ${directTicker}?`,
+      summary: "This looks like a concrete asset request. Start a review when you want note capture, evidence, and fact checking to begin.",
       candidates: [
         {
           id: `direct-${directTicker.toLowerCase()}`,
-          title: `${directTicker} case candidate`,
+          title: `${directTicker} review candidate`,
           assetName: directTicker,
           assetType: "public_equity",
           ticker: directTicker,
-          thesisAngle: "Single-name case setup: verify the asset, collect cited facts, then build thesis memory before any figures are locked.",
+          thesisAngle: "Single-name review setup: verify the asset, collect cited facts, and build your working view before you make a decision.",
           missingEvidence: ["Company/source identity", "Cited price", "Cited fundamentals"],
           riskLens: ["Wrong ticker/source match", "Uncited valuation inputs", "Thesis not yet explicit"],
         },
       ],
-      chairNotes: ["Starting a case will create a draft in Library. Until then, this triage remains temporary."],
+      chairNotes: ["Starting a review will open a saved draft. Until then, this exploration stays temporary."],
     };
   }
 
@@ -141,7 +154,7 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
         "These are investigation candidates, not buy/sell recommendations. The next step is to choose one case and verify evidence before any thesis or figures are locked.",
       candidates: IDX_CANDIDATES,
       chairNotes: [
-        "Prioritize one name at a time so the case file has clean evidence and explicit thesis breakers.",
+        "Prioritize one name at a time so the saved review has clean evidence and explicit thesis breakers.",
         "For IDX names, fundamentals should prefer issuer or exchange filings; quote pages are acceptable only for current/delayed price context.",
       ],
     };

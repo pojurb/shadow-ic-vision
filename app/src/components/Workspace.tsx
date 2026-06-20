@@ -35,7 +35,7 @@ import AnalysisView from "./AnalysisView";
 import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
 import { buildQaBackup, type QaFixtureName, qaFixtureNames } from "@/lib/qa/fixtures";
-import type { TriageCandidate } from "@/lib/domain/triage";
+import { buildExplorationCarryForwardEvidence, type TriageCandidate } from "@/lib/domain/triage";
 
 /** What the main pane is showing — a single analysis, a portfolio, or nothing. */
 type Active =
@@ -44,6 +44,17 @@ type Active =
   | { type: "analysis"; data: Analysis }
   | { type: "portfolio"; data: PortfolioAnalysis };
 
+type WorkspaceNoticeAction =
+  | { type: "open-analysis"; id: string }
+  | { type: "open-agenda" }
+  | null;
+
+type WorkspaceNotice = {
+  message: string;
+  actionLabel?: string;
+  action: WorkspaceNoticeAction;
+};
+
 export default function Workspace({ initialQaFixtureRequested = false }: { initialQaFixtureRequested?: boolean }) {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [portfolios, setPortfolios] = useState<PortfolioAnalysis[]>([]);
@@ -51,6 +62,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
   const [showNew, setShowNew] = useState(false);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
+  const [notice, setNotice] = useState<WorkspaceNotice | null>(null);
   const [qaBootstrapped, setQaBootstrapped] = useState(false);
   const [qaFixtureRequested, setQaFixtureRequested] = useState(initialQaFixtureRequested);
   const [qaError, setQaError] = useState<string | null>(null);
@@ -136,6 +148,15 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     setShowSettings(true);
   }
 
+  function runNoticeAction(action: WorkspaceNoticeAction) {
+    if (!action) return;
+    if (action.type === "open-agenda") {
+      openAgenda();
+      return;
+    }
+    void open(action.id);
+  }
+
   function handleChange(next: Analysis) {
     setActive({ type: "analysis", data: next });
     // optimistic list update
@@ -198,52 +219,60 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     await refresh();
   }
 
-  function buildCaseFromTriage(candidate: TriageCandidate, prompt: string): Analysis {
+  function buildCaseFromTriage(candidate: TriageCandidate, prompt: string, saveKind: "review" | "watchlist"): Analysis {
     if (candidate.assetType === "public_equity") {
       const vertical: Vertical = "stocks";
-      const parameters = { ...BLANK_PARAMS[vertical] };
-      const now = Date.now();
       const analysis = createAnalysis({
-        title: candidate.assetName ? `${candidate.assetName} thesis case` : candidate.title,
+        title: candidate.assetName ? `${candidate.assetName} review` : candidate.title,
         vertical,
         assetName: candidate.assetName,
-        parameters,
-        metrics: computeMetrics(vertical, parameters),
+        parameters: { ...BLANK_PARAMS[vertical] },
+        metrics: computeMetrics(vertical, { ...BLANK_PARAMS[vertical] }),
         model: "seed",
       });
-      analysis.tags = ["triage"];
-      analysis.ic.thesis.openQuestions = [
-        {
-          id: crypto.randomUUID(),
-          text: `Triage prompt: ${prompt.trim() || candidate.thesisAngle}`,
-          createdAt: now,
-        },
-      ];
+      analysis.tags = saveKind === "watchlist" ? ["triage", "watchlist"] : ["triage"];
+      if (saveKind === "review") {
+        const imported = buildExplorationCarryForwardEvidence(prompt);
+        if (imported) analysis.evidence = [imported, ...analysis.evidence];
+      }
       return analysis;
     }
 
     const analysis = createManualAnalysis({
-      title: candidate.assetName || candidate.title,
+      title: candidate.assetName ? `${candidate.assetName} review` : candidate.title,
       assetName: candidate.assetName,
       assetType: candidate.assetType as Exclude<AssetType, "public_equity">,
       model: "manual",
     });
-    analysis.tags = ["triage"];
-    analysis.ic.thesis.summary = candidate.thesisAngle;
+    analysis.tags = saveKind === "watchlist" ? ["triage", "watchlist"] : ["triage"];
+    if (saveKind === "review") {
+      const imported = buildExplorationCarryForwardEvidence(prompt);
+      if (imported) analysis.evidence = [imported, ...analysis.evidence];
+    }
     return analysis;
   }
 
   async function startCaseFromTriage(candidate: TriageCandidate, prompt: string) {
-    const analysis = buildCaseFromTriage(candidate, prompt);
+    const analysis = buildCaseFromTriage(candidate, prompt, "review");
     setActive({ type: "analysis", data: analysis });
     await saveAnalysis(analysis);
     await refresh();
+    setNotice({
+      message: "Saved review opened. The raw exploration prompt is in Evidence Locker as an unverified note.",
+      actionLabel: "Check the facts",
+      action: { type: "open-analysis", id: analysis.id },
+    });
   }
 
   async function addWatchlistFromTriage(candidate: TriageCandidate, prompt: string) {
-    const analysis = buildCaseFromTriage(candidate, prompt);
+    const analysis = buildCaseFromTriage(candidate, prompt, "watchlist");
     await saveAnalysis(analysis);
     await refresh();
+    setNotice({
+      message: "Saved to your watchlist in Library. Open the saved draft when you're ready to check the facts.",
+      actionLabel: "Open saved draft",
+      action: { type: "open-analysis", id: analysis.id },
+    });
   }
 
   async function newBlank(vertical: Vertical) {
@@ -324,6 +353,21 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             </button>
           </div>
         </header>
+        {notice && (
+          <div className="workspace-notice" data-qa="workspace-notice">
+            <span>{notice.message}</span>
+            <div className="workspace-notice-actions">
+              {notice.actionLabel && notice.action && (
+                <button className="tp-mini-btn" type="button" onClick={() => runNoticeAction(notice.action)}>
+                  {notice.actionLabel}
+                </button>
+              )}
+              <button className="tp-ghost" type="button" onClick={() => setNotice(null)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {active.type === "agenda" ? (
           <AgendaView
@@ -349,6 +393,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             apiKey={settings.apiKeys?.[settings.provider] ?? ""}
             model={settings.model}
             onNeedSettings={() => setShowSettings(true)}
+            onOpenExplore={openTriage}
           />
         ) : active.type === "portfolio" ? (
           <PortfolioView
@@ -366,7 +411,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
               <h2>Start managing your wealth</h2>
               <p>Add an investment you already own, explore a new idea, or create a portfolio to see everything together.</p>
               <button className="commit-btn" data-qa="empty-new-analysis" onClick={() => setShowNew(true)}>Add investment</button>
-              <button className="example-link" data-qa="empty-new-manual" onClick={openTriage}>Explore investment idea</button>
+              <button className="example-link" data-qa="empty-new-manual" onClick={openTriage}>Explore an idea</button>
               <button className="example-link" onClick={() => setShowNew(true)}>Track a private or custom asset</button>
               <button className="example-link" onClick={newPortfolio}>Create a portfolio</button>
             </div>
@@ -418,6 +463,7 @@ function NewInvestmentDialog({
 }) {
   const [intent, setIntent] = useState<"owned" | "research" | "private" | "portfolio">("owned");
   const [vertical, setVertical] = useState<Vertical>("stocks");
+  const [privatePath, setPrivatePath] = useState<"structured" | "manual">("manual");
 
   function openExploreIdea() {
     onClose();
@@ -448,12 +494,12 @@ function NewInvestmentDialog({
               <span>Open an investment review for a stock, fund, or operating business you want to track.</span>
             </button>
             <button className={`intent-card${intent === "research" ? " active" : ""}`} onClick={() => setIntent("research")}>
-              <strong>Research a new investment idea</strong>
+              <strong>Explore an idea</strong>
               <span>Explore an idea before it becomes a saved investment review.</span>
             </button>
             <button className={`intent-card${intent === "private" ? " active" : ""}`} onClick={() => setIntent("private")}>
-              <strong>Track a private or custom asset</strong>
-              <span>Use your own notes, valuation, and risk checks for assets without live market data.</span>
+              <strong>Track a startup, private, or custom asset</strong>
+              <span>Choose based on what you have: structured numbers, notes, a deck, or incomplete information.</span>
             </button>
             <button className={`intent-card${intent === "portfolio" ? " active" : ""}`} onClick={() => setIntent("portfolio")}>
               <strong>Create a portfolio</strong>
@@ -500,7 +546,7 @@ function NewInvestmentDialog({
               <div className="label-text">Guided exploration</div>
               <p className="intent-copy">You will start with simple prompts like what the investment is, why it interests you, and what still needs to be checked.</p>
               <button className="blank-start-btn" onClick={openExploreIdea}>
-                <span className="blank-start-title">Explore investment idea</span>
+                <span className="blank-start-title">Explore an idea</span>
                 <span className="blank-start-hint">Nothing is saved until you choose to open a real investment review.</span>
               </button>
             </div>
@@ -508,15 +554,44 @@ function NewInvestmentDialog({
 
           {intent === "private" && (
             <>
-              <div className="label-text">Choose the private or custom asset type</div>
-              <div className="template-list">
-                {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
-                  <button key={assetType} className="template-item" data-qa={`manual-template-${assetType}`} onClick={() => onManual(assetType)}>
-                    <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
-                    <span className="template-hint">your own valuation, notes, and risk checks</span>
-                  </button>
-                ))}
+              <div className="label-text">What do you have?</div>
+              <div className="intent-subgrid">
+                <button className={`intent-card${privatePath === "structured" ? " active" : ""}`} onClick={() => setPrivatePath("structured")}>
+                  <strong>I have structured numbers</strong>
+                  <span>Use the modeled review path for a startup or operating business when you already know the core figures.</span>
+                </button>
+                <button className={`intent-card${privatePath === "manual" ? " active" : ""}`} onClick={() => setPrivatePath("manual")}>
+                  <strong>I have notes, a deck, or incomplete info</strong>
+                  <span>Use the manual path when you need valuation notes, evidence, and risk checks before a modeled review.</span>
+                </button>
               </div>
+              {privatePath === "structured" ? (
+                <>
+                  <div className="label-text">Start a modeled review</div>
+                  <div className="template-list">
+                    <button className="template-item" data-qa="private-structured-startup" onClick={() => onBlank("startups")}>
+                      <strong>Startup</strong>
+                      <span className="template-hint">engine-backed review for structured venture inputs</span>
+                    </button>
+                    <button className="template-item" data-qa="private-structured-conventional" onClick={() => onBlank("conventional")}>
+                      <strong>Operating business</strong>
+                      <span className="template-hint">engine-backed review for a structured private business case</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="label-text">Choose the asset type for a manual review</div>
+                  <div className="template-list">
+                    {(["conventional_business", "startup", "real_estate", "crypto", "macro_view", "other"] as const).map((assetType) => (
+                      <button key={assetType} className="template-item" data-qa={`manual-template-${assetType}`} onClick={() => onManual(assetType)}>
+                        <strong>{ASSET_TYPE_LABELS[assetType]}</strong>
+                        <span className="template-hint">your own valuation, notes, and risk checks</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 

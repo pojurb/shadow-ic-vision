@@ -29,6 +29,17 @@ Older PRDs remain historical references. This file is the current product-strate
 
 Primary ICP: serious self-directed investors.
 
+The product should not change the core ICP to a mass-market trading app.
+Instead, it should become simple enough that an everyday investor can
+understand the workflow without learning internal investment-committee jargon
+first.
+
+Product UX direction: dual-mode.
+
+- Default mode should feel plain-language, guided, and low-cognitive-load.
+- Advanced depth should remain available for users who want full IC discipline,
+  evidence rigor, and decision review.
+
 They typically:
 
 - Manage their own portfolio.
@@ -43,6 +54,13 @@ Their pain is not lack of information. Their pain is lack of decision structure,
 
 - Beachhead workflow: Watchlist IC Dashboard.
 - Core promise: decision clarity.
+- UX principle: simple by default, rigorous underneath.
+- Everyday-user clarity is a product requirement, not a separate beginner
+  edition.
+- Utility actions such as Settings must not compete with core investing actions
+  in the main workflow hierarchy.
+- The product should route users by intent before exposing internal system
+  architecture or advanced IC concepts.
 - Core IC primitives are asset-class agnostic: Thesis, Assumption, Evidence, Decision, and Review.
 - Data trust policy: cited facts only before locking valuation figures.
 - Monitoring policy: monitor assumptions and thesis breakers, not generic stock/news noise.
@@ -87,6 +105,10 @@ The product behaves like a committee with distinct roles. These roles can exist 
 - Risk Officer: downside, exposure, and assumptions.
 - Devil's Advocate: why the user may be wrong.
 - IC Chair: decision quality and next action.
+
+The default UI should explain actions in plain language before exposing these
+committee roles explicitly. Users should not need to understand the internal IC
+role model to start using the product well.
 
 ### Assumption Monitoring
 
@@ -146,16 +168,27 @@ The UI should expose the decision layer first. The engine can contain the eviden
 
 The main product loop:
 
-1. Add asset to IC agenda.
-2. Select asset type: Public Equity, Conventional Business, Startup, Real Estate, Crypto, Macro View, or Other.
+1. Start from one clear intent:
+   - explore an idea
+   - add something already owned
+   - track a startup or private asset
+   - create a portfolio
+2. Route the user into the right workflow without forcing them to understand
+   internal engine-vs-manual architecture first.
 3. For public equities, optionally run stock intake with cited data.
-4. For private and alternative assets, use manual-only intake with no automated data feed.
-5. Paste messy intake: notes, links, bullets, article excerpts, screenshots transcribed by the user, pitch-deck notes, valuation memos, or a draft thesis.
-6. AI extracts a structured thesis, assumptions, thesis breakers, watch items, and unresolved questions.
-7. User verifies the extracted structure and locks only cited facts or user-provided assumptions.
+4. For private and alternative assets, use manual-only intake with no automated
+   data feed.
+5. Paste or capture rough material: notes, links, bullets, article excerpts,
+   screenshots transcribed by the user, pitch-deck notes, valuation memos, or a
+   draft thesis.
+6. AI extracts a structured thesis, assumptions, thesis breakers, watch items,
+   and unresolved questions.
+7. User checks the extracted structure and confirms only cited facts or
+   user-provided assumptions.
 8. Attach evidence and assumptions.
 9. Define thesis breakers and assumption-monitoring rules.
-10. Monitor new information only against assumptions, breakers, valuation drift, and portfolio exposure.
+10. Monitor new information only against assumptions, breakers, valuation
+    drift, and portfolio exposure.
 11. Generate IC agenda.
 12. Run pre-mortem for Add / Increase Position decisions.
 13. Commit decision.
@@ -466,6 +499,11 @@ Macro should not behave like another isolated asset class. It should act as the 
 
 - Do not build another AI research assistant.
 - Do not optimize for source volume or chat volume.
+- Do not force users to understand internal workflow architecture when a
+  simpler intent-based route is sufficient.
+- Do not let Settings or other utilities compete with primary investing actions
+  in the main navigation.
+- Do not make expert IC terminology the only way to understand the workflow.
 - Do not make the core thesis, assumption, evidence, or decision schema equity-only.
 - Do not lock uncited valuation figures.
 - Do not monitor news or prices unless they intersect with assumptions, thesis breakers, valuation drift, or portfolio exposure.
@@ -570,6 +608,17 @@ MVP actions:
 - Archive
 
 Legacy approve/hold/reject can remain internally or as a simplified label, but the user-facing workflow should move toward IC actions.
+
+At the same time, the default UX should use plain-language entry and progress
+labels so an everyday user can understand what to do next without knowing IC
+shorthand. User-facing workflow copy should prefer:
+
+- Explore an idea
+- Start review
+- Save to watchlist
+- Check the facts
+- Ready for review
+- Decision made
 
 ### Portfolio Sizing Before Brokerage Import
 

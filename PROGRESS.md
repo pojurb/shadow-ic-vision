@@ -12,12 +12,15 @@ history, chat, portfolio composition, and decision review.
 
 ---
 
-## Active Handoff - 2026-06-18
+## Active Handoff - 2026-06-20
 
-M1-M7 are implemented and verified. There is no pending P9c item in the active
-roadmap. The in-app browser helper repair is deferred; product QA should continue to use the
-canonical fallback Edge/CDP harness until that tooling work is explicitly
-reprioritized.
+M1-M7 are implemented and verified. M7 now reflects the Variant A simple pass
+for the everyday-user front door, including plain-language naming, persistent
+temporary-vs-saved cues, prompt-only Explore carry-forward into Evidence
+Locker on `Start review`, and `Check the facts` saved-review framing. There is
+no pending P9c item in the active roadmap. The in-app browser helper repair is
+deferred; product QA should continue to use the canonical fallback Edge/CDP
+harness until that tooling work is explicitly reprioritized.
 
 Verified milestone state:
 
@@ -29,11 +32,11 @@ Verified milestone state:
 | M4 - Evidence Locker Primitives | Implemented, verified | Full canonical QA sweep passed on 2026-06-16 |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | `issues/qa/2026-06-17T08-58-14-514Z/report.json` |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Browser QA, unit tests, lint, and build passed |
-| M7 - IC Chair Triage + Intake Intent Gate | Implemented, verified | `npm test`, `npm run lint`, `npm run build`, and `node scripts/run.js qa m7` passed on 2026-06-18; evidence at `issues/qa/2026-06-18T13-53-23-771Z/report.json` |
+| M7 - IC Chair Triage + Everyday-User Front Door | Implemented, verified | `npm test`, `npm run lint`, `npm run build`, and `node scripts/run.js qa m7` passed on 2026-06-20; evidence at `issues/qa/2026-06-20T09-59-50-458Z/report.json` |
 
 Latest full verification snapshot:
 
-- `npm test` passed on 2026-06-18: 23 files / 185 tests.
+- `npm test` passed on 2026-06-20: 23 files / 188 tests.
 - `npm run lint` passed with pre-existing warnings only:
   - `app/src/app/layout.tsx` custom font warning
   - `app/src/components/charts.tsx` unused `CYAN_STROKE`
@@ -42,9 +45,9 @@ Latest full verification snapshot:
 - Latest full canonical browser QA evidence remains
   `issues/qa/2026-06-18T07-07-18-098Z/report.json` for M1-M6.
 - Isolated M7 browser QA passed:
-  `issues/qa/2026-06-18T13-53-23-771Z/report.json`.
-- The fallback browser harness now includes the M7 triage scenario and updated
-  Agenda / Idea Triage creation selectors.
+  `issues/qa/2026-06-20T09-59-50-458Z/report.json`.
+- The fallback browser harness now covers the Variant A simple-pass naming,
+  saved-state confirmations, and imported exploration evidence behavior.
 
 Current tooling note:
 
@@ -54,8 +57,9 @@ Current tooling note:
 
 Next exact step:
 
-- Keep using the retained M7 browser artifact when validating triage regressions:
-  `issues/qa/2026-06-18T13-53-23-771Z/report.json`.
+- Use the retained M7 simple-pass browser artifact when validating triage and
+  saved-review regressions:
+  `issues/qa/2026-06-20T09-59-50-458Z/report.json`.
 
 ---
 
@@ -73,7 +77,7 @@ single-asset cockpit into the current IC system:
   deployment handoff/cutover documentation.
 - M1-M7 then implemented the current product roadmap: IC thesis memory, manual
   private assets, stock provenance, Evidence Locker, IC Agenda, Decision
-  Ledger/review loop, and IC Chair triage before case files.
+  Ledger/review loop, and the M7 everyday-user front door simplification.
 
 Durable implementation details live in `BUILD_PLAN.md`, `DATA_MODEL.md`,
 `EXECUTION_PLAN.md`, milestone packets under `docs/milestones/`, and retained QA

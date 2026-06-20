@@ -150,6 +150,36 @@ describe("normalize-on-import", () => {
     expect(out.evidence[0].thesisRefs).toEqual([{ target: "summary", id: null }]);
   });
 
+  it("round-trips imported exploration transcript evidence unchanged", () => {
+    const member = memberFromPreset("triage-import", "stocks");
+    const analysis: Analysis = {
+      ...member,
+      evidence: [{
+        id: "ev-triage",
+        title: "Imported from Exploration",
+        type: "transcript",
+        relation: "unresolved",
+        reliability: "user_provided",
+        sourceDate: null,
+        note: "look into BBCA deposit franchise",
+        sourceRefIds: [],
+        thesisRefs: [],
+        createdAt: 1,
+        updatedAt: 2,
+      }],
+    };
+    const json = JSON.stringify({ app: "jp-workspace", version: 1, analyses: [analysis] });
+    const out = parseBackup(json).analyses[0];
+    expect(out.evidence).toHaveLength(1);
+    expect(out.evidence[0]).toMatchObject({
+      title: "Imported from Exploration",
+      type: "transcript",
+      relation: "unresolved",
+      reliability: "user_provided",
+      note: "look into BBCA deposit franchise",
+    });
+  });
+
   it("normalizes legacy backup candidates into first-class evidence", () => {
     const member = memberFromPreset("legacy-evidence-import", "stocks");
     const legacy: Analysis = {

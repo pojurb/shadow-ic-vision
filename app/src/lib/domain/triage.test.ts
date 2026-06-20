@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveIdeaTriage } from "./triage";
+import { buildExplorationCarryForwardEvidence, deriveIdeaTriage } from "./triage";
 
 describe("idea triage", () => {
   it("keeps casual text non-persistent and candidate-free", () => {
@@ -7,7 +7,7 @@ describe("idea triage", () => {
 
     expect(result.mode).toBe("casual");
     expect(result.candidates).toHaveLength(0);
-    expect(result.summary).toMatch(/No case file opened/i);
+    expect(result.summary).toMatch(/Nothing saved yet/i);
   });
 
   it("frames broad Indonesian stock questions as investigation candidates", () => {
@@ -26,5 +26,21 @@ describe("idea triage", () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0].ticker).toBe("BBCA");
     expect(result.chairNotes.join(" ")).toMatch(/temporary/i);
+  });
+
+  it("builds one imported exploration note from the raw prompt only", () => {
+    const item = buildExplorationCarryForwardEvidence("  look into BBCA deposit franchise  ");
+
+    expect(item).toMatchObject({
+      title: "Imported from Exploration",
+      type: "transcript",
+      relation: "unresolved",
+      reliability: "user_provided",
+      note: "look into BBCA deposit franchise",
+    });
+  });
+
+  it("skips carry-forward evidence when the prompt is empty", () => {
+    expect(buildExplorationCarryForwardEvidence("   ")).toBeNull();
   });
 });

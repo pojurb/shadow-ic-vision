@@ -13,6 +13,13 @@ const VERTICAL_TAG: Record<Vertical, string> = {
 
 type StatusFilter = "all" | "draft" | "watching" | "decided" | "archived";
 
+function reviewLifecycleLabel(analysis: Analysis): string {
+  if (analysis.tags.includes("watchlist") && analysis.decisionHistory.length === 0) return "Saved to watchlist";
+  if (analysis.decisionHistory.length > 0) return "Decision made";
+  if (analysis.valuationMode === "engine" && !analysis.debate) return "Needs fact check";
+  return "Ready for review";
+}
+
 export default function Library({
   analyses,
   portfolios,
@@ -175,9 +182,9 @@ function AnalysisLibraryItem({
         </button>
       </div>
       <div className="library-item-meta">
-        <span className={`mini-badge ${status}`}>{latest ? decisionLabel(latest).replaceAll("_", " ") : "REVIEW"}</span>
-        <span className="library-date">{new Date(analysis.updatedAt).toLocaleDateString("id-ID")}</span>
-      </div>
+            <span className={`mini-badge ${status}`}>{latest ? decisionLabel(latest).replaceAll("_", " ") : reviewLifecycleLabel(analysis)}</span>
+            <span className="library-date">{new Date(analysis.updatedAt).toLocaleDateString("id-ID")}</span>
+          </div>
       {analysis.tags.length > 0 && (
         <div className="library-tags">{analysis.tags.map((t) => `#${t}`).join(" ")}</div>
       )}

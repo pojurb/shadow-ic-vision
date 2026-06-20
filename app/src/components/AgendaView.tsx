@@ -86,7 +86,7 @@ export default function AgendaView({
 
         <section className="agenda-actions">
           <button className="commit-btn" data-qa="agenda-investigate-idea" onClick={onInvestigateIdea}>
-            Explore investment idea
+            Explore an idea
           </button>
           <button className="ghost-btn" data-qa="agenda-new-manual" onClick={onNewInvestment}>
             Add investment

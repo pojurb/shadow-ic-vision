@@ -118,6 +118,43 @@ function reviewStatus(review: ICState["review"], now = nowMs()): { label: string
   return { label: `Due in ${days}d`, tone: "ok" };
 }
 
+function savedSurfaceLabel(analysis: Analysis): string {
+  return analysis.tags.includes("watchlist") ? "Saved to watchlist" : "Saved review";
+}
+
+function reviewLifecycleState(analysis: Analysis, needsFactCheck: boolean): { label: string; className: string } {
+  if (analysis.decisionHistory.length > 0) return { label: "Decision made", className: "status-decision-made" };
+  if (needsFactCheck) return { label: "Needs fact check", className: "status-needs-fact-check" };
+  return { label: "Ready for review", className: "status-ready-for-review" };
+}
+
+function reviewModeLabel(needsFactCheck: boolean): string {
+  return needsFactCheck ? "Checking facts" : "Reviewing";
+}
+
+function hasImportedExplorationNote(analysis: Analysis): boolean {
+  return analysis.evidence.some((item) => item.title === "Imported from Exploration" && item.type === "transcript");
+}
+
+function unsupportedSavedReviewRecovery(text: string, analysis: Analysis): { message: string; actionLabel: string; action: "open_explore" } | null {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return null;
+  if (
+    analysis.assetType === "public_equity" &&
+    (/\btell me what stocks to buy\b/.test(lower) ||
+      /\bwhat stocks should i buy\b/.test(lower) ||
+      /\bwhich stocks should i buy\b/.test(lower) ||
+      /\brecommend (me )?(a )?stock\b/.test(lower))
+  ) {
+    return {
+      message: "We don't make buy or sell recommendations. Explore general stock ideas in Explore an idea, or keep checking the facts in this saved review.",
+      actionLabel: "Explore an idea",
+      action: "open_explore",
+    };
+  }
+  return null;
+}
+
 function clampEvidenceType(value?: string): EvidenceType {
   const allowed: EvidenceType[] = [
     "filing",
@@ -273,6 +310,7 @@ export default function AnalysisView({
   apiKey,
   model,
   onNeedSettings,
+  onOpenExplore,
 }: {
   analysis: Analysis;
   onChange: (next: Analysis) => void;
@@ -280,6 +318,7 @@ export default function AnalysisView({
   apiKey: string;
   model: string;
   onNeedSettings: () => void;
+  onOpenExplore: () => void;
 }) {
   const manualMode = analysis.valuationMode === "manual";
   const [reviewing, setReviewing] = useState(false);
@@ -292,7 +331,9 @@ export default function AnalysisView({
   const [streamingText, setStreamingText] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
   const [linkDraft, setLinkDraft] = useState("");
+  const [recoveryCta, setRecoveryCta] = useState<{ message: string; actionLabel: string; action: "open_explore" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Intake (Option C): when there's no debate yet, the composer drives a structured
   // intake → confirm-card → lock → debate flow instead of grounded follow-up chat.
@@ -373,8 +414,6 @@ export default function AnalysisView({
     update({ sources: analysis.sources.filter((x) => x.id !== s.id) });
   }
 
-  const isLive = !!analysis.model && analysis.model !== "seed";
-
   async function runAI() {
     if (!isEngineAnalysis(analysis)) return;
     if (!apiKey) return onNeedSettings();
@@ -435,10 +474,20 @@ export default function AnalysisView({
   /** Grounded follow-up chat (only after a debate exists). */
   async function sendFollowUp(text: string) {
     if (!isEngineAnalysis(analysis)) return;
+    const recovery = unsupportedSavedReviewRecovery(text, analysis);
+    if (recovery) {
+      const now = Date.now();
+      const userMsg: ChatMessage = { id: `${now}-u`, role: "user", content: text, createdAt: now };
+      const aiMsg: ChatMessage = { id: `${now}-a`, role: "assistant", content: recovery.message, kind: "answer", createdAt: now + 1 };
+      update({ chat: [...analysis.chat, userMsg, aiMsg] });
+      setRecoveryCta(recovery);
+      return;
+    }
     setPendingUser(text);
     setStreamingText("");
     setChatBusy(true);
     setAiError(null);
+    setRecoveryCta(null);
     try {
       const full = await getProvider(provider).streamChat({
         apiKey,
@@ -559,7 +608,7 @@ export default function AnalysisView({
         id: `${Date.now()}-t`,
         role: "assistant",
         kind: "answer",
-        content: "Thesis memory saved. Add valuation figures when ready, then I can lock the numbers and run the debate.",
+        content: "Your working view is saved. Add valuation figures when you're ready, then come back to check the facts before reviewing the investment.",
         createdAt: Date.now(),
       };
       onChange({ ...next, chat: [...next.chat, savedMsg] });
@@ -601,18 +650,16 @@ export default function AnalysisView({
 
   const groundingResult = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
   if (manualMode) {
-    return <ManualAnalysisView analysis={analysis} onChange={onChange} />;
+    return <ManualAnalysisView analysis={analysis} onChange={onChange} onOpenExplore={onOpenExplore} />;
   }
 
   const metrics = analysis.metrics!.metrics;
   const advisory = analysis.advisory ?? [];
-  const caseStage = analysis.decisionHistory.length > 0
-    ? "DECISION LOGGED"
-    : intakeMode
-      ? pendingIntake
-        ? "NEEDS VERIFICATION"
-        : "DRAFT THESIS"
-      : "FIGURES LOCKED";
+  const needsFactCheck = intakeMode || pendingIntake !== null;
+  const lifecycle = reviewLifecycleState(analysis, needsFactCheck);
+  const modeLabel = reviewModeLabel(needsFactCheck);
+  const savedLabel = savedSurfaceLabel(analysis);
+  const importedExploration = hasImportedExplorationNote(analysis);
   // Deterministic grounding guard (P8): flag any number in the model's prose that
   // doesn't trace to the engine. Non-blocking — surfaced as a chip / message marker.
   const grounding = groundingResult;
@@ -623,19 +670,19 @@ export default function AnalysisView({
       <header className="tp-topbar">
         <div className="tp-title-wrap">
           <input className="tp-title" value={analysis.title} onChange={(e) => update({ title: e.target.value })} />
-          <span className={`status-pill status-${analysis.status}`}>{analysis.status.toUpperCase()}</span>
+          <span className={`status-pill ${lifecycle.className}`}>{lifecycle.label}</span>
           {analysis.persona && (
             <span className="persona-badge" title="Domain expert that produced this investment review">{analysis.persona.label}</span>
           )}
-          <span className={`tp-mode${intakeMode ? " is-intake" : " is-locked"}`} title={intakeMode ? "Review building - paste notes or evidence for verification" : "Key figures locked through the deterministic engine"}>
-            ● {caseStage}
+          <span className={`tp-mode${analysis.tags.includes("watchlist") ? " is-watchlist" : " is-saved"}`} title="This record is already saved in your workspace">
+            {savedLabel}
           </span>
-          <span className={`sim-badge${isLive ? " live" : ""}`} title={isLive ? `Live AI (${analysis.model})` : "Seed content — run AI for a grounded debate"}>
-            {isLive ? "LIVE" : "SEED"}
+          <span className={`sim-badge${needsFactCheck ? "" : " live"}`} title={needsFactCheck ? "Check the facts before reviewing the saved investment." : "Grounded review mode"}>
+            {modeLabel}
           </span>
         </div>
         <div className="tp-topbar-actions">
-          <button className="tp-run-btn" onClick={runAI} disabled={running || intakeMode} title={intakeMode ? "Verify the investment view before running the AI review" : "Run the AI review"}>
+          <button className="tp-run-btn" onClick={runAI} disabled={running || needsFactCheck} title={needsFactCheck ? "Check the facts before running the AI review" : "Run the AI review"}>
             {running ? (runPhase === "research" ? "RESEARCHING…" : "ANALYZING…") : "Run AI review"}
           </button>
           <button className="tp-ghost" onClick={() => setInspectorOpen((v) => !v)}>
@@ -649,12 +696,20 @@ export default function AnalysisView({
         {/* ================= LEFT: conversation ================= */}
         <main className="tp-convo">
           <div className="tp-stream scrollable">
+            {importedExploration && needsFactCheck && (
+              <div className="tp-imported-note" data-qa="exploration-note-banner">
+                <span>Saved review opened. Your exploration prompt is in Evidence Locker as an unverified note.</span>
+                <button className="tp-mini-btn" type="button" onClick={() => composerInputRef.current?.focus()}>
+                  Check the facts
+                </button>
+              </div>
+            )}
             {analysis.chat.length === 0 && !pendingUser && !pendingIntake && !intakeBusy && (
               <div className="tp-stream-empty">
-                <div className="tp-stream-empty-h">Build your investment review</div>
+                <div className="tp-stream-empty-h">Check the facts</div>
                 Paste thesis notes, filings, links, or evidence for this concrete asset. The analyst will extract
-                your working view and candidate figures for verification. Broad screening belongs in Explore an idea; this
-                surface changes the investment review only after you verify the extracted facts.
+                a working view and candidate figures for fact checking. Broad screening belongs in Explore an idea; this
+                saved review only changes after you confirm the facts here.
               </div>
             )}
             {analysis.chat.map((m) => (
@@ -702,12 +757,20 @@ export default function AnalysisView({
             {running && intakeMode && (
               <div className="tp-msg tp-msg--assistant">
                 <div className="tp-msg-role">Analyst</div>
-                <div className="tp-msg-body">{runPhase === "research" ? "Researching…" : "Locking figures and running the debate…"}</div>
+                <div className="tp-msg-body">{runPhase === "research" ? "Checking sources…" : "Checking the facts and updating the review…"}</div>
               </div>
             )}
           </div>
 
           <div className="tp-composer">
+            {recoveryCta && (
+              <div className="tp-recovery-note" data-qa="saved-review-recovery">
+                <span>{recoveryCta.message}</span>
+                <button className="tp-mini-btn" type="button" onClick={onOpenExplore}>
+                  {recoveryCta.actionLabel}
+                </button>
+              </div>
+            )}
             {analysis.sources.length > 0 && (
               <div className="tp-sources">
                 {analysis.sources.map((s) => (
@@ -752,9 +815,10 @@ export default function AnalysisView({
             </div>
             <form className="tp-composer-input" onSubmit={onComposerSubmit}>
               <textarea
+                ref={composerInputRef}
                 className="tp-input"
                 rows={2}
-                placeholder={intakeMode ? "Paste notes or evidence for this investment..." : "Ask a grounded follow-up..."}
+                placeholder={needsFactCheck ? "Paste notes or evidence so you can check the facts..." : "Ask a grounded follow-up about this saved review..."}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -766,7 +830,7 @@ export default function AnalysisView({
                 disabled={chatBusy || intakeBusy || running}
               />
               <button type="submit" className="tp-send" disabled={chatBusy || intakeBusy || running}>
-                {intakeMode ? (intakeBusy ? "…" : "Extract ↵") : chatBusy ? "…" : "Send ↵"}
+                {needsFactCheck ? (intakeBusy ? "…" : "Check the facts ↵") : chatBusy ? "…" : "Send ↵"}
               </button>
             </form>
           </div>
@@ -966,17 +1030,26 @@ export default function AnalysisView({
 function ManualAnalysisView({
   analysis,
   onChange,
+  onOpenExplore,
 }: {
   analysis: Analysis;
   onChange: (next: Analysis) => void;
+  onOpenExplore: () => void;
 }) {
+  const lifecycle = reviewLifecycleState(analysis, false);
+  const savedLabel = savedSurfaceLabel(analysis);
+
+  function jumpTo(selector: string) {
+    document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <div className="tp-root" data-qa="analysis-view">
       <header className="tp-topbar">
         <div className="tp-title-wrap">
           <input className="tp-title" value={analysis.title} onChange={(e) => onChange({ ...analysis, title: e.target.value })} />
-          <span className={`status-pill status-${analysis.status}`}>{analysis.status.toUpperCase()}</span>
-          <span className="tp-mode">● PRIVATE ASSET</span>
+          <span className={`status-pill ${lifecycle.className}`}>{lifecycle.label}</span>
+          <span className={`tp-mode${analysis.tags.includes("watchlist") ? " is-watchlist" : " is-saved"}`}>{savedLabel}</span>
           <span className="sim-badge">{ASSET_TYPE_LABELS[analysis.assetType]}</span>
         </div>
       </header>
@@ -985,8 +1058,31 @@ function ManualAnalysisView({
         <main className="tp-convo">
           <div className="tp-stream scrollable">
             <div className="tp-stream-empty">
-              <div className="tp-stream-empty-h">Private or custom asset</div>
-              No automatic market model is active for this investment review. Capture your notes, valuation context, evidence, decisions, and risk checks here.
+              <div className="tp-stream-empty-h">Saved manual review</div>
+              No automatic market model is active for this asset. Capture your notes, valuation context, evidence, decisions, and risk checks here.
+            </div>
+            <div className="tp-recovery-panel" data-qa="manual-review-recovery">
+              <div className="tp-card-h">When this review can&apos;t do something yet</div>
+              <div className="tp-recovery-list">
+                <div className="tp-recovery-row">
+                  <span>Can&apos;t sync live prices for a private asset? Use the saved check-in schedule to review it manually.</span>
+                  <button className="tp-mini-btn" type="button" onClick={() => jumpTo('[data-qa=\"review-panel\"]')}>
+                    Set review cadence
+                  </button>
+                </div>
+                <div className="tp-recovery-row">
+                  <span>No public chart or sentiment feed? Preserve the source material you do have in Evidence Locker.</span>
+                  <button className="tp-mini-btn" type="button" onClick={() => jumpTo('[data-qa=\"evidence-locker\"]')}>
+                    Add note
+                  </button>
+                </div>
+                <div className="tp-recovery-row">
+                  <span>Need a broader market screen before you decide what belongs here? Go back to Explore an idea.</span>
+                  <button className="tp-mini-btn" type="button" onClick={onOpenExplore}>
+                    Explore an idea
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -1877,7 +1973,7 @@ function ConfirmCard({
 
   return (
     <div className="tp-confirm">
-      <div className="tp-confirm-h">Verify the investment view and key facts</div>
+      <div className="tp-confirm-h">Check the facts before you review</div>
       <div className="tp-confirm-vrow">
         <span className="tp-confirm-vlbl">Investment type</span>
         <span className="tp-confirm-vchip">{VERTICAL_SHORT[vertical]}</span>
@@ -1886,7 +1982,7 @@ function ConfirmCard({
         </button>
       </div>
       <div className="tp-confirm-note">
-        Amber rows were <b>inferred</b> — check them. The ✓ rows you typed are ready.
+        Amber rows were <b>inferred</b> — check them first. The ✓ rows you typed are ready.
         {vertical === "stocks" && " DCF cashflows are proxied from EPS until refined."}
       </div>
       <div className="tp-thesis-confirm">
@@ -1922,7 +2018,7 @@ function ConfirmCard({
       </div>
       {rows.length === 0 ? (
         <div className="tp-muted-note">
-          No figures map to {VERTICAL_SHORT[vertical]} — your investment view can still be saved; add valuation figures later.
+            No figures map to {VERTICAL_SHORT[vertical]} yet. You can still save the working view now and add valuation figures later.
         </div>
       ) : (
         rows.map((f) => {
@@ -1973,7 +2069,7 @@ function ConfirmCard({
       )}
       <div className="tp-confirm-actions">
         <button type="button" className="tp-confirm-btn" onClick={confirm} disabled={busy}>
-          {busy ? "Saving..." : intake.mode === "scoping" ? "Save investment view" : "Confirm key facts"}
+          {busy ? "Saving..." : intake.mode === "scoping" ? "Save working view" : "Confirm these facts"}
         </button>
         <button type="button" className="tp-ghost" onClick={onCancel} disabled={busy}>
           Dismiss

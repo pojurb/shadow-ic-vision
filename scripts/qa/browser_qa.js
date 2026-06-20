@@ -1022,7 +1022,7 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-result"]'), 30_000, "triage result");
         const body = String(await evaluate(page.cdp, "document.body.innerText"));
         const libraryCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
-        if (!body.includes("No case file opened")) throw new ScenarioError("casual triage response missing non-persistent message", "app", "casual triage");
+        if (!body.includes("Nothing saved yet")) throw new ScenarioError("casual triage response missing non-persistent message", "app", "casual triage");
         if (await exists(page.cdp, '[data-qa="triage-candidates"]')) throw new ScenarioError("casual triage should not render candidates", "app", "casual triage");
         if (libraryCount !== 0) throw new ScenarioError(`casual triage created ${libraryCount} library records`, "app", "casual triage");
       });
@@ -1040,23 +1040,27 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
       await step("add to watchlist creates a saved draft", "app", async () => {
         await click(page.cdp, '[data-qa="triage-watch-idx-bbca"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa^="library-analysis-"]'), 30_000, "saved watchlist draft");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="workspace-notice"]'), 30_000, "watchlist confirmation");
         const titles = await evaluate(page.cdp, `Array.from(document.querySelectorAll('[data-qa^="library-analysis-"] .library-item-title')).map((node) => node.textContent || "")`);
-        if (!Array.isArray(titles) || !titles.includes("BBCA thesis case")) {
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        if (!Array.isArray(titles) || !titles.includes("BBCA review")) {
           throw new ScenarioError(`watchlist draft missing from Library: ${JSON.stringify(titles)}`, "app", "watchlist save");
         }
+        if (!body.includes("Saved to your watchlist")) throw new ScenarioError("watchlist confirmation copy missing", "app", "watchlist save");
       });
 
-      await step("direct asset prompt starts a case explicitly", "app", async () => {
+      await step("direct asset prompt starts a review explicitly", "app", async () => {
         await fillInput(page.cdp, '[data-qa="triage-prompt"]', "analyze TLKM");
         await click(page.cdp, '[data-qa="triage-run"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-candidate-direct-tlkm"]'), 30_000, "direct asset candidate");
         await click(page.cdp, '[data-qa="triage-start-direct-tlkm"]');
-        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="analysis-view"]'), 30_000, "case file view");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="analysis-view"]'), 30_000, "saved review view");
         const title = await getInputValue(page.cdp, ".tp-title");
         const body = String(await evaluate(page.cdp, "document.body.innerText"));
-        if (title !== "TLKM thesis case") throw new ScenarioError(`unexpected case title: ${title}`, "app", "start case");
-        if (!body.includes("DRAFT THESIS")) throw new ScenarioError("draft thesis stage label missing", "app", "start case");
-        if (!body.includes("Build the case file")) throw new ScenarioError("case file draft copy missing", "app", "start case");
+        if (title !== "TLKM review") throw new ScenarioError(`unexpected review title: ${title}`, "app", "start review");
+        if (!body.includes("Needs fact check")) throw new ScenarioError("plain-language review state missing", "app", "start review");
+        if (!body.includes("Check the facts")) throw new ScenarioError("fact-check mode copy missing", "app", "start review");
+        if (!body.includes("Imported from Exploration")) throw new ScenarioError("exploration carry-forward note missing", "app", "start review");
       });
     } else if (name === "broken-m4") {
       await step("open broken evidence fixture", "app", async () => {
