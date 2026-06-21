@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeAnalysis } from "./index";
 import type { Analysis } from "@/lib/domain/types";
+import { createEvidenceItem } from "@/lib/domain/evidence";
 
 /** An analysis persisted in the old shape before persona migration. */
 function legacyAnalysis(): Analysis {
@@ -212,5 +213,58 @@ describe("normalizeAnalysis manual asset compatibility", () => {
     expect(n.metrics).toBeNull();
     expect(n.manualMeta?.valuationAmount).toBe(1_250_000_000);
     expect(n.manualMeta?.riskNotes.find((note) => note.promptId === "valuation_quality")).toBeTruthy();
+  });
+
+  it("backfills kickoff for legacy manual triage reviews imported from Explore", () => {
+    const raw = legacyAnalysis();
+    raw.valuationMode = "manual";
+    raw.vertical = null as unknown as Analysis["vertical"];
+    raw.metrics = null as unknown as Analysis["metrics"];
+    raw.assetType = "conventional_business";
+    raw.tags = ["triage"];
+    raw.evidence = [
+      createEvidenceItem({
+        title: "Imported from Exploration",
+        type: "transcript",
+        relation: "unresolved",
+        reliability: "user_provided",
+        note: "private logistics business in France",
+      }),
+    ];
+
+    const n = normalizeAnalysis(raw);
+    expect(n.reviewMode).toBe("kickoff");
+  });
+
+  it("does not force kickoff when a manual triage review already has decisions", () => {
+    const raw = legacyAnalysis();
+    raw.valuationMode = "manual";
+    raw.vertical = null as unknown as Analysis["vertical"];
+    raw.metrics = null as unknown as Analysis["metrics"];
+    raw.assetType = "conventional_business";
+    raw.tags = ["triage"];
+    raw.evidence = [
+      createEvidenceItem({
+        title: "Imported from Exploration",
+        type: "transcript",
+        relation: "unresolved",
+        reliability: "user_provided",
+        note: "private logistics business in France",
+      }),
+    ];
+    raw.decisionHistory = [
+      {
+        id: "decision-1",
+        decidedAt: 1,
+        action: "watch",
+        rationale: "Need more diligence",
+        trigger: null,
+        snapshot: { kind: "legacy", data: { reason: "legacy_decision_without_snapshot", capturedAt: 1 } },
+        review: null,
+      },
+    ];
+
+    const n = normalizeAnalysis(raw);
+    expect(n.reviewMode).toBeNull();
   });
 });

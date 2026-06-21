@@ -46,6 +46,16 @@ function normalizeReviewMode(value: unknown): AnalysisReviewMode {
   return value === "kickoff" || value === "fact_check" ? value : null;
 }
 
+function shouldBackfillLegacyManualKickoff(
+  analysis: Pick<Analysis, "valuationMode" | "tags" | "evidence">,
+  reviewMode: AnalysisReviewMode,
+  hasDecisions: boolean,
+): boolean {
+  if (reviewMode !== null || hasDecisions || analysis.valuationMode !== "manual") return false;
+  if (!analysis.tags.includes("triage")) return false;
+  return analysis.evidence.some((item) => item.title === "Imported from Exploration" && item.type === "transcript");
+}
+
 // ---- Back-compat ----
 
 /** Old advisory shape persisted before the per-vertical lens migration. */
@@ -117,7 +127,18 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
   const vertical = valuationMode === "manual" ? null : a.vertical ?? "stocks";
   const metrics = valuationMode === "manual" ? null : a.metrics;
   const manualMeta = normalizeManualMeta(a.manualMeta, assetType);
-  const reviewMode = normalizeReviewMode((a as Analysis & { reviewMode?: unknown }).reviewMode);
+  const persistedReviewMode = normalizeReviewMode((a as Analysis & { reviewMode?: unknown }).reviewMode);
+  const reviewMode = shouldBackfillLegacyManualKickoff(
+    {
+      valuationMode,
+      tags: a.tags ?? [],
+      evidence,
+    },
+    persistedReviewMode,
+    decisionHistory.length > 0,
+  )
+    ? "kickoff"
+    : persistedReviewMode;
 
   return {
     ...a,
