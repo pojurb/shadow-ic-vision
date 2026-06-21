@@ -1,9 +1,11 @@
 # Data Model - AI Investment Workspace
 
 The product is now a local-first AI Investment Committee workspace. The central
-object remains `Analysis`, but an analysis is now a thesis detail record: it
-carries investment committee memory, deterministic valuation figures, context
-sources, AI debate, chat, and append-only decision history.
+object remains `Analysis`, but an analysis is now a saved thesis-detail record:
+it carries investment committee memory, deterministic valuation figures or
+manual asset metadata, context sources, first-class evidence, saved-review
+lifecycle state, AI debate/chat where applicable, and append-only decision
+history.
 
 Persistence: Dexie / IndexedDB in the browser. The app stores everything locally
 behind repository helpers so a server-backed implementation can be added later
@@ -22,11 +24,69 @@ type AssetType =
   | "crypto"
   | "macro_view"
   | "other";
+
+type ValuationMode = "engine" | "manual";
+type AnalysisReviewMode = "kickoff" | "fact_check" | null;
 ```
 
 - `vertical` routes the deterministic valuation engine and field set.
 - `assetType` is the IC/product classification. It is broader than the current
   valuation engine and is the bridge toward manual private/alternative assets.
+- `valuationMode` distinguishes deterministic engine-backed reviews from
+  manual/private saved work.
+- `reviewMode` tracks whether a saved review is still in kickoff or fact-check
+  before grounded review is ready.
+
+## Explore And Saved Review Boundary
+
+The app now has an explicit boundary between temporary exploration and saved
+workspace state.
+
+Temporary Explore state is not persisted as an `Analysis`. Broad, private, and
+business prompts stay temporary through guided exploration and a deeper
+follow-up stage before save actions appear.
+
+Relevant temporary contracts:
+
+```ts
+type TriageMode = "casual" | "broad_screen" | "direct_asset";
+
+interface ExploreDirection {
+  id: string;
+  title: string;
+  assetName: string;
+  assetType: AssetType;
+  ticker?: string;
+  thesisAngle: string;
+  whyItCouldWork: string[];
+  mainRisks: string[];
+  nextQuestions: string[];
+}
+
+interface ExploreResult {
+  summary: string;
+  directions: ExploreDirection[];
+}
+
+interface ExploreDeeperResult {
+  directionId: string;
+  summary: string;
+  whyItCouldWork: string[];
+  mainRisks: string[];
+  evidenceToCheck: string[];
+  decisionQuestions: string[];
+}
+```
+
+Save boundary rules:
+
+- first direction pick is still temporary
+- only deeper exploration unlocks `Start review` / `Save to watchlist`
+- saving from Explore creates a normal `Analysis` record
+- the raw Explore prompt is carried forward as one unverified
+  `Imported from Exploration` evidence item
+- selected direction framing seeds thesis summary, risks, and open questions
+- Explore output does not write directly into `chat`
 
 ## IC Thesis Memory
 
@@ -69,6 +129,8 @@ Current scope:
   `evidenceCandidates` normalized for compatibility.
 - Review cadence feeds the implemented IC Agenda and assumption-monitoring
   read model.
+- Explore-originated kickoff seeding can prefill thesis summary, risks, and
+  open questions, but that carry-forward stays unverified until fact-checking.
 
 ## Analysis
 
@@ -132,6 +194,7 @@ interface Analysis {
   evidence: EvidenceItem[];
   allowWebSearch: boolean;
   chat: ChatMessage[];
+  reviewMode?: AnalysisReviewMode;
 
   decision: Decision | null;
   decisionHistory: DecisionEntry[];
@@ -141,6 +204,16 @@ interface Analysis {
   updatedAt: number;
 }
 ```
+
+Current analysis-state rules:
+
+- engine-backed public-equity reviews usually progress through
+  `kickoff -> fact_check -> review`
+- direct asset starts can open directly in `fact_check`
+- Explore-originated broad/private/business saves open in `kickoff`
+- when a grounded debate is ready, `reviewMode` returns to `null`
+- manual/private analyses use the same `Analysis` record but keep
+  `valuationMode: "manual"`, `vertical: null`, and `metrics: null`
 
 `Decision` is legacy read-compatibility only. The user-facing workflow writes
 `decisionHistory`. Legacy approve/hold/reject records normalize into a
@@ -152,6 +225,26 @@ Analysis status is derived from the newest decision history entry:
 - latest `watch` -> `watching`
 - latest `archive` -> `archived`
 - any other current IC action -> `decided`
+
+## Saved Review Lifecycle
+
+Saved reviews have a visible lifecycle even though only `kickoff` and
+`fact_check` persist directly on the record.
+
+```ts
+type ReviewSurfaceMode = "kickoff" | "fact_check" | "review";
+```
+
+Lifecycle behavior:
+
+- `kickoff`: saved handoff state that explains what Explore carried forward and
+  what the user should do next
+- `fact_check`: concrete notes/ticker/evidence intake plus explicit
+  `ConfirmCard` review of extracted facts
+- `review`: grounded saved-analysis mode after required fact-checking / debate
+
+`ConfirmCard` is user-triggered. It appears only after explicit `Check the
+facts` action or concrete submission, not from passive screen state alone.
 
 ## Deterministic Metrics
 
@@ -179,6 +272,10 @@ functions, not from the model:
 Model outputs may interpret and challenge locked figures; they must not author
 lockable numbers.
 
+Manual/private analyses are intentionally outside this deterministic engine
+path. They preserve thesis memory, evidence, cadence, and decisions without
+pretending to have computed valuation metrics.
+
 ## Context Sources
 
 ```ts
@@ -205,6 +302,19 @@ type ContextSource =
 Files are stored as blobs in IndexedDB. Links and web research use native provider
 tools where available or the app's server-side `/api/web-fetch` and
 `/api/web-search` routes.
+
+Explore-originated saved reviews can also begin with one transcript-style
+evidence item:
+
+```ts
+EvidenceItem {
+  title: "Imported from Exploration";
+  type: "transcript";
+  relation: "unresolved";
+  reliability: "user_provided";
+  note: string; // raw Explore prompt
+}
+```
 
 ## Portfolio
 
@@ -247,12 +357,18 @@ for grounding. Portfolio decision/status badges are derived from
 | `blobs` | `id` | file bytes referenced by `ContextSource.blobId` |
 
 The repository normalizes older records on read, so newer fields like
-`assetType`, `ic`, portfolio members, persona, stance, and expert review can
-backfill without a Dexie version bump.
+`assetType`, `ic`, `manualMeta`, `evidence`, `decisionHistory`, `reviewMode`,
+portfolio members, persona, stance, and expert review can backfill without a
+Dexie version bump.
 
 Decision history is also normalized on read. Old single-decision analyses expose
 a one-entry legacy history in memory, while persistent write-back happens only
 through explicit save/import flows.
+
+Saved-review lifecycle state is also normalized on read:
+
+- `reviewMode` accepts only `"kickoff"` or `"fact_check"`
+- any unknown persisted value normalizes to `null`
 
 ## Eval Harness And Improvement Loop
 
@@ -292,4 +408,4 @@ does not modify prompts, code, or persisted user data.
   or persisted user-facing improvement queue.
 - The in-app browser helper repair is deferred; product QA currently uses the
   fallback Edge/CDP harness.
-- M7 is implemented and verified. There is no pending P9c item in the active roadmap.
+- M7 is implemented and verified. The next active milestone is M8: BYOK Trust, Validation, And Local Provider Setup.
