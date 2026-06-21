@@ -5,77 +5,73 @@ Source of truth: `PRODUCT_STRATEGY.md`.
 This plan turns the current single-asset cockpit into the broader AI Investment
 Committee product while preserving the local-first Next.js/Dexie architecture.
 
-## Latest Status - 2026-06-20
+## Latest Status - 2026-06-21
 
 The app has moved beyond the original single-asset cockpit. It now supports
 thesis intake, IC thesis memory, grounded debate, portfolio composition,
 cross-asset chat, export/import, verified stock-intake field provenance, an
 analysis-scoped Evidence Locker, a verified IC Agenda home, a verified M1 IC
-memory/review-state foundation, and a verified M7 everyday-user front door
-simple pass. Browser QA uses the canonical fallback Edge/CDP harness while the
-in-app browser helper remains deferred.
+memory/review-state foundation, and a shipped M7 everyday-user front door with
+AI-backed temporary discovery plus deterministic inspection guardrails. The
+2026-06-21 guided-exploration refresh is now implemented and verified:
+Explore distinguishes loading vs unavailable states, broad/private/business
+prompts stay temporary through an initial and deeper exploration stage, the
+first direction pick no longer creates a saved review, and Explore-originated
+manual/private saves now begin in kickoff instead of the old generic recovery
+surface. Browser QA still uses the canonical fallback Edge/CDP harness while
+the in-app browser helper remains deferred.
 
 Current milestone status:
 
 | Milestone | Status | Notes |
 |---|---|---|
 | M1 - IC Primitives + Frictionless Thesis Intake | Implemented, verified | Added `docs/milestones/m1_spec.md`, review-state status visibility, tested recurring/manual review behavior, hardened malformed legacy IC normalization, and added canonical `m1` browser QA. `npm test`, `npm run lint`, `npm run build`, isolated `node scripts/run.js qa m1`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-18 with retained evidence at `issues/qa/2026-06-18T04-15-23-825Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper is intentionally deferred. |
-| M2 - Manual Private Asset IC Entry | Implemented, verified | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, portfolio-picker exclusion, and a new review-cadence editor. `npm test`, `npm run lint`, and `npm run build` passed, and isolated browser QA for `node scripts/run.js qa m2` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T05-02-10-481Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
+| M2 - Manual Private Asset IC Entry | Implemented, verified | Added `docs/milestones/m2_spec.md`, manual `valuationMode`, nullable engine fields, manual metadata/risk prompts, `+ MANUAL ASSET` entry points, manual thesis/detail editing, portfolio-picker exclusion, and a new review-cadence editor. `npm test`, `npm run lint`, and `npm run build` passed, and isolated browser QA for `node scripts/run.js qa m2` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T05-02-10-481Z/report.json`. The 2026-06-21 guided-exploration refresh is now implemented and verified in the M7 flow, so Explore-originated manual/private saves begin in kickoff instead of the old generic recovery surface. |
 | M3 - Stock Intake Trust + Field Provenance | Implemented, verified | Stock provenance types, lockable sourced facts, candidate blocking, manual promotion, saved inspector provenance, `npm test`, `npm run build`, and isolated browser QA are complete. |
 | M4 - Evidence Locker Primitives | Implemented, verified | First-class `Analysis.evidence`, legacy candidate normalization, inline Evidence Locker UI, source/thesis links, backup/import preservation, and decision snapshot coverage are built. `npm test`, `npm run lint`, `npm run build`, isolated `m6`, expected-failure `broken-m4`, and the full canonical `node scripts/run.js qa` sweep passed on 2026-06-16. |
 | M5 - Watchlist IC Agenda + Assumption Monitoring | Implemented, verified | Added `docs/milestones/m5_spec.md`, the pure agenda derivation layer, Agenda home/default landing view, sidebar Agenda entry, canonical `m5` QA fixture, and a workspace create-flow race fix needed for the full sweep. `npm test`, `npm run lint`, and `npm run build` passed, and the canonical browser QA sweep `node scripts/run.js qa` passed on 2026-06-17 with retained evidence at `issues/qa/2026-06-17T08-58-14-514Z/report.json`. Browser QA used the fallback Edge/CDP harness because the in-app browser helper still crashes locally. |
 | M6 - Decision Ledger + Review Loop | Implemented, verified | Append-only `decisionHistory`, analysis/portfolio ledger UI, derived badges, snapshots, outcome reviews, legacy normalization, and backup round-trip tests are built. `npm run lint -- --quiet`, `npm test`, `npm run build`, and browser QA passed. Browser QA used local Playwright + Edge because the in-app browser helper still crashes during setup in this environment. |
-| M7 - IC Chair Triage + Everyday-User Front Door | Implemented, verified | Updated `docs/milestones/m7_spec.md` for the Variant A simple pass, kept deterministic non-persistent triage, renamed user-visible actions into plain language, added persistent temporary-vs-saved cues, carried forward only the raw Explore prompt into Evidence Locker on `Start review`, reframed saved stock reviews around `Check the facts`, refined startup/private routing copy, and added deterministic saved-review recovery actions. `npm test`, `npm run lint`, `npm run build`, and isolated browser QA `node scripts/run.js qa m7` passed on 2026-06-20 with retained evidence at `issues/qa/2026-06-20T09-59-50-458Z/report.json`. Browser QA continued to use the fallback Edge/CDP harness. |
+| M7 - IC Chair Triage + Everyday-User Front Door | Implemented, verified | Updated `docs/milestones/m7_spec.md` for the AI-discovery boundary: deterministic code classifies intent, inspects provider output, enforces temporary state, and prevents persistence until explicit action; AI providers generate broad temporary candidates. The 2026-06-21 guided-exploration refresh is now implemented and verified: Explore uses guided temporary reasoning before saved review, loading/unavailable states are explicit, first direction picks remain temporary, deeper exploration appears before save actions, and Explore-originated saved reviews begin in kickoff. `npm test`, `npm run lint`, `npm run build`, and isolated browser QA `node scripts/run.js qa m7` passed on 2026-06-21 with retained evidence at `issues/qa/2026-06-21T07-59-57-668Z/report.json`. |
 
 Post-roadmap state:
 
 - M1-M6 are implemented and verified.
-- M7 is implemented and verified.
+- M7 shipped and the 2026-06-21 guided-exploration correction is now verified.
 - There is no pending P9c item in the active roadmap.
 - The local in-app browser-control repair is deferred tooling work, not the next
   build milestone.
 - Keep using the fallback Edge/CDP QA harness for product verification until
   browser-control repair is explicitly reprioritized.
 
+Refreshed source-of-truth behavior:
+
+- `PRODUCT_STRATEGY.md` now treats `Explore an idea` as a temporary
+  guided-thinking workspace for broad/private/business prompts before any saved
+  review is created.
+- `docs/milestones/m7_spec.md` now requires deeper temporary exploration,
+  explicit loading/unavailable states, and no direct jump from first direction
+  pick into saved review.
+- `docs/milestones/m2_spec.md` now clarifies that manual/private review is a
+  saved workspace after explicit commitment, not the first exploratory answer.
+
 ## Milestone 7 - IC Chair Triage + Everyday-User Front Door
 
 Status: implemented, verified.
 
-Goal: preserve non-persistent triage while making the front door and saved
-review workflow understandable in plain language for everyday users.
+Goal: make `Explore an idea` a temporary guided-thinking workspace for
+broad/private/business prompts before any saved review is created.
 
 Current state:
 
-- Updated the authoritative packet at `docs/milestones/m7_spec.md` to the
-  agreed simple pass.
-- Kept the non-persistent Idea Triage surface and deterministic triage coverage
-  for casual prompts, broad Indonesian equity screens, and direct ticker
-  prompts.
-- Renamed the user-visible workflow to the plain-language set:
-  `Explore an idea`, `Start review`, `Save to watchlist`, `Check the facts`,
-  `Ready for review`, and `Decision made`.
-- Added persistent temporary/not-saved cues in Explore and persistent saved
-  cues for saved reviews and watchlist entries.
-- `Start review` now carries forward only the raw Explore prompt as one
-  `Imported from Exploration` evidence item; `Save to watchlist` creates no
-  carry-forward evidence.
-- Reframed saved stock reviews around `Needs fact check` and `Check the facts`
-  using the existing intake and confirm seams, with visible return to
-  fact-check mode when confirmation is reopened.
-- Refined startup/private creation copy so users choose by the information they
-  have, not by engine/manual jargon.
-- Added deterministic recovery actions for unsupported requests in saved
-  reviews.
-- `npm test`, `npm run lint`, `npm run build`, and isolated browser QA
-  `node scripts/run.js qa m7` passed on 2026-06-20 with retained evidence at
-  `issues/qa/2026-06-20T09-59-50-458Z/report.json`.
-
-Completed verification additions:
-
-- Added browser QA coverage for the Variant A simple-pass naming and saved-state
-  flows.
-- Refreshed the fallback browser-harness expectations to the new M7 copy and
-  Evidence Locker carry-forward behavior.
+- The refreshed guided-exploration contract is now implemented and verified by
+  `issues/qa/2026-06-21T07-59-57-668Z/report.json`.
+- Broad/private/business prompts now return guided exploration instead of
+  shallow candidate cards.
+- First direction picks remain temporary and deepen the reasoning before save
+  actions appear.
+- Loading is visibly distinct from terminal unavailable state.
+- Saved review kickoff now carries forward more than the raw prompt while still
+  keeping the content unverified.
 
 ## Milestone 1 - IC Primitives + Frictionless Thesis Intake
 
@@ -107,25 +103,20 @@ Exit criteria:
 
 Status: implemented, verified.
 
-Goal: support non-public/manual assets in the same workflow without pretending
-automated data coverage exists.
+Goal: keep manual/private review as the saved workspace after explicit
+commitment, not the first answer to a broad exploratory prompt.
 
 Current state:
 
-- Added the authoritative packet at `docs/milestones/m2_spec.md`.
-- `Analysis` now supports `valuationMode`, nullable `vertical` / `metrics`, and
-  manual `manualMeta`.
-- Manual assets can be created from a new `+ MANUAL ASSET` path and edited in
-  the existing thesis/detail page.
-- Manual assets now keep deterministic engine, provenance, debate, expert
-  review, grounded chat, and portfolio-composition paths disabled.
-- Added normalization, snapshot, and backup coverage for manual assets.
-- `npm test`, `npm run lint`, and `npm run build` passed on 2026-06-16.
-- Isolated browser QA `node scripts/run.js qa m2` passed on 2026-06-17 with
-  retained evidence at `issues/qa/2026-06-17T05-02-10-481Z/report.json`.
-- The full canonical browser QA sweep `node scripts/run.js qa` also passed on
-  2026-06-17 with retained evidence at
-  `issues/qa/2026-06-17T08-58-14-514Z/report.json`.
+- Prior shipped manual-asset behavior remains verified by the retained M2
+  artifacts.
+- The 2026-06-21 guided-exploration refresh is now implemented and verified in
+  the M7 flow:
+  - manual/private review is saved work after explicit commitment
+  - broad private/business prompts start in temporary Explore
+  - Explore-originated manual reviews now open in a saved kickoff aligned with
+    the chosen exploration direction, not the old generic manual recovery
+    surface
 
 Deliverables:
 

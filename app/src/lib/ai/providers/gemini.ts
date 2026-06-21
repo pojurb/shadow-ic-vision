@@ -17,6 +17,8 @@ import type {
   AnalysisRequest,
   AnalysisResult,
   ChatRequest,
+  DeeperIdeaDiscoveryRequest,
+  IdeaDiscoveryRequest,
   IntakeRequest,
   Capabilities,
   ModelOption,
@@ -25,6 +27,15 @@ import type {
 } from "../types";
 import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
 import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
+import {
+  DEEPER_IDEA_DISCOVERY_JSON_SCHEMA,
+  IDEA_DISCOVERY_JSON_SCHEMA,
+  buildDeeperIdeaDiscoveryUserPrompt,
+  buildIdeaDiscoveryUserPrompt,
+  finalizeDeeperIdeaDiscovery,
+  finalizeIdeaDiscovery,
+  ideaDiscoverySystem,
+} from "../discovery";
 import {
   analysisSystem,
   CHAT_SYSTEM,
@@ -365,6 +376,60 @@ async function runGeminiIntake(req: IntakeRequest): Promise<IntakeResult> {
   return finalizeIntake(raw);
 }
 
+async function runGeminiIdeaDiscovery(req: IdeaDiscoveryRequest) {
+  const { apiKey, model, prompt } = req;
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: ideaDiscoverySystem() }] },
+      contents: [{ role: "user", parts: [{ text: buildIdeaDiscoveryUserPrompt(prompt) }] }],
+      generationConfig: {
+        maxOutputTokens: 3500,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(IDEA_DISCOVERY_JSON_SCHEMA),
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("AI discovery returned an empty response.");
+  try {
+    return finalizeIdeaDiscovery(JSON.parse(text));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("AI discovery did not return valid structured output.");
+    throw error;
+  }
+}
+
+async function runGeminiDeeperIdeaDiscovery(req: DeeperIdeaDiscoveryRequest) {
+  const { apiKey, model, prompt, direction } = req;
+  const res = await fetch(geminiUrl(model, "generateContent", apiKey), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: ideaDiscoverySystem() }] },
+      contents: [{ role: "user", parts: [{ text: buildDeeperIdeaDiscoveryUserPrompt(prompt, direction) }] }],
+      generationConfig: {
+        maxOutputTokens: 3500,
+        responseMimeType: "application/json",
+        responseSchema: toGeminiSchema(DEEPER_IDEA_DISCOVERY_JSON_SCHEMA),
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(await geminiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text.trim()) throw new Error("AI discovery returned an empty response.");
+  try {
+    return finalizeDeeperIdeaDiscovery(JSON.parse(text), direction.id);
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("AI discovery did not return valid structured output.");
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Chat — streaming SSE via :streamGenerateContent?alt=sse
 // ---------------------------------------------------------------------------
@@ -554,6 +619,14 @@ export const geminiProvider: AIProvider = {
 
   runIntake(req: IntakeRequest): Promise<IntakeResult> {
     return runGeminiIntake(req);
+  },
+
+  discoverIdeas(req: IdeaDiscoveryRequest) {
+    return runGeminiIdeaDiscovery(req);
+  },
+
+  deepenIdea(req: DeeperIdeaDiscoveryRequest) {
+    return runGeminiDeeperIdeaDiscovery(req);
   },
 
   async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {

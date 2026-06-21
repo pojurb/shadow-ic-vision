@@ -1,7 +1,8 @@
 import { createEvidenceItem } from "./evidence";
-import type { AssetType, EvidenceItem } from "./types";
+import type { AssetType, EvidenceItem, ICState, ThesisMemory } from "./types";
 
 export type TriageMode = "casual" | "broad_screen" | "direct_asset";
+export type TriageSource = "deterministic" | "ai" | "unavailable";
 
 export interface TriageCandidate {
   id: string;
@@ -14,12 +15,42 @@ export interface TriageCandidate {
   riskLens: string[];
 }
 
+export interface ExploreDirection {
+  id: string;
+  title: string;
+  assetName: string;
+  assetType: AssetType;
+  ticker?: string;
+  thesisAngle: string;
+  whyItCouldWork: string[];
+  mainRisks: string[];
+  nextQuestions: string[];
+}
+
+export interface ExploreResult {
+  summary: string;
+  directions: ExploreDirection[];
+}
+
+export interface ExploreDeeperResult {
+  directionId: string;
+  summary: string;
+  whyItCouldWork: string[];
+  mainRisks: string[];
+  evidenceToCheck: string[];
+  decisionQuestions: string[];
+}
+
 export interface TriageResult {
   mode: TriageMode;
   heading: string;
   summary: string;
   candidates: TriageCandidate[];
   chairNotes: string[];
+  requiresDiscovery?: boolean;
+  source?: TriageSource;
+  exploration?: ExploreResult | null;
+  deeperExploration?: ExploreDeeperResult | null;
 }
 
 export function buildExplorationCarryForwardEvidence(prompt: string): EvidenceItem | null {
@@ -34,77 +65,81 @@ export function buildExplorationCarryForwardEvidence(prompt: string): EvidenceIt
   });
 }
 
-const IDX_CANDIDATES: TriageCandidate[] = [
-  {
-    id: "idx-bbca",
-    title: "BBCA case candidate",
-    assetName: "BBCA",
-    assetType: "public_equity",
-    ticker: "BBCA",
-    thesisAngle: "Quality bank screen: deposit franchise, fee income durability, and valuation discipline.",
-    missingEvidence: ["Latest quarterly financials", "Deposit-cost trend", "Current valuation versus history"],
-    riskLens: ["Premium multiple risk", "NIM compression", "Credit-cycle sensitivity"],
-  },
-  {
-    id: "idx-bbri",
-    title: "BBRI case candidate",
-    assetName: "BBRI",
-    assetType: "public_equity",
-    ticker: "BBRI",
-    thesisAngle: "Micro-lending compounder screen: loan growth, asset quality, and margin resilience.",
-    missingEvidence: ["NPL and restructuring trend", "Micro loan yield", "Dividend sustainability"],
-    riskLens: ["Credit quality", "Political/regulatory pressure", "Funding cost"],
-  },
-  {
-    id: "idx-tlkm",
-    title: "TLKM case candidate",
-    assetName: "TLKM",
-    assetType: "public_equity",
-    ticker: "TLKM",
-    thesisAngle: "Infrastructure/income screen: mobile competition, IndiHome integration, and capital returns.",
-    missingEvidence: ["ARPU trend", "Capex intensity", "Dividend policy"],
-    riskLens: ["Competitive pricing", "Execution risk", "Capital allocation"],
-  },
-  {
-    id: "idx-asii",
-    title: "ASII case candidate",
-    assetName: "ASII",
-    assetType: "public_equity",
-    ticker: "ASII",
-    thesisAngle: "Indonesia cyclicals screen: auto demand, commodity exposure, and portfolio discount.",
-    missingEvidence: ["Auto sales trend", "Commodity sensitivity", "Segment profit mix"],
-    riskLens: ["Cyclical downturn", "Conglomerate complexity", "EV transition"],
-  },
-];
+function uid(): string {
+  return crypto.randomUUID();
+}
 
-const GENERIC_CANDIDATES: TriageCandidate[] = [
-  {
-    id: "generic-public-equity",
-    title: "Public equity screen",
-    assetName: "Public equity idea",
-    assetType: "public_equity",
-    thesisAngle: "Start with a listed company where cited price, EPS, and ROE can be verified before locking.",
-    missingEvidence: ["Ticker", "Recent filing or investor report", "Current price source"],
-    riskLens: ["Valuation drift", "Evidence quality", "Thesis breaker clarity"],
-  },
-  {
-    id: "generic-manual-asset",
-    title: "Manual private asset",
-    assetName: "Manual asset idea",
-    assetType: "other",
-    thesisAngle: "Use a manual case when the asset has no reliable automated pricing or data connector.",
-    missingEvidence: ["Valuation memo", "Liquidity and duration", "Exit path"],
-    riskLens: ["Stale valuation", "Illiquidity", "Key-person or operator risk"],
-  },
-  {
-    id: "generic-macro-view",
-    title: "Macro view",
-    assetName: "Macro view",
-    assetType: "macro_view",
-    thesisAngle: "Capture a macro assumption only if it affects existing or planned asset-level theses.",
-    missingEvidence: ["Affected holdings", "Observable trigger", "Time horizon"],
-    riskLens: ["Hidden correlation", "FX/rates exposure", "Crowded thesis"],
-  },
+export function buildExploreSeedThesis(
+  direction: ExploreDirection,
+  deeperExploration: ExploreDeeperResult | null,
+  base: ThesisMemory,
+): ThesisMemory {
+  const now = Date.now();
+  const riskItems = (deeperExploration?.mainRisks.length ? deeperExploration.mainRisks : direction.mainRisks)
+    .map((text) => text.trim())
+    .filter(Boolean);
+  const questionItems = (deeperExploration?.decisionQuestions.length ? deeperExploration.decisionQuestions : direction.nextQuestions)
+    .map((text) => text.trim())
+    .filter(Boolean);
+
+  return {
+    ...base,
+    summary: (deeperExploration?.summary || direction.thesisAngle).trim(),
+    thesisBreakers: riskItems.map((text) => ({
+      id: uid(),
+      text,
+      severity: "material",
+      createdAt: now,
+    })),
+    openQuestions: questionItems.map((text) => ({
+      id: uid(),
+      text,
+      createdAt: now,
+    })),
+  };
+}
+
+export function seedICStateFromExploration(
+  direction: ExploreDirection,
+  deeperExploration: ExploreDeeperResult | null,
+  base: ICState,
+): ICState {
+  return {
+    ...base,
+    thesis: buildExploreSeedThesis(direction, deeperExploration, base.thesis),
+  };
+}
+
+export function seedICStateFromTriageCandidate(candidate: TriageCandidate, base: ICState): ICState {
+  const now = Date.now();
+  return {
+    ...base,
+    thesis: {
+      ...base.thesis,
+      summary: candidate.thesisAngle.trim(),
+      thesisBreakers: candidate.riskLens.map((text) => ({
+        id: uid(),
+        text,
+        severity: "material",
+        createdAt: now,
+      })),
+      openQuestions: candidate.missingEvidence.map((text) => ({
+        id: uid(),
+        text,
+        createdAt: now,
+      })),
+    },
+  };
+}
+
+const ASSET_TYPES: AssetType[] = [
+  "public_equity",
+  "conventional_business",
+  "startup",
+  "real_estate",
+  "crypto",
+  "macro_view",
+  "other",
 ];
 
 export function deriveIdeaTriage(prompt: string): TriageResult {
@@ -118,9 +153,12 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
       summary: "Nothing saved yet. Ask about an opportunity set, name an asset, or paste a thesis note when you want to start exploring.",
       candidates: [],
       chairNotes: [
-        "Broad questions stay temporary until you start a review.",
+        "Broad questions stay temporary until you explicitly save a review.",
         "Saved reviews are only created when you choose Start review or Save to watchlist.",
       ],
+      source: "deterministic",
+      exploration: null,
+      deeperExploration: null,
     };
   }
 
@@ -133,7 +171,7 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
       candidates: [
         {
           id: `direct-${directTicker.toLowerCase()}`,
-          title: `${directTicker} review candidate`,
+          title: `${directTicker} review`,
           assetName: directTicker,
           assetType: "public_equity",
           ticker: directTicker,
@@ -143,34 +181,25 @@ export function deriveIdeaTriage(prompt: string): TriageResult {
         },
       ],
       chairNotes: ["Starting a review will open a saved draft. Until then, this exploration stays temporary."],
-    };
-  }
-
-  if (isIndonesianEquityScreen(lower)) {
-    return {
-      mode: "broad_screen",
-      heading: "Indonesian equity candidates for investigation",
-      summary:
-        "These are investigation candidates, not buy/sell recommendations. The next step is to choose one case and verify evidence before any thesis or figures are locked.",
-      candidates: IDX_CANDIDATES,
-      chairNotes: [
-        "Prioritize one name at a time so the saved review has clean evidence and explicit thesis breakers.",
-        "For IDX names, fundamentals should prefer issuer or exchange filings; quote pages are acceptable only for current/delayed price context.",
-      ],
+      source: "deterministic",
+      exploration: null,
+      deeperExploration: null,
     };
   }
 
   return {
     mode: "broad_screen",
-    heading: "Choose the right case type",
-    summary:
-      "This is still broad. Triage can frame the opportunity, but it should not create workspace records until there is a concrete asset or thesis to track.",
-    candidates: GENERIC_CANDIDATES,
+    heading: "Explore this idea before you save it",
+    summary: "This is a broad discovery prompt. AI should help you think through possible directions before anything becomes a saved review.",
+    candidates: [],
     chairNotes: [
-      "Use public equity for listed companies with verifiable market data.",
-      "Use manual assets for private, alternative, or qualitative opportunities.",
-      "Use macro view only when the assumption affects asset-level decisions.",
+      "Discovery stays temporary in this sandbox.",
+      "Your first direction pick should deepen the reasoning, not create a saved review.",
     ],
+    requiresDiscovery: true,
+    source: "deterministic",
+    exploration: null,
+    deeperExploration: null,
   };
 }
 
@@ -179,16 +208,89 @@ function isCasual(lower: string): boolean {
     /^(test|testing|thanks|thank you|ok|okay)[.!?\s]*$/.test(lower);
 }
 
-function isIndonesianEquityScreen(lower: string): boolean {
-  const market = /\b(indonesia|indonesian|idx|bei|saham|emiten)\b/.test(lower);
-  const screen = /\b(stock|stocks|saham|emiten|recommend|recommendation|idea|ideas|watch|dig|screen|worth)\b/.test(lower);
-  return market && screen;
-}
-
 function extractDirectTicker(text: string): string | null {
   const explicit = text.match(/\b(?:analy[sz]e|evaluasi|review|research|dig into|start case|case for)\s+([A-Za-z]{4})(?:\.(?:JK|IDX))?\b/i)?.[1];
   if (explicit) return explicit.toUpperCase();
 
   const ticker = text.match(/\b(?:ticker|kode|symbol)\s*[:=]?\s*([A-Za-z]{4})(?:\.(?:JK|IDX))?\b/i)?.[1];
   return ticker ? ticker.toUpperCase() : null;
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanStringList(value: unknown, limit = 5): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(cleanString).filter(Boolean).slice(0, limit);
+}
+
+function cleanAssetType(value: unknown): AssetType {
+  return ASSET_TYPES.includes(value as AssetType) ? (value as AssetType) : "other";
+}
+
+function stableDirectionId(direction: Pick<ExploreDirection, "assetName" | "title" | "assetType">, index: number): string {
+  const raw = `${direction.assetType}-${direction.assetName || direction.title || index}`;
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return `ai-${slug || index + 1}`;
+}
+
+export function inspectIdeaDiscoveryOutput(raw: unknown): ExploreResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const input = raw as Record<string, unknown>;
+  const summary = cleanString(input.summary);
+  const rawDirections = Array.isArray(input.directions) ? input.directions : [];
+  const directions: ExploreDirection[] = [];
+
+  for (const item of rawDirections) {
+    if (!item || typeof item !== "object") continue;
+    const direction = item as Record<string, unknown>;
+    const title = cleanString(direction.title);
+    const assetName = cleanString(direction.assetName);
+    const thesisAngle = cleanString(direction.thesisAngle);
+    const whyItCouldWork = cleanStringList(direction.whyItCouldWork);
+    const mainRisks = cleanStringList(direction.mainRisks);
+    const nextQuestions = cleanStringList(direction.nextQuestions);
+    if (!title || !assetName || !thesisAngle || whyItCouldWork.length === 0 || mainRisks.length === 0 || nextQuestions.length === 0) continue;
+    const assetType = cleanAssetType(direction.assetType);
+    const ticker = cleanString(direction.ticker).toUpperCase();
+    directions.push({
+      id: stableDirectionId({ title, assetName, assetType }, directions.length),
+      title,
+      assetName,
+      assetType,
+      ...(ticker ? { ticker } : {}),
+      thesisAngle,
+      whyItCouldWork,
+      mainRisks,
+      nextQuestions,
+    });
+    if (directions.length >= 4) break;
+  }
+
+  if (!summary || directions.length < 2) return null;
+  return { summary, directions };
+}
+
+export function inspectDeeperIdeaDiscoveryOutput(raw: unknown, directionId: string): ExploreDeeperResult | null {
+  if (!raw || typeof raw !== "object") return null;
+  const input = raw as Record<string, unknown>;
+  const summary = cleanString(input.summary);
+  const whyItCouldWork = cleanStringList(input.whyItCouldWork);
+  const mainRisks = cleanStringList(input.mainRisks);
+  const evidenceToCheck = cleanStringList(input.evidenceToCheck);
+  const decisionQuestions = cleanStringList(input.decisionQuestions);
+  if (!summary || whyItCouldWork.length === 0 || mainRisks.length === 0 || evidenceToCheck.length === 0 || decisionQuestions.length === 0) return null;
+  return {
+    directionId,
+    summary,
+    whyItCouldWork,
+    mainRisks,
+    evidenceToCheck,
+    decisionQuestions,
+  };
 }

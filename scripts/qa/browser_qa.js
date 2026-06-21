@@ -1027,29 +1027,64 @@ async function runScenario({ name, fixture, expectKind }, ctx) {
         if (libraryCount !== 0) throw new ScenarioError(`casual triage created ${libraryCount} library records`, "app", "casual triage");
       });
 
-      await step("Indonesian stock screen returns candidates without persistence", "app", async () => {
-        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "any Indonesian stocks worth digging into?");
+      await step("AI stock discovery returns candidates without persistence", "app", async () => {
+        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "stock investment in US");
         await click(page.cdp, '[data-qa="triage-run"]');
-        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-candidate-idx-bbca"]'), 30_000, "bbca candidate");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-loading"]'), 5_000, "triage loading state");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-direction-ai-public-equity-us-quality-compounder"]'), 30_000, "AI stock direction");
         const body = String(await evaluate(page.cdp, "document.body.innerText"));
         const libraryCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
-        if (!body.includes("not buy/sell recommendations")) throw new ScenarioError("triage framing copy missing", "app", "broad triage");
-        if (libraryCount !== 0) throw new ScenarioError(`broad triage created ${libraryCount} library records`, "app", "broad triage");
+        if (!body.includes("QA mock guided exploration")) throw new ScenarioError("guided exploration copy missing", "app", "AI stock discovery");
+        if (body.includes("BBCA case candidate") || body.includes("Indonesian equity candidates")) {
+          throw new ScenarioError("hard-coded Indonesian candidate path leaked into AI discovery", "app", "AI stock discovery");
+        }
+        if (libraryCount !== 0) throw new ScenarioError(`broad discovery created ${libraryCount} library records`, "app", "AI stock discovery");
       });
 
-      await step("add to watchlist creates a saved draft", "app", async () => {
-        await click(page.cdp, '[data-qa="triage-watch-idx-bbca"]');
+      await step("first direction pick stays temporary and only deeper exploration unlocks save", "app", async () => {
+        await click(page.cdp, '[data-qa="triage-deepen-ai-public-equity-us-quality-compounder"]');
+        const libraryCountAfterPick = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        if (libraryCountAfterPick !== 0) {
+          throw new ScenarioError(`first direction pick created ${libraryCountAfterPick} library records`, "app", "deeper exploration");
+        }
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-deeper-result"]'), 30_000, "deeper exploration");
+        const body = String(await evaluate(page.cdp, "document.body.innerText"));
+        if (!body.includes("still temporary")) throw new ScenarioError("temporary save-boundary copy missing", "app", "deeper exploration");
+      });
+
+      await step("add to watchlist creates a saved draft only after deeper exploration", "app", async () => {
+        await click(page.cdp, '[data-qa="triage-watch-ai-public-equity-us-quality-compounder"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa^="library-analysis-"]'), 30_000, "saved watchlist draft");
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="workspace-notice"]'), 30_000, "watchlist confirmation");
         const titles = await evaluate(page.cdp, `Array.from(document.querySelectorAll('[data-qa^="library-analysis-"] .library-item-title')).map((node) => node.textContent || "")`);
         const body = String(await evaluate(page.cdp, "document.body.innerText"));
-        if (!Array.isArray(titles) || !titles.includes("BBCA review")) {
+        if (!Array.isArray(titles) || !titles.includes("US quality compounder")) {
           throw new ScenarioError(`watchlist draft missing from Library: ${JSON.stringify(titles)}`, "app", "watchlist save");
         }
         if (!body.includes("Saved to your watchlist")) throw new ScenarioError("watchlist confirmation copy missing", "app", "watchlist save");
       });
 
+      await step("private business exploration stays temporary until explicit save", "app", async () => {
+        await fillInput(page.cdp, '[data-qa="triage-prompt"]', "private laundry business");
+        await click(page.cdp, '[data-qa="triage-run"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-direction-ai-conventional-business-local-service-business"]'), 30_000, "AI business direction");
+        await click(page.cdp, '[data-qa="triage-deepen-ai-conventional-business-local-service-business"]');
+        const libraryCount = Number(await evaluate(page.cdp, "document.querySelectorAll('[data-qa^=\"library-analysis-\"]').length"));
+        if (libraryCount !== 1) throw new ScenarioError(`business first direction changed saved record count: ${libraryCount}`, "app", "AI business discovery");
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-deeper-result"]'), 30_000, "business deeper exploration");
+        await click(page.cdp, '[data-qa="triage-start-ai-conventional-business-local-service-business"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="analysis-view"]'), 30_000, "manual kickoff view");
+        if (await exists(page.cdp, '[data-qa="manual-review-recovery"]')) {
+          throw new ScenarioError("manual Explore save fell into the old recovery surface", "app", "manual kickoff");
+        }
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-kickoff"]'), 30_000, "manual kickoff panel");
+        await click(page.cdp, '[data-qa="triage-kickoff-begin"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="manual-review-recovery"]'), 30_000, "manual review after explicit fact-check start");
+      });
+
       await step("direct asset prompt starts a review explicitly", "app", async () => {
+        await click(page.cdp, '[data-qa="library-triage"]');
+        await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-prompt"]'), 30_000, "triage prompt");
         await fillInput(page.cdp, '[data-qa="triage-prompt"]', "analyze TLKM");
         await click(page.cdp, '[data-qa="triage-run"]');
         await waitFor(page.cdp, () => exists(page.cdp, '[data-qa="triage-candidate-direct-tlkm"]'), 30_000, "direct asset candidate");

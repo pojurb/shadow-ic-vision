@@ -13,6 +13,7 @@ import type {
   PortfolioAnalysis,
   PortfolioMetrics,
 } from "@/lib/domain/types";
+import type { ExploreDeeperResult, ExploreDirection, ExploreResult } from "@/lib/domain/triage";
 import type { ExpertReview, IntakeResult } from "./schemas";
 
 export type ProviderId = "anthropic" | "openai" | "gemini";
@@ -55,6 +56,20 @@ export interface ChatRequest {
   onDelta: (text: string) => void;
 }
 
+/** Temporary Explore discovery. This never persists anything by itself. */
+export interface IdeaDiscoveryRequest {
+  apiKey: string;
+  model: string;
+  prompt: string;
+}
+
+export interface DeeperIdeaDiscoveryRequest {
+  apiKey: string;
+  model: string;
+  prompt: string;
+  direction: ExploreDirection;
+}
+
 /** Intake: detect the vertical + extract engine params from prose/attachments. */
 export interface IntakeRequest {
   apiKey: string;
@@ -92,6 +107,10 @@ export interface AIProvider {
   capabilities(modelId: string): Capabilities;
   /** Intake: detect vertical + extract figures from prose/attachments (one call). */
   runIntake(req: IntakeRequest): Promise<IntakeResult>;
+  /** Temporary early-stage idea discovery for Explore. */
+  discoverIdeas(req: IdeaDiscoveryRequest): Promise<ExploreResult>;
+  /** Temporary deeper reasoning for a selected exploration direction. */
+  deepenIdea(req: DeeperIdeaDiscoveryRequest): Promise<ExploreDeeperResult>;
   /** Orchestrates the research + structured-debate passes; reports phases. */
   runAnalysis(req: AnalysisRequest): Promise<AnalysisResult>;
   /** Optional, on-demand second-expert red-team of the produced analysis. */

@@ -8,6 +8,8 @@ import type {
   AnalysisRequest,
   AnalysisResult,
   ChatRequest,
+  DeeperIdeaDiscoveryRequest,
+  IdeaDiscoveryRequest,
   IntakeRequest,
   Capabilities,
   PortfolioAnalysisRequest,
@@ -17,6 +19,7 @@ import type { ExpertReview, IntakeResult } from "../schemas";
 import { MODELS } from "../client";
 import { runAnalysis, runResearch, runExpertReview, runIntake, needsResearch, runPortfolioAnalysis } from "../analyze";
 import { streamChat, streamPortfolioChat } from "../chat";
+import { runAnthropicDeeperIdeaDiscovery, runAnthropicIdeaDiscovery } from "../discovery";
 
 const NATIVE: Capabilities = {
   vision: true,
@@ -33,6 +36,14 @@ export const anthropicProvider: AIProvider = {
 
   runIntake({ apiKey, model, userText, sources }: IntakeRequest): Promise<IntakeResult> {
     return runIntake(apiKey, model, userText, sources);
+  },
+
+  discoverIdeas({ apiKey, model, prompt }: IdeaDiscoveryRequest) {
+    return runAnthropicIdeaDiscovery(apiKey, model, prompt);
+  },
+
+  deepenIdea({ apiKey, model, prompt, direction }: DeeperIdeaDiscoveryRequest) {
+    return runAnthropicDeeperIdeaDiscovery(apiKey, model, prompt, direction);
   },
 
   async runAnalysis({ apiKey, model, analysis, onPhase }: AnalysisRequest): Promise<AnalysisResult> {

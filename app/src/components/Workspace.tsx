@@ -35,7 +35,15 @@ import AnalysisView from "./AnalysisView";
 import PortfolioView from "./PortfolioView";
 import SettingsModal from "./Settings";
 import { buildQaBackup, type QaFixtureName, qaFixtureNames } from "@/lib/qa/fixtures";
-import { buildExplorationCarryForwardEvidence, type TriageCandidate } from "@/lib/domain/triage";
+import {
+  buildExplorationCarryForwardEvidence,
+  seedICStateFromExploration,
+  seedICStateFromTriageCandidate,
+  type ExploreDeeperResult,
+  type ExploreDirection,
+  type TriageCandidate,
+  type TriageMode,
+} from "@/lib/domain/triage";
 
 /** What the main pane is showing — a single analysis, a portfolio, or nothing. */
 type Active =
@@ -219,53 +227,91 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
     await refresh();
   }
 
-  function buildCaseFromTriage(candidate: TriageCandidate, prompt: string, saveKind: "review" | "watchlist"): Analysis {
-    if (candidate.assetType === "public_equity") {
+  function buildCaseFromTriage(
+    selection: { candidate?: TriageCandidate; direction?: ExploreDirection; deeperExploration?: ExploreDeeperResult | null },
+    prompt: string,
+    triageMode: TriageMode,
+    saveKind: "review" | "watchlist",
+  ): Analysis {
+    const candidate = selection.candidate;
+    const direction = selection.direction;
+    const deeperExploration = selection.deeperExploration ?? null;
+    const assetType = candidate?.assetType ?? direction?.assetType;
+    const assetName = candidate?.assetName ?? direction?.assetName ?? "";
+    const title = candidate?.title ?? direction?.title ?? (assetName ? `${assetName} review` : "New investment review");
+    const shouldSeedFromExplore = Boolean(direction);
+    const imported = buildExplorationCarryForwardEvidence(prompt);
+
+    if (!assetType) {
+      throw new Error("Triage selection is missing an asset type.");
+    }
+
+    if (assetType === "public_equity") {
       const vertical: Vertical = "stocks";
       const analysis = createAnalysis({
-        title: candidate.assetName ? `${candidate.assetName} review` : candidate.title,
+        title,
         vertical,
-        assetName: candidate.assetName,
+        assetName,
         parameters: { ...BLANK_PARAMS[vertical] },
         metrics: computeMetrics(vertical, { ...BLANK_PARAMS[vertical] }),
         model: "seed",
       });
       analysis.tags = saveKind === "watchlist" ? ["triage", "watchlist"] : ["triage"];
-      if (saveKind === "review") {
-        const imported = buildExplorationCarryForwardEvidence(prompt);
+      if (shouldSeedFromExplore && direction) {
+        analysis.ic = seedICStateFromExploration(direction, deeperExploration, analysis.ic);
         if (imported) analysis.evidence = [imported, ...analysis.evidence];
+        analysis.reviewMode = "kickoff";
+      } else if (candidate) {
+        analysis.ic = seedICStateFromTriageCandidate(candidate, analysis.ic);
+        if (imported) analysis.evidence = [imported, ...analysis.evidence];
+        analysis.reviewMode = triageMode === "broad_screen" ? "kickoff" : "fact_check";
       }
       return analysis;
     }
 
     const analysis = createManualAnalysis({
-      title: candidate.assetName ? `${candidate.assetName} review` : candidate.title,
-      assetName: candidate.assetName,
-      assetType: candidate.assetType as Exclude<AssetType, "public_equity">,
+      title,
+      assetName,
+      assetType: assetType as Exclude<AssetType, "public_equity">,
       model: "manual",
     });
     analysis.tags = saveKind === "watchlist" ? ["triage", "watchlist"] : ["triage"];
-    if (saveKind === "review") {
-      const imported = buildExplorationCarryForwardEvidence(prompt);
+    if (shouldSeedFromExplore && direction) {
+      analysis.ic = seedICStateFromExploration(direction, deeperExploration, analysis.ic);
       if (imported) analysis.evidence = [imported, ...analysis.evidence];
+      analysis.reviewMode = "kickoff";
+    } else if (candidate) {
+      analysis.ic = seedICStateFromTriageCandidate(candidate, analysis.ic);
+      if (imported) analysis.evidence = [imported, ...analysis.evidence];
+      analysis.reviewMode = triageMode === "broad_screen" ? "kickoff" : "fact_check";
     }
     return analysis;
   }
 
-  async function startCaseFromTriage(candidate: TriageCandidate, prompt: string) {
-    const analysis = buildCaseFromTriage(candidate, prompt, "review");
+  async function startCaseFromTriage(
+    selection: { candidate?: TriageCandidate; direction?: ExploreDirection; deeperExploration?: ExploreDeeperResult | null },
+    prompt: string,
+    triageMode: TriageMode,
+  ) {
+    const analysis = buildCaseFromTriage(selection, prompt, triageMode, "review");
     setActive({ type: "analysis", data: analysis });
     await saveAnalysis(analysis);
     await refresh();
     setNotice({
-      message: "Saved review opened. The raw exploration prompt is in Evidence Locker as an unverified note.",
+      message: selection.direction
+        ? "Saved review opened. Your selected idea, risks, and open questions are ready. Use Check the facts when you want to start the concrete fact-check step."
+        : "Saved review opened. The raw exploration prompt is in Evidence Locker as an unverified note.",
       actionLabel: "Check the facts",
       action: { type: "open-analysis", id: analysis.id },
     });
   }
 
-  async function addWatchlistFromTriage(candidate: TriageCandidate, prompt: string) {
-    const analysis = buildCaseFromTriage(candidate, prompt, "watchlist");
+  async function addWatchlistFromTriage(
+    selection: { candidate?: TriageCandidate; direction?: ExploreDirection; deeperExploration?: ExploreDeeperResult | null },
+    prompt: string,
+    triageMode: TriageMode,
+  ) {
+    const analysis = buildCaseFromTriage(selection, prompt, triageMode, "watchlist");
     await saveAnalysis(analysis);
     await refresh();
     setNotice({
@@ -333,7 +379,6 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         onOpenTriage={openTriage}
         onOpen={open}
         onOpenPortfolio={openPortfolio}
-        onOpenSettings={openSettings}
         onDelete={remove}
         onDeletePortfolio={removePortfolio}
       />
@@ -348,7 +393,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             </span>
           </div>
           <div className="header-actions">
-            <button className="gear-btn" onClick={() => setShowSettings(true)}>
+            <button className="gear-btn" onClick={openSettings}>
               Settings{settings.apiKeys?.[settings.provider] ? "" : " *"}
             </button>
           </div>
@@ -384,6 +429,10 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             onStartCase={startCaseFromTriage}
             onAddToWatchlist={addWatchlistFromTriage}
             onBackAgenda={openAgenda}
+            provider={settings.provider}
+            apiKey={settings.apiKeys?.[settings.provider] ?? ""}
+            model={settings.model}
+            onNeedSettings={openSettings}
           />
         ) : active.type === "analysis" ? (
           <AnalysisView
@@ -392,7 +441,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             provider={settings.provider}
             apiKey={settings.apiKeys?.[settings.provider] ?? ""}
             model={settings.model}
-            onNeedSettings={() => setShowSettings(true)}
+            onNeedSettings={openSettings}
             onOpenExplore={openTriage}
           />
         ) : active.type === "portfolio" ? (
@@ -403,7 +452,7 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
             provider={settings.provider}
             apiKey={settings.apiKeys?.[settings.provider] ?? ""}
             model={settings.model}
-            onNeedSettings={() => setShowSettings(true)}
+            onNeedSettings={openSettings}
           />
         ) : (
           <div className="workspace-empty">

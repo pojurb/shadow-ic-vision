@@ -18,6 +18,8 @@ import type {
   AnalysisRequest,
   AnalysisResult,
   ChatRequest,
+  DeeperIdeaDiscoveryRequest,
+  IdeaDiscoveryRequest,
   IntakeRequest,
   Capabilities,
   ModelOption,
@@ -26,6 +28,15 @@ import type {
 } from "../types";
 import type { DebateOutput, ExpertReview, IntakeOutput, IntakeResult } from "../schemas";
 import { DEBATE_JSON_SCHEMA, EXPERT_REVIEW_JSON_SCHEMA, INTAKE_JSON_SCHEMA } from "../schemas";
+import {
+  DEEPER_IDEA_DISCOVERY_JSON_SCHEMA,
+  IDEA_DISCOVERY_JSON_SCHEMA,
+  buildDeeperIdeaDiscoveryUserPrompt,
+  buildIdeaDiscoveryUserPrompt,
+  finalizeDeeperIdeaDiscovery,
+  finalizeIdeaDiscovery,
+  ideaDiscoverySystem,
+} from "../discovery";
 import {
   analysisSystem,
   CHAT_SYSTEM,
@@ -370,6 +381,66 @@ async function runOpenAIIntake(req: IntakeRequest): Promise<IntakeResult> {
   return finalizeIntake(raw);
 }
 
+async function runOpenAIIdeaDiscovery(req: IdeaDiscoveryRequest) {
+  const { apiKey, model, prompt } = req;
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 3500,
+      messages: [
+        { role: "system", content: ideaDiscoverySystem() },
+        { role: "user", content: buildIdeaDiscoveryUserPrompt(prompt) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "idea_discovery", strict: true, schema: IDEA_DISCOVERY_JSON_SCHEMA },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("AI discovery returned an empty response.");
+  try {
+    return finalizeIdeaDiscovery(JSON.parse(text));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("AI discovery did not return valid structured output.");
+    throw error;
+  }
+}
+
+async function runOpenAIDeeperIdeaDiscovery(req: DeeperIdeaDiscoveryRequest) {
+  const { apiKey, model, prompt, direction } = req;
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: openaiHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      max_tokens: 3500,
+      messages: [
+        { role: "system", content: ideaDiscoverySystem() },
+        { role: "user", content: buildDeeperIdeaDiscoveryUserPrompt(prompt, direction) },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "deeper_idea_discovery", strict: true, schema: DEEPER_IDEA_DISCOVERY_JSON_SCHEMA },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(await openaiErrorMessage(res));
+  const data = await res.json();
+  const text: string = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.trim()) throw new Error("AI discovery returned an empty response.");
+  try {
+    return finalizeDeeperIdeaDiscovery(JSON.parse(text), direction.id);
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error("AI discovery did not return valid structured output.");
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Chat — streaming SSE via choices[0].delta.content
 // ---------------------------------------------------------------------------
@@ -547,6 +618,14 @@ export const openaiProvider: AIProvider = {
 
   runIntake(req: IntakeRequest): Promise<IntakeResult> {
     return runOpenAIIntake(req);
+  },
+
+  discoverIdeas(req: IdeaDiscoveryRequest) {
+    return runOpenAIIdeaDiscovery(req);
+  },
+
+  deepenIdea(req: DeeperIdeaDiscoveryRequest) {
+    return runOpenAIDeeperIdeaDiscovery(req);
   },
 
   async runAnalysis(req: AnalysisRequest): Promise<AnalysisResult> {
