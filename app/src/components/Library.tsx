@@ -30,7 +30,6 @@ export default function Library({
   onOpenTriage,
   onOpen,
   onOpenPortfolio,
-  onOpenSettings,
   onDelete,
   onDeletePortfolio,
 }: {
@@ -43,7 +42,6 @@ export default function Library({
   onOpenTriage: () => void;
   onOpen: (id: string) => void;
   onOpenPortfolio: (id: string) => void;
-  onOpenSettings: () => void;
   onDelete: (id: string) => void;
   onDeletePortfolio: (id: string) => void;
 }) {
@@ -97,15 +95,6 @@ export default function Library({
           </div>
           <div className="library-home-note">
             Research a new idea first without saving it as an investment review.
-          </div>
-        </button>
-        <button className="library-home-card" data-qa="library-settings" onClick={onOpenSettings}>
-          <div className="library-home-top">
-            <span className="library-vtag">ST</span>
-            <span className="library-home-title">Settings</span>
-          </div>
-          <div className="library-home-note">
-            Manage AI provider keys, backup, and restore for this device.
           </div>
         </button>
       </div>
