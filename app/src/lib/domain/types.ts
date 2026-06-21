@@ -375,6 +375,8 @@ export interface Folder {
   createdAt: number;
 }
 
+export type AnalysisReviewMode = "kickoff" | "fact_check" | null;
+
 export interface Analysis {
   id: string;
   title: string;
@@ -401,6 +403,7 @@ export interface Analysis {
   sources: ContextSource[];
   evidence: EvidenceItem[];
   allowWebSearch: boolean;
+  reviewMode?: AnalysisReviewMode;
   chat: ChatMessage[];
   decision: Decision | null;
   decisionHistory: DecisionEntry[];

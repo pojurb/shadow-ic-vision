@@ -154,6 +154,7 @@ describe("normalize-on-import", () => {
     const member = memberFromPreset("triage-import", "stocks");
     const analysis: Analysis = {
       ...member,
+      reviewMode: "kickoff",
       evidence: [{
         id: "ev-triage",
         title: "Imported from Exploration",
@@ -178,6 +179,7 @@ describe("normalize-on-import", () => {
       reliability: "user_provided",
       note: "look into BBCA deposit franchise",
     });
+    expect(out.reviewMode).toBe("kickoff");
   });
 
   it("normalizes legacy backup candidates into first-class evidence", () => {

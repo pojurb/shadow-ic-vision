@@ -1,239 +1,293 @@
-# Milestone 7 Specification: IC Chair Triage + Everyday-User Front Door
+# Milestone 7 Specification: Guided Exploration Front Door
 
 ## Summary
 
-M7 defines the workspace intent gate and the everyday-user front door for the
-AI Investment Committee.
+M7 defines the everyday-user front door for temporary guided exploration before
+saved review creation.
 
-This simple pass keeps the verified M7 seams, removes internal-facing language,
-and makes the saved-vs-temporary workflow obvious without adding new schema,
-provider logic, reminder features, or a second workspace architecture.
+This milestone is no longer only a persistence-guard and naming pass. It must
+help the user think through broad, private, and business ideas before the app
+asks them to save a review, manage cadence, or enter a manual asset workflow.
 
-The outcome is a simple-by-default decision desk:
+The outcome is a simple-by-default exploration desk:
 
-- `Home` remains the default surface for saved work and next actions.
-- `Explore an idea` is the only broad-discovery entry point.
-- Saved reviews are still created only through explicit user action.
-- `Explore an idea` always reads as temporary and not saved.
-- Saved reviews and watchlist entries always read as saved.
-- `Start review` carries forward only the raw Explore prompt as one unverified
-  Evidence Locker note.
+- `Explore an idea` remains temporary by default.
+- broad/private/business prompts return guided exploration, not just candidate
+  cards
+- selecting one exploration direction stays temporary and deepens the thinking
+- loading, resolved, and unavailable states are visibly distinct
+- a saved review is created only after the user has received enough decision
+  guidance and explicitly chooses to save the idea
+- `ConfirmCard` appears only after explicit user action
 
 Non-goals:
 
-- Do not add a new top-level table, Dexie version bump, or backup format.
-- Do not add provider-side recommendation, notification, or scheduling logic.
-- Do not build a new fact engine, split-screen workspace, or document
-  extraction flow.
-- Do not change required manual/private-asset fields.
-- Do not weaken M1 thesis confirmation or M3 cited-fact locking.
+- do not add a new top-level triage table, Dexie version bump, or backup format
+- do not turn broad exploration into automatic persistence
+- do not weaken M1 cited-fact confirmation or M3 locking discipline
+- do not add recommendation, notification, or reminder logic
+- do not add automated private-company or alternative-asset data feeds
 
 ## Product And UX Contract
 
 ### Canonical Workspace Hierarchy
 
-- `Home` is the default front door.
-- `Explore an idea` is the only broad-discovery destination.
-- `Library` is for browsing saved work, not first-run guidance.
-- `Settings` is utility-only and must not compete with `Home` or
-  `Explore an idea`.
+- `Home` is the default surface for saved work and next actions.
+- `Explore an idea` is the temporary front door for broad curiosity, messy
+  prompts, and early investment thinking.
+- `Library` is for saved work, not first-run exploration.
+- `Settings` is utility-only and must not compete with `Home` or `Explore an
+  idea`.
 
-### Canonical User-Facing Naming
+### Explore Intent
 
-Use one plain-language naming system across Agenda, Explore, Library, and saved
-reviews:
+- `Explore an idea` must help the user answer:
+  - why might this opportunity be interesting
+  - what economics or drivers matter
+  - what could make it fail
+  - what questions change the investment answer
+  - which direction deserves deeper follow-up
+- It must not move the user into saved-review management before delivering that
+  value.
+- It remains temporary by default and must never silently create a saved record.
 
-- `Explore an idea`
-- `Start review`
-- `Save to watchlist`
-- `Check the facts`
-- `Ready for review`
-- `Decision made`
+### Explore State Model
 
-Remove competing user-visible copy such as:
+`Explore an idea` has an explicit state model:
 
-- `Start case`
-- `Open investment review`
-- `case file`
-- `figures locked`
-- `decision logged`
+- `idle`
+- `loading`
+- `resolved_temporary`
+- `unavailable`
 
-### Triage And Save Contract
+Rules:
 
-- `Explore an idea` is temporary:
-  - broad prompts
-  - casual greetings
-  - rough screens
-  - early framing questions
-  do not create saved records on their own
-- Triage output frames investigation candidates, not recommendations.
-- Candidate actions are explicit:
-  - `Start review` creates and opens a saved review
-  - `Save to watchlist` creates a saved draft without opening the full review
-  - `Compare` and `Dismiss` remain local triage actions
-- The user must always be able to tell whether a result is temporary or saved.
+- loading must show loading, not a final-looking unavailable/result panel
+- unavailable appears only when the request is actually resolved as unavailable
+- resolved temporary must always show that the content is still temporary and
+  not saved
 
-### Temporary Vs Saved Cues
+### Explore Result Contract
 
-- `Explore an idea` must show a persistent temporary/not-saved indicator.
-- `Start review` must show a saved confirmation, where the record went, and the
-  next action.
-- `Save to watchlist` must show a saved confirmation, where the record went,
-  and the next action.
-- Saved reviews and watchlist entries must keep a visible saved-state cue after
-  the confirmation moment, not only in a toast.
+For broad/private/business prompts, a valid temporary exploration result must
+include:
 
-### Exploration Carry-Forward
+- a plain-language summary
+- 2-4 exploration directions when the idea is still broad
+- for each direction:
+  - `title`
+  - `thesisAngle`
+  - `whyItCouldWork`
+  - `mainRisks`
+  - `nextQuestions`
 
-On `Start review` only, create one Evidence Locker item from the raw Explore
-prompt text.
+The result must help the user think, not just choose storage actions.
 
-- Save it as a normal `EvidenceItem` in the existing evidence store.
-- Use:
-  - `title: "Imported from Exploration"`
-  - `type: "transcript"`
-  - `relation: "unresolved"`
-  - `reliability: "user_provided"`
-  - `note: <raw prompt>`
-- This carried-forward note is unverified and must not auto-fill or confirm any
-  thesis field, stock field, chat history, or decision state.
-- `Save to watchlist` does not create carry-forward evidence.
-- Do not save triage-generated summary text, chair notes, or candidate cards in
-  this pass.
+### Direction-Pick Contract
 
-### Review Surface State Model
+- choosing one temporary direction must remain temporary
+- the app must deepen that direction inside Explore before offering saved-review
+  commitment
+- `Start review` must not be the primary next step immediately after first
+  direction selection
+- deeper temporary exploration should continue to sharpen:
+  - what makes the direction attractive
+  - what could break it
+  - what evidence matters
+  - what unknowns determine whether it deserves a saved review
 
-The top-level saved-review lifecycle should show one primary plain-language
-state at a time:
+### Candidate And Save Actions
 
-- `Needs fact check`
-- `Ready for review`
-- `Decision made`
+- `Compare` and `Dismiss` remain temporary Explore actions
+- `Save to watchlist` remains explicit and lightweight
+- `Start review` becomes the transition from matured temporary exploration into
+  a saved review kickoff
+- a direction pick is not a save event
 
-Supporting indicators such as field-level provenance or lock markers may remain,
-but they must be secondary and must not compete with the primary header state.
+### Saved-Review Handoff
 
-### Fact-Check Framing
+When the user explicitly starts a review from matured exploration:
 
-- Preserve the existing intake flow and `ConfirmCard` seam as the fact-checking
-  mechanism for this milestone.
-- Pre-verification saved stock reviews should read as task-oriented fact
-  checking, not generic chat:
-  - intake empty state
-  - composer placeholder
-  - confirm-card title
-  - disabled review copy
-- After required facts are confirmed and the grounded review is available, the
-  top-level state changes to `Ready for review`.
-- Editing or reopening confirmation for previously locked figures returns the
-  visible mode to `Needs fact check`.
+- create a saved review kickoff state, not an empty or generic detail view
+- carry forward:
+  - the raw Explore prompt as one unverified Evidence Locker transcript item
+  - the selected exploration direction's thesis framing
+  - the selected direction's open questions
+  - the selected direction's main risks
+- do not auto-lock figures, stock fields, or decision state from Explore output
+- do not insert AI-generated exploration copy into `chat`
 
-### Startup And Private-Asset Routing
+### Saved Review State Model
 
-- Keep the current intent-first creation flow.
-- For startup/private entry, add a plain-language sub-choice based on what the
-  user has:
-  - `I have structured numbers` routes to the existing engine-backed
-    startup/conventional path
-  - `I have notes, a deck, or incomplete info` routes to the current
-    manual/private path
-- Do not expose engine/manual jargon as the first decision.
-- Keep all existing required manual/private fields unchanged.
+Saved reviews created from Explore must use an explicit visible mode:
 
-### Unsupported-Request Recovery
+- `kickoff`
+- `fact_check`
+- `review`
 
-Unsupported requests inside saved reviews must not end in refusal-only copy.
-They must offer one concrete next action. This pass implements deterministic UI
-recovery, not provider logic.
+Rules:
 
-Recovery examples for this milestone:
+- `kickoff` shows what was carried forward and what the user should do next
+- `fact_check` begins only after explicit user action
+- `review` begins only after the required fact-check flow is complete
 
-- Stock buy/sell recommendation requests inside a saved stock review route the
-  user back to `Explore an idea`.
-- Manual/private review surfaces offer concrete recovery actions such as review
-  cadence or evidence capture instead of dead ends.
+### Fact-Check Trigger Contract
+
+- `ConfirmCard` must appear only after explicit user action
+- valid triggers:
+  - clicking `Check the facts`
+  - submitting concrete notes, ticker, links, or evidence in the composer
+- invalid trigger:
+  - passive screen conditions alone
+
+### Manual And Private Review Routing
+
+- broad/private/business prompts begin in temporary Explore
+- manual/private saved reviews are not the first answer to a broad exploratory
+  question
+- if the user eventually saves a private/manual idea, the first saved state
+  must be a kickoff aligned with the chosen exploration direction, not the old
+  generic manual recovery surface
+
+### Unsupported And Unhelpful States
+
+- unsupported or unavailable states must offer one concrete next action
+- manual/private recovery actions must answer the user's next investment
+  question, not only expose workspace-management controls
+- recovery UI must not pretend to resolve the core exploration question if it
+  only offers storage/admin actions
 
 ## Engineering Contract
 
-- Keep `deriveIdeaTriage()` pure and non-persistent.
-- Do not add a new persisted triage table or Dexie version bump.
-- Do not change backup/import shape beyond reusing existing `Analysis.evidence`.
-- Add one small helper at the workspace/domain seam to build the carry-forward
-  evidence item from the Explore prompt so the behavior is unit-testable.
-- Saved reviews continue to reuse existing `Analysis` factories and the current
-  `AnalysisView` / `ManualAnalysisView` split.
-- Do not write carry-forward content into intake chat history, thesis fields,
-  stock fields, or decision history.
-- `Save to watchlist` must remain lightweight and must not create carry-forward
-  evidence.
-- Existing Agenda, Library, Evidence Locker, Decision Ledger, normalization, and
-  export/import behavior remain the storage backbone.
+### Explore Output Shape
+
+Add a deterministic contract for broad/private/business exploration output:
+
+```ts
+interface ExploreDirection {
+  title: string;
+  thesisAngle: string;
+  whyItCouldWork: string[];
+  mainRisks: string[];
+  nextQuestions: string[];
+}
+
+interface ExploreResult {
+  summary: string;
+  directions: ExploreDirection[];
+}
+```
+
+The inspector must validate:
+
+- summary present
+- 2-4 directions for broad prompts when possible
+- each direction has all required fields
+- invalid or incomplete directions are dropped
+- if no valid result survives inspection, return `unavailable` rather than fake
+  fallback content
+
+### Explore Interaction Contract
+
+- first broad prompt -> temporary exploration result
+- pick one direction -> deeper temporary exploration result
+- explicit save action -> saved review kickoff
+
+No implicit persistence and no direct jump from first direction pick into saved
+review.
+
+### Persistence And Carry-Forward Rules
+
+- do not add a new persisted triage table
+- reuse existing `Analysis` storage
+- save the raw prompt as one `Imported from Exploration` evidence item
+- allow saved-review kickoff seeding from the chosen direction into thesis
+  memory/open questions/risk framing
+- keep all carried-forward exploration content unverified until fact-checking
+- do not write exploration output into `chat`
+
+### Saved Review Mode Contract
+
+Add an explicit saved-review mode contract for Explore-created reviews:
+
+- `kickoff`
+- `fact_check`
+- `review`
+
+This can be persisted minimally if needed for reload continuity.
+
+### Loading And Availability Rules
+
+- loading must be explicitly represented in UI state
+- unavailable must be a terminal resolved state, not a temporary placeholder
+- the UI must not render a terminal-looking unavailable panel while the request
+  is still in progress
 
 ## Implementation Slices
 
-1. Fold the agreed simple pass into `docs/milestones/m7_spec.md` and sync the
-   roadmap/status docs.
-2. Unify plain-language naming across Agenda, Explore, Library, and saved
-   reviews.
-3. Add persistent temporary-vs-saved cues and saved confirmations.
-4. Carry forward only the raw Explore prompt on `Start review`.
-5. Reframe the saved stock-review surface around `Check the facts` using the
-   current intake and confirm seams.
-6. Refine startup/private routing copy so users choose by the information they
-   have, not by internal architecture.
-7. Add deterministic recovery actions for unsupported requests in saved reviews.
-8. Run global gates, refresh M7 browser QA, retain the new evidence, and close
-   the docs only after verification passes.
+1. Revise the M7 packet and related strategy/docs to redefine Explore as guided
+   temporary reasoning before saved review.
+2. Add explicit Explore UI states for idle, loading, resolved temporary, and
+   unavailable.
+3. Upgrade broad/private/business exploration output from shallow candidate
+   cards to structured guided exploration with summary, thesis angle, why it
+   could work, risks, and next questions.
+4. Keep direction picks temporary and add deeper in-Explore follow-up instead
+   of immediate saved review creation.
+5. Change `Start review` to create a saved kickoff state only after deeper
+   exploration and explicit save intent.
+6. Enforce the explicit saved-review mode contract and explicit `ConfirmCard`
+   trigger behavior.
+7. Add browser and regression coverage for loading, guided exploration, deeper
+   temporary exploration, and deferred save behavior.
 
 ## Verification
 
 Automated tests:
 
-- casual prompts return no candidates and no persistence payload
-- `deriveIdeaTriage()` remains non-persistent for casual and broad prompts
-- the carry-forward helper returns one `transcript` evidence item with the raw
-  prompt only
-- `Save to watchlist` creates no carry-forward evidence
-- carry-forward evidence never mutates thesis fields, stock fields, or decision
-  history
-- creating a review from triage preserves the imported evidence item through
-  save/load
-- backup export/import preserves the imported evidence item unchanged
-- legacy analyses without imported exploration notes still normalize unchanged
+- broad/private prompts validate into the new `ExploreResult` structure
+- invalid exploration output is rejected without fake fallback
+- loading and unavailable state logic stay distinct
+- first direction pick does not create a saved review
+- `Start review` is available only after deeper temporary exploration
+- saved-review kickoff seeds summary, open questions, and risks from the chosen
+  direction
+- raw prompt evidence still persists exactly once
+- exploration output does not enter `chat`
+- `ConfirmCard` appears only after explicit user trigger
 
 Browser checks:
 
-- `Explore an idea` shows a persistent temporary/not-saved indicator
-- `Start review` opens a saved review, shows saved confirmation, and Evidence
-  Locker contains `Imported from Exploration`
-- `Save to watchlist` shows saved confirmation and does not create imported
-  evidence
-- saved stock review starts in `Needs fact check` mode with guided copy
-- after confirmation, the review transitions to `Ready for review`
-- edit or recheck paths return the visible mode to `Needs fact check`
-- startup/private creation uses intent-first language and does not expose
-  engine/manual jargon first
-- unsupported requests in saved reviews show a recovery action instead of a
-  dead end
+- `private laundry business` returns useful guided exploration rather than only
+  storage/review actions
+- selecting one exploration direction stays temporary and deepens the reasoning
+- no saved review is created until explicit save action
+- `AI infrastructure ideas?` returns decision-shaping distinctions, not only
+  generic categories
+- loading is visibly different from unavailable
+- unavailable appears only after resolution
+- a saved review from matured exploration opens in kickoff mode, not a blank or
+  generic surface
+- `Check the facts` and composer submit are the only ways to open
+  `ConfirmCard`
 
 Acceptance criteria:
 
-- broad questions never mutate workspace state
-- casual text never triggers intake, confirm cards, or saved review creation
-- the user can always tell whether they are exploring or working in a saved
-  review
-- the user can always tell whether an action saved something
-- saved reviews are still created only through explicit user actions
-- exploration carry-forward means prompt-only, not prompt plus triage-generated
-  summary output
-- existing M1/M3 verification and locking discipline remain intact
+- broad/private/business exploration helps the user think before asking them to
+  manage a review
+- users can always tell whether they are still exploring or working in saved
+  state
+- selecting one temporary direction is not a save event
+- no saved review is created until explicit user action
+- manual/private ideas do not jump straight into a generic saved-manual-review
+  surface after first direction selection
 
 ## Assumptions And Deferrals
 
-- This pass is workflow/copy/state simplification only.
-- V1 triage remains deterministic and local.
-- Existing `ConfirmCard` remains the fact-checking mechanism for this milestone;
-  no new checklist engine is introduced.
-- Manual/private required fields remain unchanged from current product rules.
-- Automated document extraction, reminder scheduling, provider-side unsupported
-  request handling, and a split-screen redesign are deferred.
+- This pass corrects the exploration-to-review workflow and does not introduce
+  automated private-asset data feeds.
+- Explore remains non-persistent by default.
+- Saved manual/private reviews remain the place for thesis memory, evidence,
+  valuation context, cadence, and decision tracking after explicit commitment.
+- Recommendation engines, reminder systems, and document-extraction workflows
+  remain deferred.

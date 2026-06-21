@@ -1,39 +1,48 @@
-# Milestone 2 Specification: Manual Private Asset IC Entry
+# Milestone 2 Specification: Manual Private Asset Saved Workspace
 
 ## Summary
 
-M2 adds a first-class manual asset workflow so the workspace can cover private
-and non-public assets without pretending deterministic valuation coverage
-exists. The same `Analysis` object, thesis memory, Evidence Locker, Decision
-Ledger, and review cadence continue to apply, but manual assets store
-user-authored valuation context instead of engine-computed metrics.
+M2 defines the saved workspace for manual private and non-public assets.
+
+This milestone remains about durable thesis memory, valuation context, evidence,
+review cadence, and decision tracking for assets without automated data
+coverage. It is not the first exploratory reasoning surface for broad prompts
+such as `private laundry business`.
 
 Outcome:
 
 - users can create and manage manual `conventional_business`, `startup`,
   `real_estate`, `crypto`, `macro_view`, and `other` analyses
-- manual assets live in the same Library and thesis-detail workflow as current
+- manual assets live in the same Library and saved-review workflow as current
   analyses
-- the UI clearly distinguishes deterministic engine-backed analyses from manual
-  assets
+- the UI clearly distinguishes manual saved work from temporary guided
+  exploration
 
 Non-goals:
 
 - do not add automated private-company, property, crypto, or macro data feeds
-- do not run AI valuation, persona debate, expert review, or grounded chat for
-  manual assets in M2
-- do not add manual assets to current portfolio composition pickers or
-  portfolio-metric calculations until a later milestone defines that behavior
+- do not make manual/private review the first response to a broad exploratory
+  prompt
+- do not run deterministic valuation, persona debate, expert review, or
+  grounded chat for manual assets in M2
 
 ## Product And UX Contract
 
+### Relationship To Explore
+
+- broad/private/business prompts begin in `Explore an idea`
+- `Explore an idea` is the temporary reasoning surface
+- `Manual Private Asset IC Entry` is the post-commit saved workspace
+- a private/manual idea should move into M2 only after the user explicitly
+  chooses to save the opportunity as a review
+
 ### Entry Points
 
-- Keep the current chat-first `+ NEW ANALYSIS` flow unchanged for engine-backed
-  work.
-- Add a peer `+ MANUAL ASSET` entry point in:
+- Keep the current intent-first creation flow.
+- Manual asset creation can still begin from:
+  - `+ MANUAL ASSET`
   - the empty workspace state
-  - the Library toolbar
+  - saved Explore handoff after explicit commitment
 - Manual entry opens an asset-type-first chooser with:
   - `conventional_business`
   - `startup`
@@ -44,18 +53,32 @@ Non-goals:
 
 ### Creation Rules
 
-- `stocks` remain engine-only and are not part of the manual flow.
-- Manual `startup` and manual `conventional_business` entries always create
-  `valuationMode: "manual"`.
-- The existing chat-first route remains the engine-backed creation path for
-  `startup` and `conventional_business`.
-- `real_estate`, `crypto`, `macro_view`, and `other` are manual-only in M2.
-- Manual entry must work even if the user has no valuation number yet.
+- `stocks` remain engine-only and are not part of the manual flow
+- manual `startup` and manual `conventional_business` entries always create
+  `valuationMode: "manual"`
+- `real_estate`, `crypto`, `macro_view`, and `other` are manual-only in M2
+- manual entry must work even if the user has no valuation number yet
+- if a manual/private idea comes from Explore, the first saved state must be a
+  kickoff aligned with the chosen exploration direction
+
+### Saved Kickoff Before Manual Detail
+
+When a private/manual idea is saved from Explore:
+
+- the first saved state is `kickoff`, not the old generic manual recovery
+  surface
+- the kickoff must explain:
+  - what direction the user saved
+  - why it may matter
+  - what risks or questions were carried forward
+  - what the next fact-check or evidence step is
+- only after this kickoff should the user settle into the normal saved
+  manual-review workflow
 
 ### Manual Detail Workflow
 
 - Manual assets open inside the existing thesis/detail page instead of a
-  separate screen.
+  separate screen
 - The manual form captures:
   - asset name
   - thesis memory
@@ -69,8 +92,20 @@ Non-goals:
   - sizing intent
   - macro dependencies
   - Risk Officer notes
-- Reuse the current Evidence Locker and Decision Ledger unchanged.
-- Show manual-asset state clearly when no deterministic model exists.
+- Reuse the current Evidence Locker and Decision Ledger unchanged
+- Show manual-asset state clearly when no deterministic model exists
+
+### Manual Review Purpose
+
+Manual/private saved reviews are for:
+
+- captured thesis memory
+- evidence
+- valuation context
+- review cadence
+- decision tracking
+
+They are not the initial reasoning surface for broad exploratory questions.
 
 ### Manual Risk Officer Prompts
 
@@ -102,15 +137,15 @@ Non-goals:
     - expert review
     - grounded chat
   - show clear copy that no deterministic model is active
-- Manual assets remain visible in the Library and analysis detail workflow.
+- Manual assets remain visible in the Library and saved-review workflow
 - Manual assets are excluded from current portfolio member pickers and portfolio
-  metric paths.
+  metric paths
 
 ## Engineering Contract
 
 ### Domain Model
 
-Extend `Analysis` with manual-aware valuation state:
+Keep the existing manual-aware `Analysis` shape:
 
 ```ts
 type ValuationMode = "engine" | "manual";
@@ -134,45 +169,56 @@ interface AnalysisManualMeta {
 }
 ```
 
-Required `Analysis` changes:
+Required `Analysis` behavior:
 
-- add `valuationMode: ValuationMode`
-- change `vertical` from `Vertical` to `Vertical | null`
-- change `metrics` from `ComputedMetrics` to `ComputedMetrics | null`
-- add `manualMeta: AnalysisManualMeta | null`
-- keep `parameters` as the current optional-key bag
+- manual analyses use `valuationMode: "manual"`
+- manual analyses keep `vertical: null`
+- manual analyses keep `metrics: null`
+- manual analyses keep `parameters: {}`
+- manual analyses store user-authored `manualMeta`
+
+### Explore-To-Manual Handoff Rules
+
+If a saved manual/private review originates from Explore:
+
+- preserve the raw prompt as one exploration evidence item
+- preserve the chosen direction's summary/risk/open-question framing as
+  unverified saved-review kickoff context
+- do not write exploration output into `chat`
+- do not auto-create deterministic figures or fake grounded-analysis state
+
+### Saved Review Mode Contract
+
+Manual/private reviews created from Explore must support a visible saved-review
+mode contract:
+
+- `kickoff`
+- `fact_check`
+- `review`
+
+The kickoff exists to prevent the user from landing immediately in the old
+generic manual-recovery surface.
 
 ### Valuation And Persistence Rules
 
-- Engine-backed analyses normalize to:
-  - `valuationMode: "engine"`
-  - non-null `vertical`
-  - non-null `metrics`
-  - `manualMeta: null`
-- Manual analyses normalize to:
-  - `valuationMode: "manual"`
-  - `vertical: null`
-  - `metrics: null`
-  - `parameters: {}`
-  - populated or empty-default `manualMeta`
-- Manual assets must never call `computeMetrics`.
-- Existing backup/export/import continues to round-trip analyses with the added
-  fields.
+- Manual assets must never call `computeMetrics`
+- Existing backup/export/import continues to round-trip analyses with manual
+  fields and kickoff state
 - Decision snapshots must tolerate nullable `vertical` and `metrics`, and must
-  capture `manualMeta`.
+  capture `manualMeta`
 
 ### Compatibility Rules
 
-- Legacy analyses missing `valuationMode` normalize as engine-backed.
-- Legacy analyses missing `manualMeta` normalize with `manualMeta: null`.
-- Existing code paths that assume `vertical` or `metrics` exist must be guarded
-  or narrowed before use.
+- Legacy analyses missing `valuationMode` normalize as engine-backed
+- Legacy analyses missing `manualMeta` normalize with `manualMeta: null`
+- Existing code paths that assume `vertical` or `metrics` exist must stay
+  guarded or narrowed before use
 - Normalize-on-read must stay idempotent and should avoid a Dexie version bump
-  unless implementation forces it.
+  unless implementation forces it
 
 ### Manual Risk Prompt Contract
 
-Define `ManualRiskPromptId` as a stable union covering:
+Keep `ManualRiskPromptId` as a stable union covering:
 
 - shared prompts:
   - `illiquidity_exit`
@@ -197,26 +243,18 @@ Define `ManualRiskPromptId` as a stable union covering:
   - `macro_rates_fx`
   - `macro_hidden_correlation`
 
-Store prompt ids and free-text notes in `manualMeta.riskNotes`.
-
 ## Implementation Slices
 
-1. Types and normalization
-   Add `valuationMode`, nullable `vertical` and `metrics`, `manualMeta`,
-   `ManualRiskPromptId`, normalize-on-read defaults, decision-snapshot updates,
-   and guards that keep manual assets out of portfolio composition pickers.
-2. Creation flow
-   Add `+ MANUAL ASSET`, manual asset-type selection, and draft creation for all
-   six manual asset classes without entering the engine-backed intake flow.
-3. Manual detail surface
-   Build manual valuation, liquidity, duration, role, sizing, macro dependency,
-   and risk-note editing inside the existing analysis detail page.
-4. Engine-only UI guards
-   Hide deterministic-model charts, provenance, stance, debate, expert review,
-   and grounded chat for manual assets; show explicit manual/no-model state.
-5. Verification and closeout
-   Add unit tests, compatibility checks, browser scenarios, and documentation
-   updates in `PROGRESS.md` and roadmap status docs.
+1. Keep the manual/private saved-workspace packet aligned with the new Explore
+   front-door contract.
+2. Add or preserve a saved-review kickoff state for Explore-originated
+   manual/private ideas before the normal manual detail workflow.
+3. Ensure manual/private saved reviews receive carried-forward direction framing
+   without pretending the idea is already fact-checked.
+4. Keep the existing manual valuation, liquidity, duration, role, sizing,
+   macro, and risk-note editing workflow as the long-lived saved workspace.
+5. Verify that manual/private reviews do not appear as the first answer to
+   broad exploratory prompts.
 
 ## Verification
 
@@ -226,17 +264,17 @@ Automated tests:
   nullable `metrics` normalize safely
 - manual assets persist and reload across all supported asset types
 - manual assets round-trip through backup/export/import
-- decision snapshots preserve manual `vertical: null`, `metrics: null`, and
-  `manualMeta`
+- Explore-originated manual reviews preserve kickoff state and carried-forward
+  unverified framing
 - manual assets never call `computeMetrics`
 - manual assets do not derive persona, debate, expert review, or grounded chat
 - manual assets do not appear in current portfolio composition pickers
 
 Browser checks:
 
-- create manual `real_estate` and `macro_view` entries from `+ MANUAL ASSET`
-- create manual `startup` and `conventional_business` entries without entering
-  engine-backed intake
+- `private laundry business` stays temporary during early exploration
+- saving a chosen private/business direction opens a saved kickoff, not the old
+  generic manual recovery surface
 - fill manual valuation and Risk Officer fields, attach evidence, set review
   cadence, save, reload, and confirm persistence
 - confirm manual assets show asset-type labels and no fake stock, chart, or
@@ -246,19 +284,20 @@ Browser checks:
 Acceptance criteria:
 
 - all six manual asset types can be created and persisted
-- manual assets share thesis memory, Evidence Locker, and Decision Ledger
-  behavior with existing analyses
-- manual assets never present automated-data or deterministic-valuation claims
-- M2 passes the global quality gates in `EXECUTION_PLAN.md`
+- manual/private saved reviews begin only after explicit user commitment
+- manual/private saved reviews share thesis memory, Evidence Locker, and
+  Decision Ledger behavior with existing analyses
+- manual/private reviews never present automated-data or deterministic-valuation
+  claims
+- manual/private reviews are clearly saved work, not exploratory-first surfaces
 
 ## Assumptions And Deferrals
 
 - `pricingFreshness`, `liquidity`, `expectedDuration`, `portfolioRole`, and
-  `sizingIntent` remain free-text user-authored labels in M2 because the repo
-  does not yet define a stable controlled vocabulary.
+  `sizingIntent` remain free-text user-authored labels in M2
 - Manual assets are analysis-level records only in M2; portfolio composition and
-  metric participation are deferred.
-- AI debate/chat for manual assets is deferred to a later milestone to avoid
-  false precision and trust problems.
+  metric participation are deferred
+- AI debate/chat for manual assets remains deferred to avoid false precision and
+  trust problems
 - M2 continues to use the current local-first Dexie architecture and
-  normalize-on-read compatibility strategy.
+  normalize-on-read compatibility strategy

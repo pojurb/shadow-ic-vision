@@ -50,6 +50,10 @@ They typically:
 
 Their pain is not lack of information. Their pain is lack of decision structure, memory, monitoring, and risk discipline.
 
+Everyday-user clarity includes decision-shaping exploration before commitment.
+The product should help the user think through whether an idea deserves deeper
+work before asking them to save it, structure it, or manage it as a review.
+
 ## Locked Strategic Decisions
 
 - Beachhead workflow: Watchlist IC Dashboard.
@@ -61,6 +65,11 @@ Their pain is not lack of information. Their pain is lack of decision structure,
   in the main workflow hierarchy.
 - The product should route users by intent before exposing internal system
   architecture or advanced IC concepts.
+- For broad/private/business prompts, the product must help the user think
+  before it asks the user to save, review, or manage the idea.
+- Exploration is not only a routing layer. It must provide decision-shaping
+  guidance: why the idea may work, what could break it, what economics matter,
+  and what questions determine whether the opportunity deserves a saved review.
 - Core IC primitives are asset-class agnostic: Thesis, Assumption, Evidence, Decision, and Review.
 - Data trust policy: cited facts only before locking valuation figures.
 - Monitoring policy: monitor assumptions and thesis breakers, not generic stock/news noise.
@@ -79,6 +88,31 @@ Their pain is not lack of information. Their pain is lack of decision structure,
 - Not a traditional chunk-based RAG product.
 - Not a chatbot with finance prompts.
 - Not a universal automated data-ingestion engine in V1.
+
+## Current Experience Gaps To Correct
+
+Recent product evaluation exposed specific gaps the specs must now correct:
+
+- The loading flow is misleading: after clicking `Explore an idea`, the UI can
+  show a final-looking result or unavailable panel before the user understands
+  whether the request is still loading or actually resolved.
+- Broad exploration results are too generic: prompts like `AI infrastructure
+  ideas?` or `private laundry business` currently offer options but not enough
+  decision-shaping insight.
+- The app moves into review management too early: `Start review` can happen
+  before the user has enough help deciding whether the idea deserves a saved
+  review.
+- Prompt-only carry-forward makes the saved-review handoff feel blank and
+  discontinuous.
+- `ConfirmCard` should appear only after explicit user action, not because a
+  passive condition happened to be true.
+- Manual/private candidates can still fall into an old saved-manual-review
+  surface that does not match the promise of guided exploration.
+- Manual/private recovery actions such as `Set review cadence`, `Add note`, and
+  `Explore an idea` do not answer the user's real question: "is this investment
+  worth exploring further, and what should I check next?"
+- Selecting one temporary exploration direction currently jumps too quickly
+  into saved review; it should stay temporary and deepen the reasoning first.
 
 ## Product Pillars
 
@@ -175,28 +209,62 @@ The main product loop:
    - create a portfolio
 2. Route the user into the right workflow without forcing them to understand
    internal engine-vs-manual architecture first.
-3. For public equities, optionally run stock intake with cited data.
-4. For private and alternative assets, use manual-only intake with no automated
-   data feed.
-5. Paste or capture rough material: notes, links, bullets, article excerpts,
+3. For broad, private, and business prompts, first provide temporary guided
+   exploration before any saved review is created.
+4. Guided exploration must surface:
+   - what makes the idea potentially attractive
+   - what economics or drivers determine success
+   - what could make the idea fail
+   - what questions would change the investment answer
+   - what directions deserve deeper follow-up
+5. If the user chooses one direction, keep the experience temporary and deepen
+   the reasoning before offering a saved review.
+6. Save a review only after the product has helped the user reason about the
+   opportunity and the user explicitly chooses to commit it to the workspace.
+7. For public equities, optionally run stock intake with cited data.
+8. For private and alternative assets, use manual-only intake with no automated
+   data feed after the user has chosen to create a saved review.
+9. Paste or capture rough material: notes, links, bullets, article excerpts,
    screenshots transcribed by the user, pitch-deck notes, valuation memos, or a
    draft thesis.
-6. AI extracts a structured thesis, assumptions, thesis breakers, watch items,
+10. AI extracts a structured thesis, assumptions, thesis breakers, watch items,
    and unresolved questions.
-7. User checks the extracted structure and confirms only cited facts or
+11. User checks the extracted structure and confirms only cited facts or
    user-provided assumptions.
-8. Attach evidence and assumptions.
-9. Define thesis breakers and assumption-monitoring rules.
-10. Monitor new information only against assumptions, breakers, valuation
+12. Attach evidence and assumptions.
+13. Define thesis breakers and assumption-monitoring rules.
+14. Monitor new information only against assumptions, breakers, valuation
     drift, and portfolio exposure.
-11. Generate IC agenda.
-12. Run pre-mortem for Add / Increase Position decisions.
-13. Commit decision.
-14. Preserve decision and thesis evolution.
+15. Generate IC agenda.
+16. Run pre-mortem for Add / Increase Position decisions.
+17. Commit decision.
+18. Preserve decision and thesis evolution.
 
 This loop is stronger than opening chat, asking a question, and saving an answer.
 
 ## MVP Screens
+
+### Explore An Idea
+
+This is the temporary guided-thinking workspace for broad prompts such as
+themes, sectors, private businesses, operating businesses, and early
+opportunity framing.
+
+It should:
+
+- stay temporary by default
+- help the user think before any saved review is created
+- return a plain-language framing summary
+- offer 2-4 exploration directions when the idea is still broad
+- explain for each direction:
+  - why it may be attractive
+  - what makes it work or fail
+  - what evidence, economics, or questions matter next
+- keep the user in temporary exploration when they choose one direction, so the
+  reasoning can deepen before the user decides to save anything
+
+This screen is not only a routing layer. It is the first place the product
+should create decision clarity for messy early-stage ideas.
 
 ### 1. Frictionless Thesis Intake
 
@@ -218,6 +286,12 @@ The user must confirm the extracted structure before it becomes thesis memory. T
 ### 2. Manual Private Asset IC Entry
 
 Lets the user add non-public assets to the same IC Agenda without pretending the app has automated data coverage.
+
+This is the post-commit saved workspace for private and alternative assets. It
+is not the first exploratory reasoning surface for prompts like `private
+laundry business`. Broad/private/business prompts should start in `Explore an
+idea` first, and only move here after the user explicitly chooses to save the
+opportunity as a review.
 
 Supported V1 asset types:
 

@@ -94,6 +94,15 @@ describe("normalizeAnalysis back-compat on read", () => {
     expect(twice.debate?.thesisSupport).toBe(once.debate?.thesisSupport);
     expect(twice.persona).toEqual(once.persona);
   });
+
+  it("normalizes the explicit triage review mode safely", () => {
+    const raw = legacyAnalysis();
+    (raw as Analysis & { reviewMode?: unknown }).reviewMode = "kickoff";
+    expect(normalizeAnalysis(raw).reviewMode).toBe("kickoff");
+
+    (raw as Analysis & { reviewMode?: unknown }).reviewMode = "unknown";
+    expect(normalizeAnalysis(raw).reviewMode).toBeNull();
+  });
 });
 
 describe("normalizeAnalysis evidence compatibility", () => {

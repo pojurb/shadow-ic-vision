@@ -684,6 +684,15 @@
   padding: 10px 12px;
 }
 
+.triage-error {
+  border: 1px solid rgba(255, 161, 80, 0.45);
+  background: rgba(255, 161, 80, 0.08);
+  color: var(--warning);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
 .triage-candidates {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }

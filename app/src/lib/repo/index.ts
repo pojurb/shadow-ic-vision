@@ -20,6 +20,7 @@ import {
 } from "./backup";
 import type {
   Analysis,
+  AnalysisReviewMode,
   AnalysisStatus,
   PortfolioAnalysis,
   PortfolioMember,
@@ -39,6 +40,10 @@ import type {
 
 function uid(): string {
   return crypto.randomUUID();
+}
+
+function normalizeReviewMode(value: unknown): AnalysisReviewMode {
+  return value === "kickoff" || value === "fact_check" ? value : null;
 }
 
 // ---- Back-compat ----
@@ -112,6 +117,7 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
   const vertical = valuationMode === "manual" ? null : a.vertical ?? "stocks";
   const metrics = valuationMode === "manual" ? null : a.metrics;
   const manualMeta = normalizeManualMeta(a.manualMeta, assetType);
+  const reviewMode = normalizeReviewMode((a as Analysis & { reviewMode?: unknown }).reviewMode);
 
   return {
     ...a,
@@ -128,6 +134,7 @@ export function normalizeAnalysis(raw: Analysis): Analysis {
     metrics,
     expertReview: a.expertReview ?? null,
     evidence,
+    reviewMode,
     decisionHistory,
     status: deriveStatusFromDecisionHistory(decisionHistory),
   };
@@ -199,6 +206,7 @@ export function createAnalysis(input: {
     sources: [],
     evidence: [],
     allowWebSearch: false,
+    reviewMode: null,
     chat: [],
     decision: null,
     decisionHistory: [],
@@ -240,6 +248,7 @@ export function createManualAnalysis(input: {
     sources: [],
     evidence: [],
     allowWebSearch: false,
+    reviewMode: null,
     chat: [],
     decision: null,
     decisionHistory: [],
