@@ -256,6 +256,10 @@ export default function Workspace({ initialQaFixtureRequested = false }: { initi
         metrics: computeMetrics(vertical, { ...BLANK_PARAMS[vertical] }),
         model: "seed",
       });
+      const ticker = candidate?.ticker ?? direction?.ticker;
+      if (ticker) {
+        analysis.assetMeta = { ...analysis.assetMeta, ticker };
+      }
       analysis.tags = saveKind === "watchlist" ? ["triage", "watchlist"] : ["triage"];
       if (shouldSeedFromExplore && direction) {
         analysis.ic = seedICStateFromExploration(direction, deeperExploration, analysis.ic);

@@ -41,6 +41,27 @@ export interface ExploreDeeperResult {
   decisionQuestions: string[];
 }
 
+export type FactCheckSuggestionKind = "company" | "ticker" | "note" | "source_prompt";
+
+export interface FactCheckSuggestion {
+  label: string;
+  seedText: string;
+  kind: FactCheckSuggestionKind;
+}
+
+export interface FactCheckSuggestionContext {
+  assetType: AssetType;
+  title?: string;
+  assetName?: string;
+  ticker?: string;
+  sector?: string;
+  promptNote?: string;
+  thesisSummary?: string;
+  openQuestions?: string[];
+  direction?: ExploreDirection | null;
+  deeperExploration?: ExploreDeeperResult | null;
+}
+
 export interface TriageResult {
   mode: TriageMode;
   heading: string;
@@ -130,6 +151,66 @@ export function seedICStateFromTriageCandidate(candidate: TriageCandidate, base:
       })),
     },
   };
+}
+
+export function buildFactCheckSuggestions(context: FactCheckSuggestionContext): FactCheckSuggestion[] {
+  const suggestions: FactCheckSuggestion[] = [];
+  const seen = new Set<string>();
+  const direction = context.direction ?? null;
+  const deeperExploration = context.deeperExploration ?? null;
+  const ticker = cleanTicker(context.ticker || direction?.ticker || "");
+  const companyName = pickCompanyName(direction?.assetName, context.assetName, context.title);
+  const theme = deriveFactCheckTheme(context, companyName, ticker);
+  const question = firstNonEmpty(
+    deeperExploration?.decisionQuestions,
+    deeperExploration?.evidenceToCheck,
+    direction?.nextQuestions,
+    context.openQuestions,
+  );
+
+  function push(label: string, seedText: string, kind: FactCheckSuggestionKind) {
+    const cleanLabel = cleanString(label);
+    const cleanSeed = cleanString(seedText);
+    if (!cleanLabel || !cleanSeed) return;
+    const key = cleanSeed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    suggestions.push({ label: cleanLabel, seedText: cleanSeed, kind });
+  }
+
+  if (ticker) {
+    push(`Use ticker ${ticker}`, ticker, "ticker");
+  }
+
+  if (companyName) {
+    push(`Verify ${companyName}`, companyName, "company");
+  }
+
+  if (question) {
+    push("Start with the next question", `Check this first: ${question}`, "note");
+  }
+
+  if (context.assetType === "public_equity") {
+    if (theme) {
+      push(`Find leaders in ${theme}`, `Find leading public companies in ${theme}`, "source_prompt");
+      push("Compare listed options", `Compare 2 listed companies exposed to ${theme}`, "note");
+      push("Find one ETF or company", `Identify one ETF or public company tied to ${theme}`, "source_prompt");
+    }
+    if (ticker || companyName) {
+      const target = ticker || companyName!;
+      push("Ground the basics first", `Verify ${target}: business model, latest price, and current valuation.`, "note");
+    }
+  } else if (theme) {
+    push("Define the exact target", `Define the exact business or asset to verify for ${theme}.`, "note");
+    push("List the first facts to confirm", `List the first 3 facts to confirm about ${theme}: customers, unit economics, and risks.`, "note");
+    push("Bring one source or note", `Paste one source, memo, or note about ${theme} so this review can start grounding it.`, "source_prompt");
+  } else {
+    push("Define the exact target", "Define the exact business or asset to verify first.", "note");
+    push("List the first facts to confirm", "List the first 3 facts to confirm: customers, economics, and risks.", "note");
+    push("Bring one source or note", "Paste one source, memo, or note so this review can start grounding it.", "source_prompt");
+  }
+
+  return suggestions.slice(0, 5);
 }
 
 const ASSET_TYPES: AssetType[] = [
@@ -237,6 +318,72 @@ function stableDirectionId(direction: Pick<ExploreDirection, "assetName" | "titl
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
   return `ai-${slug || index + 1}`;
+}
+
+function firstNonEmpty(...lists: Array<string[] | undefined | null>): string {
+  for (const list of lists) {
+    const item = list?.map((value) => cleanString(value)).find(Boolean);
+    if (item) return item;
+  }
+  return "";
+}
+
+function cleanTicker(value: string): string {
+  const ticker = cleanString(value).replace(/\.(?:JK|IDX)$/i, "").toUpperCase();
+  return /^[A-Z]{2,5}$/.test(ticker) ? ticker : "";
+}
+
+function pickCompanyName(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const name = cleanString(value);
+    if (!name) continue;
+    if (/^[A-Z]{2,5}$/.test(name)) continue;
+    if (looksLikeBroadTheme(name)) continue;
+    return name;
+  }
+  return "";
+}
+
+function deriveFactCheckTheme(context: FactCheckSuggestionContext, companyName: string, ticker: string): string {
+  const candidates = [
+    context.sector,
+    context.direction?.title,
+    context.direction?.assetName,
+    context.assetName,
+    context.title,
+    context.promptNote,
+    context.thesisSummary,
+  ];
+
+  for (const candidate of candidates) {
+    const theme = normalizeFactCheckTheme(candidate ?? "", companyName, ticker);
+    if (theme) return theme;
+  }
+
+  return "";
+}
+
+function normalizeFactCheckTheme(value: string, companyName: string, ticker: string): string {
+  const text = cleanString(value)
+    .replace(/\s+/g, " ")
+    .replace(/\breview\b/gi, "")
+    .replace(/\bidea\b/gi, "")
+    .replace(/\bwatchlist\b/gi, "")
+    .trim()
+    .replace(/^[-:,]+|[-:,]+$/g, "")
+    .trim();
+
+  if (!text) return "";
+  if (ticker && text.toUpperCase() === ticker) return "";
+  if (companyName && text.toLowerCase() === companyName.toLowerCase()) return "";
+  return text.length > 90 ? `${text.slice(0, 87).trim()}...` : text;
+}
+
+function looksLikeBroadTheme(value: string): boolean {
+  const lower = value.toLowerCase();
+  return /\b(ideas|theme|themes|review|industry|sector|market|companies|stocks|etf)\b/.test(lower) ||
+    /\bfor\b/.test(lower) ||
+    /( business| infrastructure| platforms?| storage| computing)$/.test(lower);
 }
 
 export function inspectIdeaDiscoveryOutput(raw: unknown): ExploreResult | null {

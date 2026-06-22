@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultICState } from "./ic";
 import {
+  buildFactCheckSuggestions,
   buildExplorationCarryForwardEvidence,
   buildExploreSeedThesis,
   deriveIdeaTriage,
@@ -195,5 +196,79 @@ describe("idea triage", () => {
 
     expect(seeded.review).toEqual(base.review);
     expect(seeded.thesis.summary).toContain("saved review");
+  });
+
+  it("builds ticker-first fact-check suggestions for a concrete listed company", () => {
+    const suggestions = buildFactCheckSuggestions({
+      assetType: "public_equity",
+      title: "Semiconductor infrastructure",
+      assetName: "Nvidia",
+      ticker: "nvda",
+      thesisSummary: "Demand for AI infrastructure may stay elevated.",
+      openQuestions: ["How durable is the backlog?"],
+    });
+
+    expect(suggestions[0]).toMatchObject({
+      kind: "ticker",
+      seedText: "NVDA",
+    });
+    expect(suggestions.some((item) => item.kind === "company" && item.seedText === "Nvidia")).toBe(true);
+    expect(suggestions.some((item) => item.seedText.includes("How durable is the backlog?"))).toBe(true);
+  });
+
+  it("builds company-based suggestions when a direction has no ticker", () => {
+    const suggestions = buildFactCheckSuggestions({
+      assetType: "public_equity",
+      title: "Data platforms for AI",
+      assetName: "Snowflake",
+      thesisSummary: "Data tooling may benefit from AI adoption.",
+      openQuestions: ["How sticky are enterprise customers?"],
+    });
+
+    expect(suggestions[0]).toMatchObject({
+      kind: "company",
+      seedText: "Snowflake",
+    });
+    expect(suggestions.some((item) => item.seedText === "Find leading public companies in Data platforms for AI")).toBe(true);
+  });
+
+  it("builds fallback public-market prompts for broad themes without a company or ticker", () => {
+    const suggestions = buildFactCheckSuggestions({
+      assetType: "public_equity",
+      title: "AI infrastructure business",
+      thesisSummary: "Explore the picks-and-shovels side of AI.",
+      openQuestions: ["Which listed companies have the clearest exposure?"],
+    });
+
+    expect(suggestions.map((item) => item.seedText)).toEqual(expect.arrayContaining([
+      "Find leading public companies in AI infrastructure business",
+      "Compare 2 listed companies exposed to AI infrastructure business",
+      "Identify one ETF or public company tied to AI infrastructure business",
+    ]));
+  });
+
+  it("builds note-style suggestions for non-public-equity ideas", () => {
+    const suggestions = buildFactCheckSuggestions({
+      assetType: "conventional_business",
+      title: "Laundry chain in Jakarta",
+      thesisSummary: "Recurring local demand may create durable cash flow.",
+      openQuestions: ["What do repeat customer rates look like?"],
+    });
+
+    expect(suggestions.some((item) => item.seedText.includes("Define the exact business or asset to verify"))).toBe(true);
+    expect(suggestions.some((item) => item.seedText.includes("customers, unit economics, and risks"))).toBe(true);
+  });
+
+  it("deduplicates repeated fact-check suggestions and drops blanks", () => {
+    const suggestions = buildFactCheckSuggestions({
+      assetType: "public_equity",
+      title: "NVDA review",
+      assetName: "NVDA",
+      ticker: "NVDA",
+      openQuestions: [" ", "What does the latest filing show?"],
+    });
+
+    expect(new Set(suggestions.map((item) => item.seedText)).size).toBe(suggestions.length);
+    expect(suggestions.every((item) => item.seedText.trim().length > 0)).toBe(true);
   });
 });

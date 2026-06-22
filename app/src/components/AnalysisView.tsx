@@ -37,6 +37,7 @@ import { loadInspectorWidth, saveInspectorWidth } from "@/lib/ui/inspectorWidth"
 import { ASSET_TYPE_LABELS, assetTypeForVertical, createDefaultICState, nextReviewDueAfter } from "@/lib/domain/ic";
 import { isEngineAnalysis, manualRiskPromptsForAssetType } from "@/lib/domain/manualAssets";
 import { buildDerivedStockProvenance, buildUserProvidedStockProvenance } from "@/lib/domain/stockFields";
+import { buildFactCheckSuggestions, type FactCheckSuggestion } from "@/lib/domain/triage";
 import {
   createEvidenceItem,
   filterEvidence,
@@ -163,6 +164,24 @@ function unsupportedSavedReviewRecovery(text: string, analysis: Analysis): { mes
     };
   }
   return null;
+}
+
+function factCheckExamplesForAnalysis(analysis: Analysis): string[] {
+  if (analysis.assetType === "public_equity") {
+    return [
+      'Company: "Nvidia"',
+      'Ticker: "NVDA"',
+      'Note: "Compare Nvidia vs AMD for AI infrastructure"',
+      'URL: "https://investor.nvidia.com"',
+    ];
+  }
+
+  return [
+    'Target: "Laundry chain in South Jakarta"',
+    'Note: "Check pricing, repeat customers, and monthly margin"',
+    'Source: "Bank statement summary or sales memo"',
+    'URL: "https://example.com/deck"',
+  ];
 }
 
 function clampEvidenceType(value?: string): EvidenceType {
@@ -680,6 +699,21 @@ export default function AnalysisView({
   const advisory = analysis.advisory ?? [];
   const surfaceMode = deriveReviewSurfaceMode(analysis, pendingIntake);
   const needsFactCheck = surfaceMode !== "review";
+  const factCheckSuggestions = useMemo(
+    () =>
+      buildFactCheckSuggestions({
+        assetType: analysis.assetType,
+        title: analysis.title,
+        assetName: analysis.assetName,
+        ticker: analysis.assetMeta.ticker,
+        sector: analysis.assetMeta.sector,
+        promptNote: importedExplorationNote?.note ?? "",
+        thesisSummary: analysis.ic.thesis.summary,
+        openQuestions: analysis.ic.thesis.openQuestions.map((item) => item.text),
+      }),
+    [analysis.assetMeta.sector, analysis.assetMeta.ticker, analysis.assetName, analysis.assetType, analysis.ic.thesis.openQuestions, analysis.ic.thesis.summary, analysis.title, importedExplorationNote],
+  );
+  const factCheckExamples = useMemo(() => factCheckExamplesForAnalysis(analysis), [analysis]);
   const lifecycle = reviewLifecycleState(analysis, surfaceMode);
   const modeLabel = reviewModeLabel(surfaceMode);
   const savedLabel = savedSurfaceLabel(analysis);
@@ -687,6 +721,12 @@ export default function AnalysisView({
   // Deterministic grounding guard (P8): flag any number in the model's prose that
   // doesn't trace to the engine. Non-blocking — surfaced as a chip / message marker.
   const grounding = groundingResult;
+
+  function seedFactCheckInput(seedText: string) {
+    setChatInput(seedText);
+    update({ reviewMode: "fact_check" });
+    composerInputRef.current?.focus();
+  }
 
   return (
     <div className="tp-root" ref={rootRef} data-qa="analysis-view" style={dragging ? { cursor: "col-resize", userSelect: "none" } : undefined}>
@@ -739,18 +779,22 @@ export default function AnalysisView({
               <TriageKickoffPanel
                 analysis={analysis}
                 promptNote={importedExplorationNote?.note ?? ""}
+                suggestions={factCheckSuggestions}
+                examples={factCheckExamples}
                 onBeginFactCheck={() => {
                   update({ reviewMode: "fact_check" });
                   composerInputRef.current?.focus();
                 }}
+                onSeedSuggestion={seedFactCheckInput}
               />
             )}
             {surfaceMode === "fact_check" && analysis.chat.length === 0 && !pendingUser && !pendingIntake && !intakeBusy && (
               <div className="tp-stream-empty">
                 <div className="tp-stream-empty-h">Check the facts</div>
-                Paste thesis notes, filings, links, or evidence for this concrete asset. The analyst will extract
-                a working view and candidate figures for fact checking. Broad screening belongs in Explore an idea; this
-                saved review only changes after you confirm the facts here.
+                Choose one real company, ticker, or source to verify this idea. Paste thesis notes, filings, links, or
+                evidence for this concrete asset. The analyst will extract a working view and candidate figures for fact
+                checking. Broad screening belongs in Explore an idea; this saved review only changes after you confirm
+                the facts here.
               </div>
             )}
             {analysis.chat.map((m) => (
@@ -823,6 +867,14 @@ export default function AnalysisView({
                 ))}
               </div>
             )}
+            {surfaceMode === "fact_check" && (
+              <FactCheckStarter
+                suggestions={factCheckSuggestions}
+                examples={factCheckExamples}
+                onSelect={seedFactCheckInput}
+                variant="composer"
+              />
+            )}
             <div className="tp-composer-tools">
               <button className="tp-tool" onClick={() => fileInputRef.current?.click()}>＋ File</button>
               <input
@@ -861,9 +913,9 @@ export default function AnalysisView({
                 rows={2}
                 placeholder={
                   surfaceMode === "kickoff"
-                    ? "Name a company, paste a ticker, or add notes to begin fact-checking..."
+                    ? "Choose one real company, ticker, or source to verify this idea..."
                     : needsFactCheck
-                      ? "Paste notes or evidence so you can check the facts..."
+                      ? "Choose one real company, ticker, source, or note to start checking the facts..."
                       : "Ask a grounded follow-up about this saved review..."
                 }
                 value={chatInput}
@@ -1088,9 +1140,44 @@ function ManualAnalysisView({
   const surfaceMode: ReviewSurfaceMode = analysis.reviewMode === "kickoff" ? "kickoff" : "review";
   const lifecycle = reviewLifecycleState(analysis, surfaceMode);
   const savedLabel = savedSurfaceLabel(analysis);
+  const factCheckSuggestions = useMemo(
+    () =>
+      buildFactCheckSuggestions({
+        assetType: analysis.assetType,
+        title: analysis.title,
+        assetName: analysis.assetName,
+        ticker: analysis.assetMeta.ticker,
+        sector: analysis.assetMeta.sector,
+        promptNote,
+        thesisSummary: analysis.ic.thesis.summary,
+        openQuestions: analysis.ic.thesis.openQuestions.map((item) => item.text),
+      }),
+    [analysis.assetMeta.sector, analysis.assetMeta.ticker, analysis.assetName, analysis.assetType, analysis.ic.thesis.openQuestions, analysis.ic.thesis.summary, analysis.title, promptNote],
+  );
+  const factCheckExamples = useMemo(() => factCheckExamplesForAnalysis(analysis), [analysis]);
 
   function jumpTo(selector: string) {
     document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function seedManualFactCheck(seedText: string) {
+    const alreadyPresent = analysis.evidence.some((item) => item.type === "note" && item.title === "Fact-check kickoff note" && item.note?.trim() === seedText);
+    onChange({
+      ...analysis,
+      reviewMode: null,
+      evidence: alreadyPresent
+        ? analysis.evidence
+        : [
+            createEvidenceItem({
+              title: "Fact-check kickoff note",
+              type: "note",
+              relation: "unresolved",
+              reliability: "user_provided",
+              note: seedText,
+            }),
+            ...analysis.evidence,
+          ],
+    });
   }
 
   return (
@@ -1111,7 +1198,10 @@ function ManualAnalysisView({
               <TriageKickoffPanel
                 analysis={analysis}
                 promptNote={promptNote}
-                onBeginFactCheck={() => onChange({ ...analysis, reviewMode: "fact_check" })}
+                suggestions={factCheckSuggestions}
+                examples={factCheckExamples}
+                onBeginFactCheck={() => onChange({ ...analysis, reviewMode: null })}
+                onSeedSuggestion={seedManualFactCheck}
               />
             ) : (
               <>
@@ -1508,14 +1598,61 @@ function ThesisMemoryPanel({ analysis }: { analysis: Analysis }) {
   );
 }
 
+function FactCheckStarter({
+  suggestions,
+  examples,
+  onSelect,
+  variant,
+}: {
+  suggestions: FactCheckSuggestion[];
+  examples: string[];
+  onSelect: (seedText: string) => void;
+  variant: "kickoff" | "composer";
+}) {
+  if (suggestions.length === 0 && examples.length === 0) return null;
+
+  return (
+    <div className={`tp-fact-check-starter tp-fact-check-starter--${variant}`} data-qa={`fact-check-starter-${variant}`}>
+      <div className="tp-fact-check-lead">Pick one concrete target to verify first.</div>
+      {suggestions.length > 0 && (
+        <div className="tp-fact-check-chips">
+          {suggestions.map((suggestion) => (
+            <button
+              key={`${suggestion.kind}:${suggestion.seedText}`}
+              type="button"
+              className="tp-fact-check-chip"
+              data-qa={`fact-check-suggestion-${suggestion.kind}`}
+              onClick={() => onSelect(suggestion.seedText)}
+            >
+              <span className="tp-fact-check-chip-kind">{suggestion.kind.replace("_", " ")}</span>
+              <span>{suggestion.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {examples.length > 0 && (
+        <div className="tp-fact-check-examples">
+          <strong>Examples:</strong> {examples.join("  •  ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TriageKickoffPanel({
   analysis,
   promptNote,
+  suggestions,
+  examples,
   onBeginFactCheck,
+  onSeedSuggestion,
 }: {
   analysis: Analysis;
   promptNote: string;
+  suggestions: FactCheckSuggestion[];
+  examples: string[];
   onBeginFactCheck: () => void;
+  onSeedSuggestion?: (seedText: string) => void;
 }) {
   const thesis = analysis.ic.thesis;
 
@@ -1535,9 +1672,12 @@ function TriageKickoffPanel({
           <strong>From Explore:</strong> {promptNote}
         </div>
       )}
+      {onSeedSuggestion && (
+        <FactCheckStarter suggestions={suggestions} examples={examples} onSelect={onSeedSuggestion} variant="kickoff" />
+      )}
       <div className="tp-recovery-list">
         <div className="tp-recovery-row">
-          <span>Next step: name a company, paste a ticker, add notes, or attach a source so the review can start checking the facts.</span>
+          <span>Next step: choose one real company, ticker, source, or concrete note so this saved review can start checking the facts.</span>
           <button className="tp-mini-btn" type="button" data-qa="triage-kickoff-begin" onClick={onBeginFactCheck}>
             Check the facts
           </button>
