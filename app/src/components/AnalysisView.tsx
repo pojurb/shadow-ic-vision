@@ -684,21 +684,6 @@ export default function AnalysisView({
   }
 
   const groundingResult = useMemo(() => lintAnalysisGrounding(analysis), [analysis]);
-  if (manualMode) {
-    return (
-      <ManualAnalysisView
-        analysis={analysis}
-        onChange={onChange}
-        onOpenExplore={onOpenExplore}
-        promptNote={importedExplorationNote?.note ?? ""}
-      />
-    );
-  }
-
-  const metrics = analysis.metrics!.metrics;
-  const advisory = analysis.advisory ?? [];
-  const surfaceMode = deriveReviewSurfaceMode(analysis, pendingIntake);
-  const needsFactCheck = surfaceMode !== "review";
   const factCheckSuggestions = useMemo(
     () =>
       buildFactCheckSuggestions({
@@ -714,6 +699,21 @@ export default function AnalysisView({
     [analysis.assetMeta.sector, analysis.assetMeta.ticker, analysis.assetName, analysis.assetType, analysis.ic.thesis.openQuestions, analysis.ic.thesis.summary, analysis.title, importedExplorationNote],
   );
   const factCheckExamples = useMemo(() => factCheckExamplesForAnalysis(analysis), [analysis]);
+  if (manualMode) {
+    return (
+      <ManualAnalysisView
+        analysis={analysis}
+        onChange={onChange}
+        onOpenExplore={onOpenExplore}
+        promptNote={importedExplorationNote?.note ?? ""}
+      />
+    );
+  }
+
+  const metrics = analysis.metrics!.metrics;
+  const advisory = analysis.advisory ?? [];
+  const surfaceMode = deriveReviewSurfaceMode(analysis, pendingIntake);
+  const needsFactCheck = surfaceMode !== "review";
   const lifecycle = reviewLifecycleState(analysis, surfaceMode);
   const modeLabel = reviewModeLabel(surfaceMode);
   const savedLabel = savedSurfaceLabel(analysis);

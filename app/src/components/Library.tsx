@@ -13,6 +13,14 @@ const VERTICAL_TAG: Record<Vertical, string> = {
 
 type StatusFilter = "all" | "draft" | "watching" | "decided" | "archived";
 
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "draft", label: "Draft" },
+  { key: "watching", label: "Watchlist" },
+  { key: "decided", label: "Decided" },
+  { key: "archived", label: "Archived" },
+];
+
 function reviewLifecycleLabel(analysis: Analysis): string {
   if (analysis.tags.includes("watchlist") && analysis.decisionHistory.length === 0) return "Saved to watchlist";
   if (analysis.decisionHistory.length > 0) return "Decision made";
@@ -119,9 +127,9 @@ export default function Library({
       <div className="library-controls">
         <input className="library-search" placeholder="Search investments..." value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="library-filter">
-          {(["all", "draft", "watching", "decided", "archived"] as const).map((s) => (
-            <button key={s} className={`filter-btn${status === s ? " active" : ""}`} onClick={() => setStatus(s)}>
-              {s === "all" ? "ALL" : s === "watching" ? "WATCHLIST" : s.toUpperCase()}
+          {STATUS_FILTERS.map(({ key, label }) => (
+            <button key={key} type="button" className={`filter-btn${status === key ? " active" : ""}`} onClick={() => setStatus(key)}>
+              {label}
             </button>
           ))}
         </div>
@@ -158,7 +166,7 @@ function AnalysisLibraryItem({
         <span className="library-vtag" title={ASSET_TYPE_LABELS[analysis.assetType]}>
           {analysis.vertical ? VERTICAL_TAG[analysis.vertical] : assetTypeTag(analysis.assetType)}
         </span>
-        <span className="library-item-title">{analysis.title}</span>
+        <span className="library-item-title" title={analysis.title}>{analysis.title}</span>
         <button
           className="library-del"
           title="Delete"
@@ -198,7 +206,7 @@ function PortfolioLibraryItem({
     <div className={`library-item${active ? " active" : ""}`} data-qa={`library-portfolio-${portfolio.id}`} onClick={() => onOpen(portfolio.id)}>
       <div className="library-item-top">
         <span className="library-vtag library-vtag--pf">PF</span>
-        <span className="library-item-title">{portfolio.title}</span>
+        <span className="library-item-title" title={portfolio.title}>{portfolio.title}</span>
         <button
           className="library-del"
           title="Delete"

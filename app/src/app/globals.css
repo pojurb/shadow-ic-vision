@@ -4,11 +4,11 @@
 
 /* Design Tokens & Fonts */
 :root {
-    --bg-primary: #121316; /* Raw Steel / Charcoal */
-    --bg-secondary: #17181c; /* Heavy Iron */
-    --bg-panel: #1a1c22; /* Dark Concrete */
-    --border-color: #2b2d35; /* Raw Weld joints */
-    --border-accent: #3e424c; /* Active joint */
+    --bg-primary: #0d1117;
+    --bg-secondary: #121720;
+    --bg-panel: #181e27;
+    --border-color: #2f3745;
+    --border-accent: #465368;
     
     /* System Accents */
     --yellow-caution: #d97706; /* Caution Orange-Yellow */
@@ -26,15 +26,15 @@
     --font-body: var(--font-source-sans), "Segoe UI", Arial, sans-serif;
     --font-heading: var(--font-space-grotesk), "Segoe UI", Arial, sans-serif;
     --font-mono: var(--font-jetbrains-mono), "SFMono-Regular", Consolas, monospace;
-    --type-body: 16px;
-    --type-body-comfort: 17px;
-    --type-secondary: 15px;
-    --type-label: 14px;
+    --type-body: 16.5px;
+    --type-body-comfort: 17.5px;
+    --type-secondary: 15.5px;
+    --type-label: 14.5px;
     --type-chip: 12px;
     --type-section: 18px;
-    --type-page: 32px;
-    --leading-body: 1.6;
-    --leading-secondary: 1.5;
+    --type-page: 34px;
+    --leading-body: 1.68;
+    --leading-secondary: 1.58;
 }
 
 /* Global Reset & Base Setup */
@@ -46,13 +46,11 @@
 
 body.industrial-theme {
     background-color: var(--bg-primary);
-    /* Blueprint grid pattern background */
     background-image: 
-        radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(to right, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
-    background-size: 16px 16px, 64px 64px, 64px 64px;
-    color: #e2e8f0;
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 24%),
+        linear-gradient(180deg, #0d1117 0%, #10151d 56%, #0f141c 100%);
+    color: #e6edf6;
     font-family: var(--font-body);
     font-size: var(--type-body);
     line-height: var(--leading-body);
@@ -79,11 +77,11 @@ textarea {
     background: #0f1013;
 }
 .scrollable::-webkit-scrollbar-thumb {
-    background: var(--border-accent);
-    border: 1px solid var(--bg-primary);
+    background: #3d4757;
+    border-radius: 999px;
 }
 .scrollable::-webkit-scrollbar-thumb:hover {
-    background: var(--yellow-caution);
+    background: #56657b;
 }
 
 /* Main Layout Grid */
@@ -119,15 +117,15 @@ textarea {
 
 /* Panel Header Warning Stripes */
 .panel-header {
-    background: var(--bg-panel);
-    border-bottom: 2px solid var(--border-color);
-    padding: 8px 12px;
+    background: rgba(19, 24, 33, 0.96);
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: var(--font-heading);
+    font-family: var(--font-body);
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 0.02em;
 }
 
 .warning-stripes {
@@ -140,20 +138,14 @@ textarea {
     top: 0;
     left: 0;
     width: 100%;
-    height: 3px;
-    background: repeating-linear-gradient(
-        -45deg,
-        #121316,
-        #121316 6px,
-        var(--yellow-caution) 6px,
-        var(--yellow-caution) 12px
-    );
+    height: 1px;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.52), rgba(56, 189, 248, 0));
 }
 
 .panel-title {
     color: #f8fafc;
-    font-size: 13px;
-    text-transform: uppercase;
+    font-size: 14px;
+    text-transform: none;
 }
 
 .panel-subtitle {
@@ -1625,3 +1617,189 @@ textarea {
 .tp-alloc-track { flex: 1; height: 9px; background: #2c313b; border-radius: 5px; overflow: hidden; }
 .tp-alloc-fill { display: block; height: 100%; background: var(--tp-acc); border-radius: 5px; }
 .tp-alloc-pct { flex: 0 0 38px; text-align: right; font-family: var(--tp-mono); font-size: var(--tp-fs-chip); font-weight: 700; color: var(--tp-acc); }
+
+/* ==========================================
+   WORKSPACE READABILITY RESET
+   ========================================== */
+
+.tp-root {
+    background: linear-gradient(180deg, rgba(15, 20, 28, 0.98), rgba(15, 20, 28, 0.94));
+}
+
+:root {
+    --tp-line: #313a49;
+    --tp-panel: #171c24;
+    --tp-panel2: #1d232d;
+    --tp-muted: #a8b5c8;
+    --tp-mono: var(--font-mono);
+    --tp-body: var(--font-body);
+    --tp-heading: var(--font-body);
+    --tp-fs-chip: 12px;
+    --tp-fs-label: 14px;
+    --tp-fs-meta: 15px;
+    --tp-fs-body: 17px;
+    --tp-fs-head: 19px;
+    --tp-fs-page: 32px;
+    --tp-measure: 72ch;
+    --tp-pad: 20px;
+    --tp-gap: 20px;
+}
+
+.tp-topbar {
+    padding: 18px 22px;
+    background: rgba(17, 22, 30, 0.88);
+    backdrop-filter: blur(16px);
+}
+
+.tp-title-wrap {
+    gap: 12px;
+}
+
+.tp-title {
+    font-family: var(--tp-body);
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #f5f7fb;
+    border-radius: 10px;
+}
+
+.tp-title:focus {
+    background: rgba(11, 15, 22, 0.72);
+}
+
+.tp-run-btn,
+.tp-send,
+.tp-confirm-btn {
+    border-radius: 999px;
+}
+
+.tp-ghost,
+.tp-tool,
+.tp-mini-btn,
+.tp-confirm-change {
+    font-family: var(--tp-body);
+}
+
+.tp-stream {
+    padding: 30px 0;
+}
+
+.tp-stream-empty,
+.tp-msg,
+.tp-confirm,
+.tp-imported-note,
+.tp-recovery-note,
+.tp-recovery-panel {
+    max-width: 74ch;
+}
+
+.tp-stream-empty {
+    color: #bcc7d7;
+}
+
+.tp-stream-empty-h,
+.tp-confirm-h,
+.tp-card-h {
+    font-family: var(--tp-body);
+    letter-spacing: -0.01em;
+}
+
+.tp-msg-role,
+.tp-vlbl,
+.tp-confirm-vlbl,
+.tp-thesis-evidence-row em,
+.tp-evidence-candidate em,
+.tp-slot {
+    letter-spacing: 0.03em;
+}
+
+.tp-msg-body,
+.tp-report,
+.tp-thesis-summary,
+.tp-points li,
+.tp-lens-hook {
+    color: #eef3fb;
+    line-height: 1.76;
+}
+
+.tp-msg--user .tp-msg-body,
+.tp-card,
+.tp-confirm,
+.tp-recovery-panel,
+.tp-evidence-row,
+.tp-stock-row,
+.tp-thesis-evidence-row {
+    background: rgba(24, 30, 39, 0.88);
+    border-color: #313a49;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.tp-composer {
+    padding: 18px 28px 20px;
+    background: rgba(17, 22, 30, 0.92);
+}
+
+.tp-fact-check-starter,
+.tp-imported-note,
+.tp-recovery-note {
+    background: rgba(22, 31, 43, 0.82);
+}
+
+.tp-fact-check-chip {
+    background: rgba(15, 20, 28, 0.95);
+    padding: 9px 14px;
+}
+
+.tp-link-input,
+.tp-input,
+.tp-confirm-input,
+.tp-thesis-field textarea,
+.tp-evidence-input,
+.tp-evidence-filters select,
+.tp-evidence-editor select,
+.tp-evidence-note,
+.tp-pos-cap,
+.tp-add-holding select {
+    background: #121821;
+    border-color: #364255;
+    border-radius: 12px;
+}
+
+.tp-input,
+.tp-link-input {
+    color: #eff4fb;
+}
+
+.tp-inspector {
+    background: linear-gradient(180deg, #171c24 0%, #1b212b 100%);
+}
+
+.tp-inspector-head {
+    padding: 18px 20px;
+    background: rgba(23, 28, 36, 0.96);
+    backdrop-filter: blur(14px);
+}
+
+.tp-inspector-head span:first-child,
+.tp-stock-pill,
+.tp-vlbl,
+.tp-evidence-meta,
+.tp-ground,
+.tp-ground--warn {
+    font-family: var(--tp-mono);
+}
+
+.tp-thesis-summary {
+    border-left: 3px solid rgba(103, 167, 255, 0.95);
+    padding-left: 14px;
+}
+
+.tp-thesis-mini li,
+.tp-stock-note,
+.tp-confirm-note,
+.tp-muted-note,
+.tp-evidence-empty,
+.tp-evidence-broken {
+    line-height: 1.65;
+}
