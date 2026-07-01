@@ -17,4 +17,4 @@ The build sequence is strict:
 6. Implement, evaluate, verify, and release
 
 ## Current Status
-> **Phase: Strategy & Wedge Definition** — `VISION.md` has been revised based on feedback. The next step is to define the first wedge and draft the `ACTIVE_MILESTONE.md`.
+> **Phase: Milestone Spec Planning** — `VISION.md` is approved and the wedge/risks are defined. The next step is to draft the tech-agnostic `ACTIVE_MILESTONE.md` for Horizon 1 (Thesis Intake, Background Ingestion of Official Filings/Transcripts, Weekly Briefing, and Decision Ledger).
