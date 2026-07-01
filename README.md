@@ -15,4 +15,4 @@ The build order is strict:
 4. **Code** — Written last, verified against the Eval Harness before any human review.
 
 ## Current Status
-> **Phase: Product Vision** — `VISION.md` does not yet exist. No code should be written until it is approved.
+> **Phase: Milestone Planning** — `VISION.md` has been drafted and is under review. The next step is to define the first Active Milestone and Golden Dataset.
