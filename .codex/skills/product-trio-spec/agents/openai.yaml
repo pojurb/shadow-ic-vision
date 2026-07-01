@@ -1,4 +1,0 @@
-interface:
-  display_name: "Product Trio Spec"
-  short_description: "PM/ENG/DESIGN specs with QA gates"
-  default_prompt: "Use $product-trio-spec to draft or revise a milestone spec."
