@@ -1,21 +1,18 @@
 # Codex Protocol (v3)
 
-An autonomous AI Investment Committee and Worldview Engine.
+An autonomous AI Investment Committee and Worldview Engine for serious self-directed investors.
 
-## Vision (V3 Architecture)
-We are building a **Continuous Shadow IC** powered by a **Probabilistic Knowledge Graph** and a **Local-First CRDT engine**.
+## What This Is
+A **Continuous Shadow IC** — a system that remembers your investment theses, actively challenges your assumptions using autonomous background agents, and surfaces cascading risk across your entire worldview before it becomes a loss.
 
-Unlike traditional static dashboards, this system maps assets, assumptions, and macro drivers as interconnected nodes. Background autonomous agents (The Analyst, The Risk Officer, The Devil's Advocate) continuously monitor live data streams (SEC filings, earnings calls, market data) to challenge the user's assumptions in real-time.
+## How We Build This
+This project is governed by the **10x Eval Playbook** defined in `.agents/AGENTS.md`. Every agent and engineer working on this codebase must read that file first.
 
-### Core Stack
-- **Frontend**: Next.js 16 (App Router) + TypeScript + Vanilla CSS
-- **Data Layer**: Local-First CRDT Sync Engine (Offline-first + Multiplayer)
-- **Intelligence**: LLMs for Qualitative NLP + Structured APIs for Quantitative Truth
+The build order is strict:
+1. **`VISION.md`** — Pure product definition and user journey. Tech-agnostic. Must exist before any code.
+2. **`docs/evals/`** — Golden Datasets and grading rubrics. Must exist before any feature is built.
+3. **`ACTIVE_MILESTONE.md`** — The current sprint spec. Created only after `VISION.md` is approved.
+4. **Code** — Written last, verified against the Eval Harness before any human review.
 
-## Getting Started
-
-```bash
-cd app
-npm install
-npm run dev
-```
+## Current Status
+> **Phase: Product Vision** — `VISION.md` does not yet exist. No code should be written until it is approved.
