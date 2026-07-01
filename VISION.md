@@ -1,5 +1,5 @@
 # VISION.md — Codex Protocol (v3)
-## The Shadow IC Engine
+## The Personal Investment Committee Engine
 
 > "I want to invest like a great hedge fund manager, build a Family Office someday, and use that wealth to mentor people, do charity, and drive the world to a better future."
 > — *The person this system is built for.*
