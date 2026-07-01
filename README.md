@@ -1,18 +1,20 @@
 # Codex Protocol (v3)
 
-An autonomous AI Investment Committee and Worldview Engine for serious self-directed investors.
+An AI-assisted Investment Committee for serious self-directed investors.
 
 ## What This Is
-A **Continuous Shadow IC** — a system that remembers your investment theses, actively challenges your assumptions using autonomous background agents, and surfaces cascading risk across your entire worldview before it becomes a loss.
+A system that tracks your investment theses, challenges your assumptions with verified evidence, and turns scattered conviction into disciplined decisions, delivered through a weekly IC Briefing.
 
 ## How We Build This
 This project is governed by the **10x Eval Playbook** defined in `.agents/AGENTS.md`. Every agent and engineer working on this codebase must read that file first.
 
-The build order is strict:
-1. **`VISION.md`** — Pure product definition and user journey. Tech-agnostic. Must exist before any code.
-2. **`docs/evals/`** — Golden Datasets and grading rubrics. Must exist before any feature is built.
-3. **`ACTIVE_MILESTONE.md`** — The current sprint spec. Created only after `VISION.md` is approved.
-4. **Code** — Written last, verified against the Eval Harness before any human review.
+The build sequence is strict:
+1. Approve Vision (`VISION.md`)
+2. Define product strategy and first wedge
+3. Write `ACTIVE_MILESTONE.md` with workflows and acceptance criteria
+4. Create the Golden Dataset and grading rubric
+5. Make architecture and stack decisions
+6. Implement, evaluate, verify, and release
 
 ## Current Status
-> **Phase: Milestone Planning** — `VISION.md` has been drafted and is under review. The next step is to define the first Active Milestone and Golden Dataset.
+> **Phase: Strategy & Wedge Definition** — `VISION.md` has been revised based on feedback. The next step is to define the first wedge and draft the `ACTIVE_MILESTONE.md`.

@@ -11,17 +11,17 @@ This workspace uses an evaluation-driven agentic workflow modeled on the "AI Qua
 - **Sandbox Engineer (You):** You define the safe, isolated tool paths and data schemas (the Agent-Computer Interface).
 - **Builder Agent (You/Subagents):** You write the actual implementation code, self-correcting against the Eval Harness until it passes.
 
-## 3. The 10x Eval Loop (How we write code)
-You are strictly forbidden from writing unverified feature code. You must follow this continuous loop:
-1. **Spec:** Define the active task purely in product and domain terms.
-2. **Harness (TDD):** Write the `golden_set` test cases (structural, functional, logical) that define absolute success.
-3. **Build:** Write the system code and agent prompts.
-4. **Eval:** Run the code against the Harness in a sandboxed environment.
-5. **Self-Correct:** Read the error traces and rewrite the code until the evaluation metrics reach 100%.
-6. **Deploy:** Only ask the user for review when the automated harness passes completely.
+## 3. The 10x Eval Sequence (How we build)
+The sequence for moving from strategy to implementation is strict:
+1. **Approve Vision:** Product strategy and core promises (`VISION.md`).
+2. **Define Wedge:** Identify the initial product wedge and risks.
+3. **Write Spec:** Draft `ACTIVE_MILESTONE.md` detailing workflows and acceptance criteria.
+4. **Create Evals (TDD):** Build the Golden Dataset and grading rubric based on the milestone's behavior contract.
+5. **Architecture Decisions:** Make tech stack and architecture decisions specific to that milestone.
+6. **Implement & Verify:** Write code, evaluate against the harness, and verify.
 
 ## 4. Documentation Hierarchy (The Source of Truth)
 - `README.md`: High-level entry point.
-- `VISION.md`: Pure product, domain model, and user journey. (Tech-agnostic until the final architectural tier).
-- `docs/evals/`: The Golden Datasets and grading rubrics.
-- `ACTIVE_MILESTONE.md`: The dynamic tracking file for the current sprint. Must not contain tech-stack assumptions unless the `VISION.md` explicitly demands it.
+- `VISION.md`: Pure product, domain model, and user journey. (Tech-agnostic).
+- `ACTIVE_MILESTONE.md`: The dynamic tracking file for the current sprint workflows and acceptance criteria.
+- `docs/evals/`: The Golden Datasets and grading rubrics tied to the active milestone.
