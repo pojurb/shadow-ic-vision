@@ -25,9 +25,10 @@ The build sequence is strict:
 7. Approve, release, observe, and retain rollback capability
 
 ## Current Status
-> **Phase: Evaluation Ready** — The M001 Milestone Packet is formally approved.
-> We are now creating the Golden Dataset and grading rubric under `docs/evals/M001/`
-> to define the strict behavior contract for the first wedge.
+> **Phase: Architecture Planning** — The M001 evaluation package is accepted
+> through `DEC-0005`. The next authorized step is to draft and review
+> `ADR-0006-m001-stack.md`. Product implementation remains gated until the
+> milestone-specific architecture decision is accepted.
 
 ## Artifact Standards
 
