@@ -3,18 +3,28 @@
 An AI-assisted Investment Committee for serious self-directed investors.
 
 ## What This Is
-A system that tracks your investment theses, challenges your assumptions with verified evidence, and turns scattered conviction into disciplined decisions, delivered through a weekly IC Briefing.
+A system that tracks your investment theses, challenges your assumptions with
+cited evidence and explicit uncertainty, and turns scattered conviction into
+disciplined decisions through a weekly IC Briefing.
 
 ## How We Build This
-This project is governed by the **10x Eval Playbook** defined in `.agents/AGENTS.md`. Every agent and engineer working on this codebase must read that file first.
+This project is governed by the model-neutral operating playbook in
+[`AGENTS.md`](AGENTS.md). Codex reads it directly; Claude Code and Gemini CLI
+load it through thin `CLAUDE.md` and `GEMINI.md` adapters. Detailed delivery,
+quality, security, and release controls live under `.agents/`. Ollama-backed
+models inherit the playbook through their coding-agent client; raw model or API
+sessions must inject it explicitly.
 
 The build sequence is strict:
 1. Approve Vision (`VISION.md`)
-2. Define product strategy and first wedge
-3. Write `ACTIVE_MILESTONE.md` with workflows and acceptance criteria
-4. Create the Golden Dataset and grading rubric
-5. Make architecture and stack decisions
-6. Implement, evaluate, verify, and release
+2. Define product strategy, the first wedge, and risks
+3. Approve a versioned milestone packet and update `ACTIVE_MILESTONE.md`
+4. Create the Golden Dataset, grading rubric, and deterministic checks
+5. Record milestone-specific architecture decisions
+6. Implement, independently review, verify, and retain evidence
+7. Approve, release, observe, and retain rollback capability
 
 ## Current Status
-> **Phase: Milestone Spec Planning** — `VISION.md` is approved and the wedge/risks are defined. The next step is to draft the tech-agnostic `ACTIVE_MILESTONE.md` for Horizon 1 (Thesis Intake, Background Ingestion of Official Filings/Transcripts, Weekly Briefing, and Decision Ledger).
+> **Phase: Product Strategy** — `VISION.md` has been formally approved by the user.
+> `docs/PRODUCT_STRATEGY.md` is now in progress to define the first vertical
+> slice (the wedge) before authorizing any architecture or implementation.

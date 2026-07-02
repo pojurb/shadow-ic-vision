@@ -1,5 +1,9 @@
 # === SENSITIVE DATA (never commit real financial data) ===
 data/Portfolio_Master_State.md
+.env
+.env.*
+!.env.example
+CLAUDE.local.md
 
 # === GENERATED OUTPUTS (regenerable by AI) ===
 outputs/living_thesis/*.md
