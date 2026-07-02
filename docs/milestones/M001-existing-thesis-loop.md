@@ -1,6 +1,6 @@
 # M001: Existing Thesis Loop
 
-Status: `proposed`
+Status: `accepted`
 
 Approval authority: user
 

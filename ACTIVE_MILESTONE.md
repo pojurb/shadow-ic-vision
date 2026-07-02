@@ -1,16 +1,17 @@
 # Active Milestone
 
-Status: `proposed`
+Status: `accepted`
 Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/M001-existing-thesis-loop.md)
 
 ## Current Gate
 
-The milestone packet for M001 has been drafted and is proposed for review.
-Implementation remains gated until this packet and its evaluation Golden Dataset are approved.
+The milestone packet for M001 has been formally accepted (`DEC-0004-approve-m001.md`).
+The gate is now open to construct the evaluation Golden Dataset, grading rubric, and deterministic checks.
+Architecture and product implementation remain gated until the evaluation assets are ready and approved.
 
 ## Next Step
 
-Review the drafted milestone packet `docs/milestones/M001-existing-thesis-loop.md`. If approved, we will lock the status, record the decision, and construct the Golden Dataset.
+Create the M001 evaluation folder (`docs/evals/M001/`) and draft the Golden Dataset and grading rubric cases.
 
 ## Handoff
 

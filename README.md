@@ -25,9 +25,9 @@ The build sequence is strict:
 7. Approve, release, observe, and retain rollback capability
 
 ## Current Status
-> **Phase: Milestone Planning** — Product Strategy has been formally approved.
-> We are now drafting the first Active Milestone packet (M001: Existing Thesis Loop)
-> to define the exact workflows, schemas, and acceptance criteria for the first vertical slice.
+> **Phase: Evaluation Ready** — The M001 Milestone Packet is formally approved.
+> We are now creating the Golden Dataset and grading rubric under `docs/evals/M001/`
+> to define the strict behavior contract for the first wedge.
 
 ## Artifact Standards
 
