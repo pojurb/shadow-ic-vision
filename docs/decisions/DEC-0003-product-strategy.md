@@ -1,6 +1,6 @@
 # DEC-0003 - Approve Product Strategy and V1 Wedge
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-02
 
