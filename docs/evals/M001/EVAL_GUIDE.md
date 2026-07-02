@@ -11,6 +11,9 @@ Evals must be triggered using the following environment-neutral entrypoint:
 python scripts/eval_m001.py --cases docs/evals/M001/cases.json --output docs/evidence/releases/eval-run-latest.json
 ```
 
+> [!NOTE]
+> The executable script `scripts/eval_m001.py` is a key deliverable of **Implementation Slice 1** (as defined in the Milestone Spec). It must be constructed and verified before Gate 5 execution begins.
+
 ---
 
 ## 2. Hard Safety Gates & Scoring Formulas
@@ -123,7 +126,7 @@ Every execution must output a report matching this format:
   "grader_version": "1.0.0",
   "timestamp": "ISO-8601",
   "summary": {
-    "total_cases": 13,
+    "total_cases": "<integer_total_test_cases>",
     "passed_cases": 0,
     "failed_cases": 0,
     "citation_hallucination_rate": 0.0,

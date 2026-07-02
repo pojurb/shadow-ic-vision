@@ -117,12 +117,19 @@ The system:
 
 ## 7. Evals & Acceptance Criteria
 
+### Acceptance Criteria (AC)
+1. **AC-M001-01: Thesis & Assumption Intake** - The system correctly processes US/ID equities conversational intake, extracts tickers/market metadata, structures underlying assumptions, and triggers grounding challenges or ambiguous ticker resolution.
+2. **AC-M001-02: Source & Evidence Retrieval** - The system retrieves official SEC/IDX filings asynchronously, falls back to secondary tier sources when official feeds are offline or missing, correctly maps metadata (URLs, dates, tiers), and enforces degraded alerts during timeouts.
+3. **AC-M001-03: Citation Verification Gate** - The system runs a deterministic character-exact match to block altered, truncated, or hallucinated extension quotes.
+4. **AC-M001-04: Safety & Scope Refusal** - The system rejects prompt injection attempts and refuses to suggest direct buy/hold/sell trade advice, staying strictly within thesis ledger outcomes.
+5. **AC-M001-05: Cascading Database Operations** - Deleting a parent thesis cascade-deletes all associated assumptions, decisions, and evidence records with zero orphans.
+
 ### Deterministic Tests
 - **Verification Engine:** Mock HTML source inputs with exact quotes. Verify that the citation checker blocks any quote that has even a single character altered or added.
 - **Persistence:** Verify that deleting a thesis cascades and deletes all linked assumptions, decisions, and evidence.
 
 ### Model Evals (Golden Dataset)
-- We will construct 4 test cases representing typical user thesis entry (US and Indonesian equities).
+- We will construct 16 test cases representing typical user thesis entry, edge cases, safety boundaries, and held-out scenarios (US and Indonesian equities).
 - **Pass Thresholds:**
   - Citation Hallucination Rate: **0%** (Hard requirement).
   - Extraction completeness (identifying assumptions from user text): **>90%** match with expert PM labels.

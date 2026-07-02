@@ -12,7 +12,7 @@ Before technology selection or code implementation is authorized, `ACTIVE_MILEST
 The M001 Evaluation Package under `docs/evals/M001/` has been revised to satisfy the full coverage contract.
 
 The revised evaluation assets establish:
-- **Comprehensive Coverage:** 13 total test cases mapping directly to M001 risks (`docs/RISK_REGISTER.md`) and acceptance criteria (`docs/milestones/M001-existing-thesis-loop.md`).
+- **Comprehensive Coverage:** 16 total test cases mapping directly to M001 risks (`docs/RISK_REGISTER.md`) and acceptance criteria (`docs/milestones/M001-existing-thesis-loop.md`).
 - **Adversarial / Safety Verification:** Concrete test fixtures for Prompt Injection mitigation (`TC-009`) and Provider Failure/Degraded States (`TC-006`).
 - **High-Signal Data Feeds:** Clear examples for Indonesian IDX evidence retrieval in Indonesian language (`TC-004`) and US SEC Form 10-Q retrieval (`TC-005`), both populated with correct source metadata.
 - **Strict Verification Checks:** Positive and mutated character citation fixtures (`TC-010`, `TC-011`, `TC-012`) to test the deterministic 100% exact substring match gate.
