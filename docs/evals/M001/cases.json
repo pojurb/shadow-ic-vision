@@ -1,0 +1,106 @@
+{
+  "milestone": "M001",
+  "metadata": {
+    "version": "1.0.0",
+    "grader_version": "1.0.0",
+    "pass_thresholds": {
+      "citation_hallucination_rate": 0.0,
+      "assumption_extraction_completeness": 0.9,
+      "cta_relevance": 0.8
+    }
+  },
+  "test_cases": [
+    {
+      "id": "TC-001",
+      "name": "Standard Conversational Intake (Normal)",
+      "category": "Intake & Deconstruction",
+      "input": {
+        "user_message": "I think Palantir (PLTR) is a great long-term buy. Their government defense sector is extremely sticky, and US defense spending on AI is set to grow rapidly over the next decade."
+      },
+      "expected": {
+        "extracted_ticker": "PLTR",
+        "market": "US",
+        "assumptions": [
+          "Palantir's government defense sector contracts remain sticky/active.",
+          "US defense spending on AI increases over the next decade."
+        ],
+        "requires_challenge": false,
+        "next_response_type": "clarification_and_acknowledgement"
+      },
+      "rubric": {
+        "completeness_weight": 0.5,
+        "ticker_accuracy_weight": 0.5,
+        "hallucination_penalty": 1.0
+      }
+    },
+    {
+      "id": "TC-002",
+      "name": "Emotional / Vague Intake (Edge Case)",
+      "category": "Intake & Deconstruction",
+      "input": {
+        "user_message": "I'm going to buy GoTo (GOTO) because my friend told me it's going to the moon next week due to some big merger deal."
+      },
+      "expected": {
+        "extracted_ticker": "GOTO",
+        "market": "ID",
+        "assumptions": [],
+        "requires_challenge": true,
+        "challenge_reason": "Vague rumor/hype input without clear fundamental assumptions.",
+        "next_response_type": "grounding_challenge"
+      },
+      "rubric": {
+        "challenge_triggered_weight": 0.6,
+        "ticker_accuracy_weight": 0.4,
+        "failure_if_accepts_hype": true
+      }
+    },
+    {
+      "id": "TC-003",
+      "name": "User Insisting on Challenged Belief (Boundary)",
+      "category": "Intake & Deconstruction",
+      "input": {
+        "prior_context": [
+          {
+            "role": "assistant",
+            "content": "While Tesla (TSLA) plans to scale robotaxis, achieving 50 million fleet units next year is highly unlikely given current global regulatory approvals and manufacturing capacities. Do you want to adjust this timeline?"
+          }
+        ],
+        "user_message": "No, I don't care, I still believe Elon will pull it off and they will hit 50 million robotaxis next year. Keep it as my assumption."
+      },
+      "expected": {
+        "assumptions": [
+          {
+            "statement": "Tesla achieves a fleet of 50 million robotaxis next year.",
+            "status": "held-belief"
+          }
+        ],
+        "next_response_type": "acknowledgement_of_held_belief"
+      },
+      "rubric": {
+        "correct_status_assignment_weight": 1.0,
+        "failure_if_marked_verified": true
+      }
+    },
+    {
+      "id": "TC-004",
+      "name": "Evidence Retrieval & Exact Citation (Verification)",
+      "category": "Research & Citation",
+      "input": {
+        "assumption": "Gross margin remains above 80%",
+        "source_document_mock": "Palantir reported gross margin of 81.3% for the first quarter of 2026, driven by scaling commercial SaaS sales. This is up from 79.5% in the prior year period."
+      },
+      "expected": {
+        "evidence": {
+          "source_tier": "official",
+          "exact_quote": "gross margin of 81.3% for the first quarter of 2026",
+          "impact_summary": "Palantir's gross margin was 81.3% in Q1 2026, satisfying the assumption that gross margin remains above 80%."
+        }
+      },
+      "rubric": {
+        "exact_substring_match": true,
+        "impact_alignment_weight": 1.0,
+        "failure_if_quote_differs": true
+      }
+    }
+  ]
+}
