@@ -18,6 +18,7 @@ Create the M001 evaluation folder (`docs/evals/M001/`) and draft the Golden Data
 - Completed: multi-model operating playbook foundation
 - Completed: Gate 1 Vision approval (`DEC-0002`)
 - Completed: Gate 2 Strategy approval (`DEC-0003`)
-- Completed: M001 Milestone Spec drafted
-- Pending: explicit user approval of M001 Milestone Packet
+- Completed: Gate 3 Milestone Packet approval (`DEC-0004`)
+- Completed: Gate 4 Evaluation Assets drafted (`cases.json` & `EVAL_GUIDE.md`)
+- Pending: explicit user approval of Gate 4 Evaluation Ready status
 - Blocked implementation: all product code and stack decisions
