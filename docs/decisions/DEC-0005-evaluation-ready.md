@@ -1,6 +1,6 @@
 # DEC-0005 - Approve M001 Evaluation Assets and Gate 4 Readiness
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-02
 
