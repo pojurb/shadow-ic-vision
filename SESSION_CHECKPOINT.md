@@ -3,12 +3,14 @@
 #### 1. Current Repository State
 
 - Branch: `shadow-ic-vision`
-- Base HEAD before this checkpoint update: `5ce1fe7`
-- Working tree has staged changes for the M001 implementation scaffold.
+- Base HEAD before this checkpoint update: `624ed0e`
+- Working tree has staged changes for the M001 UI and Citation Pipeline.
 - **Phase: Implementation**
 - Initial Next.js App Router scaffold is complete.
 - SQLite + Drizzle ORM schema is in place (`db/schema.ts`) and the first migration (`0000_...sql`) is generated.
 - Project-owned `LLMProvider` interface and `MockProvider` are implemented.
+- **React Conversational UI** (`app/c/[id]`) is built and wired to the database.
+- **Citation Pipeline** (`lib/research/pipeline.ts`) is built with SEC/IDX stubs and exact-match verifier.
 - `ACTIVE_MILESTONE.md` points to M001 (Implementation phase).
 - `DEC-0007-governed-builder-learning.md` is `accepted` and `.agents/LEARNING.md` is `active`.
 - `docs/learning/PROMOTIONS.md` is `active` with one promoted entry (`LC-20260703-001`).
@@ -18,7 +20,7 @@
 #### 2. Outstanding User Decisions And Stop Point
 
 - **Cloud provider decision deferred**: `DEC-0009` (cloud provider approval) is explicitly deferred until the local mock implementation is fleshed out.
-- The stop point is: decide whether to build the conversational UI components first, or the deterministic citation pipeline/adapters first.
+- The stop point is: review the finished Option A (UI) and Option B (Citation Pipeline) and decide if we are ready to merge or move to wiring them together into a complete end-to-end flow.
 
 #### 3. Verified Work Completed
 
@@ -51,6 +53,8 @@
 - Configured `.env.example` and `next.config.ts` (Node runtime via `serverExternalPackages`).
 - Created `db/client.ts`, `db/schema.ts`, and generated the initial `0000` SQL migration for SQLite using Drizzle ORM.
 - Established the AI Abstraction Boundary (`lib/ai/provider.ts` and `lib/ai/adapters/mock.ts`) completely decoupled from the AI SDK native types.
+- Built the **React Conversational UI** (`components/Sidebar.tsx`, `components/ChatUI.tsx`, `app/api/chat/route.ts`).
+- Built the **Deterministic Citation Pipeline** (`lib/research/pipeline.ts`) with cryptographic hashing and exact-match verification.
 - TypeScript compiler and Drizzle generator confirmed the schema and abstraction types are flawless.
 
 - `AGENTS.md` remains the canonical shared playbook.
@@ -62,13 +66,14 @@
 
 #### 5. Exact Next Steps
 
-1. **Option A**: Build the React Conversational UI (chat layout, thesis dashboard) using the `MockProvider`.
-2. **Option B**: Build the backend Citation Pipeline and Research Jobs logic (SEC/IDX adapters, hashing, exact verification).
+1. **Option 1**: Wire the UI and the Citation Pipeline together to simulate an end-to-end "Intake -> Research -> Verify" loop.
+2. **Option 2**: Revisit `DEC-0009` and select a real LLM provider (Ollama Cloud or OpenAI) to replace the `MockProvider`.
 
 #### 6. Verification Limits
 
 - Only typescript compilation and Drizzle schema generation have been verified.
-- UI rendering and API routes are strictly mocked and remain to be implemented.
+- The Citation Pipeline logic is fully unit-tested with the deterministic `test-pipeline.ts` script.
+- Live LLM calls and live web scraping are intentionally deferred/stubbed.
 
 Promoted lessons consulted: `LC-20260703-001`
 
