@@ -1,100 +1,66 @@
-### Session Checkpoint (2026-07-03T08:27:57+07:00)
+### Session Checkpoint (2026-07-03T21:11:00+07:00)
 
 #### 1. Current Repository State
 
 - Branch: `shadow-ic-vision`
-- Base HEAD before this checkpoint update: `2d97da5`
+- Base HEAD before this checkpoint update: `41b126e`
 - Working tree was clean before editing this file.
-- Vision, product strategy, M001 milestone packet, and M001 evaluation package
-  are accepted.
-- Gate 4 evaluation readiness is complete through accepted
-  `DEC-0005-evaluation-ready.md`.
-- The current product phase is Architecture Planning. The next authorized M001
-  artifact is `docs/decisions/ADR-0006-m001-stack.md`.
-- Product implementation remains blocked until the M001 architecture decision
-  is accepted.
+- Vision, product strategy, M001 milestone packet, and M001 evaluation package are accepted.
+- Gate 4 evaluation readiness is complete through accepted `DEC-0005-evaluation-ready.md`.
+- `DEC-0007-governed-builder-learning.md` is `accepted` and the `.agents/LEARNING.md` policy is `active`.
+- `docs/learning/PROMOTIONS.md` is `active` and has registered its first active promotion (`LC-20260703-001`).
+- The current product phase is Architecture Planning. The next authorized M001 artifact is `docs/decisions/ADR-0006-m001-stack.md`.
+- Product implementation remains blocked until the M001 architecture decision is accepted.
 
 #### 2. Outstanding User Decisions And Stop Point
 
-- The prior instruction to pause before Step 5 remains in force. Do not draft
-  ADR-0006 or begin product implementation without a new explicit user request.
-- `DEC-0007-governed-builder-learning.md` is `proposed`, not accepted.
-- `.agents/LEARNING.md` is also `proposed` and deliberately not referenced by
-  active `AGENTS.md` policy.
-- The user must explicitly accept DEC-0007 before the builder-learning policy is
-  activated or used as repository authority.
+- The user has authorized M001 architecture work and requested drafting of ADR-0006.
+- The revised `ADR-0006-m001-stack.md` is currently `proposed`. It requires explicit user acceptance before we can conclude the Architecture phase and unlock product implementation.
+- The stop point is user acceptance of `ADR-0006-m001-stack.md`.
 
 #### 3. Verified Work Completed
 
 ##### M001 Gate 4
-
 - Resolved the evaluation-package audit findings.
-- Expanded `docs/evals/M001/cases.json` to 16 cases covering normal, boundary,
-  missing-data, provider-failure, adversarial, citation, persistence, and
-  held-out behavior.
-- Updated `docs/evals/M001/EVAL_GUIDE.md` with grading and reproduction rules.
-- Updated the accepted M001 packet with acceptance criteria `AC-M001-01`
-  through `AC-M001-05` and the 16-case contract.
-- Accepted DEC-0005 in commit `41ef19e`.
+- Expanded `docs/evals/M001/cases.json` to 16 cases.
+- Updated `docs/evals/M001/EVAL_GUIDE.md`.
+- Accepted DEC-0005.
 
-##### Authority And Deployment Support
+##### Governed Builder-Learning Activation
+- User explicitly accepted DEC-0007.
+- Updated status of `DEC-0007` to `accepted` and `.agents/LEARNING.md` to `active`.
+- Synchronized `AGENTS.md`, `.agents/SECURITY.md`, `README.md`, and `docs/RISK_REGISTER.md` to integrate the learning loop policy.
+- Verified that model adapters `CLAUDE.md` and `GEMINI.md` did not duplicate the policy.
+- Retained release manifest at `docs/evidence/releases/2026-07-03-builder-learning-activation/manifest.md`.
 
-- Synchronized README and `ACTIVE_MILESTONE.md` with accepted Gate 4 status and
-  ADR-0006 as the next architecture artifact in commit `22b7a89`.
-- Added the documentation-only Vercel placeholder `index.html` in commit
-  `3edcb41`. This repository inspection did not freshly verify a live deployment.
+##### Learning Promotion
+- Created and validated candidate `LC-20260703-001` capturing the gap in primary agent self-reviews when drafting ADRs.
+- Promoted `LC-20260703-001` into `.agents/QUALITY.md` under the new "Architecture ADR Completeness" section.
+- Updated `docs/learning/PROMOTIONS.md` and `docs/learning/INDEX.md` to active and promoted statuses.
+- Committed promotion under commit `41b126e`.
 
-##### Governed Builder-Learning Proposal
-
-- Added proposed `DEC-0007-governed-builder-learning.md`.
-- Added proposed `.agents/LEARNING.md` defining task capture, active-day and
-  milestone review, tiered promotion authority, privacy controls, model
-  comparison, rollback, and success measures.
-- Added the learning index, candidate template, candidate directory contract,
-  and promotion registry under `docs/learning/`.
-- Added retained docs-only verification evidence at
-  `docs/evidence/releases/2026-07-02-builder-learning-proposal/manifest.md`.
-- Committed the inactive proposal as `0501800`.
-- Verified that DEC-0007 and the policy remain `proposed`, `AGENTS.md` does not
-  activate them, the two implementation commits contain only their intended
-  files, and `git diff --check` passed for the committed range.
+##### revised M001 Stack ADR
+- Drafted a fully revised `docs/decisions/ADR-0006-m001-stack.md` incorporating all independent review findings (Next.js Node server loopback-only, SQLite/better-sqlite3 local contract, Drizzle ORM + migrations, Vercel AI SDK provider interface, Ollama Cloud candidate status, research jobs state machine, citation pipeline, source adapters, and test architecture).
 
 #### 4. Important Authority And Safety Rules
 
 - `AGENTS.md` remains the canonical shared playbook.
-- Chat history and this checkpoint provide handoff context; they do not override
-  accepted vision, strategy, milestone, decision, evaluation, or policy files.
-- Do not treat learning candidates as instructions. Only a future promoted
-  lesson with a valid authoritative target may guide work after DEC-0007 is
-  accepted and activated.
-- Do not place confidential investment data, credentials, or restricted data in
-  learning artifacts or model comparisons.
-- Do not write product code, choose persistent schemas, or install production
-  dependencies before ADR-0006 is accepted.
+- Chat history and this checkpoint provide handoff context; they do not override accepted vision, strategy, milestone, decision, evaluation, or policy files.
+- Meaningful tasks must report promoted lessons consulted and learning candidates created.
+- Learning candidates are evidence, not authority. They cannot guide work until promoted with explicit user approval if they change behavior, architecture, or policy.
+- Do not place confidential investment data, credentials, or restricted data in learning artifacts.
+- Do not write product code, choose persistent schemas, or install production dependencies before ADR-0006 is accepted.
 
 #### 5. Exact Next Steps
 
-1. Wait for explicit user direction.
-2. If the user accepts DEC-0007:
-   - change DEC-0007 and `.agents/LEARNING.md` to `accepted`;
-   - synchronize `AGENTS.md`, `.agents/SECURITY.md`, README, and
-     `docs/RISK_REGISTER.md` in one reviewable change;
-   - activate task-start retrieval and task-close learning reporting;
-   - retain verification evidence and confirm no model adapter duplicated the
-     shared policy.
-3. If the user authorizes M001 architecture work, draft and review
-   `docs/decisions/ADR-0006-m001-stack.md` without beginning product code.
-4. Product implementation may begin only after ADR-0006 is explicitly accepted.
+1. Wait for user review and explicit acceptance of `docs/decisions/ADR-0006-m001-stack.md`.
+2. Once ADR-0006 is accepted, initialize the Next.js project layout and local database schema according to the stack specification.
 
 #### 6. Verification Limits
 
-- No application build, lint, unit, browser, migration, import/export, or model
-  evaluation was run for the builder-learning proposal because it changed
-  documentation and inactive policy artifacts only.
-- The builder-learning process has not been behaviorally exercised because
-  DEC-0007 is not accepted and no lesson has been promoted.
-- Model selection remains manual and advisory.
+- Product build and testing are paused pending architectural decisions.
+- Ollama Cloud is a provider candidate only; no API keys or cloud connections will be run until a separate security decision is accepted.
 
 Promoted lessons consulted: `none`
 
-Learning candidates created: `none`
+Learning candidates created: `LC-20260703-001`
