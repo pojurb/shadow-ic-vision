@@ -2,9 +2,9 @@
 
 Status: `active`
 
-Last reviewed: 2026-07-02
+Last reviewed: 2026-07-03
 
-Next required review: before Gate 3 milestone approval
+Next required review: before expanded M001 Gate 4 approval
 
 Risk acceptance authority: user
 
@@ -26,6 +26,9 @@ Risk acceptance authority: user
 | R-014 | Temporary exploration silently pollutes the tracked universe | Product/Data | Medium | Medium | Open | Persist only after explicit candidate selection, thesis confirmation, and Owned/Watchlist choice | Unsaved candidates appear in briefing or history | Users may still misunderstand temporary state without clear UI | 2026-07-02 |
 | R-015 | Ungoverned learning loops override approved product authority or inject malicious context | Security/Operations | Low | Critical | Open | Enforce independent review, explicit evidence gating, and priority of `AGENTS.md` over retrieved lessons | An agent modifies product code or evaluates falsely based on a poisoned or stale learning candidate | Reviewers may miss subtle context poisoning in candidates | 2026-07-03 |
 | R-016 | Confidential investment data leaks into learning candidates sent to unapproved providers | Security/Privacy | Medium | Critical | Open | Require synthetic/redacted examples in learning and explicit provider approval before cloud routing | Portfolio or thesis data appears in `docs/learning/candidates/` | Synthetic data might fail to reproduce the original bug accurately | 2026-07-03 |
+| R-017 | OCR, vision, chart, table, or calculated output is presented as source-exact evidence | Data Trust | High | Critical | Open | Separate `exact_verified`, `ocr_matched`, and `derived` evidence; retain page, bounding box, method, inputs, versions, and document hash; block verification-class promotion | OCR or model interpretation appears with an exact-verification badge or without derivation provenance | OCR and visual extraction can remain wrong even when correctly labelled | 2026-07-03 |
+| R-018 | Malicious instructions embedded in a PDF, image, table, or web document override product policy | Security/Model | Medium | Critical | Open | Treat all document content as untrusted, isolate source text from system instructions, add multimodal injection evals, and keep tool execution application-controlled | A document tells the model to ignore policy, expose data, invoke tools, or recommend a trade | Novel visual or obfuscated injections may bypass known tests | 2026-07-03 |
+| R-019 | Full multimodal support makes M001 too large, slow, costly, or unreliable | Product/Engineering | High | High | Open | Keep the amendment explicit, use staged async processing and deterministic fixtures, measure latency/cost, surface degraded states, and preserve a text-PDF-only reversal path | OCR/vision dependencies or model runs delay the first usable thesis loop or exceed acceptable resource limits | Broad document coverage may still require later source-specific exceptions | 2026-07-03 |
 
 ## Review Rules
 

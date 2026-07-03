@@ -27,6 +27,14 @@ Desktop.ini
 
 # === NODE ===
 node_modules/
+.next/
+out/
+build/
+
+# === DATABASE & LOGS ===
+*.sqlite
+*.sqlite-journal
+logs/
 
 # Keep local screenshots in issues/ but do not track images
 issues/*

@@ -1,18 +1,15 @@
-### Session Checkpoint (2026-07-03T22:03:00+07:00)
+### Session Checkpoint (2026-07-03T22:30:00+07:00)
 
 #### 1. Current Repository State
 
 - Branch: `shadow-ic-vision`
-- Base HEAD before this checkpoint update: `da04f75`
-- Working tree has staged changes pending commit for this checkpoint.
-- **Phase: Implementation** — all planning gates are now closed.
-- All five delivery gates are accepted:
-  - Gate 1: Vision (`DEC-0002`) — accepted
-  - Gate 2: Product Strategy (`DEC-0003`) — accepted
-  - Gate 3: Milestone Packet (`DEC-0004`) — accepted
-  - Gate 4a: Original 16-case evaluation baseline (`DEC-0005`) — accepted
-  - Gate 4b: Multimodal evaluation addendum (`DEC-0008`) — accepted 2026-07-03
-  - Gate 5: M001 Architecture (`ADR-0006`) — accepted 2026-07-03
+- Base HEAD before this checkpoint update: `5ce1fe7`
+- Working tree has staged changes for the M001 implementation scaffold.
+- **Phase: Implementation**
+- Initial Next.js App Router scaffold is complete.
+- SQLite + Drizzle ORM schema is in place (`db/schema.ts`) and the first migration (`0000_...sql`) is generated.
+- Project-owned `LLMProvider` interface and `MockProvider` are implemented.
+- `ACTIVE_MILESTONE.md` points to M001 (Implementation phase).
 - `DEC-0007-governed-builder-learning.md` is `accepted` and `.agents/LEARNING.md` is `active`.
 - `docs/learning/PROMOTIONS.md` is `active` with one promoted entry (`LC-20260703-001`).
 - `ACTIVE_MILESTONE.md` updated to reflect implementation phase.
@@ -20,10 +17,8 @@
 
 #### 2. Outstanding User Decisions And Stop Point
 
-- **Product implementation is now authorized.**
-- Before sending confidential thesis data (thesis text, assumptions, portfolio info) to any cloud LLM, a separate cloud provider security decision (`DEC-0009`) must be recorded and accepted.
-- Ollama Cloud remains a provider candidate — not yet approved for confidential data.
-- The stop point is: which provider do you want to start with, or should we begin the implementation scaffold first?
+- **Cloud provider decision deferred**: `DEC-0009` (cloud provider approval) is explicitly deferred until the local mock implementation is fleshed out.
+- The stop point is: decide whether to build the conversational UI components first, or the deterministic citation pipeline/adapters first.
 
 #### 3. Verified Work Completed
 
@@ -49,11 +44,14 @@
 - Added 16 synthetic multimodal cases covering text PDFs, OCR, tables, charts, screenshots, XBRL, provenance, degraded states, chunking, and document prompt injection.
 - Added `docs/evals/M001/MULTIMODAL_EVAL_GUIDE.md` with hard gates, fixture-rendering rules, model comparison requirements, browser states, and additive reporting fields.
 
-##### M001 Architecture Stack (ADR-0006) — ACCEPTED
-- Fully revised `docs/decisions/ADR-0006-m001-stack.md` incorporating all independent review findings.
-- Stack: Next.js (App Router, Node runtime, `127.0.0.1`), SQLite + `better-sqlite3`, Drizzle ORM + committed SQL migrations, Vercel AI SDK behind project-owned `LLMProvider` interface, no approved cloud provider yet, full multimodal citation pipeline, source-specific adapters (SEC, IDX, secondary), research job state machine, CSS Modules.
+#### 3. Verified Work Completed
 
-#### 4. Important Authority And Safety Rules
+##### M001 Implementation Scaffold
+- Initialized Next.js App Router cleanly over the repository root without destroying existing documentation.
+- Configured `.env.example` and `next.config.ts` (Node runtime via `serverExternalPackages`).
+- Created `db/client.ts`, `db/schema.ts`, and generated the initial `0000` SQL migration for SQLite using Drizzle ORM.
+- Established the AI Abstraction Boundary (`lib/ai/provider.ts` and `lib/ai/adapters/mock.ts`) completely decoupled from the AI SDK native types.
+- TypeScript compiler and Drizzle generator confirmed the schema and abstraction types are flawless.
 
 - `AGENTS.md` remains the canonical shared playbook.
 - Chat history and this checkpoint provide handoff context; they do not override accepted vision, strategy, milestone, decision, evaluation, or policy files.
@@ -64,18 +62,13 @@
 
 #### 5. Exact Next Steps
 
-1. **Option A**: Record cloud provider security decision (`DEC-0009`) for Ollama Cloud or another provider, then start implementation.
-2. **Option B**: Start implementation scaffold now using deterministic local mock adapter (no cloud key needed yet):
-   - Initialize Next.js project under `d:\jp-invest\` (or a separate `app/` subdirectory).
-   - Set up Drizzle ORM schema and first migration.
-   - Implement `LLMProvider` interface with deterministic mock.
-   - Implement citation pipeline skeleton.
-   - Wire SEC and IDX adapters.
+1. **Option A**: Build the React Conversational UI (chat layout, thesis dashboard) using the `MockProvider`.
+2. **Option B**: Build the backend Citation Pipeline and Research Jobs logic (SEC/IDX adapters, hashing, exact verification).
 
 #### 6. Verification Limits
 
-- Product build, model runs, and browser testing have not been performed — implementation has not started.
-- No cloud provider is approved for confidential data. All LLM calls during development must use the deterministic mock adapter or a local Ollama instance.
+- Only typescript compilation and Drizzle schema generation have been verified.
+- UI rendering and API routes are strictly mocked and remain to be implemented.
 
 Promoted lessons consulted: `LC-20260703-001`
 
