@@ -1,6 +1,6 @@
 # ADR-0006: M001 Architecture Stack
 
-Status: `proposed`
+Status: `accepted`
 
 Date: 2026-07-03
 
@@ -17,6 +17,10 @@ product code is written.
 
 This document incorporates two independent reviews of the original draft. Their
 combined findings are treated as required changes, not suggestions.
+
+Full multimodal research is governed by
+`DEC-0008-m001-multimodal-amendment.md` (accepted 2026-07-03). The capability,
+evidence, and verification sections below are active and required.
 
 ---
 
@@ -78,6 +82,41 @@ boilerplate.
 - Every migration is applied transactionally. A pre-migration backup is created
   before each run.
 
+### Multimodal Evidence extension
+
+If DEC-0008 is accepted, Evidence records also store:
+
+- `source_format`: `html`, `pdf`, `image`, or `xbrl`;
+- `content_kind`: `text`, `table`, `chart`, `screenshot`, or
+  `structured_fact`;
+- optional `source_variant`: `text_layer`, `scanned`, `encrypted`, `corrupt`,
+  or `unsupported`;
+- `extraction_method`: `html_parser`, `pdf_text`, `ocr`, `vision`,
+  `table_parser`, `xbrl_parser`, or `deterministic_calculation`;
+- `verification_status`: `exact_verified`, `ocr_matched`, or `derived`;
+- immutable `document_hash` of raw source bytes, optional
+  `canonical_text_hash` for exact-text verification, retrieval timestamp, and
+  source URL;
+- one-based `page_number` for paginated sources;
+- optional `[x_min, y_min, x_max, y_max]` `bounding_box` coordinates normalized
+  to `0..1` from the page's top-left origin;
+- parser and OCR versions; and
+- provider, model, prompt, and settings metadata when model output contributed.
+
+Unverified candidates are not stored as durable Evidence. They remain
+diagnostic research artifacts and may be retried or reviewed without being
+presented as facts.
+
+### Conversation persistence
+
+M001's persistent multi-turn workflow requires `Conversation` and `Message`
+records in addition to the accepted thesis ledger entities. Conversation
+history is normalized and stored by the application; no provider-specific
+thinking trace becomes conversation history. Assistant messages retain
+provider, model, prompt version, settings, and validation outcome. Draft
+conversations are user-deletable and included in export; once attached to a
+thesis, deletion follows the thesis cascade.
+
 Alternative considered: raw `better-sqlite3` with manual SQL. Rejected because
 it requires hand-managing migration ordering and version tracking.
 
@@ -91,12 +130,62 @@ it requires hand-managing migration ordering and version tracking.
 - All LLM calls go through a project-owned `LLMProvider` interface defined
   in `lib/ai/provider.ts`. Application code never imports the Vercel AI SDK
   directly.
-- The interface exposes: `chat()`, `structuredExtract()`, and
-  `streamCompletion()`. Swapping providers changes only the adapter
-  implementation, not callsites.
+- The interface exposes `chat()`, `structuredExtract()`, `streamCompletion()`,
+  and model capability metadata. Every request identifies the exact provider,
+  model, prompt version, and settings used. Swapping providers changes the
+  adapter implementation, not domain callsites.
 - A new provider may be connected only after it passes the full M001 eval
   suite. Provider switching is not behaviorally effortless; each model must be
-  independently verified against the 16-case Golden Dataset before use.
+  independently verified against the accepted 16-case baseline and, if
+  DEC-0008 is accepted, every applicable multimodal case before use.
+
+### Capability ownership
+
+| Capability | Owner | M001 requirement |
+|---|---|---|
+| SEC/IDX search and crawling | Application source adapters | Required |
+| Restricted general-web discovery | Application discovery adapter | Required fallback |
+| HTML and text-PDF extraction | Deterministic parsers | Required |
+| Scanned PDF and image OCR | OCR pipeline | Required if DEC-0008 is accepted |
+| Screenshots, tables, and charts | Vision model plus application validation | Required if DEC-0008 is accepted |
+| XBRL facts and material financial calculations | Deterministic tools | Required where available |
+| Exact citation, freshness, date, and source-tier checks | Application | Required |
+| Conversation history and model-run provenance | Application database | Required |
+| Thesis reasoning, challenge, and evidence interpretation | Model | Required |
+| Investment decision | User | Always |
+
+The model may not independently crawl arbitrary sites, treat discovery snippets
+as evidence, calculate material financial values without deterministic
+verification, bypass source adapters, or promote its own interpretation to
+verified evidence.
+
+### Required selectable-model capabilities
+
+Every selectable product model must demonstrate:
+
+- English and Bahasa Indonesia understanding;
+- persistent multi-turn coherence and thesis/assumption decomposition;
+- focused clarification and intellectual challenge;
+- structured JSON generation that passes external schema validation;
+- vision input for scans, screenshots, tables, and charts when multimodal M001
+  is active;
+- evidence-grounded summaries that preserve quoted text;
+- contradictory-source detection and official-source priority;
+- explicit uncertainty, missing-data, and stale-source reporting;
+- prompt-injection resistance across user and document content;
+- refusal of buy, hold, sell, execution, or autonomous-portfolio advice;
+- at least 128K context with application-side document chunking;
+- streaming responses; and
+- reproducible provider/model/settings metadata.
+
+Tool calling and context above 128K are preferred, not required. The
+application orchestrates research. Native provider browsing, native PDF
+parsing, and model-generated financial arithmetic are not trusted substitutes
+for project-owned tools.
+
+Native structured-output support is not assumed. `structuredExtract()` must
+validate against a project-owned schema, use bounded repair attempts, and fail
+closed when validation does not succeed.
 
 ### Ollama Cloud — provider candidate, not approved provider
 - Ollama Cloud is a **candidate** for the initial provider. It is not yet
@@ -134,27 +223,65 @@ provider.
 
 ---
 
-## 6. Citation Pipeline Architecture
+## 6. Citation And Multimodal Pipeline Architecture
 
-The citation pipeline is a strict ordered sequence. Each stage produces an
+The text citation branch is a strict ordered sequence. Each stage produces an
 artifact that the next stage consumes. No stage may be skipped.
 
 ```
 SEC/IDX Adapter
     → Source Snapshot (raw bytes, URL, retrieval timestamp, HTTP status)
         → Canonical Extracted Text (parser strips HTML; version-tagged)
-            → Snapshot Hash (SHA-256 of canonical text)
+            → Canonical Text Hash (SHA-256 of canonical text)
                 → Exact Verifier (character-exact substring match)
                     → Evidence Record (stored only on pass)
 ```
 
-- The snapshot hash, retrieval timestamp, URL, and parser version are stored
-  alongside every Evidence record.
-- Any quote that is not a character-exact substring of the canonical extracted
-  text is blocked, logged, and surfaced to the user as an unverified claim.
+- The raw document hash, canonical text hash, retrieval timestamp, URL, and
+  parser version are stored alongside every exact-text Evidence record.
+- Any candidate for `exact_verified` that is not a character-exact substring of
+  canonical HTML or text-PDF content is blocked, logged, and surfaced to the
+  user as an unverified claim.
 - HTML whitespace normalization must be applied before hashing and before
   exact matching. The normalization rules are part of the versioned parser
   configuration.
+
+### Multimodal extension
+
+If DEC-0008 is accepted, every source follows this pipeline before evidence can
+be presented:
+
+```text
+Source Adapter
+  -> Immutable Source Snapshot (bytes, URL, timestamp, media type)
+  -> SHA-256 Document Hash
+  -> Media Classifier
+       -> HTML parser
+       -> text-PDF parser
+       -> OCR for scanned PDF/image
+       -> vision extraction for visual layout/table/chart
+       -> XBRL parser for structured facts
+  -> Canonical Extraction Artifact (page, section, optional bounding box)
+  -> Verification or Deterministic Calculation
+  -> Evidence Classification
+       -> exact_verified
+       -> ocr_matched
+       -> derived
+  -> Evidence Record or blocked diagnostic artifact
+```
+
+- HTML and text-layer PDFs alone may produce `exact_verified` quotations.
+- OCR strings may produce only `ocr_matched`; matching OCR does not prove that
+  the original scan contains no recognition error.
+- Tables, charts, normalized XBRL facts, and material calculations are
+  `derived`. Their inputs, units, formula or method, page, bounding box when
+  applicable, and source provenance are retained.
+- Corrupt, encrypted, unreadable, oversized, or unsupported content moves the
+  job to `degraded` with a visible reason and recovery path.
+- Large documents are chunked by the application. Each chunk retains document
+  hash, page range, section identifier, and extraction version.
+- Vision output is untrusted candidate data and cannot bypass deterministic or
+  human validation.
 
 ---
 
@@ -183,6 +310,28 @@ implementation utilities, not the adapter contracts.
 - Result is classified `secondary` and presented with a visible provenance
   label. It may not appear as a verified official source.
 
+### Restricted discovery adapter
+
+- General web search is used only to discover candidate source pages when
+  official adapters return no suitable document.
+- Search snippets are never evidence. The target page or document must be
+  fetched, classified, snapshotted, and processed through the normal pipeline.
+- Source-domain restrictions, outbound logging, rate limits, cache behavior,
+  and failure states are explicit configuration, not model choices.
+
+### Document processing adapters
+
+- The HTML parser produces canonical normalized text with a parser version.
+- The PDF parser distinguishes text-layer, scanned, encrypted, corrupt,
+  oversized, and unsupported documents before extraction.
+- OCR retains the exact OCR output and engine/version metadata.
+- Vision handles screenshots, table/chart layout, and bounding boxes but does
+  not determine verification status.
+- The XBRL parser and calculation helpers are deterministic and retain concepts,
+  periods, units, input values, and formulas.
+- Media parsing and rendering treat source bytes and embedded instructions as
+  untrusted input.
+
 ---
 
 ## 8. Security Boundary
@@ -196,6 +345,9 @@ implementation utilities, not the adapter contracts.
   to the system console, satisfying the M001 transparency requirement.
 - Secrets (API keys, database paths) are injected via environment variables.
   A sanitized `.env.example` is committed; `.env` is in `.gitignore`.
+- Text extracted from web pages, PDFs, images, tables, and charts is untrusted
+  content. It is isolated from system instructions and cannot directly invoke
+  tools, change providers, read secrets, or alter product policy.
 
 ---
 
@@ -222,6 +374,13 @@ implementation-verified.
 | Export/import round trips | Export → wipe → import → verify row counts and foreign keys |
 | Provider mock | All LLM calls use a deterministic mock; no real provider in CI |
 | M001 eval suite | Run all 16 cases from `docs/evals/M001/cases.json` against the provider interface |
+| Multimodal eval addendum | If DEC-0008 is accepted, run every case in `docs/evals/M001/multimodal-cases.json` in addition to the original 16 |
+| Fixture rendering | Deterministically render synthetic PDF/image specifications and retain SHA-256 hashes of generated artifacts |
+| Evidence-class unit tests | Prevent `ocr_matched` or `derived` content from becoming `exact_verified` |
+| PDF/OCR integration | Text, scanned, encrypted, corrupt, oversized, and unsupported document states |
+| Visual provenance | Tables, charts, and screenshots retain page, bounding box, extraction method, inputs, and units |
+| Multimodal injection | Embedded PDF/image instructions cannot alter policy, invoke tools, or produce trade advice |
+| Model eligibility | A model missing required language, vision, context, streaming, safety, or eval results cannot appear as selectable |
 | Browser checks | Loading, success, degraded-source, failed-source, deletion, and cascade-delete states verified in-browser |
 
 ---
@@ -235,6 +394,7 @@ implementation-verified.
 | ORM/Migrations | Raw SQL, Drizzle ORM | Drizzle ORM + committed SQL migrations |
 | LLM Abstraction | Raw fetch, Vercel AI SDK | Vercel AI SDK behind project interface |
 | Initial Provider | Ollama Cloud, local Ollama, OpenAI | None approved yet (Ollama Cloud = candidate) |
+| Document Coverage | HTML only, text PDF only, governed full multimodal | Full multimodal proposed in DEC-0008; not active until accepted |
 | Deployment | Vercel-hosted, local Node server | Local Node (127.0.0.1) for M001 |
 | Styling | Tailwind, Vanilla CSS, CSS Modules | CSS Modules |
 
@@ -248,6 +408,13 @@ implementation-verified.
 - Drizzle ORM enforces type-safe queries and version-controlled migrations.
 - The project-owned LLM interface prevents provider lock-in at callsites and
   enforces the eval gate before any provider switch.
+- Research capabilities are separated from model capabilities: adapters fetch,
+  parsers extract, deterministic tools calculate and verify, and models reason
+  only over provenance-tagged artifacts.
+- Full multimodal support increases implementation scope, dependencies,
+  processing latency, model-evaluation cost, and recovery-state requirements.
+- Exact text, OCR text, and derived visual or calculated evidence remain
+  visibly distinct and cannot be promoted by model confidence.
 - Ollama Cloud remains a candidate until a separate security decision is
   accepted; only public and synthetic data may be used until then.
 - No auth is safe only while loopback-bound; any future remote access requires
@@ -263,6 +430,11 @@ ORM layer. If the Vercel AI SDK introduces unacceptable coupling, replace with
 a narrower project-owned fetch abstraction. All reversals must retain migration
 history and existing evidence records.
 
+If full multimodal support makes M001 too large or unreliable, supersede
+DEC-0008 with a text-PDF-only boundary or move OCR/vision to a follow-up
+milestone. Preserve historical eval cases and results, retain evidence-class
+semantics, and never relabel OCR or derived records as exact evidence.
+
 ---
 
 ## Affected Files (on implementation)
@@ -270,7 +442,7 @@ history and existing evidence records.
 ```
 next.config.js                         — serverExternalPackages for better-sqlite3
 .env.example                           — DB_PATH, LLM_PROVIDER, API keys (sanitized)
-db/schema.ts                           — Drizzle schema (Thesis, Assumption, Evidence, Decision)
+db/schema.ts                           — Drizzle schema (Conversation, Message, Thesis, Assumption, Evidence, Decision)
 db/migrations/                         — Committed SQL migration files
 db/client.ts                           — SQLite connection with PRAGMA foreign_keys=ON
 lib/ai/provider.ts                     — Project-owned LLMProvider interface
@@ -281,6 +453,14 @@ lib/research/adapters/sec.ts           — SEC EDGAR adapter
 lib/research/adapters/idx.ts           — IDX adapter
 lib/research/adapters/secondary.ts     — Secondary source adapter
 lib/research/citation.ts               — Citation pipeline (snapshot → hash → verifier)
+lib/research/extractors/html.ts         - canonical HTML extraction
+lib/research/extractors/pdf.ts          - PDF classification and text extraction
+lib/research/extractors/ocr.ts          - OCR output and version retention
+lib/research/extractors/vision.ts       - visual candidates and bounding boxes
+lib/research/extractors/xbrl.ts         - facts with periods and units
+lib/research/calculations.ts            - deterministic financial calculations
+docs/evals/M001/multimodal-cases.json   - additive multimodal cases
+docs/evals/M001/MULTIMODAL_EVAL_GUIDE.md - additive hard gates
 logs/outbound.log                      — Outbound request log (not committed)
 app/                                   — Next.js App Router pages and Route Handlers
 ```
