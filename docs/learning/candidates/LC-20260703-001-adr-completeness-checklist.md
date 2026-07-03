@@ -1,6 +1,6 @@
 # LC-20260703-001 - Architecture ADR First Draft Misses Deployment And Pipeline Boundaries
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-03`
 
@@ -103,9 +103,9 @@ components.
 
 - Decision authority: user (required — proposed destination is playbook-guidance,
   which affects future behavior).
-- Decision date: pending
+- Decision date: 2026-07-03
 - Promotion target: `.agents/QUALITY.md` — "ADR completeness checklist" section
-- Promotion registry entry: pending
+- Promotion registry entry: docs/learning/PROMOTIONS.md
 - Supersedes: none
 - Superseded by: none
 - Rollback path: remove checklist section from `QUALITY.md`; mark this entry

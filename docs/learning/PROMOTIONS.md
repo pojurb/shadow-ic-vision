@@ -1,6 +1,6 @@
 # Builder Learning Promotion Registry
 
-Status: `proposed`
+Status: `active`
 
 This registry records promotion decisions; it does not grant authority by
 itself. Each entry must link to the current authoritative target and the
@@ -10,7 +10,7 @@ evidence-bearing candidate.
 
 | Candidate ID | Authoritative target | Scope | Evidence | Reviewer | Approver | Effective date | Last gate review |
 |---|---|---|---|---|---|---|---|
-| _None_ | | | | | | | |
+| LC-20260703-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | planning | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | user | user | 2026-07-03 | 2026-07-03 |
 
 ## Rejected Candidates
 

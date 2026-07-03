@@ -11,7 +11,7 @@ with a current authoritative target may guide future work.
 
 | ID | Status | Classification | Milestone | Summary | Candidate file | Review date |
 |---|---|---|---|---|---|---|
-| LC-20260703-001 | `validated` | `quality` | M001 | ADR first drafts miss deployment contract, pipeline stages, source adapter contracts, provider status, and testing architecture | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | 2026-07-03 |
+| LC-20260703-001 | `promoted` | `quality` | M001 | ADR first drafts miss deployment contract, pipeline stages, source adapter contracts, provider status, and testing architecture | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | 2026-07-03 |
 
 ## Current Promoted Knowledge
 
@@ -20,7 +20,7 @@ The authoritative promotion history is maintained in
 
 | Candidate ID | Target | Scope | Approved by | Effective date |
 |---|---|---|---|---|
-| _None_ | | | | |
+| LC-20260703-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | planning | user | 2026-07-03 |
 
 ## Retrieval Rules
 

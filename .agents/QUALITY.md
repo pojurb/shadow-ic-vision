@@ -61,3 +61,14 @@ relevant, failures, and artifact paths.
 
 Work is not `verified` when required checks were skipped, blocked, or only
 reported from memory. State those limits explicitly.
+
+## Architecture ADR Completeness
+
+Before claiming an Architecture Decision Record (ADR) draft is complete and ready for approval, the builder must ensure the document explicitly defines the following:
+
+1. **Deployment contract** - Specifying where the runtime runs (e.g. bound to loopback `127.0.0.1`), hosting limitations, and environment-specific persistence rules.
+2. **Persistence durability** - Explicitly mapping database files outside the repo and defining transactional boundaries.
+3. **Pipeline stages** - Clearly structuring multi-step async workflows (e.g. citation verifications) into distinct stages with intermediate artifact outputs.
+4. **Source adapter contracts** - Defining rate limits, user-agents, caching, backoff, and fallbacks for external resource fetching.
+5. **Security provider status** - Disclosing and separating "candidate" providers from approved ones, and enforcing data classification boundaries.
+6. **Testing architecture** - Including a table of required test categories (unit, database, integration, migration, mock, evals, browser checks).
