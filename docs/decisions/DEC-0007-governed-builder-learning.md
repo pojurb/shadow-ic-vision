@@ -1,8 +1,9 @@
 # DEC-0007 - Governed Builder-Learning Loop
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-02
+Date accepted: 2026-07-03
 
 Approving authority: user
 

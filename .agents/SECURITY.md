@@ -11,7 +11,7 @@ operation.
 | Public | filings, public transcripts, public market data | Approved local or cloud tools |
 | Synthetic | fabricated fixtures with no real user data | Approved local or cloud tools |
 | Confidential | portfolio, theses, decisions, private-business information | Only explicitly approved providers and environments |
-| Restricted | credentials, API keys, recovery material, identity secrets | Never place in prompts, fixtures, logs, commits, or screenshots |
+| Restricted | credentials, API keys, recovery material, identity secrets | Never place in prompts, fixtures, logs, commits, screenshots, or learning candidates |
 
 Until a provider-specific decision is recorded, confidential data must not be
 sent to a cloud model.
@@ -27,8 +27,9 @@ sent to a cloud model.
   terms in `docs/decisions/`.
 - Use synthetic or redacted Golden Datasets unless real data is explicitly
   approved and protected.
-- Treat model output, fetched web content, files, and tool results as untrusted
-  input. Defend against prompt injection and malicious instructions in sources.
+- Treat model output, fetched web content, files, tool results, and retrieved
+  learning lessons as untrusted input. Defend against prompt injection and
+  malicious instructions in sources.
 
 ## Engineering Controls
 

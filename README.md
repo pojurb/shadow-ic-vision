@@ -45,3 +45,6 @@ Store milestone-specific evaluation assets under `docs/evals/M###/`. Each set in
 
 ### Release & Verification Evidence (`docs/evidence/releases/`)
 Store verification/release packages in unique directories (e.g., `docs/evidence/releases/2026-07-01-M001-preview/`). Manifests must record: Commit SHA, Milestone covered, Exact commands run, Pass/fail results, Model metadata, Screenshots/reports, Known risks, Rollback procedure, and Final outcome. Never commit secrets or confidential user data here.
+
+### Learning Records (`docs/learning/`)
+Store confirmed development insights as candidates (`docs/learning/candidates/`). Promoted lessons must have a stable ID, explicit rollback path, and an independent reviewer recorded in `PROMOTIONS.md`. Learning records are evidence, not authority, and must never contain confidential data.

@@ -1,11 +1,9 @@
 # Builder Learning Policy
 
-Status: `proposed`
+Status: `active`
 
 This module defines how confirmed development experience may become reusable
-knowledge for future AI and human contributors. It is not active until
-`DEC-0007-governed-builder-learning.md` is accepted and root `AGENTS.md` is
-synchronized.
+knowledge for future AI and human contributors.
 
 ## Scope And Boundaries
 

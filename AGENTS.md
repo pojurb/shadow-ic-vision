@@ -33,6 +33,7 @@ Before substantive work, read:
    - `.agents/QUALITY.md` for implementation, evaluation, and closure
    - `.agents/SECURITY.md` for data, providers, dependencies, and external access
    - `.agents/RELEASE.md` for source control, deployment, and rollback
+   - `.agents/LEARNING.md` for task capture, active-day review, and promotion
 
 Read only the additional documents needed for the active task. Chat history is
 context, not project authority.
@@ -126,6 +127,8 @@ is the mechanism that prevents cross-model drift.
 
 At the end of meaningful work, report:
 
+- promoted lessons consulted
+- learning candidates created
 - files changed
 - decisions made and assumptions used
 - verification actually run and exact results
