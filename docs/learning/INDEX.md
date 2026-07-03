@@ -1,10 +1,8 @@
 # Builder Learning Index
 
-Status: `proposed`
+Status: `active`
 
-This index is not an active source of instructions until
-`DEC-0007-governed-builder-learning.md` is accepted and the canonical playbook
-is synchronized.
+DEC-0007 was accepted on 2026-07-03. This index is now active. Candidates are evidence; only `promoted` entries with a current authoritative target may guide future work.
 
 Candidates are evidence, not authority. Only entries recorded as `promoted`
 with a current authoritative target may guide future work.
@@ -13,7 +11,7 @@ with a current authoritative target may guide future work.
 
 | ID | Status | Classification | Milestone | Summary | Candidate file | Review date |
 |---|---|---|---|---|---|---|
-| _None_ | | | | | | |
+| LC-20260703-001 | `validated` | `quality` | M001 | ADR first drafts miss deployment contract, pipeline stages, source adapter contracts, provider status, and testing architecture | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | 2026-07-03 |
 
 ## Current Promoted Knowledge
 
