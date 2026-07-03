@@ -2,17 +2,35 @@
 
 Status: `active`
 
-| ID | Risk | Category | Status | Current control |
-|---|---|---|---|---|
-| R-001 | Architecture or stack is chosen before product requirements | Product/engineering | Open | Vision-first and milestone gates in `AGENTS.md` |
-| R-002 | Multiple model-specific playbooks drift apart | Delivery | Mitigated | Canonical `AGENTS.md` with thin importing adapters |
-| R-003 | Confidential investment data is sent to an unapproved cloud model | Security/privacy | Open | Data classification and provider approval gate |
-| R-004 | Golden Dataset optimization hides failures outside known cases | Model quality | Open | Held-out, adversarial, and independent review requirements |
-| R-005 | Horizon 1 is implemented as one oversized milestone | Scope | Open | Versioned, vertical milestone readiness gate |
-| R-006 | Product metrics reward trading activity, alert volume, or rushed decisions | Product safety | Mitigated | Vision measures review quality, signal precision, correction handling, and record completeness |
+Last reviewed: 2026-07-02
 
-## Required Fields For New Risks
+Next required review: before Gate 3 milestone approval
 
-Every material risk must record an owner, likelihood, impact, mitigation,
-trigger, residual risk, acceptance authority, and review date before the related
-milestone is approved.
+Risk acceptance authority: user
+
+| ID | Risk | Owner | Likelihood | Impact | Status | Mitigation | Trigger | Residual risk | Review date |
+|---|---|---|---|---|---|---|---|---|---|
+| R-001 | Architecture or stack is chosen before approved product requirements | Product/Engineering | Medium | High | Open | Enforce lifecycle gates and require milestone-specific decision records | Technology appears in strategy or before an approved milestone | Tooling choices may still bias later product decisions | 2026-07-02 |
+| R-002 | Model-specific playbooks drift apart | Delivery | Low | High | Mitigated | Canonical `AGENTS.md` with thin importing adapters and repository-wide stale-reference checks | Shared policy is copied into an adapter | Loader-specific behavior can still change externally | 2026-07-02 |
+| R-003 | Confidential investment data is sent to an unapproved cloud model | Security | Medium | Critical | Open | Apply data classification and require provider approval before confidential cloud use | A workflow sends real portfolio or thesis data to a cloud provider | Approved providers still retain operational and legal exposure | 2026-07-02 |
+| R-004 | Golden Dataset optimization hides failures outside known cases | QA/Model | High | High | Open | Use held-out, adversarial, provider-failure, and periodic human review cases | Scores improve while real workflow failures persist | No finite eval set proves complete behavior | 2026-07-02 |
+| R-005 | V1 becomes one oversized milestone | Product | High | High | Mitigated | Deliver one V1 release through four separately approved vertical milestones | A packet combines both entry paths, briefing scale, and beta hardening | Cross-milestone integration can still reveal late issues | 2026-07-02 |
+| R-006 | Metrics reward trading, alert volume, or rushed decisions | Product Safety | Medium | High | Mitigated | Measure review quality, evidence integrity, explicit deferral, correction handling, and record completeness | Success is described as more trades, more alerts, or faster action | Behavioral measures can still be gamed without user feedback | 2026-07-02 |
+| R-007 | Indonesia and US source coverage differs enough to produce inconsistent trust | Product/Data | High | High | Open | Use market-specific official-source priority, visible gaps, and representative eval cases for both markets | One market repeatedly lacks timely or machine-usable official evidence | Some issuers and documents will remain unavailable or delayed | 2026-07-02 |
+| R-008 | A 100-company universe creates briefing noise, excessive cost, or missed priority items | Product/Operations | High | High | Open | Limit detail to a top-10 queue, expose prioritization reasons, and retain a compact full index | Users cannot explain priority order or consistently ignore the queue | A top-10 limit can still omit a relevant change | 2026-07-02 |
+| R-009 | Sector exploration drifts into ranking or investment recommendation | Product Safety | Medium | High | Open | Return 3–5 unranked candidates with inclusion rationale, risks, and missing evidence; require explicit save | Output identifies a best investment or predicts attractiveness | Candidate selection itself can imply endorsement | 2026-07-02 |
+| R-010 | Secondary or user-provided evidence is mistaken for official fact | Data Trust | High | Critical | Open | Require evidence class, source, period, freshness, and confirmation before durable changes | A secondary claim appears with official or verified status | Users may still over-trust reputable secondary sources | 2026-07-02 |
+| R-011 | User-recorded Buy/Hold/Reduce/Exit actions appear system-recommended | Product/Legal | Medium | High | Open | Never preselect or originate actions; preserve explicit user authorship and separate thesis outcomes | UI or generated copy implies the system chose an action | Product framing may still be interpreted as advice | 2026-07-02 |
+| R-012 | Model/provider variation changes evidence interpretation or review quality | Model/Operations | High | High | Open | Use provider-neutral contracts, version metadata, common evals, and independent review for high-risk output | Different providers produce materially different claims or priority order | Probabilistic variation remains even after controls | 2026-07-02 |
+| R-013 | Web search results are treated as evidence rather than discovery pointers | Data Trust | Medium | High | Open | Require direct source retrieval and classification before a claim is surfaced as evidence | Search snippets or summaries appear as cited facts | Source pages may change or become inaccessible | 2026-07-02 |
+| R-014 | Temporary exploration silently pollutes the tracked universe | Product/Data | Medium | Medium | Open | Persist only after explicit candidate selection, thesis confirmation, and Owned/Watchlist choice | Unsaved candidates appear in briefing or history | Users may still misunderstand temporary state without clear UI | 2026-07-02 |
+
+## Review Rules
+
+- Reassess likelihood, impact, mitigation, trigger, and residual risk before the
+  related milestone is approved.
+- Add a risk when new product, data, model, security, legal, or operational
+  uncertainty becomes material.
+- Accepted residual risk requires an explicit decision record from the user.
+- A critical trust, privacy, or data-integrity risk blocks milestone closure and
+  release until mitigated or explicitly rejected from scope.

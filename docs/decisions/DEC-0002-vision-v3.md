@@ -4,7 +4,17 @@ Status: `accepted`
 
 Date proposed: 2026-07-02
 
+Date accepted: 2026-07-02
+
 Approving authority: user
+
+Approval evidence: commit `6050f340d0426f5d1374c863c2d3c770ac88f5cc`
+
+## Resolution
+
+The user formally approved `VISION.md`. Gate 1 is closed and Gate 2 Product
+Strategy is authorized. No milestone, architecture, stack, schema, dependency,
+API, or implementation was approved by this decision.
 
 ## Context
 

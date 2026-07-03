@@ -1,4 +1,4 @@
-### Summary of Work (as of 2026-07-02T21:05)
+### Summary of Work (as of 2026-07-03T08:25)
 
 #### 1. Outstanding User Requests
 *   **Gate 4 Audit Passed & Approved:** The M001 Evaluation Package audit findings were completely resolved. The user formally approved `DEC-0005-evaluation-ready.md` to close Gate 4 (Evaluation Ready).
@@ -15,12 +15,15 @@
     *   Corrected Indonesian ticker ambiguities in `cases.json` (replacing `BSDE` with `BRMS` for the `BUMI` ambiguity test).
     *   Fixed grading instructions in `EVAL_GUIDE.md`, noting that `scripts/eval_m001.py` will be created during Implementation Slice 1.
 *   **Approval & Persistence:** Marked `docs/decisions/DEC-0005-evaluation-ready.md` as `accepted` and pushed all changes to the remote branch (`shadow-ic-vision`).
+*   **Vercel Deployment Fix:** Added a placeholder `index.html` to allow Vercel to successfully build the repository (which is currently just documentation) before proceeding to code generation.
 
 #### 4. Files and Code Modified
 *   `docs/evals/M001/cases.json` (Overwritten with 16 final test cases)
 *   `docs/evals/M001/EVAL_GUIDE.md` (Updated report schema and script notes)
 *   `docs/milestones/M001-existing-thesis-loop.md` (Updated ACs and case count)
 *   `docs/decisions/DEC-0005-evaluation-ready.md` (Updated to 16 cases and marked `accepted`)
+*   `index.html` (Created as a placeholder for Vercel)
+*   `SESSION_CHECKPOINT.md` (Created and updated to persist cross-device progress)
 
 #### 5. Exact Next Steps for Next Agent
 1.  **Do not proceed** until the user gives explicit instruction.
