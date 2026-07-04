@@ -4,7 +4,7 @@ import crypto from 'crypto';
  * Generates a SHA-256 hash of the provided text.
  * Used for chain-of-custody tracking.
  */
-export function createHash(data: string): string {
+export function createHash(data: string | Uint8Array): string {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 

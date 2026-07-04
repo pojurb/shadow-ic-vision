@@ -16,11 +16,15 @@ import {
   type ResearchPanelDTO,
 } from '@/lib/domain/contracts';
 import { CitationPipeline } from './pipeline';
+import { getSnapshotDirectory } from './config';
+import { isDegradedSourceError, ResearchSourceError } from './errors';
+import { persistSourceSnapshot } from './snapshot-store';
 
 type ServiceDependencies = {
   db?: AppDatabase;
   pipeline?: CitationPipeline;
   now?: () => Date;
+  snapshotDirectory?: string;
 };
 
 function dependencies(input: ServiceDependencies = {}) {
@@ -28,6 +32,7 @@ function dependencies(input: ServiceDependencies = {}) {
     db: input.db ?? getDatabase().db,
     pipeline: input.pipeline ?? new CitationPipeline(),
     now: input.now ?? (() => new Date()),
+    snapshotDirectory: input.snapshotDirectory ?? getSnapshotDirectory(),
   };
 }
 
@@ -36,7 +41,7 @@ export function confirmDraft(
   messageId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db } = dependencies(input);
+  const { db, pipeline } = dependencies(input);
 
   return db.transaction((tx) => {
     const existing = tx
@@ -93,7 +98,12 @@ export function confirmDraft(
         statement: draftAssumption.statement,
         status: draftAssumption.status,
       }).run();
-      tx.insert(researchJobs).values({ id: jobId, assumptionId, status: 'queued' }).run();
+      tx.insert(researchJobs).values({
+        id: jobId,
+        assumptionId,
+        status: 'queued',
+        sourceMode: pipeline.sourceMode,
+      }).run();
       jobIds.push(jobId);
     }
 
@@ -139,7 +149,9 @@ export async function getResearchPanel(
         id: job.id,
         status: job.status,
         error: job.error,
+        errorCode: job.errorCode,
         attemptCount: job.attemptCount,
+        sourceMode: job.sourceMode,
       },
       evidence: evidenceRows
         .filter((record) => record.assumptionId === assumption.id)
@@ -153,6 +165,10 @@ export async function getResearchPanel(
           exactQuote: record.content,
           impactSummary: record.impactSummary,
           verificationStatus: record.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
+          sourceFormat: record.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
+          extractionMethod: record.extractionMethod,
+          pageNumber: record.pageNumber,
+          interpretationStatus: record.interpretationStatus,
         })),
     })),
   };
@@ -162,7 +178,7 @@ export async function processResearchJobs(
   conversationId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db, pipeline, now } = dependencies(input);
+  const { db, pipeline, now, snapshotDirectory } = dependencies(input);
   const currentTime = now();
   const nowIso = currentTime.toISOString();
 
@@ -187,6 +203,8 @@ export async function processResearchJobs(
       .set({
         status: 'running',
         error: null,
+        errorCode: null,
+        sourceMode: pipeline.sourceMode,
         attemptCount: row.job.attemptCount + 1,
         leaseExpiresAt,
         updatedAt: nowIso,
@@ -198,56 +216,95 @@ export async function processResearchJobs(
     if (!claimed || !row.thesis.ticker || !row.thesis.market) continue;
 
     try {
-      const candidate = candidateFor(row.thesis.market, row.assumption.statement);
-      const verified = await pipeline.executeResearchJob(
+      const candidateOverrides = pipeline.sourceMode === 'mock'
+        ? [candidateFor(row.thesis.market, row.assumption.statement)]
+        : undefined;
+      const execution = await pipeline.executeResearchJob(
         row.thesis.market,
         row.thesis.ticker,
-        [candidate],
+        row.assumption.statement,
+        candidateOverrides,
       );
 
-      if (verified.length === 0) {
+      if (execution.evidence.length === 0) {
+        persistSourceSnapshot({
+          db,
+          jobId: row.job.id,
+          snapshot: execution.snapshot,
+          documentHash: execution.documentHash,
+          sourceMode: pipeline.sourceMode,
+          snapshotDirectory,
+          outcome: 'rejected',
+          errorCode: 'citation_not_found',
+        });
         await db.update(researchJobs).set({
           status: 'degraded',
           error: 'No character-exact evidence passed verification.',
+          errorCode: 'citation_not_found',
           leaseExpiresAt: null,
           updatedAt: now().toISOString(),
         }).where(eq(researchJobs.id, row.job.id)).run();
         continue;
       }
 
-      const result = verified[0];
+      persistSourceSnapshot({
+        db,
+        jobId: row.job.id,
+        snapshot: execution.snapshot,
+        documentHash: execution.documentHash,
+        sourceMode: pipeline.sourceMode,
+        snapshotDirectory,
+        outcome: 'verified',
+      });
       await db.transaction((tx) => {
-        tx.insert(evidence).values({
-          id: randomUUID(),
-          assumptionId: row.assumption.id,
-          sourceFormat: 'html',
-          contentKind: 'text',
-          extractionMethod: 'html_parser',
-          verificationStatus: 'exact_verified',
-          sourceTier: result.sourceTier,
-          sourceName: result.sourceName,
-          publishDate: result.publishDate,
-          documentHash: result.documentHash,
-          canonicalTextHash: result.canonicalTextHash,
-          sourceUrl: result.sourceUrl,
-          retrievalTimestamp: result.retrievalTimestamp,
-          content: result.exactQuote,
-          impactSummary: result.impactSummary,
-          metadata: JSON.stringify({ parserVersion: result.parserVersion }),
-        }).onConflictDoNothing().run();
-        tx.update(assumptions).set({ status: 'verified', updatedAt: now().toISOString() })
-          .where(eq(assumptions.id, row.assumption.id)).run();
+        for (const result of execution.evidence) {
+          tx.insert(evidence).values({
+            id: randomUUID(),
+            assumptionId: row.assumption.id,
+            sourceFormat: result.sourceFormat,
+            contentKind: 'text',
+            extractionMethod: result.extractionMethod,
+            verificationStatus: 'exact_verified',
+            sourceTier: result.sourceTier,
+            sourceName: result.sourceName,
+            publishDate: result.publishDate,
+            documentHash: result.documentHash,
+            canonicalTextHash: result.canonicalTextHash,
+            sourceUrl: result.sourceUrl,
+            retrievalTimestamp: result.retrievalTimestamp,
+            content: result.exactQuote,
+            impactSummary: result.impactSummary,
+            pageNumber: result.pageNumber,
+            interpretationStatus: 'pending',
+            metadata: JSON.stringify({ parserVersion: result.parserVersion }),
+          }).run();
+        }
         tx.update(researchJobs).set({
           status: 'succeeded',
           error: null,
+          errorCode: null,
           leaseExpiresAt: null,
           updatedAt: now().toISOString(),
         }).where(eq(researchJobs.id, row.job.id)).run();
       });
     } catch (error) {
+      const errorCode = error instanceof ResearchSourceError ? error.code : 'source_http_error';
+      if (error instanceof ResearchSourceError && error.context) {
+        persistSourceSnapshot({
+          db,
+          jobId: row.job.id,
+          snapshot: error.context.snapshot,
+          documentHash: error.context.documentHash,
+          sourceMode: pipeline.sourceMode,
+          snapshotDirectory,
+          outcome: 'rejected',
+          errorCode,
+        });
+      }
       await db.update(researchJobs).set({
-        status: 'failed',
+        status: isDegradedSourceError(error) ? 'degraded' : 'failed',
         error: error instanceof Error ? error.message : 'Unexpected research failure.',
+        errorCode,
         leaseExpiresAt: null,
         updatedAt: now().toISOString(),
       }).where(eq(researchJobs.id, row.job.id)).run();
@@ -262,6 +319,7 @@ export async function retryResearchJob(jobId: string, input: ServiceDependencies
   const result = await db.update(researchJobs).set({
     status: 'queued',
     error: null,
+    errorCode: null,
     leaseExpiresAt: null,
     updatedAt: now().toISOString(),
   }).where(and(
@@ -278,6 +336,7 @@ function candidateFor(market: 'US' | 'ID', assumption: string) {
     return {
       quote: 'gross margin of 91.3%',
       impactSummary: 'This intentionally altered quote must be blocked by verification.',
+      pageNumber: null,
     };
   }
 
@@ -285,11 +344,13 @@ function candidateFor(market: 'US' | 'ID', assumption: string) {
     return {
       quote: 'margin bunga bersih (NIM) sebesar 6,8%',
       impactSummary: 'BBRI reported NIM of 6.8%, supporting the assumption that NIM remains above 6.0%.',
+      pageNumber: null,
     };
   }
 
   return {
     quote: 'gross margin of 81.3%',
     impactSummary: 'PLTR reported gross margin of 81.3%, supporting the assumption that gross margin remains above 80%.',
+    pageNumber: null,
   };
 }

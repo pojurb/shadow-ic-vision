@@ -71,6 +71,10 @@ export type EvidenceDTO = {
   exactQuote: string;
   impactSummary: string;
   verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived';
+  sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
+  extractionMethod: string;
+  pageNumber: number | null;
+  interpretationStatus: 'pending' | 'deterministic' | 'model';
 };
 
 export type ResearchItemDTO = {
@@ -81,7 +85,9 @@ export type ResearchItemDTO = {
     id: string;
     status: z.infer<typeof researchJobStatusSchema>;
     error: string | null;
+    errorCode: string | null;
     attemptCount: number;
+    sourceMode: 'mock' | 'live';
   };
   evidence: EvidenceDTO[];
 };

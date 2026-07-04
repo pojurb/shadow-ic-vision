@@ -113,21 +113,27 @@ export function ResearchPanel({
                 <span className={`${styles.statusBadge} ${styles[`status_${item.job.status}`]}`}>
                   {item.job.status}
                 </span>
-                <span className={styles.attempts}>Attempt {item.job.attemptCount}</span>
+                <span className={styles.attempts}>
+                  {item.job.sourceMode === 'live' ? 'Live official source' : 'Synthetic fixture'} · Attempt {item.job.attemptCount}
+                </span>
               </div>
               <h3>{item.statement}</h3>
+              <p className={styles.muted}>Assumption: {item.assumptionStatus}</p>
               {(item.job.status === 'queued' || item.job.status === 'running') && (
-                <p className={styles.muted}>Checking the synthetic official-source fixture…</p>
+                <p className={styles.muted}>
+                  Checking {item.job.sourceMode === 'live' ? 'the live official source' : 'the synthetic official-source fixture'}…
+                </p>
               )}
               {item.job.error && (
                 <div className={styles.jobError}>
+                  {item.job.errorCode && <strong>{item.job.errorCode}</strong>}
                   <p>{item.job.error}</p>
                   <button onClick={() => retry(item.job.id)}>Retry</button>
                 </div>
               )}
               {item.evidence.map((record) => (
                 <div className={styles.evidence} key={record.id}>
-                  <span className={styles.verifiedBadge}>{record.verificationStatus}</span>
+                  <span className={styles.verifiedBadge}>Exact source match</span>
                   <blockquote>“{record.exactQuote}”</blockquote>
                   <p>{record.impactSummary}</p>
                   <dl>
@@ -135,6 +141,9 @@ export function ResearchPanel({
                     <div><dt>Tier</dt><dd>{record.sourceTier}</dd></div>
                     <div><dt>Published</dt><dd>{record.publishDate ?? 'Not supplied'}</dd></div>
                     <div><dt>Retrieved</dt><dd>{new Date(record.retrievalTimestamp).toLocaleString()}</dd></div>
+                    <div><dt>Format</dt><dd>{record.sourceFormat} · {record.extractionMethod}</dd></div>
+                    {record.pageNumber && <div><dt>Page</dt><dd>{record.pageNumber}</dd></div>}
+                    <div><dt>Interpretation</dt><dd>{record.interpretationStatus}</dd></div>
                   </dl>
                 </div>
               ))}

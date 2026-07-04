@@ -7,7 +7,7 @@ const evidenceDirectory = path.join(
   'docs',
   'evidence',
   'releases',
-  '2026-07-04-m001-local-vertical-slice',
+  '2026-07-04-m001-live-official-sources',
 );
 
 test.beforeAll(() => {
@@ -33,7 +33,9 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
 
   const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
   await expect(researchPanel.getByText('succeeded', { exact: true })).toBeVisible();
-  await expect(researchPanel.getByText('exact_verified', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText('Exact source match', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText('pending', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText('Assumption: untested', { exact: true })).toBeVisible();
   await expect(researchPanel.locator('blockquote')).toContainText('gross margin of 81.3%');
   await expect(researchPanel.getByRole('link', { name: 'SEC Form 10-Q Q1 2026 (PLTR)' })).toBeVisible();
 
@@ -64,4 +66,49 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
   await expect(researchPanel).not.toBeInViewport();
   await page.getByRole('button', { name: 'View research' }).click();
   await expect(researchPanel).toBeInViewport();
+});
+
+test('shows a live IDX fail-closed state without making a network request', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '+ New' }).click();
+  await expect(page).toHaveURL(/\/c\/[0-9a-f-]+$/);
+  await expect(page.getByRole('heading', { name: 'State a thesis to begin' })).toBeVisible();
+  await page.route('**/api/research?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        thesis: {
+          id: '0ce51c8e-13b9-4dc2-ac53-306a5a7d6ec7',
+          ticker: 'BBRI',
+          companyName: 'PT Bank Rakyat Indonesia (Persero) Tbk',
+          market: 'ID',
+          coreBelief: 'NIM remains above 6%.',
+        },
+        items: [{
+          assumptionId: '253d5af1-7158-4a06-9c64-867258a240a1',
+          statement: 'BBRI NIM remains above 6%.',
+          assumptionStatus: 'untested',
+          job: {
+            id: '33e33d84-53c4-4b09-a38a-5ce621c65478',
+            status: 'degraded',
+            error: 'IDX official disclosure access failed.',
+            errorCode: 'idx_source_unavailable',
+            attemptCount: 1,
+            sourceMode: 'live',
+          },
+          evidence: [],
+        }],
+      }),
+    });
+  });
+
+  await page.reload();
+  const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
+  await expect(researchPanel.getByText(/Live official source/)).toBeVisible();
+  await expect(researchPanel.getByText('idx_source_unavailable', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText('Assumption: untested', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByRole('button', { name: 'Retry' })).toBeVisible();
+  expect(await researchPanel.locator('blockquote').count()).toBe(0);
+  await page.screenshot({ path: path.join(evidenceDirectory, 'live-idx-degraded.png') });
 });

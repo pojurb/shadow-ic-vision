@@ -4,7 +4,7 @@
 
 - Branch: `shadow-ic-vision`
 - Phase: M001 implementation
-- Working scope: verified local Intake → Research → Verify vertical slice
+- Working scope: live SEC/IDX official-source adapter implementation
 - Cloud provider decision `DEC-0009`: deferred
 
 ## Implemented
@@ -29,12 +29,25 @@
 - Replaced the old scratch script with an actual Vitest suite.
 - Added a repository-owned Playwright Edge harness for deterministic desktop and
   responsive browser verification.
+- Added `RESEARCH_SOURCE_MODE=mock|live`; mock remains the default for QA.
+- Added live SEC discovery through ticker mapping, submissions history, and the
+  primary 10-Q/10-K filing document.
+- Added a fail-closed IDX adapter that accepts only anonymous official links with
+  ticker, date, and document identity; current live access returns HTTP 403.
+- Added allowlisted outbound HTTP handling with timeout, bounded retry, rate
+  limiting, redirect validation, size limits, short application cache, and JSONL logging.
+- Added additive migration `0002_live_official_sources.sql` for immutable source
+  snapshots, job-source provenance, error codes, source mode, and interpretation state.
+- Added deterministic HTML and text-layer PDF extraction. Scanned, encrypted,
+  corrupt, and unsupported documents degrade explicitly.
+- Exact source matching now leaves assumptions `untested`; interpretation remains
+  `pending` until a separate interpretation or user-confirmation step exists.
 
 ## Verification Evidence
 
 - `tsc --noEmit`: pass
 - `eslint .`: pass
-- `vitest run`: 21 assertions pass
+- `vitest run`: 36 assertions pass; 2 opt-in live assertions skipped by default
 - `next build`: pass without a configured or pre-existing database
 - Live local API verification:
   - PLTR draft → confirm → `exact_verified`: pass
@@ -59,11 +72,19 @@
   - 800 x 900 fixed Research drawer geometry: pass
   - drawer close and reopen behavior: pass
   - retained narrow screenshot: pass
+  - live-source label and `idx_source_unavailable` degraded UI: pass
+  - Retry visible and zero Evidence in fail-closed state: pass
+- Live official-source smoke:
+  - IDX official reports page returned HTTP 403: confirmed
+  - adapter converted that response to `idx_source_unavailable`: pass
+  - SEC smoke: not run; a real `SEC_USER_AGENT` contact is required
 
 ## Remaining Boundaries
 
-- This is synthetic local research only. No live SEC/IDX or secondary calls exist.
-- Full PDF/OCR/vision/XBRL processing remains deferred.
+- SEC code is implemented but not yet live-smoke verified.
+- IDX correctly fails closed, but no stable anonymous disclosure route is validated.
+- Secondary-source fallback remains deferred.
+- Text-layer PDF extraction is implemented; OCR/vision/XBRL remain deferred.
 - Decision Library completion, export/import, and the final M001 evaluator remain
   deferred.
 - No real model/provider is approved or connected.
@@ -72,10 +93,10 @@
 
 ## Exact Resume Point
 
-The deterministic local vertical slice is closed. Plan live official-source
-adapters next while preserving the mock provider for deterministic tests. Do not
-reopen cloud-provider selection until a separate provider/security gate is
-explicitly approved.
+Provide a real local `SEC_USER_AGENT`, run the opt-in live-source smoke, and retain
+its evidence. Continue IDX endpoint validation without guessed endpoints or
+access-control workarounds. Do not reopen cloud-provider selection until a
+separate provider/security gate is explicitly approved.
 
 Promoted lessons consulted: `LC-20260703-001`
 

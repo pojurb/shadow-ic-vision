@@ -15,13 +15,14 @@ export type AppDatabase = ReturnType<typeof drizzle<typeof schema>>;
 export type DatabaseHandle = {
   db: AppDatabase;
   sqlite: Database.Database;
+  dbPath: string;
 };
 
 type GlobalDatabase = typeof globalThis & {
   __jpInvestDatabase?: DatabaseHandle;
 };
 
-function resolveDatabasePath() {
+export function resolveDatabasePath() {
   return path.resolve(
     /* turbopackIgnore: true */ process.cwd(),
     process.env.DB_PATH || '../jp-invest-data/db.sqlite',
@@ -53,7 +54,7 @@ export function createDatabase(dbPath: string, runMigrations = true): DatabaseHa
     });
   }
 
-  return { db, sqlite };
+  return { db, sqlite, dbPath };
 }
 
 export function getDatabase(): DatabaseHandle {

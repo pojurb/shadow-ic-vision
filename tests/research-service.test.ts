@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { assumptions, conversations, evidence, messages, researchJobs, theses } from '@/db/schema';
+import { assumptions, conversations, evidence, messages, researchJobSources, researchJobs, sourceSnapshots, theses } from '@/db/schema';
 import { thesisDraftSchema } from '@/lib/domain/contracts';
 import { confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 
@@ -42,9 +42,10 @@ describe('local vertical slice persistence', () => {
     fs.rmSync(directory, { recursive: true, force: true });
   });
 
-  it('applies both migrations and enforces foreign keys', () => {
+  it('applies all migrations and enforces foreign keys', () => {
     const tables = handle.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
     expect(tables.map((table) => table.name)).toContain('research_jobs');
+    expect(tables.map((table) => table.name)).toContain('source_snapshots');
     expect(handle.sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
   });
 
@@ -73,31 +74,51 @@ describe('local vertical slice persistence', () => {
 
   it('moves a job to succeeded and stores only exact evidence', async () => {
     confirmDraft(conversationId, messageId, { db: handle.db });
-    const panel = await processResearchJobs(conversationId, { db: handle.db });
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     expect(panel.items[0].job.status).toBe('succeeded');
     expect(panel.items[0].evidence[0]).toMatchObject({
       exactQuote: 'gross margin of 81.3%',
       verificationStatus: 'exact_verified',
+      interpretationStatus: 'pending',
     });
+    expect(handle.db.select().from(assumptions).get()?.status).toBe('untested');
+    expect(handle.db.select().from(sourceSnapshots).all()).toHaveLength(1);
+    expect(handle.db.select().from(researchJobSources).all()).toHaveLength(1);
   });
 
   it('degrades a citation mismatch, stores no evidence, and permits retry', async () => {
     const mismatch = { ...draft, assumptions: [{ statement: 'PLTR gross margin remains above 90% (simulate citation mismatch).', status: 'untested' as const }] };
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(mismatch) }).where(eq(messages.id, messageId)).run();
     const confirmed = confirmDraft(conversationId, messageId, { db: handle.db });
-    const panel = await processResearchJobs(conversationId, { db: handle.db });
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     expect(panel.items[0].job.status).toBe('degraded');
     expect(handle.db.select().from(evidence).all()).toHaveLength(0);
+    expect(handle.db.select().from(researchJobSources).get()).toMatchObject({ outcome: 'rejected', errorCode: 'citation_not_found' });
     await retryResearchJob(confirmed.jobIds[0], { db: handle.db });
     expect((await getResearchPanel(conversationId, { db: handle.db })).items[0].job.status).toBe('queued');
   });
 
   it('cascade deletes assumptions, jobs, and evidence with the thesis', async () => {
     const confirmed = confirmDraft(conversationId, messageId, { db: handle.db });
-    await processResearchJobs(conversationId, { db: handle.db });
+    await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     handle.db.delete(theses).where(eq(theses.id, confirmed.thesisId)).run();
     expect(handle.db.select().from(assumptions).all()).toHaveLength(0);
     expect(handle.db.select().from(researchJobs).all()).toHaveLength(0);
     expect(handle.db.select().from(evidence).all()).toHaveLength(0);
+  });
+
+  it('deduplicates immutable snapshots across jobs', async () => {
+    const twoAssumptions = {
+      ...draft,
+      assumptions: [
+        { statement: 'PLTR gross margin remains above 80%.', status: 'untested' as const },
+        { statement: 'PLTR commercial scale supports gross margin.', status: 'untested' as const },
+      ],
+    };
+    handle.db.update(messages).set({ structuredPayload: JSON.stringify(twoAssumptions) }).where(eq(messages.id, messageId)).run();
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    expect(handle.db.select().from(sourceSnapshots).all()).toHaveLength(1);
+    expect(handle.db.select().from(researchJobSources).all()).toHaveLength(2);
   });
 });

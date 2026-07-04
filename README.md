@@ -32,21 +32,24 @@ The build sequence is strict:
 > decision (`DEC-0009`) must be recorded before confidential thesis data is sent
 > to any cloud LLM.
 
-The verified local slice now supports persistent conversations, typed PLTR/BBRI
-mock thesis drafts, explicit confirmation, persisted research jobs, strict
-citation verification, and a right-side evidence panel. TypeScript, lint, 21
-deterministic tests, production build, and live localhost API journeys pass.
-Chrome verified the desktop workflows, and the repository-owned Playwright Edge
-harness verified and captured the desktop three-column layout and narrow Research
-drawer. The local slice is closed; this is not yet full M001 completion.
+The deterministic local slice remains the default QA path. A live-source layer now
+implements SEC filing discovery/fetch, a fail-closed IDX adapter, immutable source
+snapshots, HTML/text-PDF extraction, exact citation verification, and explicit
+pending interpretation. Current IDX access returns HTTP 403 and degrades visibly;
+SEC still requires an opt-in smoke run with a real contact User-Agent. This is not
+yet full M001 completion.
 
 ## Local Verification
 
 Run `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and
 `npm run test:e2e`. The end-to-end check starts an isolated local server on port
 3100, uses synthetic fixtures and `.tmp-e2e/db.sqlite`, launches the installed
-Microsoft Edge channel, and refreshes the retained screenshots in the local-slice
+Microsoft Edge channel, and refreshes screenshots in the current implementation
 evidence directory.
+
+Live-source verification is opt-in: provide a real `SEC_USER_AGENT`
+application/contact value in the local `.env`, then run
+`npm run test:live-sources`. Never commit the local `.env`, snapshots, or logs.
 
 ## Artifact Standards
 

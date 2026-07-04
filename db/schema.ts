@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Conversations (multi-turn interactions)
@@ -80,6 +80,9 @@ export const evidence = sqliteTable('evidence', {
   
   content: text('content').notNull(), // The extracted text or derived string
   impactSummary: text('impact_summary').notNull().default(''),
+  interpretationStatus: text('interpretation_status', {
+    enum: ['pending', 'deterministic', 'model'],
+  }).notNull().default('pending'),
   
   metadata: text('metadata'), // JSON string for parser/ocr/vision model versions
   
@@ -93,11 +96,39 @@ export const researchJobs = sqliteTable('research_jobs', {
     enum: ['queued', 'running', 'succeeded', 'degraded', 'failed'],
   }).notNull().default('queued'),
   error: text('error'),
+  errorCode: text('error_code'),
+  sourceMode: text('source_mode', { enum: ['mock', 'live'] }).notNull().default('mock'),
   attemptCount: integer('attempt_count').notNull().default(0),
   leaseExpiresAt: text('lease_expires_at'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex('research_jobs_assumption_id_unique').on(table.assumptionId)]);
+
+export const sourceSnapshots = sqliteTable('source_snapshots', {
+  documentHash: text('document_hash').primaryKey(),
+  documentId: text('document_id').notNull(),
+  market: text('market', { enum: ['US', 'ID'] }).notNull(),
+  ticker: text('ticker').notNull(),
+  sourceUrl: text('source_url').notNull(),
+  sourceName: text('source_name').notNull(),
+  sourceTier: text('source_tier', { enum: ['official', 'secondary'] }).notNull(),
+  sourceFormat: text('source_format', { enum: ['html', 'pdf', 'image', 'xbrl'] }).notNull(),
+  contentType: text('content_type').notNull(),
+  httpStatus: integer('http_status').notNull(),
+  publishDate: text('publish_date'),
+  retrievalTimestamp: text('retrieval_timestamp').notNull(),
+  storagePath: text('storage_path').notNull(),
+  sourceMode: text('source_mode', { enum: ['mock', 'live'] }).notNull(),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const researchJobSources = sqliteTable('research_job_sources', {
+  jobId: text('job_id').notNull().references(() => researchJobs.id, { onDelete: 'cascade' }),
+  documentHash: text('document_hash').notNull().references(() => sourceSnapshots.documentHash, { onDelete: 'restrict' }),
+  outcome: text('outcome', { enum: ['verified', 'rejected'] }).notNull(),
+  errorCode: text('error_code'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [primaryKey({ columns: [table.jobId, table.documentHash] })]);
 
 // Decisions linked to a Thesis
 export const decisions = sqliteTable('decisions', {
