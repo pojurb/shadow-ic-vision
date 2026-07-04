@@ -1,0 +1,40 @@
+.workspace { display: flex; min-width: 0; height: 100%; background: #121212; }
+.researchPanel { width: 380px; flex: 0 0 380px; border-left: 1px solid #333; background: #171717; overflow-y: auto; }
+.panelHeader { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 1px solid #333; background: rgba(23,23,23,.96); }
+.panelHeader h2 { margin: 3px 0 0; font-size: 20px; }
+.eyebrow { color: #818cf8; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.closePanel { display: none; border: 0; background: transparent; color: #ddd; font-size: 28px; cursor: pointer; }
+.panelContent { padding: 16px; }
+.panelMessage, .emptyPanel { padding: 28px 20px; color: #a3a3a3; }
+.emptyPanel strong { color: #ededed; }
+.emptyPanel p { line-height: 1.5; }
+.errorBanner { margin: 16px; padding: 12px; border: 1px solid #7f1d1d; border-radius: 8px; background: #2b1515; color: #fecaca; }
+.thesisSummary { margin-bottom: 14px; padding: 14px; border: 1px solid #333; border-radius: 10px; background: #1f1f1f; }
+.tickerRow { display: flex; justify-content: space-between; }
+.tickerRow span { color: #a3a3a3; font-size: 12px; }
+.thesisSummary p { margin: 6px 0 0; color: #a3a3a3; font-size: 13px; }
+.researchCard { margin-bottom: 14px; padding: 15px; border: 1px solid #333; border-radius: 10px; background: #202020; }
+.researchCard h3 { margin: 12px 0; font-size: 15px; line-height: 1.45; }
+.cardHeader { display: flex; align-items: center; justify-content: space-between; }
+.statusBadge, .verifiedBadge { display: inline-flex; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.status_queued, .status_running { background: #312e81; color: #c7d2fe; }
+.status_succeeded, .verifiedBadge { background: #064e3b; color: #a7f3d0; }
+.status_degraded { background: #78350f; color: #fde68a; }
+.status_failed { background: #7f1d1d; color: #fecaca; }
+.attempts, .muted { color: #888; font-size: 12px; }
+.jobError { padding: 10px; border-radius: 8px; background: #2c1b12; color: #fed7aa; font-size: 13px; }
+.jobError button { border: 1px solid #f59e0b; border-radius: 6px; background: transparent; color: #fbbf24; padding: 6px 10px; cursor: pointer; }
+.evidence { margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a3a3a; }
+.evidence blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid #10b981; color: #f5f5f5; line-height: 1.5; }
+.evidence > p { color: #c7c7c7; font-size: 13px; line-height: 1.5; }
+.evidence dl { margin: 12px 0 0; font-size: 11px; }
+.evidence dl div { display: grid; grid-template-columns: 70px 1fr; gap: 6px; margin-top: 6px; }
+.evidence dt { color: #777; }
+.evidence dd { margin: 0; color: #bbb; overflow-wrap: anywhere; }
+.evidence a { color: #93c5fd; }
+
+@media (max-width: 1050px) {
+  .researchPanel { position: fixed; inset: 0 0 0 auto; z-index: 20; width: min(420px, 92vw); transform: translateX(100%); transition: transform .2s ease; box-shadow: -12px 0 35px rgba(0,0,0,.45); }
+  .researchPanelOpen { transform: translateX(0); }
+  .closePanel { display: block; }
+}

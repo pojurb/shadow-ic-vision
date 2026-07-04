@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import styles from './ChatUI.module.css';
 
 interface Conversation {
@@ -11,6 +12,7 @@ interface Conversation {
 
 export function Sidebar() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export function Sidebar() {
       .then(data => {
         if (Array.isArray(data)) setConversations(data);
       })
-      .catch(console.error);
+      .catch(() => setError('Unable to load theses.'));
   }, []);
 
   const createNew = async () => {
@@ -30,12 +32,13 @@ export function Sidebar() {
         body: JSON.stringify({ title: 'New Thesis' })
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unable to create conversation.');
       if (data.id) {
         setConversations(prev => [data, ...prev]);
         router.push(`/c/${data.id}`);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to create conversation.');
     }
   };
 
@@ -45,12 +48,13 @@ export function Sidebar() {
         <h2>Theses</h2>
         <button onClick={createNew} className={styles.newButton}>+ New</button>
       </div>
+      {error && <p className={styles.sidebarError}>{error}</p>}
       <ul className={styles.conversationList}>
         {conversations.map(c => (
           <li key={c.id}>
-            <a href={`/c/${c.id}`} className={styles.conversationLink}>
+            <Link href={`/c/${c.id}`} className={styles.conversationLink}>
               {c.title}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>

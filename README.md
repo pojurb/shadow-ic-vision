@@ -32,6 +32,13 @@ The build sequence is strict:
 > decision (`DEC-0009`) must be recorded before confidential thesis data is sent
 > to any cloud LLM.
 
+The verified local slice now supports persistent conversations, typed PLTR/BBRI
+mock thesis drafts, explicit confirmation, persisted research jobs, strict
+citation verification, and a right-side evidence panel. TypeScript, lint, 21
+deterministic tests, production build, and live localhost API journeys pass.
+Visual browser verification remains open because the in-app browser was
+unavailable during the latest run; this is not yet M001 completion.
+
 ## Artifact Standards
 
 To keep the repository clean, all artifact formatting rules are consolidated here.

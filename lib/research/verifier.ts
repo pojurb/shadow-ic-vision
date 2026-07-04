@@ -10,11 +10,10 @@ export function createHash(data: string): string {
 
 /**
  * Standardizes text for deterministic matching.
- * Converts to lowercase and normalizes whitespace (replaces all contiguous whitespace with a single space).
+ * Normalizes whitespace while preserving case for character-exact verification.
  */
 export function normalizeText(text: string): string {
   return text
-    .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -24,10 +23,7 @@ export function normalizeText(text: string): string {
  * @throws Error if the quote is a hallucination or not found.
  */
 export function verifyExactMatch(quote: string, canonicalSource: string): boolean {
-  const normalizedQuote = normalizeText(quote);
-  const normalizedSource = normalizeText(canonicalSource);
-
-  if (!normalizedSource.includes(normalizedQuote)) {
+  if (!canonicalSource.includes(quote)) {
     throw new Error(`CITATION HALLUCINATION DETECTED: Quote not found in source text.\nQuote: "${quote}"`);
   }
 

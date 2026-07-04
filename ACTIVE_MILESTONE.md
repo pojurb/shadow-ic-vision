@@ -1,41 +1,49 @@
 # Active Milestone
 
-Status: `accepted`
+Status: `implementation`
+
 Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/M001-existing-thesis-loop.md)
 
-## Current Gate
+## Current Phase
 
-Gate 5 — Architecture Readiness.
+M001 implementation — verified local vertical slice.
 
-All prior gates are closed:
-- Gate 1: Vision (`DEC-0002`) — accepted
-- Gate 2: Product Strategy (`DEC-0003`) — accepted
-- Gate 3: Milestone Packet (`DEC-0004`) — accepted
-- Gate 4a: Original M001 Evaluation Package (`DEC-0005`) — accepted (16 cases)
-- Gate 4b: Multimodal Evaluation Addendum (`DEC-0008`) — accepted (16 multimodal cases + `MULTIMODAL_EVAL_GUIDE.md`)
-- Gate 5: M001 Architecture (`ADR-0006`) — accepted 2026-07-03
+All product, evaluation, multimodal-amendment, and architecture gates through
+ADR-0006 are accepted. The local implementation now supports this deterministic
+mock workflow:
 
-**Product implementation is now authorized.**
+1. create a persistent conversation;
+2. extract a typed PLTR or BBRI thesis draft;
+3. require explicit user confirmation;
+4. transactionally store the thesis, assumptions, and queued research jobs;
+5. process synthetic official-source fixtures locally;
+6. persist only character-exact verified evidence; and
+7. expose verified, degraded, failed, and retry states through the research API
+   and right-side panel.
+
+## Fresh Verification
+
+- TypeScript: pass
+- ESLint: pass
+- Vitest: 21 assertions pass
+- Next.js production build without a pre-existing database: pass
+- Live localhost API journeys: PLTR success, BBRI success, duplicate-confirmation
+  idempotency, degraded citation rejection, retry, and refresh persistence pass
+- Browser visual verification: blocked because the in-app browser was unavailable
+
+These results verify the local implementation and API flow. They do not close
+M001 while required visual/browser checks and later milestone scope remain open.
 
 ## Next Step
 
-Begin implementation following the accepted ADR-0006 sequence:
+1. Re-run the browser checklist when the in-app browser is available: empty,
+   confirmation, PLTR, BBRI, degraded/retry, refresh, and responsive drawer.
+2. Retain `MockProvider` until the local workflow is visually verified.
+3. Keep DEC-0009 deferred. Do not send thesis, assumption, decision, portfolio,
+   or personal investment data to a cloud model.
+4. After the local slice closes, plan live SEC/IDX adapters and provider
+   evaluation as separate implementation phases.
 
-1. Initialize Next.js project structure (Node runtime, `127.0.0.1`, `serverExternalPackages` for `better-sqlite3`).
-2. Set up Drizzle ORM schema and first migration.
-3. Implement the `LLMProvider` interface with a deterministic mock adapter.
-4. Implement the citation pipeline skeleton (snapshot → hash → verifier → evidence).
-5. Wire SEC and IDX source adapters with rate limiting and outbound logging.
+Promoted lessons consulted: `LC-20260703-001`
 
-Record a cloud provider security decision (`DEC-0009`) before sending confidential thesis data to any cloud LLM.
-
-## Handoff
-
-- Completed: multi-model operating playbook foundation
-- Completed: Gate 1 Vision approval (`DEC-0002`)
-- Completed: Gate 2 Strategy approval (`DEC-0003`)
-- Completed: Gate 3 Milestone Packet approval (`DEC-0004`)
-- Completed: Gate 4a original evaluation assets (`DEC-0005`)
-- Completed: Gate 4b multimodal amendment and additive evals (`DEC-0008`)
-- Completed: Gate 5 Architecture decision (`ADR-0006`)
-- Next: implementation phase — begin with project scaffolding, schema, and provider mock
+Learning candidates created: `none`

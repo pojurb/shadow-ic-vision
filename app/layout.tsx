@@ -14,9 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body style={{ display: 'flex', margin: 0, padding: 0, height: '100vh', backgroundColor: '#121212', color: '#ededed' }}>
+      <body>
         <Sidebar />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        <div className="app-shell">
           {children}
         </div>
       </body>

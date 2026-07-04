@@ -1,18 +1,27 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import type { MessageDTO } from '@/lib/domain/contracts';
 import styles from './ChatUI.module.css';
 
-interface Message {
-  id: string;
-  role: string;
-  content: string;
-}
-
-export function ChatUI({ conversationId, initialMessages }: { conversationId: string, initialMessages: Message[] }) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+export function ChatUI({
+  conversationId,
+  initialMessages,
+  confirmedDraftMessageId,
+  onResearchQueued,
+  onOpenResearch,
+}: {
+  conversationId: string;
+  initialMessages: MessageDTO[];
+  confirmedDraftMessageId: string | null;
+  onResearchQueued: () => void;
+  onOpenResearch: () => void;
+}) {
+  const [messages, setMessages] = useState<MessageDTO[]>(initialMessages);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmedIds, setConfirmedIds] = useState(() => new Set(confirmedDraftMessageId ? [confirmedDraftMessageId] : []));
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,10 +37,18 @@ export function ChatUI({ conversationId, initialMessages }: { conversationId: st
     const userMsg = input.trim();
     setInput('');
     setIsLoading(true);
+    setError(null);
 
     // Optimistically add user message
     const tempId = Date.now().toString();
-    setMessages(prev => [...prev, { id: tempId, role: 'user', content: userMsg }]);
+    setMessages(prev => [...prev, {
+      id: tempId,
+      role: 'user',
+      content: userMsg,
+      structuredPayload: null,
+      validationOutcome: 'not_applicable',
+      createdAt: new Date().toISOString(),
+    }]);
 
     try {
       const res = await fetch('/api/chat', {
@@ -41,23 +58,64 @@ export function ChatUI({ conversationId, initialMessages }: { conversationId: st
       });
       
       const data = await res.json();
-      if (data.id) {
-        setMessages(prev => [...prev, data]);
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(data.error ?? 'Unable to send message.');
+      setMessages(prev => [...prev, data.message]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to send message.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const confirmDraft = async (messageId: string) => {
+    setError(null);
+    const response = await fetch('/api/theses/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, messageId }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? 'Unable to confirm thesis.');
+      return;
+    }
+    setConfirmedIds((current) => new Set(current).add(messageId));
+    onResearchQueued();
+  };
+
   return (
     <div className={styles.chatContainer}>
       <div className={styles.messagesArea} ref={scrollRef}>
+        {messages.length === 0 && (
+          <div className={styles.emptyState}>
+            <span>Deterministic local demo</span>
+            <h1>State a thesis to begin</h1>
+            <p>Try “I believe PLTR gross margin will remain above 80%” or “BBRI NIM will remain above 6%.”</p>
+          </div>
+        )}
         {messages.map(m => (
           <div key={m.id} className={m.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow}>
             <div className={m.role === 'user' ? styles.userBubble : styles.assistantBubble}>
               {m.content}
+              {m.structuredPayload && (
+                <div className={styles.draftCard}>
+                  <span>Confirmation required</span>
+                  <h3>{m.structuredPayload.ticker} · {m.structuredPayload.companyName}</h3>
+                  <p>{m.structuredPayload.coreBelief}</p>
+                  <ul>
+                    {m.structuredPayload.assumptions.map((assumption) => (
+                      <li key={assumption.statement}>{assumption.statement}</li>
+                    ))}
+                  </ul>
+                  {confirmedIds.has(m.id) ? (
+                    <button className={styles.secondaryButton} onClick={onOpenResearch}>View research</button>
+                  ) : (
+                    <button className={styles.confirmButton} onClick={() => confirmDraft(m.id)}>
+                      Confirm &amp; Research
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -69,15 +127,16 @@ export function ChatUI({ conversationId, initialMessages }: { conversationId: st
           </div>
         )}
       </div>
+      {error && <div className={styles.errorMessage}>{error}</div>}
       
       <form onSubmit={handleSubmit} className={styles.inputArea}>
-        <input 
-          type="text" 
+        <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="State your thesis or assumption..."
           className={styles.textInput}
           disabled={isLoading}
+          rows={2}
         />
         <button type="submit" disabled={isLoading || !input.trim()} className={styles.sendButton}>
           Send

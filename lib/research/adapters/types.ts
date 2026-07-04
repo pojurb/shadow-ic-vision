@@ -1,8 +1,12 @@
 export interface SourceSnapshot {
   sourceUrl: string;
-  sourceFormat: 'html' | 'text' | 'pdf' | 'xbrl';
-  rawBytes: string; // The raw content string
+  sourceName: string;
+  sourceTier: 'official' | 'secondary';
+  publishDate: string | null;
+  sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
+  rawBytes: Uint8Array;
   retrievalTimestamp: string;
+  parserVersion: string;
 }
 
 export interface SourceAdapter {

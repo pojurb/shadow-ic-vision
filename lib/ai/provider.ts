@@ -17,7 +17,15 @@ export interface ProviderMetadata {
   provider: string;
   modelId: string;
   promptVersion: string;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
+}
+
+export interface ProviderCapabilities {
+  streaming: boolean;
+  structuredOutput: boolean;
+  vision: boolean;
+  contextLimit: number;
+  languages: string[];
 }
 
 export interface StructuredExtractResult<T> {
@@ -33,21 +41,15 @@ export interface ChatResult {
 }
 
 export interface LLMProvider {
-  /**
-   * Returns the underlying Vercel AI SDK model instance for streaming UI use cases
-   * where `streamText` or `useChat` is required by Next.js components.
-   */
-  getModel(): any;
-
-  /**
-   * Get the standard metadata for this provider configuration.
-   */
   getMetadata(): ProviderMetadata;
+  getCapabilities(): ProviderCapabilities;
 
   /**
    * Simple blocking chat for background tasks.
    */
   chat(messages: ProjectMessage[]): Promise<ChatResult>;
+
+  streamCompletion(messages: ProjectMessage[]): AsyncIterable<string>;
 
   /**
    * Extract structured data conforming to a Zod schema.

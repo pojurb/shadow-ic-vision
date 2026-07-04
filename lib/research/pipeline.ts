@@ -1,6 +1,6 @@
 import { SourceAdapter } from './adapters/types';
-import { SecEdgarAdapter } from './adapters/sec';
-import { IdxAdapter } from './adapters/idx';
+import { MockSecAdapter } from './adapters/mock-sec';
+import { MockIdxAdapter } from './adapters/mock-idx';
 import { createHash, verifyExactMatch, normalizeText } from './verifier';
 
 export interface VerifiedEvidence {
@@ -8,12 +8,24 @@ export interface VerifiedEvidence {
   documentHash: string;
   canonicalTextHash: string;
   exactQuote: string;
-  verified: boolean;
+  impactSummary: string;
+  sourceName: string;
+  sourceTier: 'official' | 'secondary';
+  publishDate: string | null;
+  retrievalTimestamp: string;
+  parserVersion: string;
 }
 
 export class CitationPipeline {
+  constructor(
+    private readonly adapters: Record<'US' | 'ID', SourceAdapter> = {
+      US: new MockSecAdapter(),
+      ID: new MockIdxAdapter(),
+    },
+  ) {}
+
   private getAdapter(market: 'US' | 'ID'): SourceAdapter {
-    return market === 'US' ? new SecEdgarAdapter() : new IdxAdapter();
+    return this.adapters[market];
   }
 
   /**
@@ -21,7 +33,13 @@ export class CitationPipeline {
    * In production, this would use a robust parser like JSDOM or Cheerio.
    */
   private extractCanonicalText(html: string): string {
-    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return normalizeText(
+      html
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'"),
+    );
   }
 
   /**
@@ -35,7 +53,7 @@ export class CitationPipeline {
   async executeResearchJob(
     market: 'US' | 'ID', 
     ticker: string, 
-    llmQuotes: string[]
+    candidates: Array<{ quote: string; impactSummary: string }>,
   ): Promise<VerifiedEvidence[]> {
     // 1. Adapter
     const adapter = this.getAdapter(market);
@@ -44,30 +62,36 @@ export class CitationPipeline {
     const snapshot = await adapter.fetchSnapshot(ticker, '10-Q');
 
     // 3. Canonical Text
-    const canonicalText = this.extractCanonicalText(snapshot.rawBytes);
+    const rawText = new TextDecoder().decode(snapshot.rawBytes);
+    const canonicalText = this.extractCanonicalText(rawText);
 
     // 4. Hash
-    const documentHash = createHash(snapshot.rawBytes);
+    const documentHash = createHash(rawText);
     const canonicalTextHash = createHash(canonicalText);
 
     // 5. Exact Verifier -> Evidence
     const verifiedEvidence: VerifiedEvidence[] = [];
 
-    for (const quote of llmQuotes) {
+    for (const candidate of candidates) {
       try {
         // This will throw if the quote is not a perfect substring match
-        verifyExactMatch(quote, canonicalText);
+        verifyExactMatch(candidate.quote, canonicalText);
         
         verifiedEvidence.push({
           sourceUrl: snapshot.sourceUrl,
+          sourceName: snapshot.sourceName,
+          sourceTier: snapshot.sourceTier,
+          publishDate: snapshot.publishDate,
+          retrievalTimestamp: snapshot.retrievalTimestamp,
+          parserVersion: snapshot.parserVersion,
           documentHash,
           canonicalTextHash,
-          exactQuote: quote,
-          verified: true
+          exactQuote: candidate.quote,
+          impactSummary: candidate.impactSummary,
         });
       } catch (error) {
         // Log the failure to the console as required by the spec
-        console.error(`\n[PIPELINE BLOCK] Evidence rejected by Exact Verifier:\n${error}`);
+        console.error('[PIPELINE BLOCK] Evidence rejected by Exact Verifier:', error);
       }
     }
 

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Conversations (multi-turn interactions)
@@ -15,7 +15,11 @@ export const messages = sqliteTable('messages', {
   conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
   role: text('role').notNull(), // 'user', 'assistant', 'system'
   content: text('content').notNull(),
-  providerMetadata: text('provider_metadata'), // JSON string of provider, model, prompt version
+  providerMetadata: text('provider_metadata'),
+  structuredPayload: text('structured_payload'),
+  validationOutcome: text('validation_outcome', {
+    enum: ['valid', 'invalid', 'not_applicable'],
+  }).notNull().default('not_applicable'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -23,19 +27,30 @@ export const messages = sqliteTable('messages', {
 export const theses = sqliteTable('theses', {
   id: text('id').primaryKey(),
   conversationId: text('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+  draftMessageId: text('draft_message_id').references(() => messages.id, { onDelete: 'set null' }),
+  ticker: text('ticker'),
+  companyName: text('company_name'),
+  market: text('market', { enum: ['US', 'ID'] }),
+  coreBelief: text('core_belief'),
+  // Retained for compatibility with the committed initial migration.
   title: text('title').notNull(),
   description: text('description').notNull(),
-  status: text('status').notNull().default('draft'), // draft, active, closed
+  status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  uniqueIndex('theses_conversation_id_unique').on(table.conversationId),
+  uniqueIndex('theses_draft_message_id_unique').on(table.draftMessageId),
+]);
 
 // Assumptions inside a Thesis
 export const assumptions = sqliteTable('assumptions', {
   id: text('id').primaryKey(),
   thesisId: text('thesis_id').notNull().references(() => theses.id, { onDelete: 'cascade' }),
   statement: text('statement').notNull(),
-  status: text('status').notNull().default('pending'), // pending, verified, challenged
+  status: text('status', {
+    enum: ['untested', 'verified', 'challenged', 'held-belief'],
+  }).notNull().default('untested'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -51,6 +66,9 @@ export const evidence = sqliteTable('evidence', {
   sourceVariant: text('source_variant'), // text_layer, scanned, encrypted, corrupt, unsupported
   extractionMethod: text('extraction_method').notNull(), // html_parser, pdf_text, ocr, vision, table_parser, xbrl_parser, deterministic_calculation
   verificationStatus: text('verification_status').notNull(), // exact_verified, ocr_matched, derived
+  sourceTier: text('source_tier', { enum: ['official', 'secondary'] }).notNull().default('official'),
+  sourceName: text('source_name').notNull().default('Unknown source'),
+  publishDate: text('publish_date'),
   
   documentHash: text('document_hash').notNull(), // SHA-256 of raw bytes
   canonicalTextHash: text('canonical_text_hash'), // SHA-256 for exact_verified
@@ -61,11 +79,25 @@ export const evidence = sqliteTable('evidence', {
   retrievalTimestamp: text('retrieval_timestamp').notNull(),
   
   content: text('content').notNull(), // The extracted text or derived string
+  impactSummary: text('impact_summary').notNull().default(''),
   
   metadata: text('metadata'), // JSON string for parser/ocr/vision model versions
   
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const researchJobs = sqliteTable('research_jobs', {
+  id: text('id').primaryKey(),
+  assumptionId: text('assumption_id').notNull().references(() => assumptions.id, { onDelete: 'cascade' }),
+  status: text('status', {
+    enum: ['queued', 'running', 'succeeded', 'degraded', 'failed'],
+  }).notNull().default('queued'),
+  error: text('error'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  leaseExpiresAt: text('lease_expires_at'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex('research_jobs_assumption_id_unique').on(table.assumptionId)]);
 
 // Decisions linked to a Thesis
 export const decisions = sqliteTable('decisions', {
