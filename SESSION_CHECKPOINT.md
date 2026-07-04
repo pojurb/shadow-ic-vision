@@ -41,8 +41,16 @@
   - altered PLTR quote produces `degraded` and zero Evidence: pass
   - Retry returns the degraded job to `queued`: pass
   - subsequent GET restores succeeded persisted state: pass
-- Visual/browser checklist: not run; in-app browser unavailable after connection
-  and retry attempts
+- Chrome desktop browser verification:
+  - empty workspace and conversation creation: pass
+  - unsupported input feedback: pass
+  - PLTR confirmation, exact evidence, provenance, and reload persistence: pass
+  - BBRI Indonesian evidence and IDX provenance: pass
+  - altered citation degraded state, zero Evidence, Retry and attempt increment: pass
+  - screenshots: blocked by repeated `Page.captureScreenshot` timeout
+  - narrow responsive drawer: blocked by viewport-emulation timeout
+  - Chrome control was stopped when a later lightweight tab-list call also became
+    unresponsive; no native-host configuration was changed
 
 ## Remaining Boundaries
 
@@ -56,9 +64,10 @@
 
 ## Exact Resume Point
 
-Run the browser checklist when browser tooling is available. If it passes, retain
-evidence and close this vertical slice. Then plan live official-source adapters;
-do not reopen cloud-provider selection until the local workflow is closed.
+Reconnect Chrome or implement the Playwright fallback to capture screenshots and
+verify the narrow responsive drawer. If those checks pass, close this vertical
+slice. Then plan live official-source adapters; do not reopen cloud-provider
+selection until the local workflow is closed.
 
 Promoted lessons consulted: `LC-20260703-001`
 

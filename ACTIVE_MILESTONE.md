@@ -29,15 +29,20 @@ mock workflow:
 - Next.js production build without a pre-existing database: pass
 - Live localhost API journeys: PLTR success, BBRI success, duplicate-confirmation
   idempotency, degraded citation rejection, retry, and refresh persistence pass
-- Browser visual verification: blocked because the in-app browser was unavailable
+- Chrome browser verification: desktop empty, creation, unsupported input, PLTR,
+  BBRI, degraded/retry, and refresh flows pass
+- Remaining browser checks: screenshots and narrow responsive drawer blocked
+  when Chrome capture/emulation commands timed out and the control channel became
+  unresponsive
 
 These results verify the local implementation and API flow. They do not close
 M001 while required visual/browser checks and later milestone scope remain open.
 
 ## Next Step
 
-1. Re-run the browser checklist when the in-app browser is available: empty,
-   confirmation, PLTR, BBRI, degraded/retry, refresh, and responsive drawer.
+1. Reconnect Chrome or add the Playwright fallback to capture screenshots and
+   verify the narrow responsive Research drawer. The desktop workflow checks are
+   complete.
 2. Retain `MockProvider` until the local workflow is visually verified.
 3. Keep DEC-0009 deferred. Do not send thesis, assumption, decision, portfolio,
    or personal investment data to a cloud model.
