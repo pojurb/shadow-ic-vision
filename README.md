@@ -36,8 +36,17 @@ The verified local slice now supports persistent conversations, typed PLTR/BBRI
 mock thesis drafts, explicit confirmation, persisted research jobs, strict
 citation verification, and a right-side evidence panel. TypeScript, lint, 21
 deterministic tests, production build, and live localhost API journeys pass.
-Visual browser verification remains open because the in-app browser was
-unavailable during the latest run; this is not yet M001 completion.
+Chrome verified the desktop workflows, and the repository-owned Playwright Edge
+harness verified and captured the desktop three-column layout and narrow Research
+drawer. The local slice is closed; this is not yet full M001 completion.
+
+## Local Verification
+
+Run `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and
+`npm run test:e2e`. The end-to-end check starts an isolated local server on port
+3100, uses synthetic fixtures and `.tmp-e2e/db.sqlite`, launches the installed
+Microsoft Edge channel, and refreshes the retained screenshots in the local-slice
+evidence directory.
 
 ## Artifact Standards
 

@@ -27,6 +27,8 @@
 - Visible empty, confirmation, queued, running, verified, degraded, failed,
   invalid-input, and retry states.
 - Replaced the old scratch script with an actual Vitest suite.
+- Added a repository-owned Playwright Edge harness for deterministic desktop and
+  responsive browser verification.
 
 ## Verification Evidence
 
@@ -51,6 +53,12 @@
   - narrow responsive drawer: blocked by viewport-emulation timeout
   - Chrome control was stopped when a later lightweight tab-list call also became
     unresponsive; no native-host configuration was changed
+- Playwright Edge fallback verification:
+  - desktop three-column geometry and verified PLTR evidence: pass
+  - retained desktop screenshot: pass
+  - 800 x 900 fixed Research drawer geometry: pass
+  - drawer close and reopen behavior: pass
+  - retained narrow screenshot: pass
 
 ## Remaining Boundaries
 
@@ -64,10 +72,10 @@
 
 ## Exact Resume Point
 
-Reconnect Chrome or implement the Playwright fallback to capture screenshots and
-verify the narrow responsive drawer. If those checks pass, close this vertical
-slice. Then plan live official-source adapters; do not reopen cloud-provider
-selection until the local workflow is closed.
+The deterministic local vertical slice is closed. Plan live official-source
+adapters next while preserving the mock provider for deterministic tests. Do not
+reopen cloud-provider selection until a separate provider/security gate is
+explicitly approved.
 
 Promoted lessons consulted: `LC-20260703-001`
 

@@ -6,7 +6,7 @@ Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/
 
 ## Current Phase
 
-M001 implementation — verified local vertical slice.
+M001 implementation — browser-verified local vertical slice.
 
 All product, evaluation, multimodal-amendment, and architecture gates through
 ADR-0006 are accepted. The local implementation now supports this deterministic
@@ -31,23 +31,21 @@ mock workflow:
   idempotency, degraded citation rejection, retry, and refresh persistence pass
 - Chrome browser verification: desktop empty, creation, unsupported input, PLTR,
   BBRI, degraded/retry, and refresh flows pass
-- Remaining browser checks: screenshots and narrow responsive drawer blocked
-  when Chrome capture/emulation commands timed out and the control channel became
-  unresponsive
+- Playwright Edge verification: desktop three-column geometry, narrow fixed
+  Research drawer, close/reopen behavior, and retained screenshots pass
 
-These results verify the local implementation and API flow. They do not close
-M001 while required visual/browser checks and later milestone scope remain open.
+These results close the deterministic local vertical slice. They do not close
+M001 while live-source, Decision Library, export/import, multimodal, provider,
+and final-evaluation scope remains open.
 
 ## Next Step
 
-1. Reconnect Chrome or add the Playwright fallback to capture screenshots and
-   verify the narrow responsive Research drawer. The desktop workflow checks are
-   complete.
-2. Retain `MockProvider` until the local workflow is visually verified.
+1. Plan live official-source adapters as the next implementation phase, keeping
+   deterministic fallback and verification boundaries explicit.
+2. Retain `MockProvider` for local tests and browser QA.
 3. Keep DEC-0009 deferred. Do not send thesis, assumption, decision, portfolio,
    or personal investment data to a cloud model.
-4. After the local slice closes, plan live SEC/IDX adapters and provider
-   evaluation as separate implementation phases.
+4. Treat provider evaluation and remaining M001 product scope as separate gates.
 
 Promoted lessons consulted: `LC-20260703-001`
 

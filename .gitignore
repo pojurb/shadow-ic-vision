@@ -30,6 +30,9 @@ node_modules/
 .next/
 out/
 build/
+test-results/
+playwright-report/
+.tmp-e2e/
 
 # === DATABASE & LOGS ===
 *.sqlite

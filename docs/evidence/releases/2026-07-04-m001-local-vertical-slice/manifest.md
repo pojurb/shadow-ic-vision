@@ -4,7 +4,7 @@ Date: 2026-07-04
 
 Branch: `shadow-ic-vision`
 
-Outcome: `verified-with-browser-blocker`
+Outcome: `verified`
 
 ## Scope
 
@@ -37,6 +37,14 @@ Evidence flow for PLTR and BBRI. No cloud provider or live source was used.
 | Chrome screenshots | Blocked: `Page.captureScreenshot` timed out twice |
 | Chrome responsive drawer | Blocked: viewport-emulation command timed out |
 | Chrome control channel | Stopped after subsequent lightweight tab-list call became unresponsive |
+| Playwright Edge desktop | Pass, three-column geometry and verified PLTR evidence asserted |
+| Playwright Edge narrow viewport | Pass at 800 x 900, fixed Research drawer closed and reopened |
+| Playwright screenshots | Pass, desktop and narrow evidence retained below |
+
+## Retained Screenshots
+
+- [Desktop PLTR verified evidence](desktop-pltr-verified.png)
+- [Narrow Research drawer](narrow-research-drawer.png)
 
 ## Environment And Limits
 
@@ -45,17 +53,21 @@ Evidence flow for PLTR and BBRI. No cloud provider or live source was used.
 - Source fixtures are synthetic and perform no outbound requests.
 - Chrome DOM-visible checks used a dedicated temporary SQLite database and only
   synthetic PLTR/BBRI fixture text.
-- No screenshots were produced because Chrome screenshot capture timed out.
+- The repository-owned Playwright 1.61.1 harness used the installed Microsoft
+  Edge channel and a dedicated `.tmp-e2e` SQLite database.
+- Playwright captured the required screenshots after the Chrome extension's
+  screenshot and viewport commands timed out.
 - Per the approved stop rule, native-host and helper-pipe configuration were not
   changed after the Chrome control channel became unresponsive.
 - `npm audit` reported six moderate dependency findings; a forced breaking upgrade
   was intentionally not applied.
 
-## Required Follow-up
+## Remaining Milestone Boundaries
 
-Reconnect Chrome or use a repository-owned Playwright harness to capture the
-required screenshots and verify the narrow responsive Research drawer. Do not
-mark the slice fully closed until those two checks pass.
+The deterministic local vertical slice is closed. Live SEC/IDX retrieval,
+secondary-source fallback, Decision Library completion, export/import, full
+multimodal processing, cloud-provider approval, and final M001 evaluation remain
+separate open work.
 
 Promoted lessons consulted: `LC-20260703-001`
 
