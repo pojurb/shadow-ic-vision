@@ -49,4 +49,4 @@ and final-evaluation scope remains open.
 
 Promoted lessons consulted: `LC-20260703-001`
 
-Learning candidates created: `none`
+Learning candidates created: `LC-20260704-001`

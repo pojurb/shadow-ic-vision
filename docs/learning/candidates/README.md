@@ -8,6 +8,5 @@ Create one file per candidate using
 
 Candidate records are retained evidence. They do not become instructions until
 their status is `promoted`, the promotion registry identifies an authoritative
-target, and the required approval has been recorded.
-
-No candidates have been captured yet.
+target, and the required approval has been recorded. Current status is tracked
+in [`../INDEX.md`](../INDEX.md).
