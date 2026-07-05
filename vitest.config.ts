@@ -13,5 +13,8 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     restoreMocks: true,
+    env: {
+      RESEARCH_SOURCE_MODE: 'mock',
+    },
   },
 });

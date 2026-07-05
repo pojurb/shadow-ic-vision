@@ -45,4 +45,4 @@ multimodal OCR/vision/XBRL scope are not complete.
 
 Promoted lessons consulted: `LC-20260703-001`
 
-Learning candidates created: `LC-20260704-001`
+Learning candidates created: `LC-20260704-001`, `LC-20260705-001`

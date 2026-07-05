@@ -1,6 +1,6 @@
 # LC-20260704-001 - Required Browser Gates Need A Repository-Owned Harness
 
-Status: `candidate`
+Status: `validated`
 
 Captured: `2026-07-04`
 
@@ -74,16 +74,22 @@ mechanism for a required closure gate.
 
 ## Independent Review
 
-- Reviewer: pending independent reviewer
-- Review date: pending
-- Evidence reproduced: `no`
-- Duplicate or conflict check: pending; prior Edge/CDP fallback experience is
-  supporting recurrence evidence, not an authoritative duplicate.
-- Privacy check: pending independent confirmation; candidate contains synthetic
-  fixture names and repository-local evidence only.
-- Disposition: `needs-more-evidence`
-- Reason: deterministic evidence exists, but the candidate has not yet received
-  the independent review required for validation or promotion.
+- Reviewer: Antigravity (Claude Sonnet 4.6 with extended thinking)
+- Review date: 2026-07-05
+- Evidence reproduced: `yes`
+- Duplicate or conflict check: clear; `.agents/QUALITY.md` has only generic
+  user-visible verification guidance and no repository-owned browser-harness
+  procedure.
+- Privacy check: passed; evidence contains synthetic fixtures and
+  repository-local screenshots only.
+- Disposition: `validated`
+- Reason: commits `33d0222` and `d66638f` reproduce the tooling-failure to
+  Playwright-recovery sequence, the Edge configuration and isolated SQLite
+  harness match the candidate, and the browser assertions cover desktop
+  geometry and narrow Research drawer behavior. A separate default-suite
+  configuration failure observed during review did not affect this browser
+  evidence and was subsequently corrected by explicitly forcing mock mode in
+  the default Vitest configuration.
 
 ## Promotion Or Supersession
 
