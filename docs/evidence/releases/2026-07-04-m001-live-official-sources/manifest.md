@@ -2,7 +2,7 @@
 
 Updated: 2026-07-05
 
-Base commit: `bb8e8c8` (verification performed on an uncommitted working tree)
+Implementation commit: `5376c59` (`feat: add periodic official-source ingestion`)
 
 Outcome: `implementation-verified; SEC/IDX/issuer retrieval live-validated`
 

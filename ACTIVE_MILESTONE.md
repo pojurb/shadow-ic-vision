@@ -39,8 +39,8 @@ multimodal OCR/vision/XBRL scope are not complete.
 
 ## Next Step
 
-1. Commit the verified periodic-ingestion checkpoint.
-2. Observe the first automatic Windows task execution.
+1. Observe the first automatic Windows task execution.
+2. Confirm the retained ingestion-run status.
 3. Continue the remaining M001 scope without connecting an unapproved provider.
 
 Promoted lessons consulted: `LC-20260703-001`

@@ -3,11 +3,11 @@
 ## Repository State
 
 - Branch: `shadow-ic-vision`
-- Base commit: `bb8e8c8` (`feat: add live official-source research`)
+- Implementation commit: `5376c59` (`feat: add periodic official-source ingestion`)
 - Phase: M001 implementation
 - Working scope: periodic local official-source ingestion
 - Cloud provider decision `DEC-0009`: deferred
-- Current implementation changes: verified but not yet committed
+- Repository state after implementation commit: clean
 
 ## Implemented
 
@@ -66,8 +66,8 @@
 
 ## Exact Resume Point
 
-1. Commit this verified checkpoint.
-2. Observe the first automatic task run on 2026-07-06 at 08:00 Asia/Jakarta.
+1. Observe the first automatic task run on 2026-07-06 at 08:00 Asia/Jakarta.
+2. Confirm the retained ingestion-run status.
 3. Continue the remaining M001 scope.
 
 Promoted lessons consulted: `LC-20260703-001`
