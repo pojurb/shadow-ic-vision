@@ -3,7 +3,7 @@ import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { AppDatabase } from '@/db/client';
-import { researchJobSources, sourceSnapshots } from '@/db/schema';
+import { researchJobSources, sourceDiscoveries, sourceSnapshots } from '@/db/schema';
 import type { ResearchSourceMode, SourceSnapshot } from './adapters/types';
 
 export function persistSourceSnapshot(input: {
@@ -46,6 +46,13 @@ export function persistSourceSnapshot(input: {
       target: [researchJobSources.jobId, researchJobSources.documentHash],
       set: { outcome: input.outcome, errorCode: input.errorCode ?? null },
     }).run();
+    if (input.snapshot.discoveryUrl) {
+      tx.insert(sourceDiscoveries).values({
+        documentHash: input.documentHash,
+        discoveredFromUrl: input.snapshot.discoveryUrl,
+        discoveryMethod: input.snapshot.sourceName.startsWith('Issuer official') ? 'issuer_crawl' : 'exchange_api',
+      }).onConflictDoNothing().run();
+    }
   });
 
   return storagePath;

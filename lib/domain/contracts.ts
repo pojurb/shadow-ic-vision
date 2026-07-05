@@ -101,4 +101,18 @@ export type ResearchPanelDTO = {
     coreBelief: string;
   } | null;
   items: ResearchItemDTO[];
+  ingestion?: {
+    schedule: string;
+    nextScheduledAt: string;
+    lastRun: {
+      status: 'running' | 'succeeded' | 'degraded' | 'failed';
+      trigger: 'cron' | 'manual';
+      newDocumentCount: number;
+      trackedCompanyCount: number;
+      startedAt: string;
+      completedAt: string | null;
+      errorCode: string | null;
+      error: string | null;
+    } | null;
+  };
 };

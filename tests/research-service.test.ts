@@ -4,9 +4,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { assumptions, conversations, evidence, messages, researchJobSources, researchJobs, sourceSnapshots, theses } from '@/db/schema';
+import { assumptions, conversations, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
 import { thesisDraftSchema } from '@/lib/domain/contracts';
 import { confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
+import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
 
 const draft = thesisDraftSchema.parse({
   ticker: 'PLTR',
@@ -46,6 +47,8 @@ describe('local vertical slice persistence', () => {
     const tables = handle.sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>;
     expect(tables.map((table) => table.name)).toContain('research_jobs');
     expect(tables.map((table) => table.name)).toContain('source_snapshots');
+    expect(tables.map((table) => table.name)).toContain('ingestion_runs');
+    expect(tables.map((table) => table.name)).toContain('source_cursors');
     expect(handle.sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
   });
 
@@ -120,5 +123,24 @@ describe('local vertical slice persistence', () => {
     await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     expect(handle.db.select().from(sourceSnapshots).all()).toHaveLength(1);
     expect(handle.db.select().from(researchJobSources).all()).toHaveLength(2);
+  });
+
+  it('refreshes tracked companies idempotently and records a source cursor', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const process = (id: string) => processResearchJobs(id, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    const first = await refreshOfficialSources('manual', { db: handle.db, process });
+    const second = await refreshOfficialSources('cron', { db: handle.db, process });
+    expect(first.lastRun).toMatchObject({ status: 'succeeded', newDocumentCount: 1 });
+    expect(second.lastRun).toMatchObject({ status: 'succeeded', newDocumentCount: 0 });
+    expect(handle.db.select().from(sourceSnapshots).all()).toHaveLength(1);
+    expect(handle.db.select().from(evidence).all()).toHaveLength(1);
+    expect(handle.db.select().from(sourceCursors).get()).toMatchObject({ market: 'US', ticker: 'PLTR' });
+    expect(handle.db.select().from(assumptions).get()?.status).toBe('untested');
+  });
+
+  it('rejects an overlapping refresh with the stable already_running code', async () => {
+    handle.db.insert(ingestionLeases).values({ id: 'official-source-refresh', ownerId: 'other', expiresAt: '2099-01-01T00:00:00.000Z', updatedAt: '2026-07-05T00:00:00.000Z' }).run();
+    await expect(refreshOfficialSources('cron', { db: handle.db })).rejects.toBeInstanceOf(IngestionAlreadyRunningError);
+    expect(handle.db.select().from(ingestionRuns).all()).toHaveLength(0);
   });
 });

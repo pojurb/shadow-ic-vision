@@ -20,6 +20,7 @@ export function ResearchPanel({
   const [data, setData] = useState<ResearchPanelDTO>(EMPTY_PANEL);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/research?conversationId=${encodeURIComponent(conversationId)}`);
@@ -78,6 +79,19 @@ export function ResearchPanel({
     await runQueued();
   };
 
+  const refreshAll = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/research/refresh', { method: 'POST' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Unable to refresh official sources.');
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to refresh official sources.');
+    } finally { setRefreshing(false); }
+  };
+
   return (
     <aside className={`${styles.researchPanel} ${open ? styles.researchPanelOpen : ''}`} aria-label="Research panel">
       <header className={styles.panelHeader}>
@@ -105,6 +119,17 @@ export function ResearchPanel({
               <span>{data.thesis.market}</span>
             </div>
             <p>{data.thesis.companyName}</p>
+            <button className={styles.refreshSources} onClick={refreshAll} disabled={refreshing}>
+              {refreshing ? 'Refreshingâ€¦' : 'Refresh official sources'}
+            </button>
+            {data.ingestion && (
+              <div className={styles.ingestionStatus}>
+                <span>Daily refresh</span>
+                <span>Next: {new Date(data.ingestion.nextScheduledAt).toLocaleString()}</span>
+                {data.ingestion.lastRun && <span>Last: {data.ingestion.lastRun.status} Â· {data.ingestion.lastRun.newDocumentCount} new document(s)</span>}
+                {data.ingestion.lastRun?.error && <span>{data.ingestion.lastRun.errorCode}: {data.ingestion.lastRun.error}</span>}
+              </div>
+            )}
           </section>
 
           {data.items.map((item) => (

@@ -22,10 +22,11 @@ export interface VerifiedEvidence {
 }
 
 export type ResearchExecution = {
+  unchanged?: false;
   snapshot: SourceSnapshot;
   documentHash: string;
   evidence: VerifiedEvidence[];
-};
+} | { unchanged: true; documentId: string };
 
 export class CitationPipeline {
   readonly sourceMode: ResearchSourceMode;
@@ -39,6 +40,7 @@ export class CitationPipeline {
     ticker: string,
     assumption: string,
     candidateOverrides?: EvidenceCandidate[],
+    knownDocumentIds: ReadonlySet<string> = new Set(),
   ): Promise<ResearchExecution> {
     const adapter = this.adapters[market];
     const discovery = await adapter.discover({ market, ticker, documentTypes: ['10-Q', '10-K'] });
@@ -47,6 +49,9 @@ export class CitationPipeline {
     }
     if (discovery.value.length === 0) {
       throw new ResearchSourceError('source_not_found', 'Official source returned no eligible documents.');
+    }
+    if (knownDocumentIds.has(discovery.value[0].documentId)) {
+      return { unchanged: true, documentId: discovery.value[0].documentId };
     }
 
     const fetched = await adapter.fetchSnapshot(discovery.value[0]);

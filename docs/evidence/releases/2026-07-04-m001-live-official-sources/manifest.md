@@ -1,18 +1,21 @@
 # M001 Live Official-Source Implementation Evidence
 
-Date: 2026-07-04
+Updated: 2026-07-05
 
-Base commit: `ebacecc` (verification performed on an uncommitted working tree)
+Base commit: `bb8e8c8` (verification performed on an uncommitted working tree)
 
-Outcome: `implementation-verified; live validation partial`
+Outcome: `implementation-verified; SEC/IDX/issuer retrieval live-validated`
 
 ## Scope
 
-- Live SEC and fail-closed IDX source adapters.
+- Live SEC and official IDX source adapters.
+- Bounded official issuer investor-relations fallback.
 - Allowlisted outbound HTTP behavior and immutable source snapshots.
 - Deterministic HTML and text-layer PDF extraction.
-- Exact source matching with pending interpretation and unchanged assumption status.
-- Mock sources retained as the default deterministic QA path.
+- Exact source matching with pending interpretation and unchanged assumptions.
+- Incremental daily local ingestion with cursors, leases, deduplication, and
+  discovery provenance.
+- Protected cron/manual refresh endpoints and Windows Task Scheduler-compatible CLI.
 
 ## Verification
 
@@ -20,30 +23,39 @@ Outcome: `implementation-verified; live validation partial`
 |---|---|
 | TypeScript `tsc --noEmit` | Pass |
 | ESLint `eslint .` | Pass |
-| Vitest | 36 pass; 2 opt-in live tests skipped by default |
-| Next.js production build | Pass; no trace warnings |
-| Playwright Edge mock success | Pass |
-| Playwright Edge live-IDX degraded UI | Pass; Retry visible; zero Evidence |
-| Live IDX official-page request | HTTP 403; mapped to `idx_source_unavailable` as designed |
-| Live SEC request | Not run; real `SEC_USER_AGENT` contact not supplied |
+| Vitest | 40 pass; 3 live checks skipped by default |
+| Next.js production build | Pass |
+| Playwright Edge | 2 pass |
+| Live SEC filing retrieval and SHA-256 | Pass |
+| Live IDX attachment retrieval and SHA-256 | Pass |
+| Live official BRI fallback retrieval and SHA-256 | Pass |
+| Incremental refresh and snapshot deduplication | Pass |
+| Cursor, lease, overlap rejection, and unchanged assumptions | Pass |
+| Direct local scheduler command against temporary SQLite | Pass |
+| Intended local database refresh | Pass; zero tracked companies present |
+| Windows task registration and manual execution | Pass; result code `0`, next run 2026-07-06 08:00 Asia/Jakarta |
 
 ## Retained Browser Evidence
 
 - [Desktop deterministic exact evidence](desktop-pltr-verified.png)
 - [Narrow Research drawer](narrow-research-drawer.png)
-- [Live IDX fail-closed state](live-idx-degraded.png)
+- [Earlier IDX fail-closed state](live-idx-degraded.png)
+
+The IDX degradation screenshot is retained as historical recovery-state evidence;
+the current official IDX API now passes live retrieval.
 
 ## Known Limits
 
-- The live-source phase remains open until SEC succeeds in the opt-in smoke and a
-  stable permitted anonymous IDX disclosure route is validated.
-- Secondary fallback, OCR, vision, XBRL, model interpretation, provider approval,
-  Decision Library, and export/import remain deferred.
-- `npm audit` still reports six moderate dependency findings; no forced breaking
+- The local scheduled task passed a manual Task Scheduler execution; its first
+  automatic execution has not yet occurred.
+- Secondary sources, OCR, vision, XBRL, model interpretation, provider approval,
+  Decision Library, and export/import remain incomplete or deferred as governed.
+- `npm audit` reports six moderate dependency findings; no forced breaking
   upgrade was applied.
 
 ## Rollback
 
-Return `RESEARCH_SOURCE_MODE` to `mock`. If code rollback is required, revert the
-live-source adapters and migration together; preserve existing snapshot bytes and
-database backups until rollback integrity is verified.
+Disable or remove the Windows scheduled task and return
+`RESEARCH_SOURCE_MODE` to `mock`. If code rollback is required, revert the
+periodic-ingestion adapters and migration together; preserve existing snapshot
+bytes and database backups until rollback integrity is verified.

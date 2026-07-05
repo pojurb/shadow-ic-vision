@@ -221,6 +221,17 @@ provider.
 - The UI reflects job state and communicates degraded or failed sources to the
   user rather than silently omitting evidence.
 
+### 2026-07-05 implementation clarification: periodic ingestion
+
+- Periodic official-source refresh remains local-only and covers tracked companies.
+- Windows Task Scheduler invokes the project-owned `npm run research:refresh`
+  command once daily. The command opens the same external SQLite database and
+  uses the persisted lease, cursor, snapshot, and research-job contracts.
+- The protected loopback cron Route Handler remains available for local tools,
+  but no Vercel Cron or cloud-hosted private research worker is authorized.
+- A cloud scheduler requires a new ADR covering authenticated access and durable
+  managed persistence before it may process thesis or evidence data.
+
 ---
 
 ## 6. Citation And Multimodal Pipeline Architecture

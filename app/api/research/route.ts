@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getConversation } from '@/db/queries';
 import { researchRunRequestSchema } from '@/lib/domain/contracts';
 import { getResearchPanel } from '@/lib/research/service';
+import { getIngestionStatus } from '@/lib/research/ingestion';
 
 export async function GET(request: Request) {
   const conversationId = new URL(request.url).searchParams.get('conversationId');
@@ -10,5 +11,5 @@ export async function GET(request: Request) {
   if (!await getConversation(parsed.data.conversationId)) {
     return NextResponse.json({ error: 'Conversation not found.' }, { status: 404 });
   }
-  return NextResponse.json(await getResearchPanel(parsed.data.conversationId));
+  return NextResponse.json({ ...(await getResearchPanel(parsed.data.conversationId)), ingestion: getIngestionStatus() });
 }

@@ -138,3 +138,38 @@ export const decisions = sqliteTable('decisions', {
   rationale: text('rationale').notNull(),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const sourceCursors = sqliteTable('source_cursors', {
+  market: text('market', { enum: ['US', 'ID'] }).notNull(),
+  ticker: text('ticker').notNull(),
+  lastPublishDate: text('last_publish_date'),
+  lastDocumentId: text('last_document_id'),
+  checkedAt: text('checked_at').notNull(),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [primaryKey({ columns: [table.market, table.ticker] })]);
+
+export const ingestionRuns = sqliteTable('ingestion_runs', {
+  id: text('id').primaryKey(),
+  trigger: text('trigger', { enum: ['cron', 'manual'] }).notNull(),
+  status: text('status', { enum: ['running', 'succeeded', 'degraded', 'failed'] }).notNull(),
+  trackedCompanyCount: integer('tracked_company_count').notNull().default(0),
+  newDocumentCount: integer('new_document_count').notNull().default(0),
+  errorCode: text('error_code'),
+  error: text('error'),
+  startedAt: text('started_at').notNull(),
+  completedAt: text('completed_at'),
+});
+
+export const ingestionLeases = sqliteTable('ingestion_leases', {
+  id: text('id').primaryKey(),
+  ownerId: text('owner_id').notNull(),
+  expiresAt: text('expires_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const sourceDiscoveries = sqliteTable('source_discoveries', {
+  documentHash: text('document_hash').notNull().references(() => sourceSnapshots.documentHash, { onDelete: 'cascade' }),
+  discoveredFromUrl: text('discovered_from_url').notNull(),
+  discoveryMethod: text('discovery_method', { enum: ['exchange_api', 'issuer_crawl'] }).notNull(),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [primaryKey({ columns: [table.documentHash, table.discoveredFromUrl] })]);

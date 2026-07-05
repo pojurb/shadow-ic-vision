@@ -9,6 +9,7 @@ import {
   evidence,
   messages,
   researchJobs,
+  sourceSnapshots,
   theses,
 } from '@/db/schema';
 import {
@@ -224,7 +225,17 @@ export async function processResearchJobs(
         row.thesis.ticker,
         row.assumption.statement,
         candidateOverrides,
+        row.job.attemptCount > 0
+          ? new Set(db.select({ documentId: sourceSnapshots.documentId }).from(sourceSnapshots).where(and(
+              eq(sourceSnapshots.market, row.thesis.market), eq(sourceSnapshots.ticker, row.thesis.ticker),
+            )).all().map((item) => item.documentId))
+          : undefined,
       );
+
+      if (execution.unchanged) {
+        await db.update(researchJobs).set({ status: 'succeeded', error: null, errorCode: null, leaseExpiresAt: null, updatedAt: now().toISOString() }).where(eq(researchJobs.id, row.job.id)).run();
+        continue;
+      }
 
       if (execution.evidence.length === 0) {
         persistSourceSnapshot({
@@ -258,6 +269,12 @@ export async function processResearchJobs(
       });
       await db.transaction((tx) => {
         for (const result of execution.evidence) {
+          const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
+            eq(evidence.assumptionId, row.assumption.id),
+            eq(evidence.documentHash, result.documentHash),
+            eq(evidence.content, result.exactQuote),
+          )).get();
+          if (duplicate) continue;
           tx.insert(evidence).values({
             id: randomUUID(),
             assumptionId: row.assumption.id,

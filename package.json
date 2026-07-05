@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:live-sources": "vitest run --config vitest.live.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "research:refresh": "node --conditions=react-server --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
+    "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1"
   },
   "dependencies": {
     "ai": "^7.0.14",

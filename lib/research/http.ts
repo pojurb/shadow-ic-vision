@@ -107,8 +107,9 @@ export class OfficialHttpClient {
         }
 
         if (!response.ok) {
-          this.log(url.toString(), response.status, attempt, startedAt, 'source_http_error');
-          throw new ResearchSourceError('source_http_error', `Official source returned HTTP ${response.status}.`);
+          const code: SourceErrorCode = response.status === 401 || response.status === 403 ? 'source_access_denied' : 'source_http_error';
+          this.log(url.toString(), response.status, attempt, startedAt, code);
+          throw new ResearchSourceError(code, `Official source returned HTTP ${response.status}.`);
         }
 
         const declaredSize = Number(response.headers.get('content-length') || 0);

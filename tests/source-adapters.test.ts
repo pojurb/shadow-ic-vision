@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { findOfficialIdxDocument } from '@/lib/research/adapters/idx';
+import { normalizeIdxAttachmentUrl, parseIdxAnnouncements } from '@/lib/research/adapters/idx';
+import { discoverIssuerDocuments } from '@/lib/research/adapters/issuer';
 import { SecAdapter, selectLatestFiling } from '@/lib/research/adapters/sec';
 import { OfficialHttpClient, resetHttpStateForTests } from '@/lib/research/http';
 
@@ -66,15 +67,28 @@ describe('official source adapters', () => {
     });
   });
 
-  it('accepts an IDX document only with ticker, official URL, and publication date', () => {
-    const html = '<a href="https://www.idx.co.id/files/BBRI-Q1-2026.pdf">BBRI laporan keuangan 30/04/2026</a>';
-    expect(findOfficialIdxDocument(html, 'BBRI')).toMatchObject({
+  it('maps an official IDX financial-report announcement and normalizes its attachment host', () => {
+    const json = JSON.stringify({ Replies: [{
+      pengumuman: { Id2: 42, Kode_Emiten: 'BBRI', TglPengumuman: '2026-04-30T08:00:00Z', JudulPengumuman: 'Laporan Keuangan Q1' },
+      attachments: [{ FullSavePath: 'https://www.idx.co.id/StaticData/NewsAndAnnouncement/BBRI-Q1-2026.pdf' }],
+    }] });
+    expect(parseIdxAnnouncements(json, 'BBRI')).toContainEqual(expect.objectContaining({
       ticker: 'BBRI',
       publishDate: '2026-04-30',
       sourceFormat: 'pdf',
-    });
-    expect(findOfficialIdxDocument('<a href="https://example.com/BBRI.pdf">BBRI 30/04/2026</a>', 'BBRI')).toBeNull();
-    expect(findOfficialIdxDocument('<a href="https://www.idx.co.id/BBRI.pdf">BBRI</a>', 'BBRI')).toBeNull();
+      sourceUrl: 'https://www.idx.id/StaticData/NewsAndAnnouncement/BBRI-Q1-2026.pdf',
+    }));
+    expect(normalizeIdxAttachmentUrl('https://example.com/StaticData/BBRI.pdf')).toBeNull();
+    expect(normalizeIdxAttachmentUrl('https://www.idx.co.id/files/BBRI.pdf')).toBeNull();
+  });
+
+  it('keeps issuer discovery on the configured origin and selects report PDFs only', () => {
+    const html = '<a href="/reports/financial-20260430.pdf">Financial report 20260430</a><a href="https://tracker.test/go?redirect=https%3A%2F%2Fissuer.test%2Freports%2Fannual-report-2025.pdf">Download report</a><a href="https://evil.test/report.pdf">Report</a><a href="/about.pdf">About</a>';
+    expect(discoverIssuerDocuments(html, 'https://issuer.test/investor', { market: 'ID', ticker: 'BBRI', documentTypes: [] }))
+      .toEqual([
+        expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/financial-20260430.pdf', publishDate: '2026-04-30' }),
+        expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/annual-report-2025.pdf' }),
+      ]);
   });
 
   it('blocks non-allowlisted URLs before fetch', async () => {

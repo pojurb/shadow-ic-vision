@@ -2,6 +2,10 @@
 
 An AI-assisted Investment Committee for serious self-directed investors.
 
+## Official-source refresh
+
+Research uses deterministic fixtures by default. Live daily ingestion requires `RESEARCH_SOURCE_MODE=live`, an SEC-compliant `SEC_USER_AGENT`, `RESEARCH_CRON_SECRET`, and a JSON `ISSUER_SOURCE_URLS` ticker map. Run `npm run research:refresh` for a direct local refresh. On Windows, `npm run research:install-task` registers a daily 08:00 local task; the same idempotent refresh is available from the Research panel.
+
 ## What This Is
 A system that tracks your investment theses, challenges your assumptions with
 cited evidence and explicit uncertainty, and turns scattered conviction into

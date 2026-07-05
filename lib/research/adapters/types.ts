@@ -10,6 +10,10 @@ export type SourceErrorCode =
   | 'source_http_error'
   | 'source_too_large'
   | 'source_redirect_blocked'
+  | 'source_access_denied'
+  | 'issuer_source_unavailable'
+  | 'crawl_limit_exceeded'
+  | 'already_running'
   | 'citation_not_found'
   | 'idx_source_unavailable'
   | 'unsupported_document'
@@ -32,6 +36,7 @@ export interface SourceDocumentRef {
   sourceTier: 'official' | 'secondary';
   publishDate: string | null;
   sourceFormat: SourceFormat;
+  discoveryUrl?: string;
 }
 
 export interface SourceSnapshot extends SourceDocumentRef {
