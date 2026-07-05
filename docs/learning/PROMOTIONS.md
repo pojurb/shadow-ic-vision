@@ -12,6 +12,7 @@ evidence-bearing candidate.
 |---|---|---|---|---|---|---|---|
 | LC-20260703-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | planning | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | user | user | 2026-07-03 | 2026-07-03 |
 | LC-20260704-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | browser verification | [LC-20260704-001](candidates/LC-20260704-001-repository-owned-browser-qa.md) | Antigravity (Claude Sonnet 4.6) | user | 2026-07-05 | 2026-07-05 |
+| LC-20260705-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | scheduled-worker verification | [LC-20260705-001](candidates/LC-20260705-001-local-scheduled-worker-boundary.md) | Antigravity (Gemini 3.1 Pro) | user | 2026-07-05 | 2026-07-05 |
 
 ## Rejected Candidates
 

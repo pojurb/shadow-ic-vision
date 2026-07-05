@@ -77,6 +77,26 @@ registration.
 This requirement does not apply to exploratory design review without a
 repeatable acceptance gate or to usability research requiring human judgment.
 
+## Scheduled Worker Verification
+
+Before approving a scheduled worker, map its execution environment to the
+application's authorized persistence and security boundary. Reject a worker
+runtime that cannot access the approved durable store or would cross an
+unauthorized deployment boundary.
+
+Before closure:
+
+1. use a scheduler inside the approved boundary;
+2. verify its registered executable, arguments, working directory, and identity
+   are durable rather than temporary tooling paths;
+3. execute the registered job through the real scheduler; and
+4. retain the scheduler result, next-run state, and corresponding application
+   run-state evidence.
+
+This guidance does not prescribe a specific scheduler. Cloud scheduling is
+valid when the approved architecture provides authenticated access and durable
+managed persistence in the same authorized environment.
+
 ## Architecture ADR Completeness
 
 Before claiming an Architecture Decision Record (ADR) draft is complete and ready for approval, the builder must ensure the document explicitly defines the following:

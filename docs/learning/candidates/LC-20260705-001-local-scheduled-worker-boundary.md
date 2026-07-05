@@ -1,6 +1,6 @@
 # LC-20260705-001 - Scheduled Workers Must Share The Durable Persistence Boundary
 
-Status: `validated`
+Status: `promoted`
 
 Captured: `2026-07-05`
 
@@ -103,11 +103,10 @@ environment.
 
 ## Promotion Or Supersession
 
-- Decision authority: user, because promotion would modify governing quality
-  guidance.
-- Decision date: pending
-- Promotion target: proposed `.agents/QUALITY.md` operational-verification guidance
-- Promotion registry entry: pending
+- Decision authority: user
+- Decision date: 2026-07-05
+- Promotion target: `.agents/QUALITY.md` scheduled-worker verification guidance
+- Promotion registry entry: `docs/learning/PROMOTIONS.md`, active promotions
 - Supersedes: none
 - Superseded by: none
 - Rollback path: if promoted, remove the scheduled-worker verification guidance,
