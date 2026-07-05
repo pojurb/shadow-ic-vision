@@ -2,10 +2,6 @@
 
 An AI-assisted Investment Committee for serious self-directed investors.
 
-## Official-source refresh
-
-Research uses deterministic fixtures by default. Live daily ingestion requires `RESEARCH_SOURCE_MODE=live`, an SEC-compliant `SEC_USER_AGENT`, `RESEARCH_CRON_SECRET`, and a JSON `ISSUER_SOURCE_URLS` ticker map. Run `npm run research:refresh` for a direct local refresh. On Windows, `npm run research:install-task` registers a daily 08:00 local task; the same idempotent refresh is available from the Research panel.
-
 ## What This Is
 A system that tracks your investment theses, challenges your assumptions with
 cited evidence and explicit uncertainty, and turns scattered conviction into
@@ -29,27 +25,17 @@ The build sequence is strict:
 7. Approve, release, observe, and retain rollback capability
 
 ## Current Status
-> **Phase: Implementation** - All five gates are closed. Vision, strategy, M001
-> milestone packet, original 16-case evaluation baseline (`DEC-0005`), multimodal
-> evaluation addendum (`DEC-0008`), and M001 architecture (`ADR-0006`) are
-> accepted. Product implementation is now authorized. A cloud provider security
-> decision (`DEC-0009`) must be recorded before confidential thesis data is sent
-> to any cloud LLM.
 
-The deterministic local slice remains the default QA path. A live-source layer now
-implements SEC filing discovery/fetch, a fail-closed IDX adapter, immutable source
-snapshots, HTML/text-PDF extraction, exact citation verification, and explicit
-pending interpretation. Current IDX access returns HTTP 403 and degrades visibly;
-SEC still requires an opt-in smoke run with a real contact User-Agent. This is not
-yet full M001 completion.
+See [`ACTIVE_MILESTONE.md`](ACTIVE_MILESTONE.md) for the current phase and next
+actions, and [`SESSION_CHECKPOINT.md`](SESSION_CHECKPOINT.md) for the detailed
+handoff and latest verification. Codebase orientation lives in
+[`docs/CODEBASE_MAP.md`](docs/CODEBASE_MAP.md).
 
 ## Local Verification
 
-Run `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and
-`npm run test:e2e`. The end-to-end check starts an isolated local server on port
-3100, uses synthetic fixtures and `.tmp-e2e/db.sqlite`, launches the installed
-Microsoft Edge channel, and refreshes screenshots in the current implementation
-evidence directory.
+Run `npm run verify` for deterministic context, status, type, lint, test, and
+build checks. Run `npm run verify:full` to include the repository-owned browser
+harness. Routine browser artifacts stay under `test-results/`.
 
 Live-source verification is opt-in: provide a real `SEC_USER_AGENT`
 application/contact value in the local `.env`, then run

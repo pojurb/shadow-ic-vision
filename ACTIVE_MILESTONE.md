@@ -18,11 +18,16 @@ Periodic ingestion is local-only under ADR-0006. It runs through
 `npm run research:refresh` or Windows Task Scheduler and writes to the external
 SQLite database. No private research data or SQLite worker is deployed to Vercel.
 
+Cross-cutting builder infrastructure now provides a canonical codebase map,
+decision index, deterministic TypeScript-derived code index, repository status
+checks, unified verification commands, portable browser QA, and pull-request CI.
+This improves M001 delivery without expanding product scope.
+
 ## Fresh Verification
 
 - TypeScript: pass
 - ESLint: pass
-- Vitest: 40 pass; 3 live checks skipped in the default suite
+- Vitest: 45 pass; 3 live checks skipped in the default suite
 - Next.js production build: pass
 - Playwright Edge: 2 pass
 - Live smoke: SEC, IDX, and official BRI issuer fallback all retrieved and hashed
@@ -32,6 +37,10 @@ SQLite database. No private research data or SQLite worker is deployed to Vercel
 - Intended local database refresh: pass; zero tracked companies were present
 - Windows task registration and manual Task Scheduler execution: pass; result
   code `0`, next run 2026-07-06 08:00 Asia/Jakarta
+- Code-index generation and freshness check: pass
+- Repository status consistency check: pass
+- Unified `verify` and `verify:full`: pass
+- Routine Playwright artifacts remain under ignored `test-results/`: pass
 
 These results close the SEC/IDX/issuer retrieval validation gap. M001 remains
 open because the Decision Library, export/import, final evaluator, and accepted

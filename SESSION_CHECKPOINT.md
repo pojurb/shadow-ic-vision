@@ -7,7 +7,7 @@
 - Phase: M001 implementation
 - Working scope: periodic local official-source ingestion
 - Cloud provider decision `DEC-0009`: deferred
-- Repository state after implementation commit: clean
+- Latest committed periodic-ingestion implementation: `5376c59`
 
 ## Implemented
 
@@ -31,12 +31,18 @@
 - Added backed-up additive migration `0003_typical_doomsday.sql`.
 - Updated ADR-0006 to clarify that periodic ingestion remains local-only. No
   Vercel Cron or cloud SQLite worker is authorized.
+- Added the canonical codebase map and decision index for fast builder orientation.
+- Added a deterministic TypeScript-derived code index with source-digest freshness.
+- Added repository consistency checks and unified standard/full verification.
+- Made browser QA portable across local Edge and CI Chromium without rewriting
+  retained release evidence.
+- Added pull-request CI for standard verification and browser QA.
 
 ## Verification Evidence
 
 - `tsc --noEmit`: pass
 - `eslint .`: pass
-- `vitest run`: 40 pass; 3 opt-in live checks skipped by default
+- `vitest run`: 45 pass; 3 opt-in live checks skipped by default
 - `next build`: pass
 - Playwright Edge: 2 pass
   - deterministic PLTR desktop and narrow Research drawer
@@ -51,6 +57,10 @@
   rejection, and cron bearer authentication pass deterministic tests
 - Direct `npm run research:refresh` smoke against temporary SQLite: pass; no
   Next.js server required
+- `npm run context:check`: pass
+- `npm run status:check`: pass
+- `npm run verify`: pass with generated JSON summary
+- `npm run verify:full`: pass, including 2 Playwright checks
 
 ## Remaining Boundaries
 

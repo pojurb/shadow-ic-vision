@@ -3,11 +3,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const evidenceDirectory = path.join(
-  process.cwd(),
-  'docs',
-  'evidence',
-  'releases',
-  '2026-07-04-m001-live-official-sources',
+  process.cwd(), process.env.E2E_EVIDENCE_DIR || path.join('test-results', 'evidence'),
 );
 
 test.beforeAll(() => {

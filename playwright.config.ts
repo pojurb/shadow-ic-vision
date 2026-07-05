@@ -15,7 +15,7 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: 'chromium',
-    channel: 'msedge',
+    ...(process.env.CI || process.env.E2E_BROWSER === 'chromium' ? {} : { channel: 'msedge' as const }),
     headless: true,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -28,6 +28,8 @@ export default defineConfig({
     env: {
       DB_PATH: path.join(process.cwd(), '.tmp-e2e', 'db.sqlite'),
       LLM_PROVIDER_TYPE: 'mock',
+      RESEARCH_SOURCE_MODE: 'mock',
+      SOURCE_SNAPSHOT_DIR: path.join(process.cwd(), '.tmp-e2e', 'source-snapshots'),
     },
   },
 });

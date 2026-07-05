@@ -1,0 +1,1507 @@
+{
+  "schemaVersion": 1,
+  "sourceDigest": "fe51255884bb14d1df3c69980af071ddc920600eca40fb076b5c1e6397dcbb65",
+  "roots": [
+    "app",
+    "components",
+    "lib",
+    "db",
+    "tests"
+  ],
+  "modules": [
+    {
+      "path": "app/api/chat/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "@/lib/ai/adapters/mock",
+          "resolved": "lib/ai/adapters/mock.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/conversations/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/internal/research/cron/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/research/config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "@/lib/research/ingestion",
+          "resolved": "lib/research/ingestion.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET",
+        "POST",
+        "hasValidCronAuthorization",
+        "runtime"
+      ]
+    },
+    {
+      "path": "app/api/research/refresh/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/research/ingestion",
+          "resolved": "lib/research/ingestion.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/research/retry/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/research/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/ingestion",
+          "resolved": "lib/research/ingestion.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET"
+      ]
+    },
+    {
+      "path": "app/api/research/run/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/theses/confirm/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/c/[id]/page.tsx",
+      "kind": "page",
+      "imports": [
+        {
+          "specifier": "@/components/Workspace",
+          "resolved": "components/Workspace.tsx"
+        },
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/navigation",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ChatPage",
+        "default",
+        "dynamic"
+      ]
+    },
+    {
+      "path": "app/layout.tsx",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./globals.css",
+          "resolved": null
+        },
+        {
+          "specifier": "@/components/Sidebar",
+          "resolved": "components/Sidebar.tsx"
+        },
+        {
+          "specifier": "next",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "RootLayout",
+        "default",
+        "metadata"
+      ]
+    },
+    {
+      "path": "app/page.tsx",
+      "kind": "page",
+      "imports": [
+        {
+          "specifier": "./page.module.css",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "Home",
+        "default"
+      ]
+    },
+    {
+      "path": "components/ChatUI.tsx",
+      "kind": "component",
+      "imports": [
+        {
+          "specifier": "./ChatUI.module.css",
+          "resolved": null
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ChatUI"
+      ]
+    },
+    {
+      "path": "components/ResearchPanel.tsx",
+      "kind": "component",
+      "imports": [
+        {
+          "specifier": "./Workspace.module.css",
+          "resolved": null
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ResearchPanel"
+      ]
+    },
+    {
+      "path": "components/Sidebar.tsx",
+      "kind": "component",
+      "imports": [
+        {
+          "specifier": "./ChatUI.module.css",
+          "resolved": null
+        },
+        {
+          "specifier": "next/link",
+          "resolved": null
+        },
+        {
+          "specifier": "next/navigation",
+          "resolved": null
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "Sidebar"
+      ]
+    },
+    {
+      "path": "components/Workspace.tsx",
+      "kind": "component",
+      "imports": [
+        {
+          "specifier": "./ChatUI",
+          "resolved": "components/ChatUI.tsx"
+        },
+        {
+          "specifier": "./ResearchPanel",
+          "resolved": "components/ResearchPanel.tsx"
+        },
+        {
+          "specifier": "./Workspace.module.css",
+          "resolved": null
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "Workspace"
+      ]
+    },
+    {
+      "path": "db/client.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "better-sqlite3",
+          "resolved": null
+        },
+        {
+          "specifier": "dotenv",
+          "resolved": null
+        },
+        {
+          "specifier": "drizzle-orm/better-sqlite3",
+          "resolved": null
+        },
+        {
+          "specifier": "drizzle-orm/better-sqlite3/migrator",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "AppDatabase",
+        "DatabaseHandle",
+        "createDatabase",
+        "getDatabase",
+        "resolveDatabasePath"
+      ]
+    },
+    {
+      "path": "db/queries.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "./schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "addMessage",
+        "createConversation",
+        "getConversation",
+        "getConversations",
+        "getMessage",
+        "getMessages",
+        "getThesisForConversation",
+        "toMessageDTO"
+      ]
+    },
+    {
+      "path": "db/schema.ts",
+      "kind": "schema",
+      "imports": [
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "drizzle-orm/sqlite-core",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "assumptions",
+        "conversations",
+        "decisions",
+        "evidence",
+        "ingestionLeases",
+        "ingestionRuns",
+        "messages",
+        "researchJobSources",
+        "researchJobs",
+        "sourceCursors",
+        "sourceDiscoveries",
+        "sourceSnapshots",
+        "theses"
+      ]
+    },
+    {
+      "path": "lib/ai/adapters/mock.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "MockProvider"
+      ]
+    },
+    {
+      "path": "lib/ai/provider.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ChatResult",
+        "LLMProvider",
+        "ProjectMessage",
+        "ProviderCapabilities",
+        "ProviderMetadata",
+        "StructuredExtractResult"
+      ]
+    },
+    {
+      "path": "lib/domain/contracts.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "EvidenceDTO",
+        "MessageDTO",
+        "ResearchItemDTO",
+        "ResearchPanelDTO",
+        "ThesisDraft",
+        "assumptionStatusSchema",
+        "chatRequestSchema",
+        "confirmRequestSchema",
+        "marketSchema",
+        "researchJobStatusSchema",
+        "researchRetryRequestSchema",
+        "researchRunRequestSchema",
+        "thesisDraftSchema"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/factory.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./idx",
+          "resolved": "lib/research/adapters/idx.ts"
+        },
+        {
+          "specifier": "./issuer",
+          "resolved": "lib/research/adapters/issuer.ts"
+        },
+        {
+          "specifier": "./mock-idx",
+          "resolved": "lib/research/adapters/mock-idx.ts"
+        },
+        {
+          "specifier": "./mock-sec",
+          "resolved": "lib/research/adapters/mock-sec.ts"
+        },
+        {
+          "specifier": "./sec",
+          "resolved": "lib/research/adapters/sec.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "createSourceAdapters"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/helpers.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "unavailableOutcome"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/idx.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "IdxAdapter",
+        "buildIdxAnnouncementUrl",
+        "normalizeIdxAttachmentUrl",
+        "parseIdxAnnouncements"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/issuer.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "IssuerAdapter",
+        "discoverIssuerDocuments"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/mock-idx.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockIdxAdapter"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/mock-sec.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockSecAdapter"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/sec.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "SecAdapter",
+        "selectLatestFiling"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/types.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "ResearchMarket",
+        "ResearchSourceMode",
+        "SourceAdapter",
+        "SourceDocumentRef",
+        "SourceErrorCode",
+        "SourceFormat",
+        "SourceOutcome",
+        "SourceQuery",
+        "SourceSnapshot"
+      ]
+    },
+    {
+      "path": "lib/research/config.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "getCronSecret",
+        "getIssuerSourceUrls",
+        "getOutboundLogPath",
+        "getResearchSchedule",
+        "getResearchSourceMode",
+        "getSnapshotDirectory"
+      ]
+    },
+    {
+      "path": "lib/research/errors.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "ResearchSourceError",
+        "isDegradedSourceError"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/candidate.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./document",
+          "resolved": "lib/research/extractors/document.ts"
+        }
+      ],
+      "exports": [
+        "EvidenceCandidate",
+        "extractDeterministicCandidates"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/document.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "../errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "../verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ExtractedDocument",
+        "ExtractedPage",
+        "extractDocument",
+        "extractHtml",
+        "extractPdf"
+      ]
+    },
+    {
+      "path": "lib/research/http.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "./errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "HttpResult",
+        "OfficialHttpClient",
+        "resetHttpStateForTests"
+      ]
+    },
+    {
+      "path": "lib/research/ingestion.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "./service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "IngestionAlreadyRunningError",
+        "IngestionTrigger",
+        "getIngestionStatus",
+        "refreshOfficialSources"
+      ]
+    },
+    {
+      "path": "lib/research/pipeline.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/factory",
+          "resolved": "lib/research/adapters/factory.ts"
+        },
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "./errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "./extractors/candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "./extractors/document",
+          "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "./verifier",
+          "resolved": "lib/research/verifier.ts"
+        }
+      ],
+      "exports": [
+        "CitationPipeline",
+        "ResearchExecution",
+        "VerifiedEvidence"
+      ]
+    },
+    {
+      "path": "lib/research/service.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "./errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "./pipeline",
+          "resolved": "lib/research/pipeline.ts"
+        },
+        {
+          "specifier": "./snapshot-store",
+          "resolved": "lib/research/snapshot-store.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "confirmDraft",
+        "getResearchPanel",
+        "processResearchJobs",
+        "retryResearchJob"
+      ]
+    },
+    {
+      "path": "lib/research/snapshot-store.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "persistSourceSnapshot"
+      ]
+    },
+    {
+      "path": "lib/research/verifier.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "crypto",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "createHash",
+        "normalizeText",
+        "verifyExactMatch"
+      ]
+    },
+    {
+      "path": "tests/api-contracts.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/context-index.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/scripts/context-index",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/cron-auth.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/app/api/internal/research/cron/route",
+          "resolved": "app/api/internal/research/cron/route.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/document-extraction.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/extractors/candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/document",
+          "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/e2e/vertical-slice.spec.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@playwright/test",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/live-sources.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/adapters/factory",
+          "resolved": "lib/research/adapters/factory.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/issuer",
+          "resolved": "lib/research/adapters/issuer.ts"
+        },
+        {
+          "specifier": "@/lib/research/config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "@/lib/research/http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/mock-provider.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/ai/adapters/mock",
+          "resolved": "lib/ai/adapters/mock.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/research-service.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/ingestion",
+          "resolved": "lib/research/ingestion.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/source-adapters.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/adapters/idx",
+          "resolved": "lib/research/adapters/idx.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/issuer",
+          "resolved": "lib/research/adapters/issuer.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/sec",
+          "resolved": "lib/research/adapters/sec.ts"
+        },
+        {
+          "specifier": "@/lib/research/http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/status-check.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/scripts/context-index",
+          "resolved": null
+        },
+        {
+          "specifier": "@/scripts/status-check",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/verifier.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    }
+  ],
+  "routes": [
+    {
+      "path": "/api/chat",
+      "kind": "route",
+      "module": "app/api/chat/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/conversations",
+      "kind": "route",
+      "module": "app/api/conversations/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/internal/research/cron",
+      "kind": "route",
+      "module": "app/api/internal/research/cron/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/research/refresh",
+      "kind": "route",
+      "module": "app/api/research/refresh/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/research/retry",
+      "kind": "route",
+      "module": "app/api/research/retry/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/research",
+      "kind": "route",
+      "module": "app/api/research/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/research/run",
+      "kind": "route",
+      "module": "app/api/research/run/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/theses/confirm",
+      "kind": "route",
+      "module": "app/api/theses/confirm/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/c/[id]",
+      "kind": "page",
+      "module": "app/c/[id]/page.tsx",
+      "methods": []
+    },
+    {
+      "path": "/",
+      "kind": "page",
+      "module": "app/page.tsx",
+      "methods": []
+    }
+  ],
+  "tables": [
+    {
+      "name": "assumptions",
+      "symbol": "assumptions",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "conversations",
+      "symbol": "conversations",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "decisions",
+      "symbol": "decisions",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "evidence",
+      "symbol": "evidence",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "ingestion_leases",
+      "symbol": "ingestionLeases",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "ingestion_runs",
+      "symbol": "ingestionRuns",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "messages",
+      "symbol": "messages",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "research_job_sources",
+      "symbol": "researchJobSources",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "research_jobs",
+      "symbol": "researchJobs",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "source_cursors",
+      "symbol": "sourceCursors",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "source_discoveries",
+      "symbol": "sourceDiscoveries",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "source_snapshots",
+      "symbol": "sourceSnapshots",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "theses",
+      "symbol": "theses",
+      "module": "db/schema.ts"
+    }
+  ],
+  "tests": [
+    {
+      "path": "tests/api-contracts.test.ts",
+      "productionModules": [
+        "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/context-index.test.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/cron-auth.test.ts",
+      "productionModules": [
+        "app/api/internal/research/cron/route.ts"
+      ]
+    },
+    {
+      "path": "tests/document-extraction.test.ts",
+      "productionModules": [
+        "lib/research/extractors/candidate.ts",
+        "lib/research/extractors/document.ts"
+      ]
+    },
+    {
+      "path": "tests/e2e/vertical-slice.spec.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/live-sources.test.ts",
+      "productionModules": [
+        "lib/research/adapters/factory.ts",
+        "lib/research/adapters/issuer.ts",
+        "lib/research/config.ts",
+        "lib/research/http.ts",
+        "lib/research/verifier.ts"
+      ]
+    },
+    {
+      "path": "tests/mock-provider.test.ts",
+      "productionModules": [
+        "lib/ai/adapters/mock.ts",
+        "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/research-service.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/domain/contracts.ts",
+        "lib/research/ingestion.ts",
+        "lib/research/service.ts"
+      ]
+    },
+    {
+      "path": "tests/source-adapters.test.ts",
+      "productionModules": [
+        "lib/research/adapters/idx.ts",
+        "lib/research/adapters/issuer.ts",
+        "lib/research/adapters/sec.ts",
+        "lib/research/http.ts"
+      ]
+    },
+    {
+      "path": "tests/status-check.test.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/verifier.test.ts",
+      "productionModules": [
+        "lib/research/verifier.ts"
+      ]
+    }
+  ]
+}

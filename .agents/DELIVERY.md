@@ -79,3 +79,16 @@ verification. A milestone may be marked `verified` only when:
   follow-up milestone.
 - Every stop point records completed work, failed checks, blockers, evidence
   paths, and the exact next step in `ACTIVE_MILESTONE.md`.
+
+## Document Ownership
+
+- `README.md` is a stable project introduction and links to current status; it
+  must not duplicate volatile implementation state.
+- `ACTIVE_MILESTONE.md` owns the current phase, open boundaries, and next actions.
+- `SESSION_CHECKPOINT.md` owns the detailed handoff and latest verified results.
+- Release manifests are immutable retained evidence for a specific commit/run;
+  later status changes require a new record rather than rewriting history.
+- Decision and learning indexes navigate authority but do not replace their
+  source records.
+- `docs/CODEBASE_MAP.md` owns human-readable code orientation; generated context
+  is derived and must pass its freshness check.

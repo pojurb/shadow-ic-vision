@@ -1,0 +1,62 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, shadow-ic-vision]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RESEARCH_SOURCE_MODE: mock
+      LLM_PROVIDER_TYPE: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-summary
+          path: test-results/verification-summary.json
+          if-no-files-found: ignore
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      E2E_BROWSER: chromium
+      E2E_EVIDENCE_DIR: test-results/evidence
+      RESEARCH_SOURCE_MODE: mock
+      LLM_PROVIDER_TYPE: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
