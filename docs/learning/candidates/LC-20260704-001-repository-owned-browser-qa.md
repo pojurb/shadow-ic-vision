@@ -1,6 +1,6 @@
 # LC-20260704-001 - Required Browser Gates Need A Repository-Owned Harness
 
-Status: `validated`
+Status: `promoted`
 
 Captured: `2026-07-04`
 
@@ -93,11 +93,10 @@ mechanism for a required closure gate.
 
 ## Promotion Or Supersession
 
-- Decision authority: user, because the proposed target is governing playbook
-  guidance in `.agents/QUALITY.md`.
-- Decision date: pending
-- Promotion target: proposed `.agents/QUALITY.md` browser-verification guidance
-- Promotion registry entry: pending
+- Decision authority: user
+- Decision date: 2026-07-05
+- Promotion target: `.agents/QUALITY.md` repository-owned browser-gates guidance
+- Promotion registry entry: `docs/learning/PROMOTIONS.md`, active promotions
 - Supersedes: none
 - Superseded by: none
 - Rollback path: if promoted, remove the added browser-verification guidance,

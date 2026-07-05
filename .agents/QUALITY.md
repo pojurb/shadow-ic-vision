@@ -62,6 +62,21 @@ relevant, failures, and artifact paths.
 Work is not `verified` when required checks were skipped, blocked, or only
 reported from memory. State those limits explicitly.
 
+## Repository-Owned Browser Gates
+
+When browser behavior is a required milestone or release gate, implement the
+acceptance checks in a repository-owned, repeatable browser harness. The harness
+must use isolated synthetic state, assert required behavior and layout, retain
+the minimum required artifacts, and run through a documented repository command.
+
+Interactive Chrome or in-app browser control may supplement required evidence,
+but it must not be the only closure mechanism. Classify interactive-control
+failures as tooling failures before changing product code or browser
+registration.
+
+This requirement does not apply to exploratory design review without a
+repeatable acceptance gate or to usability research requiring human judgment.
+
 ## Architecture ADR Completeness
 
 Before claiming an Architecture Decision Record (ADR) draft is complete and ready for approval, the builder must ensure the document explicitly defines the following:
