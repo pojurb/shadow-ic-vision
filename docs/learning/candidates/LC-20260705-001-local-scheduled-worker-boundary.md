@@ -31,7 +31,8 @@ then manually executed through Task Scheduler and returned result code `0`.
 ## Evidence
 
 - Commit, run, or evidence ID: implementation commit `5376c59`; checkpoint
-  commit `cd8b2b0`; M001 live-source release manifest.
+  commit `cd8b2b0`; deterministic test-isolation fix `803330a`; M001
+  live-source release manifest.
 - Commands or checks: `npm run research:refresh`;
   `npm run research:install-task`; `Get-ScheduledTask`;
   `Get-ScheduledTaskInfo`; manual `Start-ScheduledTask`; `git diff --check`.
