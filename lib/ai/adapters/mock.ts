@@ -55,7 +55,30 @@ export class MockProvider implements LLMProvider {
     schema: z.ZodType<T>,
     schemaName: string,
   ): Promise<StructuredExtractResult<T>> {
-    void schemaName;
+    if (schemaName === 'decision-recommendation-v1') {
+      const candidate = this.mode === 'malformed'
+        ? { recommendedOutcome: 'Invalid' }
+        : {
+            recommendedOutcome: 'Investigate Further',
+            recommendedAction: 'Buy',
+            rationale: 'Palantir gross margin remains strong at 81.3%, but further validation is needed for Indonesian banks.',
+          };
+      const parsed = schema.safeParse(candidate);
+      if (parsed.success) {
+        return {
+          data: parsed.data,
+          success: true,
+          metadata: this.getMetadata(),
+        };
+      }
+      return {
+        data: null,
+        success: false,
+        error: 'Mock provider returned data that failed schema validation.',
+        metadata: this.getMetadata(),
+      };
+    }
+
     const input = messages.at(-1)?.content ?? '';
     const candidate = this.mode === 'malformed' ? { ticker: 42 } : this.fixtureFor(input);
     const parsed = schema.safeParse(candidate);

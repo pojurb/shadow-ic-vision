@@ -37,12 +37,16 @@
 - Made browser QA portable across local Edge and CI Chromium without rewriting
   retained release evidence.
 - Added pull-request CI for standard verification and browser QA.
+- Added Zod contracts, DB services (`recordDecision`, `exportThesisData`, `importThesisData`), API routes, and UI components for the Decision Library and JSON Export/Import.
+- Added unit/integration tests (`tests/decisions.test.ts`) validating decision persistence, export/import round-trips, and cascade deletions.
+- Added Ollama Cloud adapter (`lib/ai/adapters/ollama.ts`), provider factory (`lib/ai/factory.ts`), API key/endpoint integration, and mock-isolated unit tests (`tests/ollama-provider.test.ts`).
+- Added Final Evaluator service (`generateDecisionRecommendation`), recommendation API endpoint, Zod contracts, integration tests, and UI features for requesting and auto-filling AI-suggested decisions.
 
 ## Verification Evidence
 
 - `tsc --noEmit`: pass
 - `eslint .`: pass
-- `vitest run`: 45 pass; 3 opt-in live checks skipped by default
+- `vitest run`: 51 pass; 3 opt-in live checks skipped by default
 - `next build`: pass
 - Playwright Edge: 2 pass
   - deterministic PLTR desktop and narrow Research drawer
@@ -67,8 +71,7 @@
 - The Windows scheduled task is installed. A manual Task Scheduler execution
   completed with result code `0`; the next automatic run is scheduled for
   2026-07-06 08:00 Asia/Jakarta.
-- M001 remains open for Decision Library completion, export/import, final evaluator,
-  and the accepted multimodal OCR/vision/XBRL work.
+- M001 remains open for the accepted multimodal OCR/vision/XBRL work.
 - No real model/provider is approved or connected.
 - Secondary-source and general-news ingestion remain deferred.
 - `npm audit` reports six moderate dependency findings; no forced breaking upgrade

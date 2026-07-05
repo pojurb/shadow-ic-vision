@@ -6,6 +6,8 @@ import type { AppDatabase } from '@/db/client';
 import { getDatabase } from '@/db/client';
 import {
   assumptions,
+  conversations,
+  decisions,
   evidence,
   messages,
   researchJobs,
@@ -15,7 +17,15 @@ import {
 import {
   thesisDraftSchema,
   type ResearchPanelDTO,
+  type DecisionOutcome,
+  type DecisionAction,
+  type DecisionDTO,
+  type ThesisExport,
+  decisionRecommendationSchema,
+  type DecisionRecommendation,
 } from '@/lib/domain/contracts';
+import { getLLMProvider } from '@/lib/ai/factory';
+import type { ProjectMessage } from '@/lib/ai/provider';
 import { CitationPipeline } from './pipeline';
 import { getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
@@ -119,7 +129,7 @@ export async function getResearchPanel(
   const { db } = dependencies(input);
   const thesis = await db.select().from(theses).where(eq(theses.conversationId, conversationId)).get();
   if (!thesis || !thesis.ticker || !thesis.companyName || !thesis.market || !thesis.coreBelief) {
-    return { thesis: null, items: [] };
+    return { thesis: null, items: [], decisions: [] };
   }
 
   const rows = await db
@@ -133,6 +143,31 @@ export async function getResearchPanel(
   const evidenceRows = assumptionIds.length
     ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
     : [];
+
+  const decisionRows = await db
+    .select()
+    .from(decisions)
+    .where(eq(decisions.thesisId, thesis.id))
+    .all();
+
+  const mappedDecisions: DecisionDTO[] = decisionRows.map((row) => {
+    let outcome: DecisionOutcome = 'No Change';
+    let optionalAction: DecisionAction = null;
+    if (row.decision.includes(': ')) {
+      const [outStr, actStr] = row.decision.split(': ');
+      outcome = outStr as DecisionOutcome;
+      optionalAction = actStr as DecisionAction;
+    } else {
+      outcome = row.decision as DecisionOutcome;
+    }
+    return {
+      id: row.id,
+      outcome,
+      optionalAction,
+      userReasoning: row.rationale,
+      timestamp: row.createdAt,
+    };
+  });
 
   return {
     thesis: {
@@ -172,6 +207,7 @@ export async function getResearchPanel(
           interpretationStatus: record.interpretationStatus,
         })),
     })),
+    decisions: mappedDecisions,
   };
 }
 
@@ -370,4 +406,287 @@ function candidateFor(market: 'US' | 'ID', assumption: string) {
     impactSummary: 'PLTR reported gross margin of 81.3%, supporting the assumption that gross margin remains above 80%.',
     pageNumber: null,
   };
+}
+
+export async function recordDecision(
+  thesisId: string,
+  outcome: DecisionOutcome,
+  optionalAction: DecisionAction,
+  userReasoning: string,
+  input: ServiceDependencies = {},
+) {
+  const { db, now } = dependencies(input);
+  const decisionId = randomUUID();
+  const serializedDecision = optionalAction ? `${outcome}: ${optionalAction}` : outcome;
+  const createdAt = now().toISOString();
+
+  await db.insert(decisions).values({
+    id: decisionId,
+    thesisId,
+    decision: serializedDecision,
+    rationale: userReasoning,
+    createdAt,
+  }).run();
+
+  return { id: decisionId, outcome, optionalAction, userReasoning, timestamp: createdAt };
+}
+
+export async function exportThesisData(
+  thesisId: string,
+  input: ServiceDependencies = {},
+): Promise<ThesisExport> {
+  const { db } = dependencies(input);
+  const thesis = await db.select().from(theses).where(eq(theses.id, thesisId)).get();
+  if (!thesis) throw new Error('Thesis not found.');
+
+  const assumptionRows = await db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).all();
+  const assumptionIds = assumptionRows.map((a) => a.id);
+
+  const evidenceRows = assumptionIds.length
+    ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
+    : [];
+
+  const decisionRows = await db.select().from(decisions).where(eq(decisions.thesisId, thesisId)).all();
+
+  const exportedAssumptions = assumptionRows.map((a) => {
+    const aEvidence = evidenceRows
+      .filter((e) => e.assumptionId === a.id)
+      .map((e) => ({
+        sourceTier: e.sourceTier,
+        sourceName: e.sourceName,
+        sourceUrl: e.sourceUrl,
+        publishDate: e.publishDate,
+        retrievalTimestamp: e.retrievalTimestamp,
+        exactQuote: e.content,
+        impactSummary: e.impactSummary,
+        verificationStatus: e.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
+        sourceFormat: e.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
+        extractionMethod: e.extractionMethod,
+        pageNumber: e.pageNumber,
+        interpretationStatus: e.interpretationStatus as 'pending' | 'deterministic' | 'model',
+        metadata: e.metadata,
+      }));
+
+    return {
+      statement: a.statement,
+      status: a.status,
+      createdAt: a.createdAt,
+      evidence: aEvidence,
+    };
+  });
+
+  const exportedDecisions = decisionRows.map((row) => {
+    let outcome: DecisionOutcome = 'No Change';
+    let optionalAction: DecisionAction = null;
+    if (row.decision.includes(': ')) {
+      const [outStr, actStr] = row.decision.split(': ');
+      outcome = outStr as DecisionOutcome;
+      optionalAction = actStr as DecisionAction;
+    } else {
+      outcome = row.decision as DecisionOutcome;
+    }
+    return {
+      outcome,
+      optionalAction,
+      userReasoning: row.rationale,
+      timestamp: row.createdAt,
+    };
+  });
+
+  return {
+    version: 1,
+    thesis: {
+      ticker: thesis.ticker ?? '',
+      companyName: thesis.companyName ?? '',
+      market: thesis.market as 'US' | 'ID',
+      coreBelief: thesis.coreBelief ?? '',
+      title: thesis.title,
+      description: thesis.description,
+      status: thesis.status as 'active' | 'archived',
+      createdAt: thesis.createdAt,
+    },
+    assumptions: exportedAssumptions,
+    decisions: exportedDecisions,
+  };
+}
+
+export async function importThesisData(
+  exportData: ThesisExport,
+  input: ServiceDependencies = {},
+) {
+  const { db, now } = dependencies(input);
+  const { thesis: importedThesis, assumptions: importedAssumptions, decisions: importedDecisions } = exportData;
+
+  const conversationId = randomUUID();
+  const draftMessageId = randomUUID();
+  const thesisId = randomUUID();
+
+  return db.transaction((tx) => {
+    tx.insert(conversations).values({
+      id: conversationId,
+      title: `Imported: ${importedThesis.ticker} — ${importedThesis.companyName}`,
+      createdAt: now().toISOString(),
+      updatedAt: now().toISOString(),
+    }).run();
+
+    const draftPayload = {
+      ticker: importedThesis.ticker,
+      companyName: importedThesis.companyName,
+      market: importedThesis.market,
+      coreBelief: importedThesis.coreBelief,
+      assumptions: importedAssumptions.map(a => ({ statement: a.statement, status: a.status })),
+      requiresChallenge: false
+    };
+
+    tx.insert(messages).values({
+      id: draftMessageId,
+      conversationId,
+      role: 'assistant',
+      content: 'Imported thesis package.',
+      structuredPayload: JSON.stringify(draftPayload),
+      validationOutcome: 'valid',
+      createdAt: importedThesis.createdAt,
+    }).run();
+
+    tx.insert(theses).values({
+      id: thesisId,
+      conversationId,
+      draftMessageId,
+      ticker: importedThesis.ticker,
+      companyName: importedThesis.companyName,
+      market: importedThesis.market,
+      coreBelief: importedThesis.coreBelief,
+      title: importedThesis.title,
+      description: importedThesis.description,
+      status: importedThesis.status,
+      createdAt: importedThesis.createdAt,
+      updatedAt: now().toISOString(),
+    }).run();
+
+    for (const a of importedAssumptions) {
+      const assumptionId = randomUUID();
+      tx.insert(assumptions).values({
+        id: assumptionId,
+        thesisId,
+        statement: a.statement,
+        status: a.status,
+        createdAt: a.createdAt,
+        updatedAt: now().toISOString(),
+      }).run();
+
+      tx.insert(researchJobs).values({
+        id: randomUUID(),
+        assumptionId,
+        status: 'succeeded',
+        sourceMode: 'mock',
+        updatedAt: now().toISOString(),
+      }).run();
+
+      for (const e of a.evidence) {
+        tx.insert(evidence).values({
+          id: randomUUID(),
+          assumptionId,
+          sourceFormat: e.sourceFormat,
+          contentKind: 'text',
+          extractionMethod: e.extractionMethod,
+          verificationStatus: e.verificationStatus,
+          sourceTier: e.sourceTier,
+          sourceName: e.sourceName,
+          publishDate: e.publishDate,
+          documentHash: 'imported-hash-' + randomUUID().substring(0, 8),
+          sourceUrl: e.sourceUrl,
+          retrievalTimestamp: e.retrievalTimestamp,
+          content: e.exactQuote,
+          impactSummary: e.impactSummary,
+          pageNumber: e.pageNumber,
+          interpretationStatus: e.interpretationStatus,
+          metadata: e.metadata,
+        }).run();
+      }
+    }
+
+    for (const d of importedDecisions) {
+      const decisionId = randomUUID();
+      const serializedDecision = d.optionalAction ? `${d.outcome}: ${d.optionalAction}` : d.outcome;
+      tx.insert(decisions).values({
+        id: decisionId,
+        thesisId,
+        decision: serializedDecision,
+        rationale: d.userReasoning,
+        createdAt: d.timestamp,
+      }).run();
+    }
+
+    return { conversationId, thesisId };
+  });
+}
+
+export async function generateDecisionRecommendation(
+  thesisId: string,
+  input: ServiceDependencies = {}
+): Promise<DecisionRecommendation> {
+  const { db } = dependencies(input);
+
+  const thesis = await db.select().from(theses).where(eq(theses.id, thesisId)).get();
+  if (!thesis) throw new Error('Thesis not found.');
+
+  const assumptionRows = await db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).all();
+  const assumptionIds = assumptionRows.map((a) => a.id);
+
+  const evidenceRows = assumptionIds.length
+    ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
+    : [];
+
+  let contextPrompt = `You are evaluating an investment thesis for ${thesis.companyName} (${thesis.ticker}).\n`;
+  contextPrompt += `Core Belief: "${thesis.coreBelief}"\n\n`;
+  contextPrompt += `Please review the following underlying assumptions and the verified evidence retrieved for them:\n\n`;
+
+  for (const a of assumptionRows) {
+    contextPrompt += `Assumption: "${a.statement}" (Current Status: ${a.status})\n`;
+    const aEvidence = evidenceRows.filter((e) => e.assumptionId === a.id);
+    if (aEvidence.length === 0) {
+      contextPrompt += `- No verified evidence found.\n`;
+    } else {
+      for (const e of aEvidence) {
+        contextPrompt += `- Evidence from ${e.sourceName} (${e.publishDate ?? 'N/A'}): "${e.content}"\n`;
+        contextPrompt += `  Impact: ${e.impactSummary}\n`;
+      }
+    }
+    contextPrompt += `\n`;
+  }
+
+  contextPrompt += `Based on the provided verified evidence, recommend the most appropriate next action.\n`;
+  contextPrompt += `Choose one of the following recommended outcomes:\n`;
+  contextPrompt += `- 'No Change': The evidence supports all assumptions, or there is no new conflicting information.\n`;
+  contextPrompt += `- 'Investigate Further': There are gaps in evidence, or some evidence is degraded/unclear.\n`;
+  contextPrompt += `- 'Update Thesis': Some evidence directly challenges or contradicts the assumptions, requiring a thesis modification.\n`;
+  contextPrompt += `- 'Archive': The core belief is invalidated or no longer relevant.\n\n`;
+  contextPrompt += `Choose one optional action: 'Buy', 'Hold', 'Reduce', 'Exit', or null.\n`;
+  contextPrompt += `Provide a concise rationale (1-3 sentences) explaining the reasoning.\n`;
+  contextPrompt += `Do not give direct trade advice, but align your recommendation strictly with the evidence ledger.\n`;
+
+  const provider = getLLMProvider();
+
+  const messages: ProjectMessage[] = [
+    {
+      role: 'system',
+      content: 'You are an objective financial analyst assistant. You output structured recommendation JSON conforming exactly to the requested schema.',
+    },
+    {
+      role: 'user',
+      content: contextPrompt,
+    },
+  ];
+
+  const result = await provider.structuredExtract(
+    messages,
+    decisionRecommendationSchema,
+    'decision-recommendation-v1'
+  );
+
+  if (!result.success || !result.data) {
+    throw new Error(result.error ?? 'Failed to generate recommendation from LLM.');
+  }
+
+  return result.data;
 }

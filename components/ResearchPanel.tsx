@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ResearchPanelDTO } from '@/lib/domain/contracts';
+import type { ResearchPanelDTO, DecisionOutcome, DecisionAction } from '@/lib/domain/contracts';
 import styles from './Workspace.module.css';
 
-const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [] };
+const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [], decisions: [] };
 
 export function ResearchPanel({
   conversationId,
@@ -21,6 +21,93 @@ export function ResearchPanel({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [outcome, setOutcome] = useState<'No Change' | 'Investigate Further' | 'Update Thesis' | 'Archive'>('No Change');
+  const [optionalAction, setOptionalAction] = useState<'Buy' | 'Hold' | 'Reduce' | 'Exit' | null>(null);
+  const [userReasoning, setUserReasoning] = useState('');
+  const [recording, setRecording] = useState(false);
+
+  const [analyzing, setAnalyzing] = useState(false);
+  const [recommendation, setRecommendation] = useState<{
+    recommendedOutcome: 'No Change' | 'Investigate Further' | 'Update Thesis' | 'Archive';
+    recommendedAction: 'Buy' | 'Hold' | 'Reduce' | 'Exit' | null;
+    rationale: string;
+  } | null>(null);
+
+  const getSystemRecommendation = async () => {
+    if (!data.thesis) return;
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/theses/${data.thesis.id}/recommendation`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Unable to get recommendation.');
+      setRecommendation(body);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to get recommendation.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const applyRecommendation = () => {
+    if (!recommendation) return;
+    setOutcome(recommendation.recommendedOutcome);
+    setOptionalAction(recommendation.recommendedAction);
+    setUserReasoning(recommendation.rationale);
+  };
+
+  const recordUserDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data.thesis) return;
+    if (!userReasoning.trim()) {
+      setError('Please provide reasoning for the decision.');
+      return;
+    }
+    setRecording(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/theses/${data.thesis.id}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome, optionalAction, userReasoning }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Unable to record decision.');
+      
+      setUserReasoning('');
+      setOutcome('No Change');
+      setOptionalAction(null);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to record decision.');
+    } finally {
+      setRecording(false);
+    }
+  };
+
+  const triggerExport = async () => {
+    if (!data.thesis) return;
+    try {
+      setError(null);
+      const res = await fetch(`/api/theses/${data.thesis.id}/export`);
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error ?? 'Export failed.');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `thesis-export-${data.thesis.ticker}-${data.thesis.market}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Export failed.');
+    }
+  };
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/research?conversationId=${encodeURIComponent(conversationId)}`);
@@ -119,9 +206,22 @@ export function ResearchPanel({
               <span>{data.thesis.market}</span>
             </div>
             <p>{data.thesis.companyName}</p>
-            <button className={styles.refreshSources} onClick={refreshAll} disabled={refreshing}>
-              {refreshing ? 'Refreshingâ€¦' : 'Refresh official sources'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button className={styles.refreshSources} onClick={refreshAll} disabled={refreshing}>
+                {refreshing ? 'Refreshing…' : 'Refresh official sources'}
+              </button>
+              <button
+                className={styles.refreshSources}
+                onClick={triggerExport}
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary, #333)',
+                  color: '#fff',
+                  border: '1px solid #555',
+                }}
+              >
+                Export
+              </button>
+            </div>
             {data.ingestion && (
               <div className={styles.ingestionStatus}>
                 <span>Daily refresh</span>
@@ -174,6 +274,139 @@ export function ResearchPanel({
               ))}
             </article>
           ))}
+
+          {/* Decision Library section */}
+          <section className={styles.thesisSummary} style={{ borderTop: '1px solid #444', marginTop: '24px', paddingTop: '24px' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#fff' }}>Decision Library</h3>
+            
+            {data.decisions.length === 0 ? (
+              <p className={styles.muted} style={{ fontSize: '0.875rem' }}>No decisions recorded yet for this thesis.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                {data.decisions.map((dec) => (
+                  <div key={dec.id} style={{ backgroundColor: '#222', padding: '12px', borderRadius: '6px', fontSize: '0.875rem', borderLeft: '3px solid #ff4444' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <strong style={{ color: '#fff' }}>
+                        {dec.outcome} {dec.optionalAction ? `(${dec.optionalAction})` : ''}
+                      </strong>
+                      <span className={styles.muted} style={{ fontSize: '0.75rem' }}>
+                        {new Date(dec.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, color: '#ccc' }}>{dec.userReasoning}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={recordUserDecision} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>Record New Decision</h4>
+                <button
+                  type="button"
+                  onClick={getSystemRecommendation}
+                  disabled={analyzing}
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '4px 8px',
+                    backgroundColor: 'var(--color-bg-secondary, #333)',
+                    color: '#ff4444',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {analyzing ? 'Analyzing…' : '🪄 Ask AI Analyst'}
+                </button>
+              </div>
+
+              {recommendation && (
+                <div style={{ backgroundColor: '#111', border: '1px dashed #ff4444', padding: '12px', borderRadius: '4px', fontSize: '0.875rem', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
+                    <strong style={{ color: '#ff4444' }}>AI Suggestion:</strong>
+                    <button
+                      type="button"
+                      onClick={applyRecommendation}
+                      style={{
+                        fontSize: '0.725rem',
+                        padding: '2px 6px',
+                        backgroundColor: '#ff4444',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '2px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  <p style={{ margin: '0 0 6px 0', color: '#fff', fontWeight: 'bold' }}>
+                    {recommendation.recommendedOutcome}
+                    {recommendation.recommendedAction ? ` (${recommendation.recommendedAction})` : ''}
+                  </p>
+                  <p style={{ margin: 0, color: '#ccc', fontSize: '0.8rem', lineHeight: '1.4', fontStyle: 'italic' }}>{recommendation.rationale}</p>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1 }}>
+                  <label htmlFor="outcome-select" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>Outcome</label>
+                  <select
+                    id="outcome-select"
+                    value={outcome}
+                    onChange={(e) => setOutcome(e.target.value as DecisionOutcome)}
+                    style={{ width: '100%', padding: '6px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
+                  >
+                    <option value="No Change">No Change</option>
+                    <option value="Investigate Further">Investigate Further</option>
+                    <option value="Update Thesis">Update Thesis</option>
+                    <option value="Archive">Archive</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label htmlFor="action-select" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>Optional Action</label>
+                  <select
+                    id="action-select"
+                    value={optionalAction || ''}
+                    onChange={(e) => setOptionalAction(e.target.value ? (e.target.value as DecisionAction) : null)}
+                    style={{ width: '100%', padding: '6px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
+                  >
+                    <option value="">None</option>
+                    <option value="Buy">Buy</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Reduce">Reduce</option>
+                    <option value="Exit">Exit</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="reasoning-textarea" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>User Reasoning / Rationale</label>
+                <textarea
+                  id="reasoning-textarea"
+                  rows={3}
+                  value={userReasoning}
+                  onChange={(e) => setUserReasoning(e.target.value)}
+                  placeholder="Explain the reasoning..."
+                  style={{ width: '100%', padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px', resize: 'vertical' }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={recording}
+                style={{
+                  padding: '8px',
+                  backgroundColor: '#ff4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                }}
+              >
+                {recording ? 'Recording…' : 'Record Decision'}
+              </button>
+            </form>
+          </section>
         </div>
       )}
     </aside>

@@ -15,6 +15,7 @@ export default defineConfig({
     restoreMocks: true,
     env: {
       RESEARCH_SOURCE_MODE: 'mock',
+      LLM_PROVIDER_TYPE: 'mock',
     },
   },
 });

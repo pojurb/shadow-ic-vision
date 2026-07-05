@@ -77,6 +77,93 @@ export type EvidenceDTO = {
   interpretationStatus: 'pending' | 'deterministic' | 'model';
 };
 
+export const decisionOutcomeSchema = z.enum([
+  'No Change',
+  'Investigate Further',
+  'Update Thesis',
+  'Archive',
+]);
+
+export const decisionActionSchema = z.enum([
+  'Buy',
+  'Hold',
+  'Reduce',
+  'Exit',
+]).nullable();
+
+export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
+export type DecisionAction = z.infer<typeof decisionActionSchema>;
+
+export const recordDecisionRequestSchema = z.object({
+  outcome: decisionOutcomeSchema,
+  optionalAction: decisionActionSchema,
+  userReasoning: z.string().trim().min(1).max(4_000),
+});
+
+export type DecisionDTO = {
+  id: string;
+  outcome: DecisionOutcome;
+  optionalAction: DecisionAction;
+  userReasoning: string;
+  timestamp: string;
+};
+
+export const thesisExportSchema = z.object({
+  version: z.literal(1),
+  thesis: z.object({
+    ticker: z.string().trim().min(1).max(12),
+    companyName: z.string().trim().min(1).max(160),
+    market: marketSchema,
+    coreBelief: z.string().trim().min(1).max(4_000),
+    title: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    status: z.enum(['active', 'archived']),
+    createdAt: z.string(),
+  }),
+  assumptions: z.array(
+    z.object({
+      statement: z.string().trim().min(1).max(1_000),
+      status: assumptionStatusSchema,
+      createdAt: z.string(),
+      evidence: z.array(
+        z.object({
+          sourceTier: z.enum(['official', 'secondary']),
+          sourceName: z.string(),
+          sourceUrl: z.string(),
+          publishDate: z.string().nullable(),
+          retrievalTimestamp: z.string(),
+          exactQuote: z.string(),
+          impactSummary: z.string(),
+          verificationStatus: z.enum(['exact_verified', 'ocr_matched', 'derived']),
+          sourceFormat: z.enum(['html', 'pdf', 'image', 'xbrl']),
+          extractionMethod: z.string(),
+          pageNumber: z.number().nullable(),
+          interpretationStatus: z.enum(['pending', 'deterministic', 'model']),
+          metadata: z.string().nullable(),
+        })
+      ),
+    })
+  ),
+  decisions: z.array(
+    z.object({
+      outcome: decisionOutcomeSchema,
+      optionalAction: decisionActionSchema,
+      userReasoning: z.string().trim().min(1).max(4_000),
+      timestamp: z.string(),
+    })
+  ),
+});
+
+export type ThesisExport = z.infer<typeof thesisExportSchema>;
+
+export const decisionRecommendationSchema = z.object({
+  recommendedOutcome: decisionOutcomeSchema,
+  recommendedAction: decisionActionSchema,
+  rationale: z.string().trim().min(1).max(4_000),
+});
+
+export type DecisionRecommendation = z.infer<typeof decisionRecommendationSchema>;
+
 export type ResearchItemDTO = {
   assumptionId: string;
   statement: string;
@@ -101,6 +188,7 @@ export type ResearchPanelDTO = {
     coreBelief: string;
   } | null;
   items: ResearchItemDTO[];
+  decisions: DecisionDTO[];
   ingestion?: {
     schedule: string;
     nextScheduledAt: string;

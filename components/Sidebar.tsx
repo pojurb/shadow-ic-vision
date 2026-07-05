@@ -42,13 +42,55 @@ export function Sidebar() {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+
+      const res = await fetch('/api/theses/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unable to import thesis.');
+
+      const listRes = await fetch('/api/conversations');
+      const listData = await listRes.json();
+      if (Array.isArray(listData)) setConversations(listData);
+
+      if (data.conversationId) {
+        router.push(`/c/${data.conversationId}`);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Import failed. Ensure it is a valid thesis JSON package.');
+    } finally {
+      e.target.value = ''; // Reset file input
+    }
+  };
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.sidebarHeader}>
         <h2>Theses</h2>
-        <button onClick={createNew} className={styles.newButton}>+ New</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={createNew} className={styles.newButton}>+ New</button>
+          <label className={styles.newButton} style={{ cursor: 'pointer', margin: 0, display: 'flex', alignItems: 'center' }}>
+            Import
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
       </div>
-      {error && <p className={styles.sidebarError}>{error}</p>}
+      {error && <p className={styles.sidebarError} style={{ color: 'var(--color-error, red)', fontSize: '0.875rem', padding: '0 16px' }}>{error}</p>}
       <ul className={styles.conversationList}>
         {conversations.map(c => (
           <li key={c.id}>

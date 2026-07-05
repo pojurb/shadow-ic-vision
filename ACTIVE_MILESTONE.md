@@ -27,7 +27,7 @@ This improves M001 delivery without expanding product scope.
 
 - TypeScript: pass
 - ESLint: pass
-- Vitest: 45 pass; 3 live checks skipped in the default suite
+- Vitest: 51 pass; 3 live checks skipped in the default suite
 - Next.js production build: pass
 - Playwright Edge: 2 pass
 - Live smoke: SEC, IDX, and official BRI issuer fallback all retrieved and hashed
@@ -42,9 +42,7 @@ This improves M001 delivery without expanding product scope.
 - Unified `verify` and `verify:full`: pass
 - Routine Playwright artifacts remain under ignored `test-results/`: pass
 
-These results close the SEC/IDX/issuer retrieval validation gap. M001 remains
-open because the Decision Library, export/import, final evaluator, and accepted
-multimodal OCR/vision/XBRL scope are not complete.
+These results close the SEC/IDX/issuer retrieval validation gap. M001 remains open because the accepted multimodal OCR/vision/XBRL scope is not complete (though the Decision Library backend, JSON export/import data services, the final evaluator AI suggestion system, and associated integration tests are now fully implemented and verified).
 
 ## Next Step
 

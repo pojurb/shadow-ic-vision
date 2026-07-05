@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { addMessage, getConversation, getMessages, getThesisForConversation, toMessageDTO } from '@/db/queries';
-import { MockProvider } from '@/lib/ai/adapters/mock';
+import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
 import { chatRequestSchema, thesisDraftSchema } from '@/lib/domain/contracts';
 
-const llmProvider = new MockProvider();
+const llmProvider = getLLMProvider();
 
 export async function POST(request: Request) {
   try {

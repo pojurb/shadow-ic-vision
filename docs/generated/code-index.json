@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "fe51255884bb14d1df3c69980af071ddc920600eca40fb076b5c1e6397dcbb65",
+  "sourceDigest": "0ed916828e11c2cfd4aa9da5d39b2f05f18eff0aa80670b9c05d32d0df8d054e",
   "roots": [
     "app",
     "components",
@@ -18,8 +18,8 @@
           "resolved": "db/queries.ts"
         },
         {
-          "specifier": "@/lib/ai/adapters/mock",
-          "resolved": "lib/ai/adapters/mock.ts"
+          "specifier": "@/lib/ai/factory",
+          "resolved": "lib/ai/factory.ts"
         },
         {
           "specifier": "@/lib/ai/provider",
@@ -177,7 +177,83 @@
       ]
     },
     {
+      "path": "app/api/theses/[id]/decision/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/theses/[id]/export/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET"
+      ]
+    },
+    {
+      "path": "app/api/theses/[id]/recommendation/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET"
+      ]
+    },
+    {
       "path": "app/api/theses/confirm/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
+    {
+      "path": "app/api/theses/import/route.ts",
       "kind": "route",
       "imports": [
         {
@@ -489,6 +565,44 @@
       ]
     },
     {
+      "path": "lib/ai/adapters/ollama.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "OllamaProvider"
+      ]
+    },
+    {
+      "path": "lib/ai/factory.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./adapters/mock",
+          "resolved": "lib/ai/adapters/mock.ts"
+        },
+        {
+          "specifier": "./adapters/ollama",
+          "resolved": "lib/ai/adapters/ollama.ts"
+        },
+        {
+          "specifier": "./provider",
+          "resolved": "lib/ai/provider.ts"
+        }
+      ],
+      "exports": [
+        "getLLMProvider"
+      ]
+    },
+    {
       "path": "lib/ai/provider.ts",
       "kind": "module",
       "imports": [
@@ -516,19 +630,29 @@
         }
       ],
       "exports": [
+        "DecisionAction",
+        "DecisionDTO",
+        "DecisionOutcome",
+        "DecisionRecommendation",
         "EvidenceDTO",
         "MessageDTO",
         "ResearchItemDTO",
         "ResearchPanelDTO",
         "ThesisDraft",
+        "ThesisExport",
         "assumptionStatusSchema",
         "chatRequestSchema",
         "confirmRequestSchema",
+        "decisionActionSchema",
+        "decisionOutcomeSchema",
+        "decisionRecommendationSchema",
         "marketSchema",
+        "recordDecisionRequestSchema",
         "researchJobStatusSchema",
         "researchRetryRequestSchema",
         "researchRunRequestSchema",
-        "thesisDraftSchema"
+        "thesisDraftSchema",
+        "thesisExportSchema"
       ]
     },
     {
@@ -933,6 +1057,14 @@
           "resolved": "db/schema.ts"
         },
         {
+          "specifier": "@/lib/ai/factory",
+          "resolved": "lib/ai/factory.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
         },
@@ -951,8 +1083,12 @@
       ],
       "exports": [
         "confirmDraft",
+        "exportThesisData",
+        "generateDecisionRecommendation",
         "getResearchPanel",
+        "importThesisData",
         "processResearchJobs",
+        "recordDecision",
         "retryResearchJob"
       ]
     },
@@ -1062,6 +1198,49 @@
       "exports": []
     },
     {
+      "path": "tests/decisions.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/document-extraction.test.ts",
       "kind": "test",
       "imports": [
@@ -1141,6 +1320,21 @@
         {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/ollama-provider.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/ai/adapters/ollama",
+          "resolved": "lib/ai/adapters/ollama.ts"
         },
         {
           "specifier": "vitest",
@@ -1342,9 +1536,41 @@
       ]
     },
     {
+      "path": "/api/theses/[id]/decision",
+      "kind": "route",
+      "module": "app/api/theses/[id]/decision/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/theses/[id]/export",
+      "kind": "route",
+      "module": "app/api/theses/[id]/export/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/theses/[id]/recommendation",
+      "kind": "route",
+      "module": "app/api/theses/[id]/recommendation/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/api/theses/confirm",
       "kind": "route",
       "module": "app/api/theses/confirm/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/theses/import",
+      "kind": "route",
+      "module": "app/api/theses/import/route.ts",
       "methods": [
         "POST"
       ]
@@ -1447,6 +1673,15 @@
       ]
     },
     {
+      "path": "tests/decisions.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/domain/contracts.ts",
+        "lib/research/service.ts"
+      ]
+    },
+    {
       "path": "tests/document-extraction.test.ts",
       "productionModules": [
         "lib/research/extractors/candidate.ts",
@@ -1472,6 +1707,12 @@
       "productionModules": [
         "lib/ai/adapters/mock.ts",
         "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/ollama-provider.test.ts",
+      "productionModules": [
+        "lib/ai/adapters/ollama.ts"
       ]
     },
     {
