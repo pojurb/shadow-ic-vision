@@ -13,7 +13,7 @@ with a current authoritative target may guide future work.
 |---|---|---|---|---|---|---|
 | LC-20260703-001 | `promoted` | `quality` | M001 | ADR first drafts miss deployment contract, pipeline stages, source adapter contracts, provider status, and testing architecture | [LC-20260703-001](candidates/LC-20260703-001-adr-completeness-checklist.md) | 2026-07-03 |
 | LC-20260704-001 | `promoted` | `quality` | M001 | Required browser gates need a repeatable repository-owned harness; interactive browser control is supplementary | [LC-20260704-001](candidates/LC-20260704-001-repository-owned-browser-qa.md) | 2026-07-05 |
-| LC-20260705-001 | `candidate` | `quality` | M001 | Scheduled workers must share the approved durable persistence boundary and pass a real scheduler execution check | [LC-20260705-001](candidates/LC-20260705-001-local-scheduled-worker-boundary.md) | pending |
+| LC-20260705-001 | `validated` | `quality` | M001 | Scheduled workers must share the approved durable persistence boundary and pass a real scheduler execution check | [LC-20260705-001](candidates/LC-20260705-001-local-scheduled-worker-boundary.md) | 2026-07-05 |
 
 ## Current Promoted Knowledge
 

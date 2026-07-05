@@ -1,6 +1,6 @@
 # LC-20260705-001 - Scheduled Workers Must Share The Durable Persistence Boundary
 
-Status: `candidate`
+Status: `validated`
 
 Captured: `2026-07-05`
 
@@ -85,22 +85,21 @@ environment.
 
 ## Independent Review
 
-- Reviewer: Antigravity (Gemini 3.1 Pro) and Antigravity (Claude Sonnet 4.6
-  with extended thinking)
+- Reviewer: Antigravity (Gemini 3.1 Pro), follow-up after remediation; initial
+  review also included Antigravity (Claude Sonnet 4.6 with extended thinking)
 - Review date: 2026-07-05
-- Evidence reproduced: `no` for the clean checkpoint claim; both reviewers
-  reproduced the commits and architecture evidence.
+- Evidence reproduced: `yes`
 - Duplicate or conflict check: clear; the lesson aligns with ADR-0006 and is
   not duplicated in the governing modules.
 - Privacy check: passed; no credentials, investment data, or restricted
   information is present.
-- Disposition: `needs-more-evidence`
-- Reason: both reviewers found the default deterministic suite failing while
-  `.env` selected live mode. Independent reproduction showed that Vitest was
-  inheriting `RESEARCH_SOURCE_MODE=live`, not that the scheduler lesson was
-  invalid. The default Vitest configuration now explicitly forces mock mode and
-  locally passes 40 tests with 3 live-only skips, but an independent reviewer
-  must reproduce the committed fix before this candidate becomes validated.
+- Disposition: `validated`
+- Reason: Gemini reproduced commits `5376c59`, `cd8b2b0`, `803330a`, and
+  `ca515ea`; ran `npm test`, `npm run typecheck`, and `npm run lint`; confirmed
+  that default Vitest explicitly forces mock mode independently of local `.env`;
+  and observed 40 passing deterministic tests. The scheduled-worker persistence
+  lesson is reproducible, non-duplicative, privacy-safe, and aligned with
+  ADR-0006.
 
 ## Promotion Or Supersession
 
