@@ -11,12 +11,12 @@
     "test": "vitest run",
     "test:live-sources": "vitest run --config vitest.live.config.ts",
     "test:e2e": "playwright test",
-    "context:generate": "node --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/context-index.ts --write",
-    "context:check": "node --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/context-index.ts --check",
-    "status:check": "node --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/status-check.ts",
-    "verify": "node --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/verify.ts",
-    "verify:full": "node --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/verify.ts --full",
-    "research:refresh": "node --conditions=react-server --import ./node_modules/drizzle-kit/node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
+    "context:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/context-index.ts --write",
+    "context:check": "node --import ./node_modules/tsx/dist/loader.mjs scripts/context-index.ts --check",
+    "status:check": "node --import ./node_modules/tsx/dist/loader.mjs scripts/status-check.ts",
+    "verify": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts",
+    "verify:full": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts --full",
+    "research:refresh": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
     "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1"
   },
   "dependencies": {
