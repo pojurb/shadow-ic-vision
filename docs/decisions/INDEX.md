@@ -13,7 +13,7 @@ must match the linked documents.
 | ADR-0006 | `accepted` | [M001 architecture](ADR-0006-m001-stack.md) | Runtime and persistence | Private M001 runtime and SQLite remain local |
 | DEC-0007 | `accepted` | [Governed builder learning](DEC-0007-governed-builder-learning.md) | Reusable learning | Independent review and explicit promotion authority |
 | DEC-0008 | `accepted` | [Multimodal amendment](DEC-0008-m001-multimodal-amendment.md) | M001 multimodal scope | OCR, vision, tables, charts, and XBRL remain governed requirements |
-| DEC-0009 | `proposed` | [M001 provider security gate](DEC-0009-provider-security-gate.md) | M001 provider approval | Cloud providers remain unapproved for confidential data; local/synthetic exploration is the proposed next path |
+| DEC-0009 | `proposed` | [M001 provider security gate](DEC-0009-provider-security-gate.md) | M001 provider approval | External provider processing is proposed as the POC default; production use still requires a separate decision |
 
 ## Historical Drafts
 

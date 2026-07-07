@@ -68,11 +68,12 @@ Latest full verification: 2026-07-07.
 
 ## Remaining Boundaries
 
-- No real OCR engine, vision model, local model, or cloud provider was approved
-  or connected in this slice.
+- No real OCR engine, vision model, local model, or production cloud provider
+  was approved or connected in this slice.
 - [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) has been
-  drafted as the next provider/security gate. It keeps cloud providers blocked
-  for confidential data and proposes local/synthetic exploration only.
+  drafted as the next provider/security gate. It proposes external provider
+  processing as the POC default, while keeping production use and selectable
+  model eligibility separately gated.
 - The multimodal evaluator currently proves deterministic application gates and
   fixture behavior only. It does not approve selectable product models.
 - Confidential thesis, assumption, decision, portfolio, and user-provided data
@@ -85,10 +86,10 @@ Latest full verification: 2026-07-07.
 
 1. Review [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) with
    the user.
-2. If accepted, implement the next local-only OCR/vision exploration slice with
-   synthetic fixtures and public/non-confidential documents only.
-3. Keep `modelEligibility: not_evaluated` and do not send confidential data to
-   any cloud provider until a provider-specific approval record is accepted.
+2. If accepted, implement the controlled POC external-provider gate with
+   outbound logging, blocked secret classes, and evaluator coverage.
+3. Keep `modelEligibility: not_evaluated` and do not carry POC external
+   processing into production until a production provider decision is accepted.
 
 Promoted lessons consulted: `LC-20260703-001`
 
