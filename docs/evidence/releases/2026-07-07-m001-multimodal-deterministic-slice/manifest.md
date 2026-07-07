@@ -6,6 +6,10 @@ Branch: `main`
 
 Base commit before working slice: `75b8d026ddcb77f3e1d7636f2c7869db7eb6ed6b`
 
+Published commit: `c08aae19a311ab44c488bc87cba759d43795b970`
+
+Remote: `https://github.com/pojurb/shadow-ic-vision.git`
+
 Outcome: `implementation-verified; deterministic multimodal first slice passed`
 
 ## Scope

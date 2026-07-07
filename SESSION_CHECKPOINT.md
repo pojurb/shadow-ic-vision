@@ -4,11 +4,15 @@
 
 - Branch: `main`
 - Base commit before this working slice: `75b8d026ddcb77f3e1d7636f2c7869db7eb6ed6b`
+- Published commit:
+  `c08aae19a311ab44c488bc87cba759d43795b970`
+- Remote:
+  `https://github.com/pojurb/shadow-ic-vision.git`
 - Phase: M001 implementation
 - Working scope: governed multimodal deterministic first slice
 - Cloud provider decision `DEC-0009`: deferred
 - Provider/model eligibility: `not_evaluated`
-- Working tree: implementation changes are present but not committed
+- Working tree: clean after push; local `main` and `origin/main` are aligned
 
 ## Implemented This Session
 
@@ -76,11 +80,12 @@ Latest full verification: 2026-07-07.
 
 ## Exact Resume Point
 
-1. Review and commit the verified working-tree slice.
-2. After commit, decide whether the next M001 step is provider/security approval
-   or local real-engine OCR/vision integration.
-3. Do not connect a real provider or process confidential user data until the
+1. Decide whether the next M001 step is provider/security approval or local
+   real-engine OCR/vision exploration with synthetic fixtures only.
+2. Do not connect a real provider or process confidential user data until the
    appropriate approval decision is recorded.
+3. If provider approval remains deferred, keep M001 work deterministic or
+   local-only and retain `modelEligibility: not_evaluated`.
 
 Promoted lessons consulted: `LC-20260703-001`
 
