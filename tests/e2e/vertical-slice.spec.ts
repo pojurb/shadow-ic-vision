@@ -108,3 +108,85 @@ test('shows a live IDX fail-closed state without making a network request', asyn
   expect(await researchPanel.locator('blockquote').count()).toBe(0);
   await page.screenshot({ path: path.join(evidenceDirectory, 'live-idx-degraded.png') });
 });
+
+test('shows OCR and derived trust classes in the Research drawer', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '+ New' }).click();
+  await expect(page).toHaveURL(/\/c\/[0-9a-f-]+$/);
+  await page.route('**/api/research?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        thesis: {
+          id: '0ce51c8e-13b9-4dc2-ac53-306a5a7d6ec7',
+          ticker: 'BBRI',
+          companyName: 'PT Bank Rakyat Indonesia (Persero) Tbk',
+          market: 'ID',
+          coreBelief: 'NIM remains above 6%.',
+        },
+        decisions: [],
+        items: [{
+          assumptionId: '253d5af1-7158-4a06-9c64-867258a240a1',
+          statement: 'BBRI revenue and NIM remain resilient.',
+          assumptionStatus: 'untested',
+          job: {
+            id: '33e33d84-53c4-4b09-a38a-5ce621c65478',
+            status: 'succeeded',
+            error: null,
+            errorCode: null,
+            attemptCount: 1,
+            sourceMode: 'mock',
+          },
+          evidence: [{
+            id: 'ocr-evidence',
+            sourceTier: 'official',
+            sourceName: 'IDX screenshot fixture',
+            sourceUrl: 'https://example.invalid/idx-screenshot.png',
+            publishDate: '2026-04-30',
+            retrievalTimestamp: '2026-07-07T00:00:00.000Z',
+            exactQuote: 'NIM: 6,8%',
+            impactSummary: 'Screenshot OCR matched retained visible disclosure text.',
+            verificationStatus: 'ocr_matched',
+            sourceFormat: 'image',
+            sourceVariant: 'scanned',
+            contentKind: 'screenshot',
+            extractionMethod: 'ocr',
+            pageNumber: 1,
+            boundingBox: '[0.1,0.3,0.4,0.4]',
+            interpretationStatus: 'pending',
+            metadata: '{"ocrVersion":"synthetic-screenshot-ocr-1.0"}',
+          }, {
+            id: 'derived-evidence',
+            sourceTier: 'official',
+            sourceName: 'BBRI chart fixture',
+            sourceUrl: 'https://example.invalid/revenue-chart.png',
+            publishDate: '2026-04-30',
+            retrievalTimestamp: '2026-07-07T00:00:00.000Z',
+            exactQuote: '15.0%',
+            impactSummary: 'Chart growth calculated deterministically from retained visual data points.',
+            verificationStatus: 'derived',
+            sourceFormat: 'image',
+            sourceVariant: null,
+            contentKind: 'chart',
+            extractionMethod: 'deterministic_calculation',
+            pageNumber: 4,
+            boundingBox: '[0.08,0.15,0.92,0.82]',
+            interpretationStatus: 'pending',
+            metadata: '{"method":"chart_growth"}',
+          }],
+        }],
+      }),
+    });
+  });
+
+  await page.reload();
+  const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
+  await expect(researchPanel.getByText('OCR matched', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText('Derived', { exact: true })).toBeVisible();
+  await expect(researchPanel.getByText(/not source-exact document text/)).toBeVisible();
+  await expect(researchPanel.getByText(/must keep its method visible/)).toBeVisible();
+  await expect(researchPanel.getByText('image/scanned · screenshot · ocr')).toBeVisible();
+  await expect(researchPanel.getByText('image · chart · deterministic_calculation')).toBeVisible();
+  await page.screenshot({ path: path.join(evidenceDirectory, 'multimodal-trust-classes.png') });
+});

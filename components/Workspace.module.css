@@ -22,6 +22,8 @@
 .statusBadge, .verifiedBadge { display: inline-flex; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .status_queued, .status_running { background: #312e81; color: #c7d2fe; }
 .status_succeeded, .verifiedBadge { background: #064e3b; color: #a7f3d0; }
+.verified_ocr_matched { background: #78350f; color: #fde68a; }
+.verified_derived { background: #1e3a8a; color: #bfdbfe; }
 .status_degraded { background: #78350f; color: #fde68a; }
 .status_failed { background: #7f1d1d; color: #fecaca; }
 .attempts, .muted { color: #888; font-size: 12px; }
@@ -30,6 +32,7 @@
 .evidence { margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a3a3a; }
 .evidence blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid #10b981; color: #f5f5f5; line-height: 1.5; }
 .evidence > p { color: #c7c7c7; font-size: 13px; line-height: 1.5; }
+.evidenceWarning { margin: 8px 0 0; color: #fcd34d !important; }
 .evidence dl { margin: 12px 0 0; font-size: 11px; }
 .evidence dl div { display: grid; grid-template-columns: 70px 1fr; gap: 6px; margin-top: 6px; }
 .evidence dt { color: #777; }

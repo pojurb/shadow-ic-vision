@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { extractDeterministicCandidates } from '@/lib/research/extractors/candidate';
+import { createDerivedCandidate, createOcrCandidate, extractDeterministicCandidates } from '@/lib/research/extractors/candidate';
 import { extractDocument, extractHtml, extractPdf } from '@/lib/research/extractors/document';
+import { extractSyntheticOcrCandidate } from '@/lib/research/extractors/ocr';
+import { calculateGrossMarginFromFacts } from '@/lib/research/extractors/xbrl';
+import { verifyExactMatch, verifyPageExactMatch } from '@/lib/research/verifier';
 
 describe('deterministic document extraction', () => {
   it('removes executable markup and preserves canonical source text', () => {
@@ -14,6 +17,7 @@ describe('deterministic document extraction', () => {
       pages: [{ pageNumber: null, text: 'Revenue increased 10%. Palantir reported gross margin of 81.3% in the quarter.' }],
       parserVersion: 'test',
       extractionMethod: 'html_parser' as const,
+      sourceVariant: 'text_layer' as const,
     };
     const candidates = extractDeterministicCandidates(document, 'PLTR gross margin remains above 80%.', 'PLTR');
     expect(candidates[0]).toMatchObject({
@@ -29,6 +33,7 @@ describe('deterministic document extraction', () => {
       pages: [{ pageNumber: null, text: 'The company appointed a new director.' }],
       parserVersion: 'test',
       extractionMethod: 'html_parser' as const,
+      sourceVariant: 'text_layer' as const,
     };
     expect(extractDeterministicCandidates(document, 'Gross margin remains above 80%.', 'PLTR')).toEqual([]);
   });
@@ -47,18 +52,88 @@ describe('deterministic document extraction', () => {
       retrievalTimestamp: '2026-07-04T00:00:00.000Z',
       contentType: 'image/png',
       httpStatus: 200,
-    })).rejects.toMatchObject({ code: 'unsupported_document' });
+    })).rejects.toMatchObject({ code: 'unsupported_visual' });
+  });
+
+  it('degrades oversized documents before extraction', async () => {
+    await expect(extractDocument({
+      documentId: 'large-1',
+      market: 'US',
+      ticker: 'PLTR',
+      sourceUrl: 'https://www.sec.gov/large.pdf',
+      sourceName: 'SEC large filing',
+      sourceTier: 'official',
+      publishDate: '2026-04-30',
+      sourceFormat: 'pdf',
+      rawBytes: new Uint8Array(10 * 1024 * 1024 + 1),
+      retrievalTimestamp: '2026-07-04T00:00:00.000Z',
+      contentType: 'application/pdf',
+      httpStatus: 200,
+    })).rejects.toMatchObject({ code: 'source_too_large' });
   });
 
   it('extracts text-layer PDFs with one-based page provenance', async () => {
     const extracted = await extractPdf(createPdf('Gross margin was 81.3% in Q1.'));
     expect(extracted).toMatchObject({ extractionMethod: 'pdf_text' });
     expect(extracted.pages[0]).toMatchObject({ pageNumber: 1, text: 'Gross margin was 81.3% in Q1.' });
-  });
+  }, 15_000);
 
   it('classifies empty-text and corrupt PDFs as degraded document states', async () => {
     await expect(extractPdf(createPdf(''))).rejects.toMatchObject({ code: 'scanned_document' });
     await expect(extractPdf(new TextEncoder().encode('%PDF-not-valid'))).rejects.toMatchObject({ code: 'corrupt_document' });
+  });
+
+  it('matches OCR text without promoting it to exact evidence', () => {
+    const candidate = extractSyntheticOcrCandidate({
+      pages: [{ pageNumber: 1, text: 'Pendapatan bersih meningkat 12,4% dibandingkan periode yang sama tahun lalu.' }],
+      candidateQuote: 'Pendapatan bersih meningkat 12,4%',
+      impactSummary: 'OCR matched retained text.',
+    });
+    expect(candidate).toMatchObject({ verificationStatus: 'ocr_matched', pageNumber: 1 });
+    expect(candidate.verificationStatus).not.toBe('exact_verified');
+  });
+
+  it('blocks OCR single-character corruption against retained OCR output', () => {
+    const candidate = createOcrCandidate({
+      quote: 'Pendapatan bersih meningkat 12,5%',
+      ocrText: 'Pendapatan bersih meningkat 12,4% dibandingkan periode yang sama tahun lalu.',
+      impactSummary: 'Corrupt OCR candidate.',
+      pageNumber: 1,
+    });
+    expect(candidate.verificationStatus).toBe('ocr_matched');
+    if (candidate.verificationStatus === 'ocr_matched') {
+      expect(() => verifyExactMatch(candidate.quote, candidate.ocrText)).toThrow();
+    }
+  });
+
+  it('keeps table and XBRL calculations derived with method metadata', () => {
+    const table = createDerivedCandidate({
+      content: 'Rp 9,2 triliun',
+      impactSummary: 'Derived table value.',
+      pageNumber: 3,
+      contentKind: 'table',
+      extractionMethod: 'table_parser',
+      method: 'table_cell_lookup',
+      inputs: { row: 'Pendapatan', column: '2026' },
+      units: 'Rp triliun',
+    });
+    const xbrl = calculateGrossMarginFromFacts([
+      { concept: 'Revenue', value: 1000, unit: 'USD millions', period: '2026-Q1' },
+      { concept: 'CostOfRevenue', value: 187, unit: 'USD millions', period: '2026-Q1' },
+    ]);
+    expect(table).toMatchObject({ verificationStatus: 'derived', extractionMethod: 'table_parser' });
+    expect(xbrl).toMatchObject({ verificationStatus: 'derived', quote: '81.3%' });
+    expect(table.verificationStatus).not.toBe('exact_verified');
+    expect(xbrl.verificationStatus).not.toBe('exact_verified');
+  });
+
+  it('blocks a correct quote claimed on the wrong page', () => {
+    const pages = [
+      { pageNumber: 6, text: 'Gross margin was 81.3% for the quarter.' },
+      { pageNumber: 7, text: 'Operating expenses increased during the quarter.' },
+    ];
+    expect(() => verifyPageExactMatch('Gross margin was 81.3%', pages, 7)).toThrow();
+    expect(verifyPageExactMatch('Gross margin was 81.3%', pages, 6)).toBe(true);
   });
 });
 

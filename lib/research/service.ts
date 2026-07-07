@@ -27,6 +27,7 @@ import {
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
 import { CitationPipeline } from './pipeline';
+import { createDerivedCandidate, createOcrCandidate, type EvidenceCandidate } from './extractors/candidate';
 import { getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
 import { persistSourceSnapshot } from './snapshot-store';
@@ -202,9 +203,13 @@ export async function getResearchPanel(
           impactSummary: record.impactSummary,
           verificationStatus: record.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
           sourceFormat: record.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
+          sourceVariant: record.sourceVariant,
+          contentKind: record.contentKind as 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact',
           extractionMethod: record.extractionMethod,
           pageNumber: record.pageNumber,
+          boundingBox: record.boundingBox,
           interpretationStatus: record.interpretationStatus,
+          metadata: record.metadata,
         })),
     })),
     decisions: mappedDecisions,
@@ -286,7 +291,7 @@ export async function processResearchJobs(
         });
         await db.update(researchJobs).set({
           status: 'degraded',
-          error: 'No character-exact evidence passed verification.',
+          error: 'No evidence candidate passed the applicable verification gate.',
           errorCode: 'citation_not_found',
           leaseExpiresAt: null,
           updatedAt: now().toISOString(),
@@ -315,21 +320,23 @@ export async function processResearchJobs(
             id: randomUUID(),
             assumptionId: row.assumption.id,
             sourceFormat: result.sourceFormat,
-            contentKind: 'text',
+            contentKind: result.contentKind,
+            sourceVariant: result.sourceVariant,
             extractionMethod: result.extractionMethod,
-            verificationStatus: 'exact_verified',
+            verificationStatus: result.verificationStatus,
             sourceTier: result.sourceTier,
             sourceName: result.sourceName,
             publishDate: result.publishDate,
             documentHash: result.documentHash,
             canonicalTextHash: result.canonicalTextHash,
+            boundingBox: result.boundingBox ? JSON.stringify(result.boundingBox) : null,
             sourceUrl: result.sourceUrl,
             retrievalTimestamp: result.retrievalTimestamp,
             content: result.exactQuote,
             impactSummary: result.impactSummary,
             pageNumber: result.pageNumber,
             interpretationStatus: 'pending',
-            metadata: JSON.stringify({ parserVersion: result.parserVersion }),
+            metadata: JSON.stringify(result.metadata),
           }).run();
         }
         tx.update(researchJobs).set({
@@ -384,19 +391,47 @@ export async function retryResearchJob(jobId: string, input: ServiceDependencies
   return result;
 }
 
-function candidateFor(market: 'US' | 'ID', assumption: string) {
+function candidateFor(market: 'US' | 'ID', assumption: string): EvidenceCandidate {
   if (assumption.includes('simulate citation mismatch')) {
     return {
       quote: 'gross margin of 91.3%',
       impactSummary: 'This intentionally altered quote must be blocked by verification.',
+      verificationStatus: 'exact_verified',
+      contentKind: 'text',
       pageNumber: null,
     };
+  }
+
+  if (assumption.includes('simulate ocr evidence')) {
+    return createOcrCandidate({
+      quote: 'Pendapatan bersih meningkat 12,4%',
+      ocrText: 'Pendapatan bersih meningkat 12,4% dibandingkan periode yang sama tahun lalu.',
+      impactSummary: 'OCR matched a retained Indonesian-language source string. Treat it as OCR evidence, not source-exact text.',
+      pageNumber: 1,
+      boundingBox: [0.1, 0.2, 0.8, 0.3],
+    });
+  }
+
+  if (assumption.includes('simulate derived evidence')) {
+    return createDerivedCandidate({
+      content: 'Rp 9,2 triliun',
+      impactSummary: 'Derived table value retained with units and source inputs.',
+      pageNumber: 3,
+      contentKind: 'table',
+      extractionMethod: 'table_parser',
+      method: 'table_cell_lookup',
+      inputs: { row: 'Pendapatan', column: '2026', rawValue: '9,2', unit: 'Rp triliun' },
+      units: 'Rp triliun',
+      boundingBox: [0.1, 0.2, 0.9, 0.7],
+    });
   }
 
   if (market === 'ID') {
     return {
       quote: 'margin bunga bersih (NIM) sebesar 6,8%',
       impactSummary: 'BBRI reported NIM of 6.8%, supporting the assumption that NIM remains above 6.0%.',
+      verificationStatus: 'exact_verified',
+      contentKind: 'text',
       pageNumber: null,
     };
   }
@@ -404,6 +439,8 @@ function candidateFor(market: 'US' | 'ID', assumption: string) {
   return {
     quote: 'gross margin of 81.3%',
     impactSummary: 'PLTR reported gross margin of 81.3%, supporting the assumption that gross margin remains above 80%.',
+    verificationStatus: 'exact_verified',
+    contentKind: 'text',
     pageNumber: null,
   };
 }
@@ -461,10 +498,15 @@ export async function exportThesisData(
         impactSummary: e.impactSummary,
         verificationStatus: e.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
         sourceFormat: e.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
+        sourceVariant: e.sourceVariant,
+        contentKind: e.contentKind as 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact',
         extractionMethod: e.extractionMethod,
         pageNumber: e.pageNumber,
+        boundingBox: e.boundingBox,
         interpretationStatus: e.interpretationStatus as 'pending' | 'deterministic' | 'model',
         metadata: e.metadata,
+        documentHash: e.documentHash,
+        canonicalTextHash: e.canonicalTextHash,
       }));
 
     return {
@@ -587,13 +629,16 @@ export async function importThesisData(
           id: randomUUID(),
           assumptionId,
           sourceFormat: e.sourceFormat,
-          contentKind: 'text',
+          contentKind: e.contentKind ?? 'text',
+          sourceVariant: e.sourceVariant ?? null,
           extractionMethod: e.extractionMethod,
           verificationStatus: e.verificationStatus,
           sourceTier: e.sourceTier,
           sourceName: e.sourceName,
           publishDate: e.publishDate,
-          documentHash: 'imported-hash-' + randomUUID().substring(0, 8),
+          documentHash: e.documentHash ?? 'imported-hash-' + randomUUID().substring(0, 8),
+          canonicalTextHash: e.canonicalTextHash ?? null,
+          boundingBox: e.boundingBox ?? null,
           sourceUrl: e.sourceUrl,
           retrievalTimestamp: e.retrievalTimestamp,
           content: e.exactQuote,
@@ -648,7 +693,7 @@ export async function generateDecisionRecommendation(
       contextPrompt += `- No verified evidence found.\n`;
     } else {
       for (const e of aEvidence) {
-        contextPrompt += `- Evidence from ${e.sourceName} (${e.publishDate ?? 'N/A'}): "${e.content}"\n`;
+        contextPrompt += `- ${e.verificationStatus} evidence from ${e.sourceName} (${e.publishDate ?? 'N/A'}): "${e.content}"\n`;
         contextPrompt += `  Impact: ${e.impactSummary}\n`;
       }
     }

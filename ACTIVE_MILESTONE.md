@@ -6,50 +6,79 @@ Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/
 
 ## Current Phase
 
-M001 implementation — periodic local official-source ingestion is implemented
-and live-validated.
+M001 implementation - governed multimodal first slice is implemented and
+verified with deterministic fixtures.
 
 The deterministic mock workflow remains the default QA path. The live research
-slice now provides SEC filing retrieval, official IDX announcement retrieval,
-bounded official issuer fallback, immutable snapshots and provenance, exact
-verification, incremental cursors, idempotent refresh, and local daily scheduling.
+slice already provides SEC filing retrieval, official IDX announcement
+retrieval, bounded official issuer fallback, immutable snapshots and
+provenance, exact verification, incremental cursors, idempotent refresh, and
+local daily scheduling.
 
-Periodic ingestion is local-only under ADR-0006. It runs through
+The multimodal slice now preserves distinct evidence classes through extraction,
+verification, persistence, export/import, API DTOs, and the Research UI:
+
+- `exact_verified` for HTML and text-layer PDF source text matched against
+  canonical extracted text.
+- `ocr_matched` for retained OCR or screenshot text, never promoted to exact
+  source text.
+- `derived` for table, chart, XBRL, and deterministic calculation outputs with
+  retained inputs, units, method, page, and provenance.
+
+The evaluator scaffold reads the accepted base and multimodal M001 suites and
+records deterministic first-slice readiness without approving or connecting any
+real provider. No private thesis, assumption, decision, portfolio, or user data
+is sent to an unapproved provider.
+
+Periodic ingestion remains local-only under ADR-0006. It runs through
 `npm run research:refresh` or Windows Task Scheduler and writes to the external
-SQLite database. No private research data or SQLite worker is deployed to Vercel.
-
-Cross-cutting builder infrastructure now provides a canonical codebase map,
-decision index, deterministic TypeScript-derived code index, repository status
-checks, unified verification commands, portable browser QA, and pull-request CI.
-This improves M001 delivery without expanding product scope.
+SQLite database. No private research data or SQLite worker is deployed to
+Vercel.
 
 ## Fresh Verification
 
-- TypeScript: pass
-- ESLint: pass
-- Vitest: 51 pass; 3 live checks skipped in the default suite
-- Next.js production build: pass
-- Playwright Edge: 2 pass
-- Live smoke: SEC, IDX, and official BRI issuer fallback all retrieved and hashed
-- Migration and scheduler integration: pass, including deduplication, cursors,
-  leases, recovery, and unchanged assumption status
-- Direct local scheduler command against temporary SQLite: pass
-- Intended local database refresh: pass; zero tracked companies were present
-- Windows task registration and manual Task Scheduler execution: pass; result
-  code `0`, next run 2026-07-06 08:00 Asia/Jakarta
-- Code-index generation and freshness check: pass
-- Repository status consistency check: pass
-- Unified `verify` and `verify:full`: pass
-- Routine Playwright artifacts remain under ignored `test-results/`: pass
+Latest full verification: 2026-07-07.
 
-These results close the SEC/IDX/issuer retrieval validation gap. M001 remains open because the accepted multimodal OCR/vision/XBRL scope is not complete (though the Decision Library backend, JSON export/import data services, the final evaluator AI suggestion system, and associated integration tests are now fully implemented and verified).
+- `npm run context:check`: pass
+- `npm run status:check`: pass
+- TypeScript `tsc --noEmit`: pass
+- ESLint `eslint`: pass
+- Vitest: 64 pass; 3 opt-in live checks skipped
+- Next.js production build: pass
+- Playwright: 3 pass
+  - deterministic PLTR desktop and narrow Research drawer
+  - live-labelled IDX fail-closed UI without a network request
+  - OCR and derived trust-class labels visible in the Research drawer
+- `npm run verify:full`: pass
+- `npm run eval:m001:multimodal -- --output test-results\m001-multimodal-report.json`: pass
+  - base case count: 16
+  - multimodal addendum case count: 16
+  - all 16 deterministic multimodal addendum cases: pass
+  - hard-gate failures: none
+  - model eligibility: `not_evaluated`
+- `git diff --check`: pass
+
+Release evidence: [`docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md`](docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md)
+
+## Remaining Boundaries
+
+- M001 is not fully closed because real OCR/vision provider eligibility and any
+  confidential-data provider approval remain unapproved and unconnected.
+- The deterministic multimodal evaluator proves first-slice application gates;
+  it does not approve a model, provider, cloud processor, or native browsing
+  capability.
+- Secondary-source and general-news ingestion remain deferred.
+- `npm audit` previously reported six moderate dependency findings; no forced
+  breaking upgrade was applied in this slice.
 
 ## Next Step
 
-1. Observe the first automatic Windows task execution.
-2. Confirm the retained ingestion-run status.
-3. Continue the remaining M001 scope without connecting an unapproved provider.
+1. Review and commit the verified multimodal deterministic slice.
+2. Decide the next governed provider/security step before any real OCR, vision,
+   or cloud model processes confidential user data.
+3. Continue M001 with provider eligibility and real-engine integration only
+   after the appropriate approval gate is recorded.
 
 Promoted lessons consulted: `LC-20260703-001`
 
-Learning candidates created: `LC-20260704-001`, `LC-20260705-001`
+Learning candidates created: `none`

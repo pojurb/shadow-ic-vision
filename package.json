@@ -16,6 +16,7 @@
     "status:check": "node --import ./node_modules/tsx/dist/loader.mjs scripts/status-check.ts",
     "verify": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts",
     "verify:full": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts --full",
+    "eval:m001:multimodal": "node --import ./node_modules/tsx/dist/loader.mjs scripts/eval-m001-multimodal.ts",
     "research:refresh": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
     "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1"
   },

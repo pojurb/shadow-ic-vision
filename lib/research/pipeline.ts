@@ -1,24 +1,28 @@
 import type { ResearchMarket, ResearchSourceMode, SourceAdapter, SourceSnapshot } from './adapters/types';
 import { createSourceAdapters } from './adapters/factory';
 import { ResearchSourceError } from './errors';
-import { extractDeterministicCandidates, type EvidenceCandidate } from './extractors/candidate';
+import { extractDeterministicCandidates, type EvidenceCandidate, type EvidenceContentKind, type EvidenceExtractionMethod } from './extractors/candidate';
 import { extractDocument } from './extractors/document';
-import { createHash, verifyExactMatch } from './verifier';
+import { createHash, verifyExactMatch, verifyPageExactMatch } from './verifier';
 
 export interface VerifiedEvidence {
   sourceUrl: string;
   documentHash: string;
-  canonicalTextHash: string;
+  canonicalTextHash: string | null;
   exactQuote: string;
   impactSummary: string;
   sourceName: string;
   sourceTier: 'official' | 'secondary';
   sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
+  sourceVariant: 'text_layer' | 'scanned' | 'encrypted' | 'corrupt' | 'unsupported' | null;
+  contentKind: EvidenceContentKind;
   publishDate: string | null;
   retrievalTimestamp: string;
-  parserVersion: string;
-  extractionMethod: 'html_parser' | 'pdf_text';
+  extractionMethod: EvidenceExtractionMethod;
+  verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived';
   pageNumber: number | null;
+  boundingBox: [number, number, number, number] | null;
+  metadata: Record<string, unknown>;
 }
 
 export type ResearchExecution = {
@@ -74,21 +78,36 @@ export class CitationPipeline {
 
     for (const candidate of candidates) {
       try {
-        verifyExactMatch(candidate.quote, extracted.canonicalText);
+        const verificationStatus = candidate.verificationStatus;
+        if (verificationStatus === 'exact_verified') {
+          verifyExactMatch(candidate.quote, extracted.canonicalText);
+          if (candidate.pageNumber !== null) verifyPageExactMatch(candidate.quote, extracted.pages, candidate.pageNumber);
+        } else if (verificationStatus === 'ocr_matched') {
+          verifyExactMatch(candidate.quote, candidate.ocrText);
+        } else if (!candidate.metadata?.method || candidate.metadata.inputs === undefined) {
+          throw new Error('Derived evidence is missing deterministic derivation metadata.');
+        }
+
         verifiedEvidence.push({
           sourceUrl: snapshot.sourceUrl,
           sourceName: snapshot.sourceName,
           sourceTier: snapshot.sourceTier,
           sourceFormat: snapshot.sourceFormat,
+          sourceVariant: verificationStatus === 'exact_verified' && snapshot.sourceFormat === 'pdf' ? 'text_layer' : candidate.sourceVariant ?? null,
+          contentKind: candidate.contentKind ?? 'text',
           publishDate: snapshot.publishDate,
           retrievalTimestamp: snapshot.retrievalTimestamp,
-          parserVersion: extracted.parserVersion,
-          extractionMethod: extracted.extractionMethod,
+          extractionMethod: verificationStatus === 'exact_verified' ? extracted.extractionMethod : candidate.extractionMethod ?? 'ocr',
+          verificationStatus,
           pageNumber: candidate.pageNumber,
+          boundingBox: candidate.boundingBox ?? null,
           documentHash,
-          canonicalTextHash,
+          canonicalTextHash: verificationStatus === 'exact_verified' ? canonicalTextHash : null,
           exactQuote: candidate.quote,
           impactSummary: candidate.impactSummary,
+          metadata: verificationStatus === 'exact_verified'
+            ? { parserVersion: extracted.parserVersion }
+            : candidate.metadata ?? {},
         });
       } catch {
         // Rejected candidates remain diagnostic artifacts and never become Evidence.

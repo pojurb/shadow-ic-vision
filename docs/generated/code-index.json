@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "6ed304325ca19a845930bc33bf03815ec46b76ac91f95d13c7a437f688f7e668",
+  "sourceDigest": "fbf32d34b3ada3cea20f61a482127b8a4e53d4446a9ecf2f4a8dcda0b078513b",
   "roots": [
     "app",
     "components",
@@ -882,7 +882,27 @@
       ],
       "exports": [
         "EvidenceCandidate",
+        "EvidenceContentKind",
+        "EvidenceExtractionMethod",
+        "EvidenceVerificationStatus",
+        "createDerivedCandidate",
+        "createOcrCandidate",
         "extractDeterministicCandidates"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/chunking.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../verifier",
+          "resolved": "lib/research/verifier.ts"
+        }
+      ],
+      "exports": [
+        "ChunkedPage",
+        "SelectedChunk",
+        "selectMostRelevantChunk"
       ]
     },
     {
@@ -912,6 +932,83 @@
         "extractDocument",
         "extractHtml",
         "extractPdf"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/multilingual.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "MixedLanguageAssessment",
+        "assessRecurringGrowthCaveat"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/ocr.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "../verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "./candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        }
+      ],
+      "exports": [
+        "SyntheticOcrPage",
+        "extractSyntheticOcrCandidate"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/safety.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "EmbeddedInstructionScan",
+        "scanEmbeddedInstructions"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/visual.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "./ocr",
+          "resolved": "lib/research/extractors/ocr.ts"
+        }
+      ],
+      "exports": [
+        "ChartPoint",
+        "calculateChartGrowthCandidate",
+        "extractScreenshotOcrCandidate"
+      ]
+    },
+    {
+      "path": "lib/research/extractors/xbrl.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "./candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        }
+      ],
+      "exports": [
+        "XbrlFact",
+        "calculateGrossMarginFromFacts"
       ]
     },
     {
@@ -1037,6 +1134,10 @@
           "resolved": "lib/research/errors.ts"
         },
         {
+          "specifier": "./extractors/candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
           "specifier": "./pipeline",
           "resolved": "lib/research/pipeline.ts"
         },
@@ -1137,7 +1238,8 @@
       "exports": [
         "createHash",
         "normalizeText",
-        "verifyExactMatch"
+        "verifyExactMatch",
+        "verifyPageExactMatch"
       ]
     },
     {
@@ -1253,6 +1355,18 @@
           "resolved": "lib/research/extractors/document.ts"
         },
         {
+          "specifier": "@/lib/research/extractors/ocr",
+          "resolved": "lib/research/extractors/ocr.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/xbrl",
+          "resolved": "lib/research/extractors/xbrl.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
           "specifier": "vitest",
           "resolved": null
         }
@@ -1320,6 +1434,48 @@
         {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/multimodal-eval.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/scripts/eval-m001-multimodal",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/multimodal-helpers.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/extractors/chunking",
+          "resolved": "lib/research/extractors/chunking.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/multilingual",
+          "resolved": "lib/research/extractors/multilingual.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/visual",
+          "resolved": "lib/research/extractors/visual.ts"
         },
         {
           "specifier": "vitest",
@@ -1685,7 +1841,10 @@
       "path": "tests/document-extraction.test.ts",
       "productionModules": [
         "lib/research/extractors/candidate.ts",
-        "lib/research/extractors/document.ts"
+        "lib/research/extractors/document.ts",
+        "lib/research/extractors/ocr.ts",
+        "lib/research/extractors/xbrl.ts",
+        "lib/research/verifier.ts"
       ]
     },
     {
@@ -1707,6 +1866,19 @@
       "productionModules": [
         "lib/ai/adapters/mock.ts",
         "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/multimodal-eval.test.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/multimodal-helpers.test.ts",
+      "productionModules": [
+        "lib/research/extractors/chunking.ts",
+        "lib/research/extractors/multilingual.ts",
+        "lib/research/extractors/safety.ts",
+        "lib/research/extractors/visual.ts"
       ]
     },
     {

@@ -29,3 +29,16 @@ export function verifyExactMatch(quote: string, canonicalSource: string): boolea
 
   return true;
 }
+
+export function verifyPageExactMatch(
+  quote: string,
+  pages: Array<{ pageNumber: number | null; text: string }>,
+  pageNumber: number | null,
+): boolean {
+  const page = pages.find((item) => item.pageNumber === pageNumber);
+  if (!page || !page.text.includes(quote)) {
+    throw new Error(`CITATION PROVENANCE ERROR: Quote not found on claimed source page.\nQuote: "${quote}"`);
+  }
+
+  return true;
+}

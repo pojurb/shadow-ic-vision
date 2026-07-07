@@ -72,9 +72,13 @@ export type EvidenceDTO = {
   impactSummary: string;
   verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived';
   sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
+  sourceVariant: string | null;
+  contentKind: 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact';
   extractionMethod: string;
   pageNumber: number | null;
+  boundingBox: string | null;
   interpretationStatus: 'pending' | 'deterministic' | 'model';
+  metadata: string | null;
 };
 
 export const decisionOutcomeSchema = z.enum([
@@ -136,10 +140,15 @@ export const thesisExportSchema = z.object({
           impactSummary: z.string(),
           verificationStatus: z.enum(['exact_verified', 'ocr_matched', 'derived']),
           sourceFormat: z.enum(['html', 'pdf', 'image', 'xbrl']),
+          sourceVariant: z.string().nullable().optional(),
+          contentKind: z.enum(['text', 'table', 'chart', 'screenshot', 'structured_fact']).default('text'),
           extractionMethod: z.string(),
           pageNumber: z.number().nullable(),
+          boundingBox: z.string().nullable().optional(),
           interpretationStatus: z.enum(['pending', 'deterministic', 'model']),
           metadata: z.string().nullable(),
+          documentHash: z.string().optional(),
+          canonicalTextHash: z.string().nullable().optional(),
         })
       ),
     })

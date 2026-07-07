@@ -1,9 +1,53 @@
 import type { ExtractedDocument } from './document';
 
+export type EvidenceVerificationStatus = 'exact_verified' | 'ocr_matched' | 'derived';
+export type EvidenceContentKind = 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact';
+export type EvidenceExtractionMethod =
+  | 'html_parser'
+  | 'pdf_text'
+  | 'ocr'
+  | 'vision'
+  | 'table_parser'
+  | 'xbrl_parser'
+  | 'deterministic_calculation';
+
 export type EvidenceCandidate = {
   quote: string;
   impactSummary: string;
+  verificationStatus: 'exact_verified';
   pageNumber: number | null;
+  contentKind?: 'text';
+  sourceVariant?: 'text_layer';
+  boundingBox?: null;
+  metadata?: Record<string, unknown>;
+  extractionMethod?: never;
+} | {
+  quote: string;
+  impactSummary: string;
+  verificationStatus: 'ocr_matched';
+  pageNumber: number | null;
+  ocrText: string;
+  extractionMethod?: 'ocr';
+  contentKind?: 'text' | 'screenshot';
+  sourceVariant?: 'scanned';
+  boundingBox?: [number, number, number, number] | null;
+  metadata?: Record<string, unknown>;
+} | {
+  quote: string;
+  impactSummary: string;
+  verificationStatus: 'derived';
+  pageNumber: number | null;
+  contentKind: 'table' | 'chart' | 'structured_fact';
+  extractionMethod: 'table_parser' | 'xbrl_parser' | 'deterministic_calculation';
+  sourceVariant?: 'text_layer' | 'scanned';
+  boundingBox?: [number, number, number, number] | null;
+  metadata: {
+    method: string;
+    inputs: unknown;
+    units?: string;
+    formula?: string;
+    parserVersion?: string;
+  };
 };
 
 const STOP_WORDS = new Set([
@@ -40,8 +84,64 @@ export function extractDeterministicCandidates(
     .map(({ quote, pageNumber }) => ({
       quote,
       pageNumber,
+      verificationStatus: 'exact_verified' as const,
+      contentKind: 'text' as const,
       impactSummary: 'Exact source passage matched deterministically. Interpretation remains pending.',
     }));
+}
+
+export function createOcrCandidate(input: {
+  quote: string;
+  ocrText: string;
+  impactSummary: string;
+  pageNumber: number | null;
+  contentKind?: 'text' | 'screenshot';
+  boundingBox?: [number, number, number, number] | null;
+  ocrVersion?: string;
+}): EvidenceCandidate {
+  return {
+    quote: input.quote,
+    ocrText: input.ocrText,
+    impactSummary: input.impactSummary,
+    verificationStatus: 'ocr_matched',
+    extractionMethod: 'ocr',
+    pageNumber: input.pageNumber,
+    contentKind: input.contentKind ?? 'text',
+    sourceVariant: 'scanned',
+    boundingBox: input.boundingBox ?? null,
+    metadata: { ocrVersion: input.ocrVersion ?? 'synthetic-ocr-1.0' },
+  };
+}
+
+export function createDerivedCandidate(input: {
+  content: string;
+  impactSummary: string;
+  pageNumber: number | null;
+  contentKind: 'table' | 'chart' | 'structured_fact';
+  extractionMethod: 'table_parser' | 'xbrl_parser' | 'deterministic_calculation';
+  method: string;
+  inputs: unknown;
+  units?: string;
+  formula?: string;
+  parserVersion?: string;
+  boundingBox?: [number, number, number, number] | null;
+}): EvidenceCandidate {
+  return {
+    quote: input.content,
+    impactSummary: input.impactSummary,
+    verificationStatus: 'derived',
+    pageNumber: input.pageNumber,
+    contentKind: input.contentKind,
+    extractionMethod: input.extractionMethod,
+    boundingBox: input.boundingBox ?? null,
+    metadata: {
+      method: input.method,
+      inputs: input.inputs,
+      units: input.units,
+      formula: input.formula,
+      parserVersion: input.parserVersion ?? 'synthetic-derived-1.0',
+    },
+  };
 }
 
 function splitSentences(text: string): string[] {

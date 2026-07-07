@@ -93,17 +93,21 @@ describe('Decision Library & Import/Export persistence', () => {
       assumptionId: assumption!.id,
       sourceFormat: 'html',
       contentKind: 'text',
+      sourceVariant: 'text_layer',
       extractionMethod: 'html_parser',
       verificationStatus: 'exact_verified',
       sourceTier: 'official',
       sourceName: 'SEC Edgar',
       publishDate: '2026-05-01',
       documentHash: 'dochash123',
+      canonicalTextHash: 'texthash123',
+      boundingBox: '[0.1,0.2,0.3,0.4]',
       sourceUrl: 'https://sec.gov/filing',
       retrievalTimestamp: new Date().toISOString(),
       content: 'gross margin of 81.3%',
       impactSummary: 'Supports target margin',
       interpretationStatus: 'pending',
+      metadata: JSON.stringify({ parserVersion: 'test-parser' }),
     }).run();
 
     await recordDecision(thesisId, 'Update Thesis', 'Hold', 'Holding due to current valuation', { db: handle.db });
@@ -113,6 +117,13 @@ describe('Decision Library & Import/Export persistence', () => {
     expect(parsed.success).toBe(true);
     expect(exportPayload.thesis.ticker).toBe('PLTR');
     expect(exportPayload.assumptions[0].evidence).toHaveLength(1);
+    expect(exportPayload.assumptions[0].evidence[0]).toMatchObject({
+      contentKind: 'text',
+      sourceVariant: 'text_layer',
+      documentHash: 'dochash123',
+      canonicalTextHash: 'texthash123',
+      boundingBox: '[0.1,0.2,0.3,0.4]',
+    });
     expect(exportPayload.decisions).toHaveLength(1);
 
     const importResult = await importThesisData(exportPayload, { db: handle.db });
@@ -130,6 +141,13 @@ describe('Decision Library & Import/Export persistence', () => {
     const importedEvidence = handle.db.select().from(evidence).where(eq(evidence.assumptionId, importedAssumptions[0].id)).all();
     expect(importedEvidence).toHaveLength(1);
     expect(importedEvidence[0].content).toBe('gross margin of 81.3%');
+    expect(importedEvidence[0]).toMatchObject({
+      contentKind: 'text',
+      sourceVariant: 'text_layer',
+      documentHash: 'dochash123',
+      canonicalTextHash: 'texthash123',
+      boundingBox: '[0.1,0.2,0.3,0.4]',
+    });
 
     const importedDecisions = handle.db.select().from(decisions).where(eq(decisions.thesisId, importResult.thesisId)).all();
     expect(importedDecisions).toHaveLength(1);

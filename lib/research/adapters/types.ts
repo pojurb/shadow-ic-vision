@@ -17,6 +17,7 @@ export type SourceErrorCode =
   | 'citation_not_found'
   | 'idx_source_unavailable'
   | 'unsupported_document'
+  | 'unsupported_visual'
   | 'encrypted_document'
   | 'corrupt_document'
   | 'scanned_document';

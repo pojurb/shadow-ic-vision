@@ -6,6 +6,26 @@ import styles from './Workspace.module.css';
 
 const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [], decisions: [] };
 
+function evidenceBadge(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
+  if (status === 'ocr_matched') return 'OCR matched';
+  if (status === 'derived') return 'Derived';
+  return 'Exact source match';
+}
+
+function evidenceWarning(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
+  if (status === 'ocr_matched') return 'OCR evidence is matched to retained OCR text, not source-exact document text.';
+  if (status === 'derived') return 'Derived evidence is calculated or parsed from retained inputs and must keep its method visible.';
+  return null;
+}
+
+function normalizePanelData(input: ResearchPanelDTO): ResearchPanelDTO {
+  return {
+    ...input,
+    items: input.items ?? [],
+    decisions: input.decisions ?? [],
+  };
+}
+
 export function ResearchPanel({
   conversationId,
   refreshVersion,
@@ -113,9 +133,10 @@ export function ResearchPanel({
     const response = await fetch(`/api/research?conversationId=${encodeURIComponent(conversationId)}`);
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? 'Unable to load research.');
-    setData(body);
+    const normalized = normalizePanelData(body);
+    setData(normalized);
     setError(null);
-    return body as ResearchPanelDTO;
+    return normalized;
   }, [conversationId]);
 
   const runQueued = useCallback(async () => {
@@ -258,16 +279,22 @@ export function ResearchPanel({
               )}
               {item.evidence.map((record) => (
                 <div className={styles.evidence} key={record.id}>
-                  <span className={styles.verifiedBadge}>Exact source match</span>
+                  <span className={`${styles.verifiedBadge} ${styles[`verified_${record.verificationStatus}`]}`}>
+                    {evidenceBadge(record.verificationStatus)}
+                  </span>
                   <blockquote>“{record.exactQuote}”</blockquote>
+                  {evidenceWarning(record.verificationStatus) && (
+                    <p className={styles.evidenceWarning}>{evidenceWarning(record.verificationStatus)}</p>
+                  )}
                   <p>{record.impactSummary}</p>
                   <dl>
                     <div><dt>Source</dt><dd><a href={record.sourceUrl} target="_blank" rel="noreferrer">{record.sourceName}</a></dd></div>
                     <div><dt>Tier</dt><dd>{record.sourceTier}</dd></div>
                     <div><dt>Published</dt><dd>{record.publishDate ?? 'Not supplied'}</dd></div>
                     <div><dt>Retrieved</dt><dd>{new Date(record.retrievalTimestamp).toLocaleString()}</dd></div>
-                    <div><dt>Format</dt><dd>{record.sourceFormat} · {record.extractionMethod}</dd></div>
+                    <div><dt>Format</dt><dd>{record.sourceFormat}{record.sourceVariant ? `/${record.sourceVariant}` : ''} · {record.contentKind} · {record.extractionMethod}</dd></div>
                     {record.pageNumber && <div><dt>Page</dt><dd>{record.pageNumber}</dd></div>}
+                    {record.boundingBox && <div><dt>Box</dt><dd>{record.boundingBox}</dd></div>}
                     <div><dt>Interpretation</dt><dd>{record.interpretationStatus}</dd></div>
                   </dl>
                 </div>

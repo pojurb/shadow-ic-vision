@@ -89,6 +89,43 @@ describe('local vertical slice persistence', () => {
     expect(handle.db.select().from(researchJobSources).all()).toHaveLength(1);
   });
 
+  it('persists OCR-matched evidence without promoting it to exact evidence', async () => {
+    const ocrDraft = { ...draft, assumptions: [{ statement: 'BBRI simulate ocr evidence.', status: 'untested' as const }] };
+    handle.db.update(messages).set({ structuredPayload: JSON.stringify(ocrDraft) }).where(eq(messages.id, messageId)).run();
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    expect(panel.items[0].job.status).toBe('succeeded');
+    expect(panel.items[0].evidence[0]).toMatchObject({
+      exactQuote: 'Pendapatan bersih meningkat 12,4%',
+      verificationStatus: 'ocr_matched',
+      contentKind: 'text',
+      sourceVariant: 'scanned',
+      extractionMethod: 'ocr',
+      pageNumber: 1,
+      boundingBox: '[0.1,0.2,0.8,0.3]',
+    });
+    expect(handle.db.select().from(evidence).get()?.verificationStatus).toBe('ocr_matched');
+  });
+
+  it('persists derived evidence with method metadata and bounding box', async () => {
+    const derivedDraft = { ...draft, assumptions: [{ statement: 'BBRI simulate derived evidence.', status: 'untested' as const }] };
+    handle.db.update(messages).set({ structuredPayload: JSON.stringify(derivedDraft) }).where(eq(messages.id, messageId)).run();
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    expect(panel.items[0].job.status).toBe('succeeded');
+    expect(panel.items[0].evidence[0]).toMatchObject({
+      exactQuote: 'Rp 9,2 triliun',
+      verificationStatus: 'derived',
+      contentKind: 'table',
+      extractionMethod: 'table_parser',
+      pageNumber: 3,
+      boundingBox: '[0.1,0.2,0.9,0.7]',
+    });
+    const stored = handle.db.select().from(evidence).get();
+    expect(stored?.verificationStatus).toBe('derived');
+    expect(stored?.metadata).toContain('table_cell_lookup');
+  });
+
   it('degrades a citation mismatch, stores no evidence, and permits retry', async () => {
     const mismatch = { ...draft, assumptions: [{ statement: 'PLTR gross margin remains above 90% (simulate citation mismatch).', status: 'untested' as const }] };
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(mismatch) }).where(eq(messages.id, messageId)).run();

@@ -1,88 +1,87 @@
-# Session Checkpoint — 2026-07-05
+# Session Checkpoint - 2026-07-07
 
 ## Repository State
 
-- Branch: `shadow-ic-vision`
-- Implementation commit: `5376c59` (`feat: add periodic official-source ingestion`)
+- Branch: `main`
+- Base commit before this working slice: `75b8d026ddcb77f3e1d7636f2c7869db7eb6ed6b`
 - Phase: M001 implementation
-- Working scope: periodic local official-source ingestion
+- Working scope: governed multimodal deterministic first slice
 - Cloud provider decision `DEC-0009`: deferred
-- Latest committed periodic-ingestion implementation: `5376c59`
+- Provider/model eligibility: `not_evaluated`
+- Working tree: implementation changes are present but not committed
 
-## Implemented
+## Implemented This Session
 
-- Preserved `RESEARCH_SOURCE_MODE=mock|live`; deterministic QA remains mock-first.
-- Replaced the legacy IDX page scraper with the anonymous official
-  `idx.id/primary/ListedCompany/GetAnnouncement` API.
-- Added strict IDX attachment normalization from approved `idx.co.id/StaticData`
-  paths to `idx.id`, with all other host/path rewrites rejected.
-- Added bounded issuer investor-relations fallback for explicitly configured,
-  official domains. Same-site report redirects are unwrapped only when their
-  final PDF remains on the configured issuer domain.
-- Added incremental refresh state: source cursors, immutable snapshot
-  deduplication, discovery provenance, ingestion runs, and database-backed lease.
-- Refreshes reuse research jobs, skip already-known source documents, suppress
-  duplicate Evidence, and leave assumptions `untested` with interpretation
-  `pending`.
-- Added protected `/api/internal/research/cron`, manual
-  `/api/research/refresh`, visible refresh status, and structured failure states.
-- Added `npm run research:refresh` for a server-independent local run and a
-  Windows Task Scheduler installer defaulting to 08:00 local time.
-- Added backed-up additive migration `0003_typical_doomsday.sql`.
-- Updated ADR-0006 to clarify that periodic ingestion remains local-only. No
-  Vercel Cron or cloud SQLite worker is authorized.
-- Added the canonical codebase map and decision index for fast builder orientation.
-- Added a deterministic TypeScript-derived code index with source-digest freshness.
-- Added repository consistency checks and unified standard/full verification.
-- Made browser QA portable across local Edge and CI Chromium without rewriting
-  retained release evidence.
-- Added pull-request CI for standard verification and browser QA.
-- Added Zod contracts, DB services (`recordDecision`, `exportThesisData`, `importThesisData`), API routes, and UI components for the Decision Library and JSON Export/Import.
-- Added unit/integration tests (`tests/decisions.test.ts`) validating decision persistence, export/import round-trips, and cascade deletions.
-- Added Ollama Cloud adapter (`lib/ai/adapters/ollama.ts`), provider factory (`lib/ai/factory.ts`), API key/endpoint integration, and mock-isolated unit tests (`tests/ollama-provider.test.ts`).
-- Added Final Evaluator service (`generateDecisionRecommendation`), recommendation API endpoint, Zod contracts, integration tests, and UI features for requesting and auto-filling AI-suggested decisions.
+- Added typed multimodal evidence candidates and pipeline results for
+  `exact_verified`, `ocr_matched`, and `derived`.
+- Added page-level quote provenance checking so a correct quote on the wrong
+  page is blocked.
+- Added deterministic helper boundaries for:
+  - fixture OCR and screenshot OCR
+  - chart/table-derived evidence
+  - XBRL gross-margin calculation
+  - large-document chunk selection with page provenance
+  - embedded document/image instruction detection
+  - mixed-language uncertainty handling
+- Preserved multimodal fields through persistence, DTOs, export/import, and
+  Research UI display: `contentKind`, `sourceVariant`, `boundingBox`, metadata,
+  document hash, canonical text hash, source format, extraction method, and
+  verification class.
+- Updated the Research drawer to show distinct `Exact source match`,
+  `OCR matched`, and `Derived` badges plus warnings for OCR/derived evidence.
+- Added `npm run eval:m001:multimodal` and the deterministic M001 multimodal
+  evaluator scaffold.
+- Expanded browser QA to cover OCR and derived trust-class rendering.
+- Regenerated `docs/generated/code-index.json`.
+- Added release evidence manifest:
+  [`docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md`](docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md)
 
 ## Verification Evidence
 
-- `tsc --noEmit`: pass
-- `eslint .`: pass
-- `vitest run`: 51 pass; 3 opt-in live checks skipped by default
-- `next build`: pass
-- Playwright Edge: 2 pass
-  - deterministic PLTR desktop and narrow Research drawer
-  - live-labelled IDX fail-closed UI without a network request
-- Opt-in live official-source smoke: 3 pass
-  - SEC retrieved and hashed a current public PLTR filing
-  - IDX retrieved and hashed an official BBRI disclosure attachment
-  - BRI Investor Relations fallback retrieved and hashed an official report
-- Migration integration: pass on temporary SQLite, including new ingestion tables,
-  foreign keys, backup behavior, snapshot deduplication, and unchanged assumptions
-- Scheduler behavior: idempotent refresh, cursor persistence, overlapping-run
-  rejection, and cron bearer authentication pass deterministic tests
-- Direct `npm run research:refresh` smoke against temporary SQLite: pass; no
-  Next.js server required
+Latest full verification: 2026-07-07.
+
 - `npm run context:check`: pass
 - `npm run status:check`: pass
-- `npm run verify`: pass with generated JSON summary
-- `npm run verify:full`: pass, including 2 Playwright checks
+- `npm run typecheck`: pass
+- `npm run lint`: pass
+- `npm test`: pass
+  - 64 tests passed
+  - 3 opt-in live checks skipped
+- `npm run build`: pass
+- `npm run test:e2e`: pass
+  - 3 Playwright checks passed
+  - deterministic PLTR desktop and narrow drawer
+  - live-labelled IDX fail-closed state
+  - OCR and derived trust-class labels
+- `npm run verify:full`: pass
+- `npm run eval:m001:multimodal -- --output test-results\m001-multimodal-report.json`: pass
+  - base case count: 16
+  - multimodal addendum case count: 16
+  - all 16 deterministic multimodal addendum cases passed
+  - `hardGateFailures: []`
+  - `modelEligibility: not_evaluated`
+- `git diff --check`: pass
 
 ## Remaining Boundaries
 
-- The Windows scheduled task is installed. A manual Task Scheduler execution
-  completed with result code `0`; the next automatic run is scheduled for
-  2026-07-06 08:00 Asia/Jakarta.
-- M001 remains open for the accepted multimodal OCR/vision/XBRL work.
-- No real model/provider is approved or connected.
+- No real OCR engine, vision model, local model, or cloud provider was approved
+  or connected in this slice.
+- The multimodal evaluator currently proves deterministic application gates and
+  fixture behavior only. It does not approve selectable product models.
+- Confidential thesis, assumption, decision, portfolio, and user-provided data
+  remain blocked from unapproved cloud providers.
 - Secondary-source and general-news ingestion remain deferred.
-- `npm audit` reports six moderate dependency findings; no forced breaking upgrade
-  was applied.
+- `npm audit` previously reported six moderate dependency findings; no forced
+  breaking upgrade was applied in this slice.
 
 ## Exact Resume Point
 
-1. Observe the first automatic task run on 2026-07-06 at 08:00 Asia/Jakarta.
-2. Confirm the retained ingestion-run status.
-3. Continue the remaining M001 scope.
+1. Review and commit the verified working-tree slice.
+2. After commit, decide whether the next M001 step is provider/security approval
+   or local real-engine OCR/vision integration.
+3. Do not connect a real provider or process confidential user data until the
+   appropriate approval decision is recorded.
 
 Promoted lessons consulted: `LC-20260703-001`
 
-Learning candidates created: `LC-20260704-001`, `LC-20260705-001`
+Learning candidates created: `none`

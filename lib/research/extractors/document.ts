@@ -13,11 +13,18 @@ export type ExtractedDocument = {
   pages: ExtractedPage[];
   parserVersion: string;
   extractionMethod: 'html_parser' | 'pdf_text';
+  sourceVariant: 'text_layer';
 };
 
 export async function extractDocument(snapshot: SourceSnapshot): Promise<ExtractedDocument> {
+  if (snapshot.rawBytes.byteLength > 10 * 1024 * 1024) {
+    throw new ResearchSourceError('source_too_large', 'Source document is too large for first-slice multimodal processing.');
+  }
   if (snapshot.sourceFormat === 'html') return extractHtml(snapshot.rawBytes);
   if (snapshot.sourceFormat === 'pdf') return extractPdf(snapshot.rawBytes);
+  if (snapshot.sourceFormat === 'image') {
+    throw new ResearchSourceError('unsupported_visual', 'Image source requires a configured OCR or vision extractor.');
+  }
   throw new ResearchSourceError('unsupported_document', `Unsupported source format: ${snapshot.sourceFormat}.`);
 }
 
@@ -34,6 +41,7 @@ export function extractHtml(rawBytes: Uint8Array): ExtractedDocument {
     pages: [{ pageNumber: null, text: canonicalText }],
     parserVersion: 'cheerio-1.1',
     extractionMethod: 'html_parser',
+    sourceVariant: 'text_layer',
   };
 }
 
@@ -56,6 +64,7 @@ export async function extractPdf(rawBytes: Uint8Array): Promise<ExtractedDocumen
       pages,
       parserVersion: `pdfjs-${pdfjs.version}`,
       extractionMethod: 'pdf_text',
+      sourceVariant: 'text_layer',
     };
   } catch (error) {
     if (error instanceof ResearchSourceError) throw error;
