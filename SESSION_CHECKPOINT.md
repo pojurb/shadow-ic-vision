@@ -76,8 +76,11 @@ Latest full verification: 2026-07-07.
   model eligibility separately gated.
 - The multimodal evaluator currently proves deterministic application gates and
   fixture behavior only. It does not approve selectable product models.
-- Confidential thesis, assumption, decision, portfolio, and user-provided data
-  remain blocked from unapproved cloud providers.
+- DEC-0009 proposes POC external processing for workflow confidential data
+  through the configured provider boundary only. Portfolio/position data,
+  credentials, account screenshots, raw database exports, identity documents,
+  unrelated personal files, production external processing, and selectable
+  model eligibility remain blocked until later explicit decisions.
 - Secondary-source and general-news ingestion remain deferred.
 - `npm audit` previously reported six moderate dependency findings; no forced
   breaking upgrade was applied in this slice.

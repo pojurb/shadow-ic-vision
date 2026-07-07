@@ -26,6 +26,25 @@ locally. The user direction for this proposal is to make externally hosted
 processing the default POC path, while keeping production use and provider
 selection explicitly governed.
 
+## Relationship To ADR-0006
+
+ADR-0006 Data Classification Boundary, accepted 2026-07-03, blocks thesis
+text, assumptions, decisions, user-provided evidence, and portfolio or
+personal investment information from externally hosted cloud providers until a
+security decision is accepted.
+
+This document is that security decision for POC development only. It supersedes
+the ADR-0006 data classification boundary solely for the POC data classes
+explicitly allowed in the Data Classification Gate below. All other ADR-0006
+constraints remain in force, including local-only deployment at `127.0.0.1`,
+loopback binding, secret handling, outbound logging, and no production cloud
+exposure.
+
+Supersession is POC-only. If M001 is released, deployed beyond loopback,
+transitioned to a hosted demo, or shared with another user, a separate
+production provider decision must be accepted before confidential data flows in
+that context.
+
 ## Decision Requested
 
 Approve the following provider/security gate for the next M001 slice:
@@ -57,6 +76,7 @@ model, endpoint, settings, and outbound logs to be recorded before use.
 | Public market data | SEC/IDX filings, public issuer pages, public ticker metadata | Yes |
 | Synthetic fixtures | Generated PDFs/images, fake company data, redacted test cases | Yes |
 | POC workflow confidential data | Thesis text, assumptions, decisions, conversation text, and user-provided evidence needed to exercise M001 | Yes, only through the configured POC provider boundary with outbound logging |
+| Portfolio and position data | Holdings, position sizes, cost basis, personal returns, and user-recorded Buy/Hold/Reduce/Exit decision records | No; treated as restricted and requires a later explicit decision if POC use is ever needed |
 | Restricted personal or financial secrets | API keys, credentials, account numbers, brokerage screenshots, raw database exports, identity documents, and unrelated personal files | No |
 | Production confidential processing | Any confidential JP Invest data sent to a remote model, OCR API, vision API, hosted browser, or hosted parser in production or hosted demo use | No until a production provider decision is accepted |
 
@@ -115,8 +135,14 @@ The next implementation slice may not:
   next M001 decision.
 - `docs/RISK_REGISTER.md` references this gate for confidential cloud-provider
   risk.
-- The configured POC provider, model, endpoint, settings, and allowed data
-  classes are visible in local configuration or release evidence.
+- The configured POC provider, model, endpoint, API version, settings, and
+  allowed data classes are recorded in local configuration or release evidence
+  before any confidential POC data is sent.
+- The provider adapter used for POC confidential data is code-reviewed,
+  contains no direct `fetch` or SDK bypass of the project-owned provider
+  interface, and is the exclusive outbound path for LLM/provider calls.
+  Evidence of this review, such as a commit reference or session note, is
+  recorded before POC confidential data flows.
 - Outbound provider calls are logged with provider, route, data class,
   timestamp, and allowed/blocked outcome without storing full confidential
   payloads in the log.
@@ -156,9 +182,14 @@ from silently becoming production approval.
 ## Reversal Or Supersession
 
 Supersede this decision if the user accepts a provider-specific security record
-or if M001 reverts to deterministic-only multimodal support. Reversal must keep
-historical evidence and must not retroactively approve any confidential-data
-processing that occurred before an accepted provider decision.
+or if M001 reverts to deterministic-only multimodal support. Additionally, this
+POC permission automatically lapses if the application is run outside
+`127.0.0.1` loopback, shared with another user, or deployed to any hosted or
+demo environment. In those cases a production provider decision must be
+accepted first regardless of whether this decision has been superseded.
+Reversal must keep historical evidence and must not retroactively approve any
+confidential-data processing that occurred before an accepted provider
+decision.
 
 ## Affected Files If Accepted
 
