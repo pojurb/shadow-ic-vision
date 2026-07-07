@@ -69,6 +69,9 @@ Release evidence: [`docs/evidence/releases/2026-07-07-m001-multimodal-determinis
 
 - M001 is not fully closed because real OCR/vision provider eligibility and any
   confidential-data provider approval remain unapproved and unconnected.
+- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is now
+  proposed as the provider/security gate. It does not approve any cloud
+  provider.
 - The deterministic multimodal evaluator proves first-slice application gates;
   it does not approve a model, provider, cloud processor, or native browsing
   capability.
@@ -78,12 +81,11 @@ Release evidence: [`docs/evidence/releases/2026-07-07-m001-multimodal-determinis
 
 ## Next Step
 
-1. Decide the next governed provider/security step before any real OCR, vision,
-   or cloud model processes confidential user data.
-2. Continue M001 with provider eligibility and real-engine integration only
-   after the appropriate approval gate is recorded.
-3. If provider approval remains deferred, continue with local-only real-engine
-   exploration that uses synthetic fixtures and no confidential user data.
+1. Review [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md).
+2. If accepted, continue M001 with local-only OCR/vision exploration using
+   synthetic fixtures and public/non-confidential documents only.
+3. Keep provider/model eligibility as `not_evaluated` until a later
+   provider-specific approval and full eval report are recorded.
 
 Promoted lessons consulted: `LC-20260703-001`
 

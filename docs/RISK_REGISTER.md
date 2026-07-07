@@ -2,9 +2,9 @@
 
 Status: `active`
 
-Last reviewed: 2026-07-03
+Last reviewed: 2026-07-07
 
-Next required review: before expanded M001 Gate 4 approval
+Next required review: before accepting DEC-0009 or any provider-specific cloud approval
 
 Risk acceptance authority: user
 
@@ -12,7 +12,7 @@ Risk acceptance authority: user
 |---|---|---|---|---|---|---|---|---|---|
 | R-001 | Architecture or stack is chosen before approved product requirements | Product/Engineering | Medium | High | Open | Enforce lifecycle gates and require milestone-specific decision records | Technology appears in strategy or before an approved milestone | Tooling choices may still bias later product decisions | 2026-07-02 |
 | R-002 | Model-specific playbooks drift apart | Delivery | Low | High | Mitigated | Canonical `AGENTS.md` with thin importing adapters and repository-wide stale-reference checks | Shared policy is copied into an adapter | Loader-specific behavior can still change externally | 2026-07-02 |
-| R-003 | Confidential investment data is sent to an unapproved cloud model | Security | Medium | Critical | Open | Apply data classification and require provider approval before confidential cloud use | A workflow sends real portfolio or thesis data to a cloud provider | Approved providers still retain operational and legal exposure | 2026-07-02 |
+| R-003 | Confidential investment data is sent to an unapproved cloud model | Security | Medium | Critical | Open | Apply DEC-0009 data classification and require provider-specific approval before confidential cloud use | A workflow sends real portfolio or thesis data to a cloud provider | Approved providers still retain operational and legal exposure | 2026-07-07 |
 | R-004 | Golden Dataset optimization hides failures outside known cases | QA/Model | High | High | Open | Use held-out, adversarial, provider-failure, and periodic human review cases | Scores improve while real workflow failures persist | No finite eval set proves complete behavior | 2026-07-02 |
 | R-005 | V1 becomes one oversized milestone | Product | High | High | Mitigated | Deliver one V1 release through four separately approved vertical milestones | A packet combines both entry paths, briefing scale, and beta hardening | Cross-milestone integration can still reveal late issues | 2026-07-02 |
 | R-006 | Metrics reward trading, alert volume, or rushed decisions | Product Safety | Medium | High | Mitigated | Measure review quality, evidence integrity, explicit deferral, correction handling, and record completeness | Success is described as more trades, more alerts, or faster action | Behavioral measures can still be gamed without user feedback | 2026-07-02 |
@@ -29,6 +29,7 @@ Risk acceptance authority: user
 | R-017 | OCR, vision, chart, table, or calculated output is presented as source-exact evidence | Data Trust | High | Critical | Open | Separate `exact_verified`, `ocr_matched`, and `derived` evidence; retain page, bounding box, method, inputs, versions, and document hash; block verification-class promotion | OCR or model interpretation appears with an exact-verification badge or without derivation provenance | OCR and visual extraction can remain wrong even when correctly labelled | 2026-07-03 |
 | R-018 | Malicious instructions embedded in a PDF, image, table, or web document override product policy | Security/Model | Medium | Critical | Open | Treat all document content as untrusted, isolate source text from system instructions, add multimodal injection evals, and keep tool execution application-controlled | A document tells the model to ignore policy, expose data, invoke tools, or recommend a trade | Novel visual or obfuscated injections may bypass known tests | 2026-07-03 |
 | R-019 | Full multimodal support makes M001 too large, slow, costly, or unreliable | Product/Engineering | High | High | Open | Keep the amendment explicit, use staged async processing and deterministic fixtures, measure latency/cost, surface degraded states, and preserve a text-PDF-only reversal path | OCR/vision dependencies or model runs delay the first usable thesis loop or exceed acceptable resource limits | Broad document coverage may still require later source-specific exceptions | 2026-07-03 |
+| R-020 | A provider is treated as approved because local or synthetic tests pass | Security/Model | Medium | Critical | Open | DEC-0009 keeps local-engine readiness separate from cloud provider approval and selectable model eligibility | A model appears selectable after fixture-only OCR/vision checks | Local readiness still may not predict hosted-provider retention, logging, or safety behavior | 2026-07-07 |
 
 ## Review Rules
 

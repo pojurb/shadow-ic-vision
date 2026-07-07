@@ -10,7 +10,7 @@
   `https://github.com/pojurb/shadow-ic-vision.git`
 - Phase: M001 implementation
 - Working scope: governed multimodal deterministic first slice
-- Cloud provider decision `DEC-0009`: deferred
+- Cloud provider/security decision `DEC-0009`: proposed, not accepted
 - Provider/model eligibility: `not_evaluated`
 - Working tree: clean after push; local `main` and `origin/main` are aligned
 
@@ -70,6 +70,9 @@ Latest full verification: 2026-07-07.
 
 - No real OCR engine, vision model, local model, or cloud provider was approved
   or connected in this slice.
+- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) has been
+  drafted as the next provider/security gate. It keeps cloud providers blocked
+  for confidential data and proposes local/synthetic exploration only.
 - The multimodal evaluator currently proves deterministic application gates and
   fixture behavior only. It does not approve selectable product models.
 - Confidential thesis, assumption, decision, portfolio, and user-provided data
@@ -80,12 +83,12 @@ Latest full verification: 2026-07-07.
 
 ## Exact Resume Point
 
-1. Decide whether the next M001 step is provider/security approval or local
-   real-engine OCR/vision exploration with synthetic fixtures only.
-2. Do not connect a real provider or process confidential user data until the
-   appropriate approval decision is recorded.
-3. If provider approval remains deferred, keep M001 work deterministic or
-   local-only and retain `modelEligibility: not_evaluated`.
+1. Review [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) with
+   the user.
+2. If accepted, implement the next local-only OCR/vision exploration slice with
+   synthetic fixtures and public/non-confidential documents only.
+3. Keep `modelEligibility: not_evaluated` and do not send confidential data to
+   any cloud provider until a provider-specific approval record is accepted.
 
 Promoted lessons consulted: `LC-20260703-001`
 
