@@ -13,6 +13,26 @@ export type ProjectMessage = {
   content: string;
 };
 
+export type ProviderDataClass =
+  | 'public_market_data'
+  | 'synthetic_fixture'
+  | 'poc_workflow_confidential'
+  | 'portfolio_position_data'
+  | 'restricted_personal_financial_secret'
+  | 'production_confidential_processing';
+
+export type ProviderCallRuntime = {
+  requestUrl?: string;
+  host?: string | null;
+  deployment?: 'local' | 'poc' | 'production' | 'demo' | 'hosted';
+};
+
+export type ProviderCallContext = {
+  route: string;
+  dataClass: ProviderDataClass;
+  runtime?: ProviderCallRuntime;
+};
+
 export interface ProviderMetadata {
   provider: string;
   modelId: string;
@@ -47,9 +67,9 @@ export interface LLMProvider {
   /**
    * Simple blocking chat for background tasks.
    */
-  chat(messages: ProjectMessage[]): Promise<ChatResult>;
+  chat(messages: ProjectMessage[], context: ProviderCallContext): Promise<ChatResult>;
 
-  streamCompletion(messages: ProjectMessage[]): AsyncIterable<string>;
+  streamCompletion(messages: ProjectMessage[], context: ProviderCallContext): AsyncIterable<string>;
 
   /**
    * Extract structured data conforming to a Zod schema.
@@ -57,6 +77,7 @@ export interface LLMProvider {
   structuredExtract<T>(
     messages: ProjectMessage[],
     schema: z.ZodType<T>,
-    schemaName: string
+    schemaName: string,
+    context: ProviderCallContext,
   ): Promise<StructuredExtractResult<T>>;
 }

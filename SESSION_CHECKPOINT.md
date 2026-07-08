@@ -1,55 +1,46 @@
-# Session Checkpoint - 2026-07-07
+# Session Checkpoint - 2026-07-08
 
 ## Repository State
 
 - Branch: `main`
-- Base commit before this working slice: `75b8d026ddcb77f3e1d7636f2c7869db7eb6ed6b`
-- Published commit:
-  `c08aae19a311ab44c488bc87cba759d43795b970`
+- Base commit before provider-gate implementation:
+  `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
 - Phase: M001 implementation
-- Working scope: governed multimodal deterministic first slice
-- Cloud provider/security decision `DEC-0009`: accepted for POC only
+- Working scope: DEC-0009 controlled POC external-provider gate
+- Cloud provider/security decision `DEC-0009`: accepted and implemented for
+  local POC only
 - Provider/model eligibility: `not_evaluated`
-- Working tree: clean after push; local `main` and `origin/main` are aligned
 
 ## Implemented This Session
 
-- Added typed multimodal evidence candidates and pipeline results for
-  `exact_verified`, `ocr_matched`, and `derived`.
-- Added page-level quote provenance checking so a correct quote on the wrong
-  page is blocked.
-- Added deterministic helper boundaries for:
-  - fixture OCR and screenshot OCR
-  - chart/table-derived evidence
-  - XBRL gross-margin calculation
-  - large-document chunk selection with page provenance
-  - embedded document/image instruction detection
-  - mixed-language uncertainty handling
-- Preserved multimodal fields through persistence, DTOs, export/import, and
-  Research UI display: `contentKind`, `sourceVariant`, `boundingBox`, metadata,
-  document hash, canonical text hash, source format, extraction method, and
-  verification class.
-- Updated the Research drawer to show distinct `Exact source match`,
-  `OCR matched`, and `Derived` badges plus warnings for OCR/derived evidence.
-- Added `npm run eval:m001:multimodal` and the deterministic M001 multimodal
-  evaluator scaffold.
-- Expanded browser QA to cover OCR and derived trust-class rendering.
+- Added required provider-call context to the project-owned `LLMProvider`
+  contract: route, DEC-0009 data class, and runtime facts.
+- Added a pure DEC-0009 provider gate and a single external provider HTTP
+  helper that logs allowed/blocked attempts without prompt or payload text.
+- Updated `OllamaProvider` to route external fetches through the gated helper.
+- Updated chat and decision-recommendation callsites to pass
+  `poc_workflow_confidential` context.
+- Added tests proving allowed POC classes pass, restricted classes fail closed,
+  blocked attempts do not fetch, logs are sanitized, and provider endpoint
+  fetches remain behind the `lib/ai` boundary.
+- Extended the M001 multimodal evaluator with six DEC-0009 provider-boundary
+  cases while preserving `modelEligibility: not_evaluated`.
 - Regenerated `docs/generated/code-index.json`.
 - Added release evidence manifest:
-  [`docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md`](docs/evidence/releases/2026-07-07-m001-multimodal-deterministic-slice/manifest.md)
+  [`docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md`](docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md)
 
 ## Verification Evidence
 
-Latest full verification: 2026-07-07.
+Latest full verification: 2026-07-08.
 
 - `npm run context:check`: pass
 - `npm run status:check`: pass
 - `npm run typecheck`: pass
 - `npm run lint`: pass
 - `npm test`: pass
-  - 64 tests passed
+  - 76 tests passed
   - 3 opt-in live checks skipped
 - `npm run build`: pass
 - `npm run test:e2e`: pass
@@ -62,33 +53,35 @@ Latest full verification: 2026-07-07.
   - base case count: 16
   - multimodal addendum case count: 16
   - all 16 deterministic multimodal addendum cases passed
+  - DEC-0009 provider-boundary cases: 6 passed
   - `hardGateFailures: []`
   - `modelEligibility: not_evaluated`
 - `git diff --check`: pass
 
 ## Remaining Boundaries
 
-- No real OCR engine, vision model, local model, or production cloud provider
-  was approved or connected in this slice.
+- No real OCR engine, vision model, local model, provider-specific cloud
+  approval, or production cloud provider was approved in this slice.
 - [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is accepted
-  as the POC provider/security gate. It authorizes external provider
-  processing as the POC default, while keeping production use and selectable
-  model eligibility separately gated.
-- The multimodal evaluator currently proves deterministic application gates and
-  fixture behavior only. It does not approve selectable product models.
-- DEC-0009 proposes POC external processing for workflow confidential data
-  through the configured provider boundary only. Portfolio/position data,
-  credentials, account screenshots, raw database exports, identity documents,
-  unrelated personal files, production external processing, and selectable
-  model eligibility remain blocked until later explicit decisions.
+  and implemented as the local POC provider/security gate. It authorizes
+  workflow confidential routing through the configured provider boundary only,
+  while keeping production use and selectable model eligibility separately
+  gated.
+- The multimodal evaluator now proves deterministic application gates and
+  DEC-0009 data-boundary behavior. It does not approve selectable product
+  models.
+- Portfolio/position data, credentials, account screenshots, raw database
+  exports, identity documents, unrelated personal files, production external
+  processing, and selectable model eligibility remain blocked until later
+  explicit decisions.
 - Secondary-source and general-news ingestion remain deferred.
 - `npm audit` previously reported six moderate dependency findings; no forced
   breaking upgrade was applied in this slice.
 
 ## Exact Resume Point
 
-1. Implement the accepted DEC-0009 controlled POC external-provider gate with
-   outbound logging, blocked secret classes, and evaluator coverage.
+1. Record a provider-specific POC approval package before sending real
+   confidential POC data through the gate.
 2. Keep `modelEligibility: not_evaluated` and do not carry POC external
    processing into production until a production provider decision is accepted.
 

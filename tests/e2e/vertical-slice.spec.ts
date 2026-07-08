@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const evidenceDirectory = path.join(
   process.cwd(), process.env.E2E_EVIDENCE_DIR || path.join('test-results', 'evidence'),
@@ -11,13 +12,33 @@ test.beforeAll(() => {
   fs.mkdirSync(evidenceDirectory, { recursive: true });
 });
 
+async function gotoHome(page: Page) {
+  const conversationsLoaded = page.waitForResponse((response) =>
+    response.url().includes('/api/conversations') && response.request().method() === 'GET',
+  );
+  await page.goto('/');
+  await conversationsLoaded;
+  await expect(page.getByRole('button', { name: '+ New' })).toBeVisible();
+}
+
+async function createNewConversation(page: Page) {
+  const created = page.waitForResponse((response) =>
+    response.url().includes('/api/conversations') && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: '+ New' }).click();
+  const response = await created;
+  expect(response.ok()).toBe(true);
+  const data = await response.json() as { id?: string };
+  expect(data.id).toMatch(/^[0-9a-f-]+$/);
+  await expect(page).toHaveURL(new RegExp(`/c/${data.id}$`), { timeout: 15_000 });
+}
+
 test('captures the verified desktop slice and narrow Research drawer', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/');
+  await gotoHome(page);
 
   await expect(page.getByRole('heading', { name: 'Codex Protocol (v3)' })).toBeVisible();
-  await page.getByRole('button', { name: '+ New' }).click();
-  await expect(page).toHaveURL(/\/c\/[0-9a-f-]+$/);
+  await createNewConversation(page);
   await expect(page.getByRole('heading', { name: 'State a thesis to begin' })).toBeVisible();
 
   await page.getByPlaceholder('State your thesis or assumption...').fill(
@@ -65,9 +86,8 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
 });
 
 test('shows a live IDX fail-closed state without making a network request', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '+ New' }).click();
-  await expect(page).toHaveURL(/\/c\/[0-9a-f-]+$/);
+  await gotoHome(page);
+  await createNewConversation(page);
   await expect(page.getByRole('heading', { name: 'State a thesis to begin' })).toBeVisible();
   await page.route('**/api/research?**', async (route) => {
     await route.fulfill({
@@ -110,9 +130,8 @@ test('shows a live IDX fail-closed state without making a network request', asyn
 });
 
 test('shows OCR and derived trust classes in the Research drawer', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: '+ New' }).click();
-  await expect(page).toHaveURL(/\/c\/[0-9a-f-]+$/);
+  await gotoHome(page);
+  await createNewConversation(page);
   await page.route('**/api/research?**', async (route) => {
     await route.fulfill({
       status: 200,

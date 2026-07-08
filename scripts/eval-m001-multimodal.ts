@@ -6,6 +6,8 @@ import { selectMostRelevantChunk } from '@/lib/research/extractors/chunking';
 import { assessRecurringGrowthCaveat } from '@/lib/research/extractors/multilingual';
 import { scanEmbeddedInstructions } from '@/lib/research/extractors/safety';
 import { calculateChartGrowthCandidate, extractScreenshotOcrCandidate } from '@/lib/research/extractors/visual';
+import { evaluateProviderGate } from '@/lib/ai/provider-gate';
+import type { ProviderCallContext, ProviderMetadata } from '@/lib/ai/provider';
 
 type MultimodalCase = {
   id: string;
@@ -48,6 +50,16 @@ export type MultimodalEvalReport = {
   completedAt: string;
   modelEligibility: 'not_evaluated';
   hardGateFailures: string[];
+  providerBoundary: {
+    modelEligibility: 'not_evaluated';
+    cases: Array<{
+      id: string;
+      dataClass: ProviderCallContext['dataClass'];
+      expected: 'allowed' | 'blocked';
+      actual: 'allowed' | 'blocked';
+      reasonCode: string;
+    }>;
+  };
   cases: Array<{
     id: string;
     status: 'passed' | 'unsupported';
@@ -60,6 +72,10 @@ export function evaluateM001Multimodal(rootDirectory: string, completedAt = new 
   const base = readJson<{ test_cases?: unknown[] }>(path.join(rootDirectory, 'docs', 'evals', 'M001', 'cases.json'));
   const additional = readJson<Suite>(path.join(rootDirectory, 'docs', 'evals', 'M001', 'multimodal-cases.json'));
   const cases = additional.test_cases ?? [];
+  const providerBoundary = evaluateProviderBoundary();
+  const providerFailures = providerBoundary.cases
+    .filter((item) => item.actual !== item.expected)
+    .map((item) => `provider-boundary:${item.id}:${item.actual}`);
 
   return {
     schemaVersion: 1,
@@ -68,8 +84,46 @@ export function evaluateM001Multimodal(rootDirectory: string, completedAt = new 
     additionalCaseCount: cases.length,
     completedAt,
     modelEligibility: 'not_evaluated',
-    hardGateFailures: [],
+    hardGateFailures: providerFailures,
+    providerBoundary,
     cases: cases.map((testCase) => evaluateCase(testCase)),
+  };
+}
+
+function evaluateProviderBoundary(): MultimodalEvalReport['providerBoundary'] {
+  const provider: ProviderMetadata = {
+    provider: 'ollama-cloud',
+    modelId: 'deepseek-v3.1:671b-cloud',
+    promptVersion: '1.0.0',
+    settings: { apiUrl: 'https://ollama.com/api' },
+  };
+  const inputs: Array<{
+    id: string;
+    dataClass: ProviderCallContext['dataClass'];
+    expected: 'allowed' | 'blocked';
+  }> = [
+    { id: 'PB-001', dataClass: 'public_market_data', expected: 'allowed' },
+    { id: 'PB-002', dataClass: 'synthetic_fixture', expected: 'allowed' },
+    { id: 'PB-003', dataClass: 'poc_workflow_confidential', expected: 'allowed' },
+    { id: 'PB-004', dataClass: 'portfolio_position_data', expected: 'blocked' },
+    { id: 'PB-005', dataClass: 'restricted_personal_financial_secret', expected: 'blocked' },
+    { id: 'PB-006', dataClass: 'production_confidential_processing', expected: 'blocked' },
+  ];
+
+  return {
+    modelEligibility: 'not_evaluated',
+    cases: inputs.map((input) => {
+      const gate = evaluateProviderGate(provider, {
+        route: 'eval.m001.providerBoundary',
+        dataClass: input.dataClass,
+        runtime: { deployment: 'local' },
+      });
+      return {
+        ...input,
+        actual: gate.allowed ? 'allowed' : 'blocked',
+        reasonCode: gate.reasonCode,
+      };
+    }),
   };
 }
 

@@ -3,20 +3,34 @@ import {
   type ChatResult,
   type LLMProvider,
   type ProjectMessage,
+  type ProviderCallContext,
   type ProviderCapabilities,
   type ProviderMetadata,
   type StructuredExtractResult,
 } from '../provider';
+import { providerFetch } from '../provider-http';
+
+type OllamaProviderOptions = {
+  fetchImpl?: typeof fetch;
+  logPath?: string;
+  now?: () => number;
+};
 
 export class OllamaProvider implements LLMProvider {
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly model: string;
+  private readonly fetchImpl: typeof fetch | undefined;
+  private readonly logPath: string | undefined;
+  private readonly now: (() => number) | undefined;
 
-  constructor() {
+  constructor(options: OllamaProviderOptions = {}) {
     this.apiKey = process.env.OLLAMA_API_KEY || '';
     this.apiUrl = process.env.OLLAMA_API_URL || 'https://ollama.com/api';
     this.model = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
+    this.fetchImpl = options.fetchImpl;
+    this.logPath = options.logPath;
+    this.now = options.now;
   }
 
   getMetadata(): ProviderMetadata {
@@ -40,22 +54,8 @@ export class OllamaProvider implements LLMProvider {
     };
   }
 
-  async chat(messages: ProjectMessage[]): Promise<ChatResult> {
-    const response = await fetch(`${this.apiUrl}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        stream: false,
-      }),
-    });
+  async chat(messages: ProjectMessage[], context: ProviderCallContext): Promise<ChatResult> {
+    const response = await this.fetchChat(messages, context, false);
 
     const body = await response.json();
     if (!response.ok) {
@@ -68,22 +68,8 @@ export class OllamaProvider implements LLMProvider {
     };
   }
 
-  async *streamCompletion(messages: ProjectMessage[]): AsyncIterable<string> {
-    const response = await fetch(`${this.apiUrl}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        stream: true,
-      }),
-    });
+  async *streamCompletion(messages: ProjectMessage[], context: ProviderCallContext): AsyncIterable<string> {
+    const response = await this.fetchChat(messages, context, true);
 
     if (!response.ok || !response.body) {
       const errorText = await response.text();
@@ -120,16 +106,16 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
-  async structuredExtract<T>(
-    messages: ProjectMessage[],
-    schema: z.ZodType<T>,
-    schemaName: string,
-  ): Promise<StructuredExtractResult<T>> {
-    void schemaName;
-    const jsonSchema = zodToJsonSchema(schema);
-
-    try {
-      const response = await fetch(`${this.apiUrl}/chat`, {
+  private fetchChat(messages: ProjectMessage[], context: ProviderCallContext, stream: boolean) {
+    return providerFetch({
+      metadata: this.getMetadata(),
+      context,
+      endpoint: 'ollama.chat',
+      url: `${this.apiUrl}/chat`,
+      fetchImpl: this.fetchImpl,
+      logPath: this.logPath,
+      now: this.now,
+      init: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,9 +127,46 @@ export class OllamaProvider implements LLMProvider {
             role: m.role,
             content: m.content,
           })),
-          format: jsonSchema,
-          stream: false,
+          stream,
         }),
+      },
+    });
+  }
+
+  async structuredExtract<T>(
+    messages: ProjectMessage[],
+    schema: z.ZodType<T>,
+    schemaName: string,
+    context: ProviderCallContext,
+  ): Promise<StructuredExtractResult<T>> {
+    void schemaName;
+    const jsonSchema = zodToJsonSchema(schema);
+
+    try {
+      const response = await providerFetch({
+        metadata: this.getMetadata(),
+        context,
+        endpoint: 'ollama.structuredExtract',
+        url: `${this.apiUrl}/chat`,
+        fetchImpl: this.fetchImpl,
+        logPath: this.logPath,
+        now: this.now,
+        init: {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            format: jsonSchema,
+            stream: false,
+          }),
+        },
       });
 
       const body = await response.json();

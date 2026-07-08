@@ -726,7 +726,12 @@ export async function generateDecisionRecommendation(
   const result = await provider.structuredExtract(
     messages,
     decisionRecommendationSchema,
-    'decision-recommendation-v1'
+    'decision-recommendation-v1',
+    {
+      route: 'lib.research.generateDecisionRecommendation',
+      dataClass: 'poc_workflow_confidential',
+      runtime: { deployment: 'local' },
+    },
   );
 
   if (!result.success || !result.data) {

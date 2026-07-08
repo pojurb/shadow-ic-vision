@@ -3,6 +3,7 @@ import {
   type ChatResult,
   type LLMProvider,
   type ProjectMessage,
+  type ProviderCallContext,
   type ProviderCapabilities,
   type ProviderMetadata,
   type StructuredExtractResult,
@@ -37,7 +38,8 @@ export class MockProvider implements LLMProvider {
     };
   }
 
-  async chat(messages: ProjectMessage[]): Promise<ChatResult> {
+  async chat(messages: ProjectMessage[], context: ProviderCallContext): Promise<ChatResult> {
+    void context;
     const lastMessage = messages.at(-1)?.content ?? '';
     return {
       text: this.responseText(lastMessage),
@@ -45,8 +47,8 @@ export class MockProvider implements LLMProvider {
     };
   }
 
-  async *streamCompletion(messages: ProjectMessage[]): AsyncIterable<string> {
-    const result = await this.chat(messages);
+  async *streamCompletion(messages: ProjectMessage[], context: ProviderCallContext): AsyncIterable<string> {
+    const result = await this.chat(messages, context);
     yield result.text;
   }
 
@@ -54,7 +56,9 @@ export class MockProvider implements LLMProvider {
     messages: ProjectMessage[],
     schema: z.ZodType<T>,
     schemaName: string,
+    context: ProviderCallContext,
   ): Promise<StructuredExtractResult<T>> {
+    void context;
     if (schemaName === 'decision-recommendation-v1') {
       const candidate = this.mode === 'malformed'
         ? { recommendedOutcome: 'Invalid' }

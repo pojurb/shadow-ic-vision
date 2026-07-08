@@ -11,6 +11,13 @@ describe('M001 multimodal evaluator scaffold', () => {
       modelEligibility: 'not_evaluated',
       hardGateFailures: [],
     });
+    expect(report.providerBoundary).toMatchObject({
+      modelEligibility: 'not_evaluated',
+      cases: expect.arrayContaining([
+        expect.objectContaining({ id: 'PB-003', dataClass: 'poc_workflow_confidential', actual: 'allowed' }),
+        expect.objectContaining({ id: 'PB-005', dataClass: 'restricted_personal_financial_secret', actual: 'blocked' }),
+      ]),
+    });
     expect(report.cases.find((item) => item.id === 'MM-002')).toMatchObject({ status: 'passed' });
     expect(report.cases.find((item) => item.id === 'MM-005')).toMatchObject({ status: 'passed' });
     expect(report.cases.find((item) => item.id === 'MM-012')?.notes).toContain('selected_page=237');

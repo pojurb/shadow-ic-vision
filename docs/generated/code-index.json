@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "fbf32d34b3ada3cea20f61a482127b8a4e53d4446a9ecf2f4a8dcda0b078513b",
+  "sourceDigest": "3cbb6ce37bd43866556adddc838291e086b0ae2d6639e8f2a8929484da808338",
   "roots": [
     "app",
     "components",
@@ -573,6 +573,10 @@
           "resolved": "lib/ai/provider.ts"
         },
         {
+          "specifier": "../provider-http",
+          "resolved": "lib/ai/provider-http.ts"
+        },
+        {
           "specifier": "zod",
           "resolved": null
         }
@@ -603,6 +607,52 @@
       ]
     },
     {
+      "path": "lib/ai/provider-gate.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ProviderGateOutcome",
+        "ProviderOutboundLogEntry",
+        "evaluateProviderGate",
+        "writeProviderOutboundLog"
+      ]
+    },
+    {
+      "path": "lib/ai/provider-http.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "./provider-gate",
+          "resolved": "lib/ai/provider-gate.ts"
+        },
+        {
+          "specifier": "@/lib/research/config",
+          "resolved": "lib/research/config.ts"
+        }
+      ],
+      "exports": [
+        "ProviderGateError",
+        "providerFetch"
+      ]
+    },
+    {
       "path": "lib/ai/provider.ts",
       "kind": "module",
       "imports": [
@@ -615,7 +665,10 @@
         "ChatResult",
         "LLMProvider",
         "ProjectMessage",
+        "ProviderCallContext",
+        "ProviderCallRuntime",
         "ProviderCapabilities",
+        "ProviderDataClass",
         "ProviderMetadata",
         "StructuredExtractResult"
       ]
@@ -1382,6 +1435,10 @@
           "resolved": null
         },
         {
+          "specifier": "@playwright/test",
+          "resolved": null
+        },
+        {
           "specifier": "node:fs",
           "resolved": null
         },
@@ -1430,6 +1487,10 @@
         {
           "specifier": "@/lib/ai/adapters/mock",
           "resolved": "lib/ai/adapters/mock.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
         },
         {
           "specifier": "@/lib/domain/contracts",
@@ -1491,6 +1552,76 @@
         {
           "specifier": "@/lib/ai/adapters/ollama",
           "resolved": "lib/ai/adapters/ollama.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/provider-boundary.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/provider-gate.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider-gate",
+          "resolved": "lib/ai/provider-gate.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider-http",
+          "resolved": "lib/ai/provider-http.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
         },
         {
           "specifier": "vitest",
@@ -1865,6 +1996,7 @@
       "path": "tests/mock-provider.test.ts",
       "productionModules": [
         "lib/ai/adapters/mock.ts",
+        "lib/ai/provider.ts",
         "lib/domain/contracts.ts"
       ]
     },
@@ -1884,7 +2016,20 @@
     {
       "path": "tests/ollama-provider.test.ts",
       "productionModules": [
-        "lib/ai/adapters/ollama.ts"
+        "lib/ai/adapters/ollama.ts",
+        "lib/ai/provider.ts"
+      ]
+    },
+    {
+      "path": "tests/provider-boundary.test.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/provider-gate.test.ts",
+      "productionModules": [
+        "lib/ai/provider-gate.ts",
+        "lib/ai/provider-http.ts",
+        "lib/ai/provider.ts"
       ]
     },
     {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addMessage, getConversation, getMessages, getThesisForConversation, toMessageDTO } from '@/db/queries';
 import { getLLMProvider } from '@/lib/ai/factory';
-import type { ProjectMessage } from '@/lib/ai/provider';
+import type { ProjectMessage, ProviderCallContext } from '@/lib/ai/provider';
 import { chatRequestSchema, thesisDraftSchema } from '@/lib/domain/contracts';
 
 const llmProvider = getLLMProvider();
@@ -29,11 +29,20 @@ export async function POST(request: Request) {
       content: msg.content
     }));
 
-    const response = await llmProvider.chat(projectMessages);
+    const providerContext: ProviderCallContext = {
+      route: 'app.api.chat',
+      dataClass: 'poc_workflow_confidential',
+      runtime: {
+        requestUrl: request.url,
+        host: request.headers.get('host'),
+      },
+    };
+
+    const response = await llmProvider.chat(projectMessages, providerContext);
     const existingThesis = await getThesisForConversation(conversationId);
     const extraction = existingThesis
       ? null
-      : await llmProvider.structuredExtract(projectMessages, thesisDraftSchema, 'thesis-draft-v1');
+      : await llmProvider.structuredExtract(projectMessages, thesisDraftSchema, 'thesis-draft-v1', providerContext);
     const structuredPayload = extraction?.success ? extraction.data ?? undefined : undefined;
 
     // Save assistant message
