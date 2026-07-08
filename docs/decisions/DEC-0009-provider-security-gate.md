@@ -1,8 +1,10 @@
 # DEC-0009 - M001 Provider Security Gate
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-07
+
+Date accepted: 2026-07-07
 
 Approving authority: user
 

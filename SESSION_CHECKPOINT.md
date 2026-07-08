@@ -10,7 +10,7 @@
   `https://github.com/pojurb/shadow-ic-vision.git`
 - Phase: M001 implementation
 - Working scope: governed multimodal deterministic first slice
-- Cloud provider/security decision `DEC-0009`: proposed, not accepted
+- Cloud provider/security decision `DEC-0009`: accepted for POC only
 - Provider/model eligibility: `not_evaluated`
 - Working tree: clean after push; local `main` and `origin/main` are aligned
 
@@ -70,8 +70,8 @@ Latest full verification: 2026-07-07.
 
 - No real OCR engine, vision model, local model, or production cloud provider
   was approved or connected in this slice.
-- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) has been
-  drafted as the next provider/security gate. It proposes external provider
+- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is accepted
+  as the POC provider/security gate. It authorizes external provider
   processing as the POC default, while keeping production use and selectable
   model eligibility separately gated.
 - The multimodal evaluator currently proves deterministic application gates and
@@ -87,11 +87,9 @@ Latest full verification: 2026-07-07.
 
 ## Exact Resume Point
 
-1. Review [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) with
-   the user.
-2. If accepted, implement the controlled POC external-provider gate with
+1. Implement the accepted DEC-0009 controlled POC external-provider gate with
    outbound logging, blocked secret classes, and evaluator coverage.
-3. Keep `modelEligibility: not_evaluated` and do not carry POC external
+2. Keep `modelEligibility: not_evaluated` and do not carry POC external
    processing into production until a production provider decision is accepted.
 
 Promoted lessons consulted: `LC-20260703-001`

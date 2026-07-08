@@ -70,13 +70,12 @@ Release evidence: [`docs/evidence/releases/2026-07-07-m001-multimodal-determinis
 - M001 is not fully closed because real OCR/vision provider eligibility and
   production confidential-data provider approval remain unapproved and
   unconnected.
-- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is now
-  proposed as the provider/security gate. It makes external provider
-  processing the default POC path, but does not approve production external
-  processing or selectable model eligibility. Portfolio/position data,
-  credentials, account screenshots, raw database exports, identity documents,
-  and unrelated personal files remain blocked unless a later explicit decision
-  allows them.
+- [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is accepted
+  as the POC provider/security gate. It makes external provider processing the
+  default POC path, but does not approve production external processing or
+  selectable model eligibility. Portfolio/position data, credentials, account
+  screenshots, raw database exports, identity documents, and unrelated
+  personal files remain blocked unless a later explicit decision allows them.
 - The deterministic multimodal evaluator proves first-slice application gates;
   it does not approve a model, provider, cloud processor, or native browsing
   capability.
@@ -86,11 +85,10 @@ Release evidence: [`docs/evidence/releases/2026-07-07-m001-multimodal-determinis
 
 ## Next Step
 
-1. Review [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md).
-2. If accepted, continue M001 with a controlled POC external-provider gate,
+1. Implement the accepted DEC-0009 controlled POC external-provider gate with
    outbound logging, blocked secret classes, and evaluator coverage for the
    allowed data boundary.
-3. Keep provider/model eligibility as `not_evaluated` until a later full eval
+2. Keep provider/model eligibility as `not_evaluated` until a later full eval
    report and production provider decision are recorded.
 
 Promoted lessons consulted: `LC-20260703-001`
