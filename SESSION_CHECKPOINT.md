@@ -87,4 +87,4 @@ Latest full verification: 2026-07-08.
 
 Promoted lessons consulted: `LC-20260703-001`
 
-Learning candidates created: `none`
+Learning candidates created: `LC-20260708-001`
