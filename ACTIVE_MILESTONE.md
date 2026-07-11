@@ -130,8 +130,8 @@ Release evidence:
 ## Next Steps (M002 Roadmap Sequence)
 
 1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
-2. **Step 2: Portfolio Position Tracking:** [Next Active Step] Implement local SQLite schema and UI for portfolio holding positions, keeping portfolio data restricted from cloud routing.
-3. **Step 3: Background Ingestion Live Alerts:** Integrate cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
+2. **Step 2: Portfolio Position Tracking:** [Completed] Implemented local SQLite schema, query helpers, CRUD API endpoints, and a sidebar UI panel to track and link holdings to active theses.
+3. **Step 3: Background Ingestion Live Alerts:** [Next Active Step] Integrate cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
 4. **Step 4: Continuous Governance:** Monitor production provider terms and local risk registers.
 
 Promoted lessons consulted: `LC-20260703-001`
