@@ -35,6 +35,7 @@ ResearchJob many <-> many SourceSnapshots via ResearchJobSources
 SourceSnapshot 1 -> many SourceDiscoveries
 Market + ticker -> SourceCursor
 IngestionRun + IngestionLease coordinate periodic refresh
+PortfolioPosition many -> 0..1 Thesis
 ```
 
 Raw source bytes are immutable and content-addressed outside the repository.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "39c301128d84e564c86938bbd37a24f02163b28f40576dc957d6c16db855003d",
+  "sourceDigest": "0c0fd2cc6beb7eeff84ff465d1c44197cd87d16a81387c5306174787566bb37f",
   "roots": [
     "app",
     "components",
@@ -82,6 +82,50 @@
         "POST",
         "hasValidCronAuthorization",
         "runtime"
+      ]
+    },
+    {
+      "path": "app/api/portfolio/[id]/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "DELETE",
+        "PATCH"
+      ]
+    },
+    {
+      "path": "app/api/portfolio/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET",
+        "POST"
       ]
     },
     {
@@ -275,6 +319,23 @@
       ],
       "exports": [
         "POST"
+      ]
+    },
+    {
+      "path": "app/api/theses/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET"
       ]
     },
     {
@@ -530,12 +591,17 @@
       "exports": [
         "addMessage",
         "createConversation",
+        "createPortfolioPosition",
+        "deletePortfolioPosition",
         "getConversation",
         "getConversations",
         "getMessage",
         "getMessages",
+        "getPortfolioPositions",
+        "getTheses",
         "getThesisForConversation",
-        "toMessageDTO"
+        "toMessageDTO",
+        "updatePortfolioPosition"
       ]
     },
     {
@@ -559,6 +625,7 @@
         "ingestionLeases",
         "ingestionRuns",
         "messages",
+        "portfolioPositions",
         "researchJobSources",
         "researchJobs",
         "sourceCursors",
@@ -1652,6 +1719,45 @@
       "exports": []
     },
     {
+      "path": "tests/portfolio.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/provider-boundary.test.ts",
       "kind": "test",
       "imports": [
@@ -1881,6 +1987,24 @@
       ]
     },
     {
+      "path": "/api/portfolio/[id]",
+      "kind": "route",
+      "module": "app/api/portfolio/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ]
+    },
+    {
+      "path": "/api/portfolio",
+      "kind": "route",
+      "module": "app/api/portfolio/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
       "path": "/api/research/refresh",
       "kind": "route",
       "module": "app/api/research/refresh/route.ts",
@@ -1953,6 +2077,14 @@
       ]
     },
     {
+      "path": "/api/theses",
+      "kind": "route",
+      "module": "app/api/theses/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/c/[id]",
       "kind": "page",
       "module": "app/c/[id]/page.tsx",
@@ -1999,6 +2131,11 @@
     {
       "name": "messages",
       "symbol": "messages",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "portfolio_positions",
+      "symbol": "portfolioPositions",
       "module": "db/schema.ts"
     },
     {
@@ -2114,6 +2251,14 @@
       "productionModules": [
         "lib/ai/adapters/ollama.ts",
         "lib/ai/provider.ts"
+      ]
+    },
+    {
+      "path": "tests/portfolio.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/queries.ts",
+        "db/schema.ts"
       ]
     },
     {

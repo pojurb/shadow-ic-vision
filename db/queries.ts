@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { getDatabase } from './client';
-import { conversations, messages, theses } from './schema';
+import { conversations, messages, theses, portfolioPositions } from './schema';
 import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { ProviderMetadata } from '@/lib/ai/provider';
@@ -69,6 +69,12 @@ export async function getThesisForConversation(conversationId: string) {
   return result[0] ?? null;
 }
 
+export async function getTheses() {
+  const { db } = getDatabase();
+  return await db.select().from(theses).orderBy(desc(theses.createdAt));
+}
+
+
 export function toMessageDTO(message: typeof messages.$inferSelect): MessageDTO {
   let structuredPayload: ThesisDraft | null = null;
   if (message.structuredPayload) {
@@ -88,4 +94,68 @@ export function toMessageDTO(message: typeof messages.$inferSelect): MessageDTO 
     validationOutcome: message.validationOutcome,
     createdAt: message.createdAt,
   };
+}
+
+export async function getPortfolioPositions() {
+  const { db } = getDatabase();
+  return await db
+    .select({
+      id: portfolioPositions.id,
+      ticker: portfolioPositions.ticker,
+      market: portfolioPositions.market,
+      shares: portfolioPositions.shares,
+      averageBuyPrice: portfolioPositions.averageBuyPrice,
+      thesisId: portfolioPositions.thesisId,
+      thesisTitle: theses.title,
+      createdAt: portfolioPositions.createdAt,
+      updatedAt: portfolioPositions.updatedAt,
+    })
+    .from(portfolioPositions)
+    .leftJoin(theses, eq(portfolioPositions.thesisId, theses.id))
+    .orderBy(desc(portfolioPositions.createdAt));
+}
+
+export async function createPortfolioPosition(data: {
+  ticker: string;
+  market: 'US' | 'ID';
+  shares: number;
+  averageBuyPrice: number;
+  thesisId: string | null;
+}) {
+  const { db } = getDatabase();
+  const id = randomUUID();
+  await db.insert(portfolioPositions).values({
+    id,
+    ticker: data.ticker,
+    market: data.market,
+    shares: data.shares,
+    averageBuyPrice: data.averageBuyPrice,
+    thesisId: data.thesisId,
+  });
+  return id;
+}
+
+export async function updatePortfolioPosition(
+  id: string,
+  data: {
+    shares: number;
+    averageBuyPrice: number;
+    thesisId: string | null;
+  },
+) {
+  const { db } = getDatabase();
+  await db
+    .update(portfolioPositions)
+    .set({
+      shares: data.shares,
+      averageBuyPrice: data.averageBuyPrice,
+      thesisId: data.thesisId,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(portfolioPositions.id, id));
+}
+
+export async function deletePortfolioPosition(id: string) {
+  const { db } = getDatabase();
+  await db.delete(portfolioPositions).where(eq(portfolioPositions.id, id));
 }

@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, sqliteTable, text, uniqueIndex, real } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Conversations (multi-turn interactions)
@@ -173,3 +173,16 @@ export const sourceDiscoveries = sqliteTable('source_discoveries', {
   discoveryMethod: text('discovery_method', { enum: ['exchange_api', 'issuer_crawl'] }).notNull(),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [primaryKey({ columns: [table.documentHash, table.discoveredFromUrl] })]);
+
+// Portfolio Positions (Holdings)
+export const portfolioPositions = sqliteTable('portfolio_positions', {
+  id: text('id').primaryKey(),
+  ticker: text('ticker').notNull(),
+  market: text('market', { enum: ['US', 'ID'] }).notNull(),
+  shares: real('shares').notNull(),
+  averageBuyPrice: real('average_buy_price').notNull(),
+  thesisId: text('thesis_id').references(() => theses.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+

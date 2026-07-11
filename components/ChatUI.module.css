@@ -300,3 +300,289 @@
   .inputArea { padding: .75rem 1rem; }
   .userBubble, .assistantBubble { max-width: 90%; }
 }
+
+/* Sidebar sections and sections container */
+.sidebarSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid #333;
+}
+
+.portfolioSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.addHoldingButton {
+  background-color: #10b981;
+  color: #121212;
+  border: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.75rem;
+}
+
+.addHoldingButton:hover {
+  background-color: #059669;
+}
+
+.portfolioList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.emptyPortfolio {
+  padding: 1.5rem 1rem;
+  color: #525252;
+  text-align: center;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.portfolioItem {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #262626;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.portfolioItem:hover {
+  background-color: #1f1f1f;
+}
+
+.portfolioItemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.portfolioTicker {
+  font-weight: bold;
+  color: #ededed;
+}
+
+.marketBadge {
+  font-size: 0.65rem;
+  background-color: #2e3039;
+  color: #a5b4fc;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+  font-weight: 800;
+}
+
+.portfolioItemActions {
+  display: flex;
+  gap: 6px;
+}
+
+.iconButton {
+  background: none;
+  border: none;
+  color: #737373;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.85rem;
+  border-radius: 3px;
+}
+
+.iconButton:hover {
+  color: #ededed;
+  background-color: #2c2c2c;
+}
+
+.iconButtonDel {
+  background: none;
+  border: none;
+  color: #737373;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.85rem;
+  border-radius: 3px;
+}
+
+.iconButtonDel:hover {
+  color: #ef4444;
+  background-color: #2b1515;
+}
+
+.portfolioDetails {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #8c8c8c;
+}
+
+.portfolioValue {
+  font-weight: 500;
+  color: #10b981;
+}
+
+.linkedThesis {
+  font-size: 0.7rem;
+  color: #8c8c8c;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thesisTitleBadge {
+  color: #38bdf8;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.unlinkedThesis {
+  font-size: 0.7rem;
+  color: #525252;
+}
+
+/* Modals & Forms */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modalContainer {
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+  padding: 1.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #ededed;
+}
+
+.closeModal {
+  background: none;
+  border: none;
+  color: #737373;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.closeModal:hover {
+  color: #ededed;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.formLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a5b4fc;
+  font-weight: 700;
+}
+
+.modalInput, .modalSelect {
+  background-color: #121212;
+  border: 1px solid #333;
+  color: white;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.modalInput:focus, .modalSelect:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.modalInput:disabled, .modalSelect:disabled {
+  background-color: #222;
+  color: #737373;
+  cursor: not-allowed;
+  border-color: #2c2c2c;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.cancelButton {
+  background-color: transparent;
+  color: #a3a3a3;
+  border: 1px solid #333;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.cancelButton:hover {
+  background-color: #262626;
+  color: #ededed;
+}
+
+.submitButton {
+  background-color: #10b981;
+  color: #121212;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.submitButton:hover {
+  background-color: #059669;
+}
