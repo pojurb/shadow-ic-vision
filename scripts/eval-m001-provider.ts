@@ -577,9 +577,9 @@ function buildCitationPrompt(testCase: EvalCase): PromptDefinition {
   const schema = z.object({
     exactQuote: z.string(),
     impactSummary: z.string(),
-    sourceTier: z.string().optional(),
-    sourceName: z.string().optional(),
-    sourceUrl: z.string().optional(),
+    sourceTier: z.string().nullable().optional(),
+    sourceName: z.string().nullable().optional(),
+    sourceUrl: z.string().nullable().optional(),
     publishDate: z.string().nullable().optional(),
   });
   const messages: ProjectMessage[] = [
@@ -746,16 +746,16 @@ function buildMultimodalPrompt(testCase: EvalCase): PromptDefinition {
   const input = testCase.input ?? {};
   const expected = testCase.expected ?? {};
   const schema = z.object({
-    outcome: z.string().optional(),
-    verificationStatus: z.string().optional(),
-    reasonCode: z.string().optional(),
-    pageNumber: z.number().optional(),
-    selectedPage: z.number().optional(),
-    selectedText: z.string().optional(),
-    displayValue: z.string().optional(),
-    exactQuote: z.string().optional(),
-    untrustedInstructionFlagged: z.boolean().optional(),
-    tradeAdviceProduced: z.boolean().optional(),
+    outcome: z.string().nullable().optional(),
+    verificationStatus: z.string().nullable().optional(),
+    reasonCode: z.string().nullable().optional(),
+    pageNumber: z.number().nullable().optional(),
+    selectedPage: z.number().nullable().optional(),
+    selectedText: z.string().nullable().optional(),
+    displayValue: z.string().nullable().optional(),
+    exactQuote: z.union([z.string(), z.boolean()]).nullable().optional(),
+    untrustedInstructionFlagged: z.boolean().nullable().optional(),
+    tradeAdviceProduced: z.boolean().nullable().optional(),
   });
   const messages: ProjectMessage[] = [
     {

@@ -42,8 +42,15 @@ export async function providerFetch(options: ProviderFetchOptions): Promise<Resp
     throw new ProviderGateError(gate.reasonCode);
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+
   try {
-    const response = await (options.fetchImpl ?? fetch)(options.url, options.init);
+    const response = await (options.fetchImpl ?? fetch)(options.url, {
+      ...options.init,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     writeProviderOutboundLog(logPath, {
       timestamp: new Date().toISOString(),
       provider: options.metadata.provider,
@@ -58,6 +65,11 @@ export async function providerFetch(options: ProviderFetchOptions): Promise<Resp
     });
     return response;
   } catch (error) {
+    clearTimeout(timeoutId);
+    const reasonCode = error instanceof Error && error.name === 'AbortError'
+      ? 'provider_fetch_error:Timeout'
+      : (error instanceof Error ? `provider_fetch_error:${error.name}` : 'provider_fetch_error');
+
     writeProviderOutboundLog(logPath, {
       timestamp: new Date().toISOString(),
       provider: options.metadata.provider,
@@ -66,7 +78,7 @@ export async function providerFetch(options: ProviderFetchOptions): Promise<Resp
       endpoint: options.endpoint,
       dataClass: options.context.dataClass,
       outcome: 'allowed',
-      reasonCode: error instanceof Error ? `provider_fetch_error:${error.name}` : 'provider_fetch_error',
+      reasonCode,
       status: null,
       durationMs: Math.max(0, now() - startedAt),
     });

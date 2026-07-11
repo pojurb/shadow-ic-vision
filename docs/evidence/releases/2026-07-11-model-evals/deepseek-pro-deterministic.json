@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "suite": "M001-provider-eval",
+  "completedAt": "2026-07-11T03:13:11.854Z",
+  "runMode": "deterministic",
+  "modelEligibility": "not_evaluated",
+  "acceptanceOutcome": "deterministic_only",
+  "confidentialCaseSource": null,
+  "transcriptArtifacts": [],
+  "evalOrder": [
+    "kimi-k2.7-code:cloud",
+    "gemini-3-flash-preview",
+    "deepseek-v4-pro:cloud",
+    "deepseek-v4-flash:cloud",
+    "qwen3.5:cloud",
+    "minimax-m3:cloud"
+  ],
+  "modelMetadata": {
+    "provider": "ollama-cloud",
+    "modelId": "deepseek-v4-pro:cloud",
+    "promptVersion": "1.0.0",
+    "settings": {
+      "apiUrl": "https://ollama.com/api"
+    },
+    "vision": true,
+    "contextLimit": 128000
+  },
+  "deterministicBaseline": {
+    "baseCaseCount": 16,
+    "additionalCaseCount": 16,
+    "hardGateFailures": [],
+    "providerBoundary": {
+      "modelEligibility": "not_evaluated",
+      "cases": [
+        {
+          "id": "PB-001",
+          "dataClass": "public_market_data",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-002",
+          "dataClass": "synthetic_fixture",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-003",
+          "dataClass": "poc_workflow_confidential",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-004",
+          "dataClass": "portfolio_position_data",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:portfolio_position_data"
+        },
+        {
+          "id": "PB-005",
+          "dataClass": "restricted_personal_financial_secret",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:restricted_personal_financial_secret"
+        },
+        {
+          "id": "PB-006",
+          "dataClass": "production_confidential_processing",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:production_confidential_processing"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "totalCases": 0,
+    "passedCases": 0,
+    "failedCases": 0,
+    "unsupportedCases": 0,
+    "citationHallucinationRate": 0,
+    "assumptionExtractionCompleteness": 0,
+    "ctaRelevance": 0
+  },
+  "hardGateFailures": [],
+  "cases": []
+}

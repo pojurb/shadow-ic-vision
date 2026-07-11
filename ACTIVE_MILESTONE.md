@@ -99,6 +99,7 @@ Latest targeted provider-package verification: 2026-07-11.
 Release evidence:
 [`docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md`](docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md)
 [`docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md`](docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md)
+[`docs/evidence/releases/2026-07-11-model-evals/manifest.md`](docs/evidence/releases/2026-07-11-model-evals/manifest.md)
 
 ## Remaining Boundaries
 
@@ -109,7 +110,7 @@ Release evidence:
   accepted Ollama Cloud POC approval package. The app now exposes an
   allowlisted selector for `gemini-3-flash-preview`, `kimi-k2.7-code:cloud`,
   `qwen3.5:cloud`, `deepseek-v4-pro:cloud`, `deepseek-v4-flash:cloud`, and
-  `minimax-m3:cloud`. The default startup model is now `kimi-k2.7-code:cloud`.
+  `minimax-m3:cloud`. All 6 models are now verified and promoted to `accepted_for_poc`.
   Real confidential POC traffic is authorized through the project-owned
   provider boundary under the accepted scopes.
 - [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is accepted
@@ -126,8 +127,12 @@ Release evidence:
 - `npm audit` previously reported six moderate dependency findings; no forced
   breaking upgrade was applied in this slice.
 
-1. Review next milestone scope (M002+) and proceed to next implementation cycle.
-2. Monitor production provider considerations and keep the local risk register aligned.
+## Next Steps (M002 Roadmap Sequence)
+
+1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
+2. **Step 2: Portfolio Position Tracking:** [Next Active Step] Implement local SQLite schema and UI for portfolio holding positions, keeping portfolio data restricted from cloud routing.
+3. **Step 3: Background Ingestion Live Alerts:** Integrate cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
+4. **Step 4: Continuous Governance:** Monitor production provider terms and local risk registers.
 
 Promoted lessons consulted: `LC-20260703-001`
 

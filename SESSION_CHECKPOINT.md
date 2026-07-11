@@ -93,5 +93,7 @@ Latest full verification: 2026-07-11.
 
 ## Exact Resume Point
 
-1. Align on next packet/milestone requirements (M002+).
-2. Continue tracking risk and operational readiness rules before production readiness.
+1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
+2. **Step 2: Portfolio Position Tracking:** [Next Active Step] Implement local SQLite schema and UI for portfolio holding positions, keeping portfolio data restricted from cloud routing.
+3. **Step 3: Background Ingestion Live Alerts:** Integrate cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
+4. **Step 4: Continuous Governance:** Monitor production provider terms and local risk registers.
