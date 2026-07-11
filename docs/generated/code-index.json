@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "3cbb6ce37bd43866556adddc838291e086b0ae2d6639e8f2a8929484da808338",
+  "sourceDigest": "15a3f9799f41070f66e4012658b34e66524b3e7e8d6ea318d546b7d42af0fc58",
   "roots": [
     "app",
     "components",
@@ -219,6 +219,10 @@
       "kind": "route",
       "imports": [
         {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
+        {
           "specifier": "@/lib/research/service",
           "resolved": "lib/research/service.ts"
         },
@@ -286,6 +290,10 @@
           "resolved": "db/queries.ts"
         },
         {
+          "specifier": "@/lib/ai/ollama-config",
+          "resolved": "lib/ai/ollama-config.ts"
+        },
+        {
           "specifier": "next/navigation",
           "resolved": null
         }
@@ -342,6 +350,10 @@
           "resolved": null
         },
         {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
+        {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
         },
@@ -361,6 +373,10 @@
         {
           "specifier": "./Workspace.module.css",
           "resolved": null
+        },
+        {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
         },
         {
           "specifier": "@/lib/domain/contracts",
@@ -415,6 +431,10 @@
         {
           "specifier": "./Workspace.module.css",
           "resolved": null
+        },
+        {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
         },
         {
           "specifier": "@/lib/domain/contracts",
@@ -569,6 +589,10 @@
       "kind": "module",
       "imports": [
         {
+          "specifier": "../ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
+        {
           "specifier": "../provider",
           "resolved": "lib/ai/provider.ts"
         },
@@ -598,12 +622,48 @@
           "resolved": "lib/ai/adapters/ollama.ts"
         },
         {
+          "specifier": "./ollama-config",
+          "resolved": "lib/ai/ollama-config.ts"
+        },
+        {
+          "specifier": "./ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
+        {
           "specifier": "./provider",
           "resolved": "lib/ai/provider.ts"
         }
       ],
       "exports": [
         "getLLMProvider"
+      ]
+    },
+    {
+      "path": "lib/ai/ollama-config.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        }
+      ],
+      "exports": [
+        "DEFAULT_OLLAMA_MODEL_ID",
+        "getConfiguredOllamaModelId"
+      ]
+    },
+    {
+      "path": "lib/ai/ollama-models.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "OLLAMA_MODEL_EVAL_ORDER",
+        "OLLAMA_MODEL_IDS",
+        "OLLAMA_MODEL_OPTIONS",
+        "OllamaModelId",
+        "getOllamaModelEvalOrder",
+        "getOllamaModelOption",
+        "isOllamaModelId"
       ]
     },
     {
@@ -677,6 +737,10 @@
       "path": "lib/domain/contracts.ts",
       "kind": "module",
       "imports": [
+        {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
         {
           "specifier": "zod",
           "resolved": null
@@ -891,10 +955,6 @@
         {
           "specifier": "./adapters/types",
           "resolved": "lib/research/adapters/types.ts"
-        },
-        {
-          "specifier": "@/db/client",
-          "resolved": "db/client.ts"
         },
         {
           "specifier": "node:path",
@@ -1546,6 +1606,21 @@
       "exports": []
     },
     {
+      "path": "tests/ollama-models.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/ai/ollama-models",
+          "resolved": "lib/ai/ollama-models.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/ollama-provider.test.ts",
       "kind": "test",
       "imports": [
@@ -1586,6 +1661,21 @@
         },
         {
           "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/provider-eval.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/scripts/eval-m001-provider",
           "resolved": null
         },
         {
@@ -2014,6 +2104,12 @@
       ]
     },
     {
+      "path": "tests/ollama-models.test.ts",
+      "productionModules": [
+        "lib/ai/ollama-models.ts"
+      ]
+    },
+    {
       "path": "tests/ollama-provider.test.ts",
       "productionModules": [
         "lib/ai/adapters/ollama.ts",
@@ -2022,6 +2118,10 @@
     },
     {
       "path": "tests/provider-boundary.test.ts",
+      "productionModules": []
+    },
+    {
+      "path": "tests/provider-eval.test.ts",
       "productionModules": []
     },
     {

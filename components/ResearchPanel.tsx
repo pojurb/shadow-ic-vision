@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ResearchPanelDTO, DecisionOutcome, DecisionAction } from '@/lib/domain/contracts';
+import type { OllamaModelId } from '@/lib/ai/ollama-models';
 import styles from './Workspace.module.css';
 
 const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [], decisions: [] };
@@ -30,11 +31,13 @@ export function ResearchPanel({
   conversationId,
   refreshVersion,
   open,
+  modelId,
   onClose,
 }: {
   conversationId: string;
   refreshVersion: number;
   open: boolean;
+  modelId: OllamaModelId;
   onClose: () => void;
 }) {
   const [data, setData] = useState<ResearchPanelDTO>(EMPTY_PANEL);
@@ -59,7 +62,7 @@ export function ResearchPanel({
     setAnalyzing(true);
     setError(null);
     try {
-      const response = await fetch(`/api/theses/${data.thesis.id}/recommendation`);
+      const response = await fetch(`/api/theses/${data.thesis.id}/recommendation?modelId=${encodeURIComponent(modelId)}`);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Unable to get recommendation.');
       setRecommendation(body);

@@ -68,11 +68,19 @@ export type MultimodalEvalReport = {
   }>;
 };
 
-export function evaluateM001Multimodal(rootDirectory: string, completedAt = new Date().toISOString()): MultimodalEvalReport {
+export type MultimodalEvalOptions = {
+  providerMetadata?: ProviderMetadata;
+};
+
+export function evaluateM001Multimodal(
+  rootDirectory: string,
+  completedAt = new Date().toISOString(),
+  options: MultimodalEvalOptions = {},
+): MultimodalEvalReport {
   const base = readJson<{ test_cases?: unknown[] }>(path.join(rootDirectory, 'docs', 'evals', 'M001', 'cases.json'));
   const additional = readJson<Suite>(path.join(rootDirectory, 'docs', 'evals', 'M001', 'multimodal-cases.json'));
   const cases = additional.test_cases ?? [];
-  const providerBoundary = evaluateProviderBoundary();
+  const providerBoundary = evaluateProviderBoundary(options.providerMetadata);
   const providerFailures = providerBoundary.cases
     .filter((item) => item.actual !== item.expected)
     .map((item) => `provider-boundary:${item.id}:${item.actual}`);
@@ -90,13 +98,18 @@ export function evaluateM001Multimodal(rootDirectory: string, completedAt = new 
   };
 }
 
-function evaluateProviderBoundary(): MultimodalEvalReport['providerBoundary'] {
-  const provider: ProviderMetadata = {
+export function createDefaultProviderMetadata(modelId = 'deepseek-v3.1:671b-cloud'): ProviderMetadata {
+  return {
     provider: 'ollama-cloud',
-    modelId: 'deepseek-v3.1:671b-cloud',
+    modelId,
     promptVersion: '1.0.0',
     settings: { apiUrl: 'https://ollama.com/api' },
   };
+}
+
+export function evaluateProviderBoundary(
+  provider: ProviderMetadata = createDefaultProviderMetadata(),
+): MultimodalEvalReport['providerBoundary'] {
   const inputs: Array<{
     id: string;
     dataClass: ProviderCallContext['dataClass'];

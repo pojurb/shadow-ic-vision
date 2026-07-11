@@ -23,4 +23,16 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report.cases.find((item) => item.id === 'MM-012')?.notes).toContain('selected_page=237');
     expect(report.cases.every((item) => item.status === 'passed')).toBe(true);
   });
+
+  it('parameterizes provider-boundary metadata for the selected model', () => {
+    const report = evaluateM001Multimodal(process.cwd(), '2026-07-07T00:00:00.000Z', {
+      providerMetadata: {
+        provider: 'ollama-cloud',
+        modelId: 'kimi-k2.7-code:cloud',
+        promptVersion: '1.0.0',
+        settings: { apiUrl: 'https://ollama.com/api' },
+      },
+    });
+    expect(report.providerBoundary.cases.every((item) => item.actual === item.expected)).toBe(true);
+  });
 });

@@ -33,6 +33,7 @@ build/
 test-results/
 playwright-report/
 .tmp-e2e/
+docs/evals/M001/*.local.json
 
 # === DATABASE & LOGS ===
 *.sqlite

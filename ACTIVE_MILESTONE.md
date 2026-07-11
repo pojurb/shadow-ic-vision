@@ -7,7 +7,11 @@ Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/
 ## Current Phase
 
 M001 implementation - governed multimodal first slice and the accepted DEC-0009
-POC provider/security gate are implemented and verified.
+POC provider/security gate are implemented and verified. The provider-specific
+Ollama Cloud approval package is accepted as
+[`DEC-0010`](docs/decisions/DEC-0010-ollama-cloud-poc-approval.md), and the app
+now exposes an allowlisted model selector for the approved POC models, which
+is now active.
 
 The deterministic mock workflow remains the default QA path. The live research
 slice already provides SEC filing retrieval, official IDX announcement
@@ -30,6 +34,12 @@ records deterministic first-slice readiness, and now includes provider-boundary
 cases for DEC-0009 data classes. `modelEligibility` remains `not_evaluated`;
 the gate does not approve a model or production provider.
 
+The new provider-eval harness now records candidate-model metadata, fixed
+allowlist order, deterministic baseline results, and a separate live-eval path
+for local confidential runs. Kimi is the default candidate and first eval
+target. The live Kimi report has run successfully with clean results and zero
+hard-gate failures.
+
 The DEC-0009 provider gate now requires all LLM calls to carry route and data
 class context through the project-owned `lib/ai` boundary. POC workflow
 confidential data is allowed only in the local POC boundary. Portfolio/position
@@ -43,7 +53,9 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-08.
+Latest full verification: 2026-07-11.
+
+Latest targeted provider-package verification: 2026-07-11.
 
 - Base commit before provider-gate implementation:
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
@@ -68,15 +80,38 @@ Latest full verification: 2026-07-08.
   - hard-gate failures: none
   - model eligibility: `not_evaluated`
 - `git diff --check`: pass
+- `npm run status:check`: pass on 2026-07-09 after drafting DEC-0010
+- `npm test -- tests/provider-gate.test.ts tests/provider-boundary.test.ts tests/ollama-provider.test.ts`:
+  pass on 2026-07-09; 14 tests passed
+- `npm test -- tests/api-contracts.test.ts tests/ollama-provider.test.ts tests/ollama-models.test.ts tests/research-service.test.ts`:
+  pass on 2026-07-09; 21 tests passed
+- `npm run eval:m001:multimodal -- --output test-results\m001-multimodal-report.json`:
+  pass on 2026-07-09; 16 base cases, 16 multimodal addendum cases,
+  6 provider-boundary cases, no hard-gate failures, `modelEligibility:
+  not_evaluated`
+- `npm run eval:m001:provider -- --mode deterministic --model kimi-k2.7-code:cloud --output docs/evidence/releases/2026-07-09-kimi-provider-eval/01-deterministic-report.json`:
+  pass on 2026-07-09; Kimi metadata recorded, fixed eval order recorded,
+  deterministic baseline loaded, 6 provider-boundary cases passed
+- `npm run eval:m001:provider -- --mode live --model kimi-k2.7-code:cloud --output docs/evidence/releases/2026-07-09-kimi-provider-eval/02-live-report.json`:
+  pass on 2026-07-11; completed successfully with 0 hard-gate failures, 0%
+  hallucination rate, and 93.3% assumption extraction completeness
 
 Release evidence:
 [`docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md`](docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md)
+[`docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md`](docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md)
 
 ## Remaining Boundaries
 
 - M001 is not fully closed because real OCR/vision provider eligibility,
   provider-specific current-source approval, and production confidential-data
   provider approval remain unapproved.
+- [`DEC-0010`](docs/decisions/DEC-0010-ollama-cloud-poc-approval.md) is an
+  accepted Ollama Cloud POC approval package. The app now exposes an
+  allowlisted selector for `gemini-3-flash-preview`, `kimi-k2.7-code:cloud`,
+  `qwen3.5:cloud`, `deepseek-v4-pro:cloud`, `deepseek-v4-flash:cloud`, and
+  `minimax-m3:cloud`. The default startup model is now `kimi-k2.7-code:cloud`.
+  Real confidential POC traffic is authorized through the project-owned
+  provider boundary under the accepted scopes.
 - [`DEC-0009`](docs/decisions/DEC-0009-provider-security-gate.md) is accepted
   and implemented as the POC provider/security gate. It permits local POC
   workflow confidential routing through the project-owned provider boundary,
@@ -91,13 +126,8 @@ Release evidence:
 - `npm audit` previously reported six moderate dependency findings; no forced
   breaking upgrade was applied in this slice.
 
-## Next Step
-
-1. Record a provider-specific POC approval package before sending real
-   confidential POC data: provider, model/version, endpoint, settings, allowed
-   data classes, retention/training terms, logging, revocation, and eval path.
-2. Keep provider/model eligibility as `not_evaluated` until a later full eval
-   report and production provider decision are recorded.
+1. Review next milestone scope (M002+) and proceed to next implementation cycle.
+2. Monitor production provider considerations and keep the local risk register aligned.
 
 Promoted lessons consulted: `LC-20260703-001`
 

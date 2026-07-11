@@ -9,11 +9,13 @@ import {
   type StructuredExtractResult,
 } from '../provider';
 import { providerFetch } from '../provider-http';
+import { type OllamaModelId } from '../ollama-models';
 
 type OllamaProviderOptions = {
   fetchImpl?: typeof fetch;
   logPath?: string;
   now?: () => number;
+  modelId?: OllamaModelId;
 };
 
 export class OllamaProvider implements LLMProvider {
@@ -27,7 +29,7 @@ export class OllamaProvider implements LLMProvider {
   constructor(options: OllamaProviderOptions = {}) {
     this.apiKey = process.env.OLLAMA_API_KEY || '';
     this.apiUrl = process.env.OLLAMA_API_URL || 'https://ollama.com/api';
-    this.model = process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
+    this.model = options.modelId || process.env.OLLAMA_MODEL || 'deepseek-v3.1:671b-cloud';
     this.fetchImpl = options.fetchImpl;
     this.logPath = options.logPath;
     this.now = options.now;
@@ -174,8 +176,9 @@ export class OllamaProvider implements LLMProvider {
         throw new Error(body.error ?? `Ollama API returned HTTP ${response.status}`);
       }
 
-      const content = body.message?.content ?? '';
-      const parsedData = JSON.parse(content);
+      const content = (body.message?.content ?? '').trim();
+      const cleaned = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
+      const parsedData = JSON.parse(cleaned);
       const validated = schema.safeParse(parsedData);
 
       if (validated.success) {
@@ -185,6 +188,13 @@ export class OllamaProvider implements LLMProvider {
           metadata: this.getMetadata(),
         };
       }
+
+      console.error('structuredExtract safeParse failed!', {
+        model: this.model,
+        cleaned,
+        parsedData,
+        error: validated.error,
+      });
 
       return {
         data: null,

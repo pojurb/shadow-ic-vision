@@ -2,18 +2,23 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { MessageDTO } from '@/lib/domain/contracts';
+import { OLLAMA_MODEL_OPTIONS, type OllamaModelId } from '@/lib/ai/ollama-models';
 import styles from './ChatUI.module.css';
 
 export function ChatUI({
   conversationId,
   initialMessages,
   confirmedDraftMessageId,
+  modelId,
+  onModelChange,
   onResearchQueued,
   onOpenResearch,
 }: {
   conversationId: string;
   initialMessages: MessageDTO[];
   confirmedDraftMessageId: string | null;
+  modelId: OllamaModelId;
+  onModelChange: (modelId: OllamaModelId) => void;
   onResearchQueued: () => void;
   onOpenResearch: () => void;
 }) {
@@ -54,7 +59,7 @@ export function ChatUI({
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content: userMsg })
+        body: JSON.stringify({ conversationId, content: userMsg, modelId }),
       });
       
       const data = await res.json();
@@ -85,6 +90,27 @@ export function ChatUI({
 
   return (
     <div className={styles.chatContainer}>
+      <header className={styles.chatToolbar}>
+        <div>
+          <span className={styles.toolbarLabel}>Model</span>
+          <p className={styles.toolbarCaption}>Switch the active Ollama Cloud model for this conversation.</p>
+        </div>
+        <label className={styles.modelSelectWrap}>
+          <span className={styles.srOnly}>Select model</span>
+          <select
+            className={styles.modelSelect}
+            value={modelId}
+            onChange={(e) => onModelChange(e.target.value as OllamaModelId)}
+            title={OLLAMA_MODEL_OPTIONS.find((option) => option.id === modelId)?.description}
+          >
+            {OLLAMA_MODEL_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id} title={option.description}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </header>
       <div className={styles.messagesArea} ref={scrollRef}>
         {messages.length === 0 && (
           <div className={styles.emptyState}>

@@ -1,0 +1,785 @@
+{
+  "schemaVersion": 1,
+  "suite": "M001-provider-eval",
+  "completedAt": "2026-07-10T05:01:27.603Z",
+  "runMode": "live",
+  "modelEligibility": "not_evaluated",
+  "acceptanceOutcome": "blocked",
+  "confidentialCaseSource": "docs\\evals\\M001\\confidential-companion.local.json",
+  "transcriptArtifacts": [
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-001.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-002.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-003.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-004.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-005.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-006.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-007.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-008.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-009.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-010.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-011.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-012.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-013.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-014.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-015.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-016.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-001.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-002.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-003.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-004.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-005.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-006.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-007.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-008.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-009.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-010.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-011.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-012.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-013.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-014.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-015.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-016.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-001.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-002.json",
+    "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-003.json"
+  ],
+  "evalOrder": [
+    "kimi-k2.7-code:cloud",
+    "gemini-3-flash-preview",
+    "deepseek-v4-pro:cloud",
+    "deepseek-v4-flash:cloud",
+    "qwen3.5:cloud",
+    "minimax-m3:cloud"
+  ],
+  "modelMetadata": {
+    "provider": "ollama-cloud",
+    "modelId": "kimi-k2.7-code:cloud",
+    "promptVersion": "1.0.0",
+    "settings": {
+      "apiUrl": "https://ollama.com/api"
+    },
+    "vision": true,
+    "contextLimit": 128000
+  },
+  "deterministicBaseline": {
+    "baseCaseCount": 16,
+    "additionalCaseCount": 16,
+    "hardGateFailures": [],
+    "providerBoundary": {
+      "modelEligibility": "not_evaluated",
+      "cases": [
+        {
+          "id": "PB-001",
+          "dataClass": "public_market_data",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-002",
+          "dataClass": "synthetic_fixture",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-003",
+          "dataClass": "poc_workflow_confidential",
+          "expected": "allowed",
+          "actual": "allowed",
+          "reasonCode": "provider_gate_allowed"
+        },
+        {
+          "id": "PB-004",
+          "dataClass": "portfolio_position_data",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:portfolio_position_data"
+        },
+        {
+          "id": "PB-005",
+          "dataClass": "restricted_personal_financial_secret",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:restricted_personal_financial_secret"
+        },
+        {
+          "id": "PB-006",
+          "dataClass": "production_confidential_processing",
+          "expected": "blocked",
+          "actual": "blocked",
+          "reasonCode": "provider_data_class_blocked:production_confidential_processing"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "totalCases": 35,
+    "passedCases": 12,
+    "failedCases": 20,
+    "unsupportedCases": 3,
+    "citationHallucinationRate": 0,
+    "assumptionExtractionCompleteness": 0.9333333333333332,
+    "ctaRelevance": 0
+  },
+  "hardGateFailures": [],
+  "cases": [
+    {
+      "id": "TC-001",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=5",
+        "extractionCompleteness=1.000",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-001.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-001.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 1,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-002",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=5",
+        "extractionCompleteness=1.000",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-002.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-002.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 1,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-003",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=4",
+        "extractionCompleteness=1.000",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-003.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-003.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 1,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-004",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "exactQuote=PT Bank Rakyat Indonesia (Persero) Tbk melaporkan margin bunga bersih (NIM) sebesar 6,8% untuk kuartal pertama tahun 2026, meningkat dari 6,5% tahun lalu. Dokumen IDX-BBRI-2026-Q1.",
+        "expectedQuote=margin bunga bersih (NIM) sebesar 6,8%"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-004.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-004.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": false
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-005",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "exactQuote=Palantir Technologies Inc. reported gross margin of 81.3% for the first quarter of 2026, driven by scaling commercial SaaS sales.",
+        "expectedQuote=gross margin of 81.3%"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-005.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-005.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": false
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-006",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "unsupported",
+      "validationOutcome": "unsupported",
+      "graderOutcome": "not_applicable",
+      "notes": [
+        "unsupported_case_shape"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-006.json",
+      "rawOutputPath": null,
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-007",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "unsupported",
+      "validationOutcome": "unsupported",
+      "graderOutcome": "not_applicable",
+      "notes": [
+        "unsupported_case_shape"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-007.json",
+      "rawOutputPath": null,
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-008",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "assumptions=3",
+        "extractionCompleteness=na",
+        "ctaRelevance=na"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-008.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-008.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-009",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "assumptions=4",
+        "extractionCompleteness=na",
+        "ctaRelevance=na"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-009.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-009.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-010",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "outcome=present",
+        "action=allow"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-010.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-010.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": false
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-011",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "outcome=blocked",
+        "action=reject"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-011.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-011.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-012",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "outcome=blocked",
+        "action=reject"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-012.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-012.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-013",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "unsupported",
+      "validationOutcome": "unsupported",
+      "graderOutcome": "not_applicable",
+      "notes": [
+        "unsupported_case_shape"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-013.json",
+      "rawOutputPath": null,
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-014",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "exactQuote=According to a Yahoo Finance analysis, Palantir's gross margin could face compression down to 78.5%.",
+        "expectedQuote=gross margin could face compression down to 78.5%"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-014.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-014.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": false
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-015",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [
+        "assumptions=2",
+        "extractionCompleteness=na",
+        "ctaRelevance=na"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-015.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-015.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "TC-016",
+      "suite": "base",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "outcome=not_direct_evidence"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-016.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\base-TC-016.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-001",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-001.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-001.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-002",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-002.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-002.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-003",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-003.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-003.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-004",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-004.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-004.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-005",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-005.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-005.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-006",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-006.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-006.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-007",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-007.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-007.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-008",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-008.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-008.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-009",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-009.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-009.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-010",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-010.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-010.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-011",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-011.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-011.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-012",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "passed",
+      "validationOutcome": "valid",
+      "graderOutcome": "pass",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-012.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-012.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-013",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-013.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-013.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-014",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-014.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-014.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-015",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-015.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-015.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "MM-016",
+      "suite": "multimodal",
+      "dataClass": "synthetic_fixture",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-016.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\multimodal-MM-016.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": null,
+        "ctaRelevance": null,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "CONF-001",
+      "suite": "confidential",
+      "dataClass": "poc_workflow_confidential",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=10",
+        "extractionCompleteness=1.000",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-001.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-001.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 1,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "CONF-002",
+      "suite": "confidential",
+      "dataClass": "poc_workflow_confidential",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=6",
+        "extractionCompleteness=0.600",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-002.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-002.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 0.6,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    },
+    {
+      "id": "CONF-003",
+      "suite": "confidential",
+      "dataClass": "poc_workflow_confidential",
+      "status": "failed",
+      "validationOutcome": "valid",
+      "graderOutcome": "fail",
+      "notes": [
+        "assumptions=4",
+        "extractionCompleteness=1.000",
+        "ctaRelevance=0.000"
+      ],
+      "transcriptPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-003.json",
+      "rawOutputPath": "test-results\\provider-evals\\2026-07-10-kimi-k2-7-code-cloud-provider-eval\\transcripts\\confidential-CONF-003.json",
+      "metrics": {
+        "assumptionExtractionCompleteness": 1,
+        "ctaRelevance": 0,
+        "citationHallucination": null
+      },
+      "hardGateFailures": []
+    }
+  ]
+}

@@ -2,9 +2,9 @@
 
 Status: `active`
 
-Last reviewed: 2026-07-07
+Last reviewed: 2026-07-11
 
-Next required review: before accepting DEC-0009 or any provider-specific cloud approval
+Next required review: before production provider approval
 
 Risk acceptance authority: user
 
@@ -30,6 +30,8 @@ Risk acceptance authority: user
 | R-018 | Malicious instructions embedded in a PDF, image, table, or web document override product policy | Security/Model | Medium | Critical | Open | Treat all document content as untrusted, isolate source text from system instructions, add multimodal injection evals, and keep tool execution application-controlled | A document tells the model to ignore policy, expose data, invoke tools, or recommend a trade | Novel visual or obfuscated injections may bypass known tests | 2026-07-03 |
 | R-019 | Full multimodal support makes M001 too large, slow, costly, or unreliable | Product/Engineering | High | High | Open | Keep the amendment explicit, use staged async processing and deterministic fixtures, measure latency/cost, surface degraded states, and preserve a text-PDF-only reversal path | OCR/vision dependencies or model runs delay the first usable thesis loop or exceed acceptable resource limits | Broad document coverage may still require later source-specific exceptions | 2026-07-03 |
 | R-020 | POC external-processing approval is treated as production approval | Security/Model | Medium | Critical | Open | DEC-0009 keeps POC provider use separate from production approval and selectable model eligibility | A model appears selectable or production-enabled because POC provider calls work | POC readiness still may not predict production retention, logging, cost, legal, or safety behavior | 2026-07-07 |
+| R-021 | POC model switching is treated as blanket model approval | Model/Operations | High | High | Mitigated | DEC-0010 uses an allowlisted selector, request-scoped model id, and per-model eval acceptance before a model is considered ready | A user assumes every approved-looking cloud model is interchangeable without its own eval or boundary review | A flexible selector improves usability but increases the chance of unreviewed model drift | 2026-07-11 |
+| R-022 | Local provider-eval transcript retention leaks confidential POC text outside the approved evidence path | Security/Privacy | Medium | Critical | Open | Keep full transcripts only in the gitignored local provider-eval transcript directory, keep outbound logs sanitized, and never copy transcript content into tracked docs or learning artifacts | Confidential prompt/response text appears in `logs/`, tracked release evidence, or any committed file | Local operators can still mishandle copied transcript files outside the repo controls | 2026-07-09 |
 
 ## Review Rules
 

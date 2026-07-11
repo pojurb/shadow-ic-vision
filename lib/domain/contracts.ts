@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OLLAMA_MODEL_IDS } from '@/lib/ai/ollama-models';
 
 export const marketSchema = z.enum(['US', 'ID']);
 export const assumptionStatusSchema = z.enum([
@@ -37,6 +38,7 @@ export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
 export const chatRequestSchema = z.object({
   conversationId: z.string().uuid(),
   content: z.string().trim().min(1).max(4_000),
+  modelId: z.enum(OLLAMA_MODEL_IDS).optional(),
 });
 
 export const confirmRequestSchema = z.object({

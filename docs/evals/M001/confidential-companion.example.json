@@ -1,0 +1,28 @@
+{
+  "milestone": "M001",
+  "suite": "confidential-companion",
+  "metadata": {
+    "version": "1.0.0",
+    "grader_version": "1.0.0"
+  },
+  "test_cases": [
+    {
+      "id": "CONF-001",
+      "name": "Local confidential thesis intake smoke",
+      "held_out": true,
+      "input": {
+        "user_message": "Replace this placeholder with your local confidential POC thesis text."
+      },
+      "expected": {
+        "assumptions": [
+          {
+            "statement": "Replace this placeholder with the expected extracted assumption.",
+            "status": "untested"
+          }
+        ],
+        "requires_challenge": false,
+        "next_response_type": "clarification_and_acknowledgement"
+      }
+    }
+  ]
+}

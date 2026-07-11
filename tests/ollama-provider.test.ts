@@ -22,6 +22,11 @@ describe('OllamaProvider', () => {
     expect(provider.getCapabilities().vision).toBe(true);
   });
 
+  it('uses an explicit model id when provided', () => {
+    const provider = new OllamaProvider({ modelId: 'qwen3.5:cloud' });
+    expect(provider.getMetadata().modelId).toBe('qwen3.5:cloud');
+  });
+
   it('sends correct headers and body to Ollama API for chat', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-invest-ollama-'));
     const mockFetch = vi.fn().mockResolvedValue({

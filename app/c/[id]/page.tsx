@@ -1,5 +1,6 @@
 import { Workspace } from '@/components/Workspace';
 import { getMessages, getConversation, getThesisForConversation, toMessageDTO } from '@/db/queries';
+import { getConfiguredOllamaModelId } from '@/lib/ai/ollama-config';
 import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       conversationId={id}
       initialMessages={messages.map(toMessageDTO)}
       confirmedDraftMessageId={thesis?.draftMessageId ?? null}
+      initialModelId={getConfiguredOllamaModelId()}
     />
   );
 }

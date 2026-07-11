@@ -14,6 +14,19 @@ describe('API boundary validation', () => {
     expect(chatRequestSchema.safeParse({ conversationId, content: 'x'.repeat(4_001) }).success).toBe(false);
   });
 
+  it('accepts an approved model and rejects unknown model ids', () => {
+    expect(chatRequestSchema.safeParse({
+      conversationId,
+      content: 'hello',
+      modelId: 'qwen3.5:cloud',
+    }).success).toBe(true);
+    expect(chatRequestSchema.safeParse({
+      conversationId,
+      content: 'hello',
+      modelId: 'not-a-real-model',
+    }).success).toBe(false);
+  });
+
   it('accepts a valid confirmation and rejects malformed ids', () => {
     expect(confirmRequestSchema.safeParse({ conversationId, messageId }).success).toBe(true);
     expect(confirmRequestSchema.safeParse({ conversationId: 'missing', messageId }).success).toBe(false);

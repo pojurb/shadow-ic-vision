@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { resolveDatabasePath } from '@/db/client';
 import type { ResearchSourceMode } from './adapters/types';
 
 export function getResearchSourceMode(): ResearchSourceMode {
@@ -7,9 +6,13 @@ export function getResearchSourceMode(): ResearchSourceMode {
 }
 
 export function getSnapshotDirectory(): string {
+  const databasePath = path.resolve(
+    /* turbopackIgnore: true */ process.cwd(),
+    process.env.DB_PATH || '../jp-invest-data/db.sqlite',
+  );
   return path.resolve(
     /* turbopackIgnore: true */ process.cwd(),
-    process.env.SOURCE_SNAPSHOT_DIR || path.join(path.dirname(resolveDatabasePath()), 'source-snapshots'),
+    process.env.SOURCE_SNAPSHOT_DIR || path.join(path.dirname(databasePath), 'source-snapshots'),
   );
 }
 

@@ -4,8 +4,6 @@ import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage, ProviderCallContext } from '@/lib/ai/provider';
 import { chatRequestSchema, thesisDraftSchema } from '@/lib/domain/contracts';
 
-const llmProvider = getLLMProvider();
-
 export async function POST(request: Request) {
   try {
     const parsedRequest = chatRequestSchema.safeParse(await request.json());
@@ -38,6 +36,7 @@ export async function POST(request: Request) {
       },
     };
 
+    const llmProvider = getLLMProvider({ modelId: parsedRequest.data.modelId });
     const response = await llmProvider.chat(projectMessages, providerContext);
     const existingThesis = await getThesisForConversation(conversationId);
     const extraction = existingThesis

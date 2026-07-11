@@ -37,6 +37,7 @@ type ServiceDependencies = {
   pipeline?: CitationPipeline;
   now?: () => Date;
   snapshotDirectory?: string;
+  llmModelId?: string | null;
 };
 
 function dependencies(input: ServiceDependencies = {}) {
@@ -710,7 +711,7 @@ export async function generateDecisionRecommendation(
   contextPrompt += `Provide a concise rationale (1-3 sentences) explaining the reasoning.\n`;
   contextPrompt += `Do not give direct trade advice, but align your recommendation strictly with the evidence ledger.\n`;
 
-  const provider = getLLMProvider();
+  const provider = getLLMProvider({ modelId: input.llmModelId });
 
   const messages: ProjectMessage[] = [
     {
