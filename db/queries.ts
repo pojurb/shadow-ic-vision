@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { getDatabase } from './client';
-import { conversations, messages, theses, portfolioPositions } from './schema';
+import { conversations, messages, theses, portfolioPositions, portfolioAlerts, sourceSnapshots } from './schema';
 import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { ProviderMetadata } from '@/lib/ai/provider';
@@ -158,4 +158,44 @@ export async function updatePortfolioPosition(
 export async function deletePortfolioPosition(id: string) {
   const { db } = getDatabase();
   await db.delete(portfolioPositions).where(eq(portfolioPositions.id, id));
+}
+
+export async function getUnreadAlerts() {
+  const { db } = getDatabase();
+  return await db
+    .select({
+      id: portfolioAlerts.id,
+      positionId: portfolioAlerts.positionId,
+      documentHash: portfolioAlerts.documentHash,
+      isRead: portfolioAlerts.isRead,
+      createdAt: portfolioAlerts.createdAt,
+      ticker: portfolioPositions.ticker,
+      market: portfolioPositions.market,
+      documentId: sourceSnapshots.documentId,
+      sourceUrl: sourceSnapshots.sourceUrl,
+      sourceName: sourceSnapshots.sourceName,
+      sourceFormat: sourceSnapshots.sourceFormat,
+      publishDate: sourceSnapshots.publishDate,
+    })
+    .from(portfolioAlerts)
+    .innerJoin(portfolioPositions, eq(portfolioAlerts.positionId, portfolioPositions.id))
+    .innerJoin(sourceSnapshots, eq(portfolioAlerts.documentHash, sourceSnapshots.documentHash))
+    .where(eq(portfolioAlerts.isRead, false))
+    .orderBy(desc(portfolioAlerts.createdAt));
+}
+
+export async function markAlertAsRead(id: string) {
+  const { db } = getDatabase();
+  await db
+    .update(portfolioAlerts)
+    .set({ isRead: true })
+    .where(eq(portfolioAlerts.id, id));
+}
+
+export async function markAllAlertsAsReadForPosition(positionId: string) {
+  const { db } = getDatabase();
+  await db
+    .update(portfolioAlerts)
+    .set({ isRead: true })
+    .where(eq(portfolioAlerts.positionId, positionId));
 }

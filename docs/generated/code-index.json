@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "0c0fd2cc6beb7eeff84ff465d1c44197cd87d16a81387c5306174787566bb37f",
+  "sourceDigest": "91fe20b5278e085e5b10812e6b5b8c7b0cb2a404ec417b68caa896d498cfa497",
   "roots": [
     "app",
     "components",
@@ -104,6 +104,45 @@
       "exports": [
         "DELETE",
         "PATCH"
+      ]
+    },
+    {
+      "path": "app/api/portfolio/alerts/[id]/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "PATCH"
+      ]
+    },
+    {
+      "path": "app/api/portfolio/alerts/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET",
+        "POST"
       ]
     },
     {
@@ -600,6 +639,9 @@
         "getPortfolioPositions",
         "getTheses",
         "getThesisForConversation",
+        "getUnreadAlerts",
+        "markAlertAsRead",
+        "markAllAlertsAsReadForPosition",
         "toMessageDTO",
         "updatePortfolioPosition"
       ]
@@ -625,6 +667,7 @@
         "ingestionLeases",
         "ingestionRuns",
         "messages",
+        "portfolioAlerts",
         "portfolioPositions",
         "researchJobSources",
         "researchJobs",
@@ -1390,6 +1433,14 @@
           "resolved": "db/schema.ts"
         },
         {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
           "specifier": "node:fs",
           "resolved": null
         },
@@ -1735,6 +1786,14 @@
           "resolved": "db/schema.ts"
         },
         {
+          "specifier": "@/lib/research/adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/lib/research/snapshot-store",
+          "resolved": "lib/research/snapshot-store.ts"
+        },
+        {
           "specifier": "drizzle-orm",
           "resolved": null
         },
@@ -1996,6 +2055,23 @@
       ]
     },
     {
+      "path": "/api/portfolio/alerts/[id]",
+      "kind": "route",
+      "module": "app/api/portfolio/alerts/[id]/route.ts",
+      "methods": [
+        "PATCH"
+      ]
+    },
+    {
+      "path": "/api/portfolio/alerts",
+      "kind": "route",
+      "module": "app/api/portfolio/alerts/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
       "path": "/api/portfolio",
       "kind": "route",
       "module": "app/api/portfolio/route.ts",
@@ -2134,6 +2210,11 @@
       "module": "db/schema.ts"
     },
     {
+      "name": "portfolio_alerts",
+      "symbol": "portfolioAlerts",
+      "module": "db/schema.ts"
+    },
+    {
       "name": "portfolio_positions",
       "symbol": "portfolioPositions",
       "module": "db/schema.ts"
@@ -2258,7 +2339,9 @@
       "productionModules": [
         "db/client.ts",
         "db/queries.ts",
-        "db/schema.ts"
+        "db/schema.ts",
+        "lib/research/adapters/types.ts",
+        "lib/research/snapshot-store.ts"
       ]
     },
     {

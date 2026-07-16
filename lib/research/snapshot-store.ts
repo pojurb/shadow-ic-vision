@@ -3,8 +3,10 @@ import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { AppDatabase } from '@/db/client';
-import { researchJobSources, sourceDiscoveries, sourceSnapshots } from '@/db/schema';
+import { researchJobSources, sourceDiscoveries, sourceSnapshots, portfolioPositions, portfolioAlerts } from '@/db/schema';
 import type { ResearchSourceMode, SourceSnapshot } from './adapters/types';
+import { and, eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 
 export function persistSourceSnapshot(input: {
   db: AppDatabase;
@@ -21,7 +23,7 @@ export function persistSourceSnapshot(input: {
   if (!fs.existsSync(storagePath)) fs.writeFileSync(storagePath, input.snapshot.rawBytes);
 
   input.db.transaction((tx) => {
-    tx.insert(sourceSnapshots).values({
+    const newSnapshot = tx.insert(sourceSnapshots).values({
       documentHash: input.documentHash,
       documentId: input.snapshot.documentId,
       market: input.snapshot.market,
@@ -36,7 +38,27 @@ export function persistSourceSnapshot(input: {
       retrievalTimestamp: input.snapshot.retrievalTimestamp,
       storagePath,
       sourceMode: input.sourceMode,
-    }).onConflictDoNothing().run();
+    }).onConflictDoNothing().returning({ documentHash: sourceSnapshots.documentHash }).get();
+
+    if (newSnapshot) {
+      const positions = tx.select({ id: portfolioPositions.id })
+        .from(portfolioPositions)
+        .where(and(
+          eq(portfolioPositions.ticker, input.snapshot.ticker),
+          eq(portfolioPositions.market, input.snapshot.market)
+        ))
+        .all();
+
+      for (const pos of positions) {
+        tx.insert(portfolioAlerts).values({
+          id: randomUUID(),
+          positionId: pos.id,
+          documentHash: input.documentHash,
+          isRead: false,
+        }).run();
+      }
+    }
+
     tx.insert(researchJobSources).values({
       jobId: input.jobId,
       documentHash: input.documentHash,
@@ -46,6 +68,7 @@ export function persistSourceSnapshot(input: {
       target: [researchJobSources.jobId, researchJobSources.documentHash],
       set: { outcome: input.outcome, errorCode: input.errorCode ?? null },
     }).run();
+
     if (input.snapshot.discoveryUrl) {
       tx.insert(sourceDiscoveries).values({
         documentHash: input.documentHash,
@@ -57,3 +80,4 @@ export function persistSourceSnapshot(input: {
 
   return storagePath;
 }
+

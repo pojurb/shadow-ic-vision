@@ -186,3 +186,13 @@ export const portfolioPositions = sqliteTable('portfolio_positions', {
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Portfolio Ingestion/New Filing Alerts
+export const portfolioAlerts = sqliteTable('portfolio_alerts', {
+  id: text('id').primaryKey(),
+  positionId: text('position_id').notNull().references(() => portfolioPositions.id, { onDelete: 'cascade' }),
+  documentHash: text('document_hash').notNull().references(() => sourceSnapshots.documentHash, { onDelete: 'cascade' }),
+  isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+

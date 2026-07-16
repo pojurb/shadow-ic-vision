@@ -586,3 +586,132 @@
 .submitButton:hover {
   background-color: #059669;
 }
+
+.syncButton {
+  background: transparent;
+  border: 1px solid #333;
+  color: #38bdf8;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.syncButton:hover {
+  background: #172554;
+  border-color: #3b82f6;
+}
+
+.syncButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alertBadge {
+  background-color: #f97316;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.1rem 0.35rem;
+  border-radius: 9999px;
+  margin-left: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.alertBadge:hover {
+  background-color: #ea580c;
+}
+
+.alertsList {
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alertListItem {
+  background-color: #1a1a1a;
+  border: 1px solid #262626;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.alertMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.alertDate {
+  font-size: 0.75rem;
+  color: #737373;
+}
+
+.alertFormatBadge {
+  font-size: 0.65rem;
+  background-color: #262626;
+  color: #a3a3a3;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.alertDocumentRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.alertDocumentLink {
+  color: #38bdf8;
+  font-size: 0.85rem;
+  text-decoration: none;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.alertDocumentLink:hover {
+  text-decoration: underline;
+}
+
+.dismissAlertButton {
+  background: transparent;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dismissAlertButton:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.dismissAllButton {
+  background-color: #f97316;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.dismissAllButton:hover {
+  background-color: #ea580c;
+}
+

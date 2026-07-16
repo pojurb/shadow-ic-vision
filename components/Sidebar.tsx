@@ -26,10 +26,26 @@ interface Thesis {
   ticker: string | null;
 }
 
+interface PortfolioAlert {
+  id: string;
+  positionId: string;
+  documentHash: string;
+  isRead: boolean;
+  createdAt: string;
+  ticker: string;
+  market: 'US' | 'ID';
+  documentId: string;
+  sourceUrl: string;
+  sourceName: string;
+  sourceFormat: string;
+  publishDate: string;
+}
+
 export function Sidebar() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
   const [theses, setTheses] = useState<Thesis[]>([]);
+  const [alerts, setAlerts] = useState<PortfolioAlert[]>([]);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -42,6 +58,11 @@ export function Sidebar() {
   const [formPrice, setFormPrice] = useState('');
   const [formThesisId, setFormThesisId] = useState<string>('');
 
+  // Sync & Alerts states
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
+  const [activeAlertPosition, setActiveAlertPosition] = useState<PortfolioPosition | null>(null);
+
   const loadPortfolio = async () => {
     try {
       const pRes = await fetch('/api/portfolio');
@@ -53,6 +74,11 @@ export function Sidebar() {
       if (tRes.ok) {
         const tData = await tRes.json();
         setTheses(tData);
+      }
+      const aRes = await fetch('/api/portfolio/alerts');
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setAlerts(aData);
       }
     } catch {
       setError('Unable to load portfolio.');
@@ -71,8 +97,6 @@ export function Sidebar() {
       loadPortfolio();
     }, 0);
   }, []);
-
-
 
   const createNew = async () => {
     try {
@@ -181,6 +205,53 @@ export function Sidebar() {
     }
   };
 
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/research/refresh', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Filing synchronization failed.');
+      }
+      await loadPortfolio();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Filing synchronization failed.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDismissAlert = async (alertId: string) => {
+    try {
+      const res = await fetch(`/api/portfolio/alerts/${alertId}`, {
+        method: 'PATCH',
+      });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== alertId));
+      }
+    } catch (err) {
+      console.error('Failed to dismiss alert:', err);
+    }
+  };
+
+  const handleDismissAllAlerts = async (positionId: string) => {
+    try {
+      const res = await fetch('/api/portfolio/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positionId }),
+      });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.positionId !== positionId));
+        setAlertsModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Failed to dismiss all alerts:', err);
+    }
+  };
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.sidebarSection}>
@@ -214,58 +285,79 @@ export function Sidebar() {
       <div className={styles.portfolioSection}>
         <div className={styles.sidebarHeader}>
           <h2>Portfolio</h2>
-          <button onClick={() => {
-            setEditingPosition(null);
-            setFormTicker('');
-            setFormMarket('US');
-            setFormShares('');
-            setFormPrice('');
-            setFormThesisId('');
-            setModalOpen(true);
-          }} className={styles.addHoldingButton}>
-            + Add
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={handleSync} disabled={isSyncing} className={styles.syncButton} title="Synchronize filings">
+              {isSyncing ? '⟳ Syncing...' : '⟳ Sync'}
+            </button>
+            <button onClick={() => {
+              setEditingPosition(null);
+              setFormTicker('');
+              setFormMarket('US');
+              setFormShares('');
+              setFormPrice('');
+              setFormThesisId('');
+              setModalOpen(true);
+            }} className={styles.addHoldingButton}>
+              + Add
+            </button>
+          </div>
         </div>
         <ul className={styles.portfolioList}>
           {positions.length === 0 && (
             <li className={styles.emptyPortfolio}>No holdings tracked.</li>
           )}
-          {positions.map(p => (
-            <li key={p.id} className={styles.portfolioItem}>
-              <div className={styles.portfolioItemRow}>
-                <span className={styles.portfolioTicker}>
-                  {p.ticker} <span className={styles.marketBadge}>{p.market}</span>
-                </span>
-                <div className={styles.portfolioItemActions}>
-                  <button onClick={() => {
-                    setEditingPosition(p);
-                    setFormTicker(p.ticker);
-                    setFormMarket(p.market);
-                    setFormShares(String(p.shares));
-                    setFormPrice(String(p.averageBuyPrice));
-                    setFormThesisId(p.thesisId || '');
-                    setModalOpen(true);
-                  }} title="Edit position" className={styles.iconButton}>✎</button>
-                  <button onClick={() => handleDelete(p.id)} title="Delete position" className={styles.iconButtonDel}>🗑</button>
+          {positions.map(p => {
+            const positionAlerts = alerts.filter(a => a.positionId === p.id);
+            return (
+              <li key={p.id} className={styles.portfolioItem}>
+                <div className={styles.portfolioItemRow}>
+                  <span className={styles.portfolioTicker}>
+                    {p.ticker} <span className={styles.marketBadge}>{p.market}</span>
+                    {positionAlerts.length > 0 && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveAlertPosition(p);
+                          setAlertsModalOpen(true);
+                        }}
+                        className={styles.alertBadge}
+                        title={`${positionAlerts.length} new filing alert(s)`}
+                      >
+                        🔔 {positionAlerts.length}
+                      </span>
+                    )}
+                  </span>
+                  <div className={styles.portfolioItemActions}>
+                    <button onClick={() => {
+                      setEditingPosition(p);
+                      setFormTicker(p.ticker);
+                      setFormMarket(p.market);
+                      setFormShares(String(p.shares));
+                      setFormPrice(String(p.averageBuyPrice));
+                      setFormThesisId(p.thesisId || '');
+                      setModalOpen(true);
+                    }} title="Edit position" className={styles.iconButton}>✎</button>
+                    <button onClick={() => handleDelete(p.id)} title="Delete position" className={styles.iconButtonDel}>🗑</button>
+                  </div>
                 </div>
-              </div>
-              <div className={styles.portfolioDetails}>
-                <span>{p.shares.toLocaleString()} shares @ {p.market === 'US' ? '$' : 'Rp '}{p.averageBuyPrice.toLocaleString()}</span>
-                <span className={styles.portfolioValue}>
-                  Total: {p.market === 'US' ? '$' : 'Rp '}{(p.shares * p.averageBuyPrice).toLocaleString()}
-                </span>
-              </div>
-              {p.thesisId ? (
-                <div className={styles.linkedThesis}>
-                  Linked: <span className={styles.thesisTitleBadge}>{p.thesisTitle || 'Untitled'}</span>
+                <div className={styles.portfolioDetails}>
+                  <span>{p.shares.toLocaleString()} shares @ {p.market === 'US' ? '$' : 'Rp '}{p.averageBuyPrice.toLocaleString()}</span>
+                  <span className={styles.portfolioValue}>
+                    Total: {p.market === 'US' ? '$' : 'Rp '}{(p.shares * p.averageBuyPrice).toLocaleString()}
+                  </span>
                 </div>
-              ) : (
-                <div className={styles.unlinkedThesis}>
-                  Unlinked (Local)
-                </div>
-              )}
-            </li>
-          ))}
+                {p.thesisId ? (
+                  <div className={styles.linkedThesis}>
+                    Linked: <span className={styles.thesisTitleBadge}>{p.thesisTitle || 'Untitled'}</span>
+                  </div>
+                ) : (
+                  <div className={styles.unlinkedThesis}>
+                    Unlinked (Local)
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -352,7 +444,46 @@ export function Sidebar() {
           </div>
         </div>
       )}
+
+      {alertsModalOpen && activeAlertPosition && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContainer} style={{ width: '500px' }}>
+            <div className={styles.modalHeader}>
+              <h3>New Filings: {activeAlertPosition.ticker} ({activeAlertPosition.market})</h3>
+              <button onClick={() => setAlertsModalOpen(false)} className={styles.closeModal}>×</button>
+            </div>
+            <div className={styles.alertsList}>
+              {alerts.filter(a => a.positionId === activeAlertPosition.id).map(a => (
+                <div key={a.id} className={styles.alertListItem}>
+                  <div className={styles.alertMeta}>
+                    <span className={styles.alertDate}>{a.publishDate || 'Unknown Date'}</span>
+                    <span className={styles.alertFormatBadge}>{a.sourceFormat?.toUpperCase()}</span>
+                  </div>
+                  <div className={styles.alertDocumentRow}>
+                    <a href={a.sourceUrl} target="_blank" rel="noreferrer" className={styles.alertDocumentLink}>
+                      {a.sourceName}
+                    </a>
+                    <button onClick={() => handleDismissAlert(a.id)} className={styles.dismissAlertButton}>
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={styles.modalActions}>
+              <button
+                onClick={() => handleDismissAllAlerts(activeAlertPosition.id)}
+                className={styles.dismissAllButton}
+              >
+                Dismiss All
+              </button>
+              <button onClick={() => setAlertsModalOpen(false)} className={styles.cancelButton}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
-
