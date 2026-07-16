@@ -36,6 +36,7 @@ SourceSnapshot 1 -> many SourceDiscoveries
 Market + ticker -> SourceCursor
 IngestionRun + IngestionLease coordinate periodic refresh
 PortfolioPosition many -> 0..1 Thesis
+PortfolioPosition 1 -> many PortfolioAlerts
 ```
 
 Raw source bytes are immutable and content-addressed outside the repository.
@@ -98,6 +99,7 @@ Windows Task Scheduler or protected local endpoint
 - Unverified candidates never become durable Evidence.
 - `exact_verified` Evidence keeps interpretation `pending` and the assumption
   unchanged until a separate governed interpretation or user action.
+- Portfolio positions and automated ingestion alerts are local-only under DEC-0009 and never routed to external providers.
 - Migrations are committed and preceded by an external database backup.
 - Generated code intelligence is derived navigation data, never authority.
 

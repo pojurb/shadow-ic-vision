@@ -1,4 +1,4 @@
-# Session Checkpoint - 2026-07-11
+# Session Checkpoint - 2026-07-16
 
 ## Repository State
 
@@ -7,14 +7,11 @@
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- Phase: M001 implementation
-- Working scope: M001 integration completion
-- Cloud provider/security decision `DEC-0009`: accepted and implemented for
-  local POC only
-- Provider-specific decision `DEC-0010`: accepted and active
-- App state: allowlisted model selector active for approved Ollama Cloud models
+- Phase: Milestone 4 Planning
+- Working scope: Milestone 4 priority queue & briefing planning
+- App state: allowlisted model selector active for approved Ollama Cloud models; local portfolio holdings and sector candidate shortlists fully integrated
 - Default startup model: `kimi-k2.7-code:cloud`
-- Provider/model eligibility: `not_evaluated` for production; approved for local POC
+- Provider/model eligibility: `accepted_for_poc` for 6 allowlisted models
 - Kimi provider-eval harness: successfully run; 0 hard-gate failures, clean evidence recorded
 
 ## Implemented This Session
@@ -93,7 +90,7 @@ Latest full verification: 2026-07-11.
 
 ## Exact Resume Point
 
-1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
-2. **Step 2: Portfolio Position Tracking:** [Completed] Implemented local SQLite schema, query helpers, CRUD API endpoints, and a sidebar UI panel to track and link holdings to active theses.
-3. **Step 3: Background Ingestion Live Alerts:** [Completed] Integrated cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
-4. **Step 4: Continuous Governance:** [Completed] Reviewed docs/RISK_REGISTER.md and registered R-023 to guarantee local portfolio and alert data remains restricted from external providers.
+1. **Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.
+2. **Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.
+3. **Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.
+4. **Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.

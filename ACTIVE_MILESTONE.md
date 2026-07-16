@@ -1,17 +1,14 @@
 # Active Milestone
 
-Status: `implementation`
+Status: `planning`
 
-Active Packet: [`docs/milestones/M001-existing-thesis-loop.md`](docs/milestones/M001-existing-thesis-loop.md)
+Active Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (proposed)
 
 ## Current Phase
 
-M001 implementation - governed multimodal first slice and the accepted DEC-0009
-POC provider/security gate are implemented and verified. The provider-specific
-Ollama Cloud approval package is accepted as
-[`DEC-0010`](docs/decisions/DEC-0010-ollama-cloud-poc-approval.md), and the app
-now exposes an allowlisted model selector for the approved POC models, which
-is now active.
+M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), and M003 (Explore-To-Tracked Loop) are 100% completed, verified, and merged. 
+
+We are now entering the planning phase for Milestone 4 (Multi-Thesis Briefing), designed to scale holding tracking up to 100 assets with priority ranking queues and a comprehensive status index.
 
 The deterministic mock workflow remains the default QA path. The live research
 slice already provides SEC filing retrieval, official IDX announcement
@@ -127,12 +124,12 @@ Release evidence:
 - `npm audit` previously reported six moderate dependency findings; no forced
   breaking upgrade was applied in this slice.
 
-## Next Steps (M002 Roadmap Sequence)
+## Next Steps (Milestone 4 Planning & Core Steps)
 
-1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
-2. **Step 2: Portfolio Position Tracking:** [Completed] Implemented local SQLite schema, query helpers, CRUD API endpoints, and a sidebar UI panel to track and link holdings to active theses.
-3. **Step 3: Background Ingestion Live Alerts:** [Completed] Integrated cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
-4. **Step 4: Continuous Governance:** [Completed] Reviewed docs/RISK_REGISTER.md and registered R-023 to guarantee local portfolio and alert data remains restricted from external providers.
+1. **Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.
+2. **Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.
+3. **Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.
+4. **Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.
 
 Promoted lessons consulted: `LC-20260703-001`
 
