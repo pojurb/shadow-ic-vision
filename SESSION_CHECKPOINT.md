@@ -95,5 +95,5 @@ Latest full verification: 2026-07-11.
 
 1. **Step 1: Model Allowlist Evals:** [Completed] Ran live evaluations for all 5 remaining models with zero hard gate failures, resolved schema quirks, and promoted POC eligibility.
 2. **Step 2: Portfolio Position Tracking:** [Completed] Implemented local SQLite schema, query helpers, CRUD API endpoints, and a sidebar UI panel to track and link holdings to active theses.
-3. **Step 3: Background Ingestion Live Alerts:** [Next Active Step] Integrate cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
-4. **Step 4: Continuous Governance:** Monitor production provider terms and local risk registers.
+3. **Step 3: Background Ingestion Live Alerts:** [Completed] Integrated cron/refresh runner with the UI to alert users of new filings affecting active portfolio assets.
+4. **Step 4: Continuous Governance:** [Next Active Step] Monitor production provider terms and local risk registers.
