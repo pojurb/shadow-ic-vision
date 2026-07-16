@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "8109cdf9cda8c9190aee36630536ea56bf15ce6df2dc4e8041ce801e4003fe70",
+  "sourceDigest": "dcc7e070e9b765b43037dae0f4183ab71da423c12348be4848950e6fe28bc7a0",
   "roots": [
     "app",
     "components",
@@ -143,6 +143,23 @@
       "exports": [
         "GET",
         "POST"
+      ]
+    },
+    {
+      "path": "app/api/portfolio/briefing/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "GET"
       ]
     },
     {
@@ -442,6 +459,28 @@
       ]
     },
     {
+      "path": "app/portfolio/page.tsx",
+      "kind": "page",
+      "imports": [
+        {
+          "specifier": "@/lib/portfolio/priorityQueue",
+          "resolved": "lib/portfolio/priorityQueue.ts"
+        },
+        {
+          "specifier": "next/link",
+          "resolved": null
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "PortfolioStatusIndex",
+        "default"
+      ]
+    },
+    {
       "path": "components/ChatUI.tsx",
       "kind": "component",
       "imports": [
@@ -500,6 +539,10 @@
           "resolved": null
         },
         {
+          "specifier": "./TopTenQueue",
+          "resolved": "components/TopTenQueue.tsx"
+        },
+        {
           "specifier": "next/link",
           "resolved": null
         },
@@ -514,6 +557,23 @@
       ],
       "exports": [
         "Sidebar"
+      ]
+    },
+    {
+      "path": "components/TopTenQueue.tsx",
+      "kind": "component",
+      "imports": [
+        {
+          "specifier": "@/lib/portfolio/priorityQueue",
+          "resolved": "lib/portfolio/priorityQueue.ts"
+        },
+        {
+          "specifier": "react",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "TopTenQueue"
       ]
     },
     {
@@ -636,6 +696,7 @@
         "getConversations",
         "getMessage",
         "getMessages",
+        "getPortfolioBriefing",
         "getPortfolioPositions",
         "getTheses",
         "getThesisForConversation",
@@ -884,6 +945,15 @@
         "researchRunRequestSchema",
         "thesisDraftSchema",
         "thesisExportSchema"
+      ]
+    },
+    {
+      "path": "lib/portfolio/priorityQueue.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "PortfolioHoldingQueueItem",
+        "calculatePriorityScore"
       ]
     },
     {
@@ -2076,6 +2146,14 @@
       ]
     },
     {
+      "path": "/api/portfolio/briefing",
+      "kind": "route",
+      "module": "app/api/portfolio/briefing/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/api/portfolio",
       "kind": "route",
       "module": "app/api/portfolio/route.ts",
@@ -2174,6 +2252,12 @@
       "path": "/",
       "kind": "page",
       "module": "app/page.tsx",
+      "methods": []
+    },
+    {
+      "path": "/portfolio",
+      "kind": "page",
+      "module": "app/portfolio/page.tsx",
       "methods": []
     }
   ],

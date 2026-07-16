@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './ChatUI.module.css';
+import { TopTenQueue } from './TopTenQueue';
 
 interface Conversation {
   id: string;
@@ -302,10 +303,35 @@ export function Sidebar() {
         </ul>
       </div>
 
+      <TopTenQueue onSelect={(holding) => {
+        if (holding.thesisId) {
+          router.push(`/c/${holding.thesisId}`);
+        } else {
+          setEditingPosition({
+            id: holding.id,
+            ticker: holding.ticker,
+            market: holding.market,
+            shares: holding.shares,
+            averageBuyPrice: holding.averageBuyPrice,
+            thesisId: holding.thesisId,
+            thesisTitle: holding.thesisTitle,
+          });
+          setFormTicker(holding.ticker);
+          setFormMarket(holding.market);
+          setFormShares(String(holding.shares));
+          setFormPrice(String(holding.averageBuyPrice));
+          setFormThesisId(holding.thesisId || '');
+          setModalOpen(true);
+        }
+      }} />
+
       <div className={styles.portfolioSection}>
         <div className={styles.sidebarHeader}>
           <h2>Portfolio</h2>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Link href="/portfolio" className={styles.syncButton} style={{ textDecoration: 'none' }} title="Full Status Index">
+              Index
+            </Link>
             <button onClick={handleSync} disabled={isSyncing} className={styles.syncButton} title="Synchronize filings">
               {isSyncing ? '⟳ Syncing...' : '⟳ Sync'}
             </button>

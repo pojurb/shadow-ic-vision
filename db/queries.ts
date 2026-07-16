@@ -205,3 +205,70 @@ export async function markAllAlertsAsReadForPosition(positionId: string) {
     .set({ isRead: true })
     .where(eq(portfolioAlerts.positionId, positionId));
 }
+
+export async function getPortfolioBriefing() {
+  const { db } = getDatabase();
+  const { calculatePriorityScore } = await import('@/lib/portfolio/priorityQueue');
+  const { decisions, assumptions } = await import('./schema');
+
+  // Fetch all positions up to 100
+  const positions = await db
+    .select({
+      id: portfolioPositions.id,
+      ticker: portfolioPositions.ticker,
+      market: portfolioPositions.market,
+      shares: portfolioPositions.shares,
+      averageBuyPrice: portfolioPositions.averageBuyPrice,
+      thesisId: portfolioPositions.thesisId,
+      thesisTitle: theses.title,
+      createdAt: portfolioPositions.createdAt,
+    })
+    .from(portfolioPositions)
+    .leftJoin(theses, eq(portfolioPositions.thesisId, theses.id));
+
+  const allUnreadAlerts = await db.select().from(portfolioAlerts).where(eq(portfolioAlerts.isRead, false));
+  const allDecisions = await db.select().from(decisions);
+  const challengedAssumptions = await db.select().from(assumptions).where(eq(assumptions.status, 'challenged'));
+
+  const now = new Date();
+
+  return positions.map((pos) => {
+    // 1. Calculate unread alerts
+    const unreadAlertCount = allUnreadAlerts.filter(a => a.positionId === pos.id).length;
+
+    // 2. Calculate staleness (days since last review or position creation)
+    let daysSinceLastReview = 14; // default to stale if no history
+    
+    if (pos.thesisId) {
+      const posDecisions = allDecisions.filter(d => d.thesisId === pos.thesisId);
+      if (posDecisions.length > 0) {
+        // Find most recent decision
+        const latest = posDecisions.reduce((max, d) => new Date(d.createdAt) > new Date(max.createdAt) ? d : max);
+        const diffMs = now.getTime() - new Date(latest.createdAt).getTime();
+        daysSinceLastReview = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      } else {
+        const diffMs = now.getTime() - new Date(pos.createdAt).getTime();
+        daysSinceLastReview = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      }
+    } else {
+      const diffMs = now.getTime() - new Date(pos.createdAt).getTime();
+      daysSinceLastReview = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    }
+
+    // 3. Has challenged assumptions
+    const hasChallengedAssumptions = pos.thesisId 
+      ? challengedAssumptions.some(a => a.thesisId === pos.thesisId)
+      : false;
+
+    // 4. Score
+    const priorityScore = calculatePriorityScore(unreadAlertCount, daysSinceLastReview, hasChallengedAssumptions);
+
+    return {
+      ...pos,
+      priorityScore,
+      unreadAlertCount,
+      daysSinceLastReview,
+      hasChallengedAssumptions,
+    };
+  }).sort((a, b) => b.priorityScore - a.priorityScore);
+}
