@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { addMessage, getConversation, getMessages, getThesisForConversation, toMessageDTO } from '@/db/queries';
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage, ProviderCallContext } from '@/lib/ai/provider';
-import { chatRequestSchema, thesisDraftSchema } from '@/lib/domain/contracts';
+import { chatRequestSchema, chatResponsePayloadSchema } from '@/lib/domain/contracts';
 
 export async function POST(request: Request) {
   try {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const existingThesis = await getThesisForConversation(conversationId);
     const extraction = existingThesis
       ? null
-      : await llmProvider.structuredExtract(projectMessages, thesisDraftSchema, 'thesis-draft-v1', providerContext);
+      : await llmProvider.structuredExtract(projectMessages, chatResponsePayloadSchema, 'chat-payload-v1', providerContext);
     const structuredPayload = extraction?.success ? extraction.data ?? undefined : undefined;
 
     // Save assistant message

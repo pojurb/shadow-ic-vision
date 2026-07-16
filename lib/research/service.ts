@@ -16,6 +16,7 @@ import {
 } from '@/db/schema';
 import {
   thesisDraftSchema,
+  type ThesisDraft,
   type ResearchPanelDTO,
   type DecisionOutcome,
   type DecisionAction,
@@ -83,10 +84,17 @@ export function confirmDraft(
       throw new Error('The selected message does not contain a valid thesis draft.');
     }
 
-    const parsedDraft = thesisDraftSchema.safeParse(JSON.parse(message.structuredPayload));
-    if (!parsedDraft.success) throw new Error('The stored thesis draft is invalid.');
+    const parsedJSON = JSON.parse(message.structuredPayload);
+    let draft: ThesisDraft | null = null;
+    if (parsedJSON && parsedJSON.type === 'thesis_draft' && parsedJSON.thesisDraft) {
+      const parsedDraft = thesisDraftSchema.safeParse(parsedJSON.thesisDraft);
+      if (parsedDraft.success) draft = parsedDraft.data;
+    } else {
+      const parsedDraft = thesisDraftSchema.safeParse(parsedJSON);
+      if (parsedDraft.success) draft = parsedDraft.data;
+    }
 
-    const draft = parsedDraft.data;
+    if (!draft) throw new Error('The stored thesis draft is invalid.');
     const thesisId = randomUUID();
     tx.insert(theses).values({
       id: thesisId,

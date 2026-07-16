@@ -35,6 +35,11 @@ export function ChatUI({
     }
   }, [messages]);
 
+  const handleTrackAsset = (candidate: { ticker: string; companyName: string; market: 'US' | 'ID' }) => {
+    const event = new CustomEvent('jp-invest:track-asset', { detail: candidate });
+    window.dispatchEvent(event);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -119,32 +124,70 @@ export function ChatUI({
             <p>Try “I believe PLTR gross margin will remain above 80%” or “BBRI NIM will remain above 6%.”</p>
           </div>
         )}
-        {messages.map(m => (
-          <div key={m.id} className={m.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow}>
-            <div className={m.role === 'user' ? styles.userBubble : styles.assistantBubble}>
-              {m.content}
-              {m.structuredPayload && (
-                <div className={styles.draftCard}>
-                  <span>Confirmation required</span>
-                  <h3>{m.structuredPayload.ticker} · {m.structuredPayload.companyName}</h3>
-                  <p>{m.structuredPayload.coreBelief}</p>
-                  <ul>
-                    {m.structuredPayload.assumptions.map((assumption) => (
-                      <li key={assumption.statement}>{assumption.statement}</li>
-                    ))}
-                  </ul>
-                  {confirmedIds.has(m.id) ? (
-                    <button className={styles.secondaryButton} onClick={onOpenResearch}>View research</button>
-                  ) : (
-                    <button className={styles.confirmButton} onClick={() => confirmDraft(m.id)}>
-                      Confirm &amp; Research
-                    </button>
-                  )}
-                </div>
-              )}
+        {messages.map(m => {
+          const thesisDraft = m.structuredPayload
+            ? ('type' in m.structuredPayload)
+              ? m.structuredPayload.type === 'thesis_draft' ? m.structuredPayload.thesisDraft : null
+              : m.structuredPayload
+            : null;
+
+          const explorationDraft = m.structuredPayload && ('type' in m.structuredPayload) && m.structuredPayload.type === 'exploration_draft'
+            ? m.structuredPayload.explorationDraft
+            : null;
+
+          return (
+            <div key={m.id} className={m.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow}>
+              <div className={m.role === 'user' ? styles.userBubble : styles.assistantBubble}>
+                {m.content}
+                
+                {thesisDraft && (
+                  <div className={styles.draftCard}>
+                    <span>Confirmation required</span>
+                    <h3>{thesisDraft.ticker} · {thesisDraft.companyName}</h3>
+                    <p>{thesisDraft.coreBelief}</p>
+                    <ul>
+                      {thesisDraft.assumptions.map((assumption) => (
+                        <li key={assumption.statement}>{assumption.statement}</li>
+                      ))}
+                    </ul>
+                    {confirmedIds.has(m.id) ? (
+                      <button className={styles.secondaryButton} onClick={onOpenResearch}>View research</button>
+                    ) : (
+                      <button className={styles.confirmButton} onClick={() => confirmDraft(m.id)}>
+                        Confirm &amp; Research
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {explorationDraft && (
+                  <div className={styles.explorationCard}>
+                    <span className={styles.explorationHeader}>Sector Candidates: {explorationDraft.sectorName}</span>
+                    <div className={styles.explorationList}>
+                      {explorationDraft.candidates.map((candidate) => (
+                        <div key={candidate.ticker} className={styles.candidateItem}>
+                          <div className={styles.candidateRow}>
+                            <span className={styles.candidateTicker}>
+                              {candidate.ticker} <span className={styles.marketBadge}>{candidate.market}</span>
+                            </span>
+                            <button
+                              onClick={() => handleTrackAsset(candidate)}
+                              className={styles.trackAssetButton}
+                            >
+                              Track Asset
+                            </button>
+                          </div>
+                          <div className={styles.candidateName}>{candidate.companyName}</div>
+                          <p className={styles.candidateRationale}>{candidate.rationale}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {isLoading && (
           <div className={styles.assistantMessageRow}>
             <div className={styles.assistantBubble}>

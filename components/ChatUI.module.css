@@ -715,3 +715,76 @@
   background-color: #ea580c;
 }
 
+.explorationCard {
+  background-color: #171717;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.explorationHeader {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #737373;
+  letter-spacing: 0.05em;
+  font-weight: bold;
+}
+
+.explorationList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.candidateItem {
+  background-color: #202020;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.candidateRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.candidateTicker {
+  font-weight: bold;
+  font-size: 0.95rem;
+  color: #ededed;
+}
+
+.trackAssetButton {
+  background-color: #38bdf8;
+  color: #0f172a;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.trackAssetButton:hover {
+  background-color: #0ea5e9;
+}
+
+.candidateName {
+  font-size: 0.8rem;
+  color: #a3a3a3;
+  margin-top: 0.15rem;
+}
+
+.candidateRationale {
+  font-size: 0.85rem;
+  color: #d4d4d4;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+

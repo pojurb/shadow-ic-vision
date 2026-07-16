@@ -32,7 +32,10 @@ export function buildCodeIndex(rootDirectory: string): CodeIndex {
   }));
   const hash = crypto.createHash('sha256');
   hash.update('code-index-schema:1\0');
-  for (const file of files) hash.update(`${relative(rootDirectory, file)}\0${fs.readFileSync(file, 'utf8')}\0`);
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8').replaceAll('\r\n', '\n');
+    hash.update(`${relative(rootDirectory, file)}\0${source}\0`);
+  }
   return { schemaVersion: 1, sourceDigest: hash.digest('hex'), roots: [...ROOTS], modules, routes, tables, tests };
 }
 

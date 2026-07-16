@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockProvider } from '@/lib/ai/adapters/mock';
 import type { ProviderCallContext } from '@/lib/ai/provider';
-import { thesisDraftSchema } from '@/lib/domain/contracts';
+import { thesisDraftSchema, chatResponsePayloadSchema } from '@/lib/domain/contracts';
 
 const message = (content: string) => [{ role: 'user' as const, content }];
 const context: ProviderCallContext = {
@@ -51,5 +51,31 @@ describe('MockProvider', () => {
     expect(response.text).toContain('cannot recommend or execute trades');
     const extraction = await new MockProvider().structuredExtract(message(input), thesisDraftSchema, 'draft', context);
     expect(extraction.success).toBe(false);
+  });
+
+  it('extracts sector exploration shortlist candidate payload', async () => {
+    const result = await new MockProvider().structuredExtract(
+      message('Help me explore the defense tech sector.'),
+      chatResponsePayloadSchema,
+      'chat-payload-v1',
+      context,
+    );
+    expect(result.success).toBe(true);
+    expect(result.data?.type).toBe('exploration_draft');
+    expect(result.data?.explorationDraft?.sectorName).toBe('Defense Tech US');
+    expect(result.data?.explorationDraft?.candidates).toHaveLength(2);
+    expect(result.data?.explorationDraft?.candidates[0].ticker).toBe('PLTR');
+  });
+
+  it('extracts thesis draft wrapped inside chat response payload schema', async () => {
+    const result = await new MockProvider().structuredExtract(
+      message('I believe PLTR gross margin will remain above 80%.'),
+      chatResponsePayloadSchema,
+      'chat-payload-v1',
+      context,
+    );
+    expect(result.success).toBe(true);
+    expect(result.data?.type).toBe('thesis_draft');
+    expect(result.data?.thesisDraft?.ticker).toBe('PLTR');
   });
 });

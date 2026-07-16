@@ -84,7 +84,15 @@ export class MockProvider implements LLMProvider {
     }
 
     const input = messages.at(-1)?.content ?? '';
-    const candidate = this.mode === 'malformed' ? { ticker: 42 } : this.fixtureFor(input);
+    let candidate = this.mode === 'malformed' ? { ticker: 42 } : this.fixtureFor(input);
+
+    if (candidate && schemaName === 'chat-payload-v1' && typeof candidate === 'object' && !('type' in candidate)) {
+      candidate = {
+        type: 'thesis_draft',
+        thesisDraft: candidate,
+      };
+    }
+
     const parsed = schema.safeParse(candidate);
 
     if (parsed.success) {
@@ -109,6 +117,29 @@ export class MockProvider implements LLMProvider {
     const normalized = input.toLowerCase();
 
     if (this.isUnsafeRequest(normalized)) return null;
+
+    if (normalized.includes('explore') || normalized.includes('sector') || normalized.includes('shortlist') || normalized.includes('defense')) {
+      return {
+        type: 'exploration_draft',
+        explorationDraft: {
+          sectorName: 'Defense Tech US',
+          candidates: [
+            {
+              ticker: 'PLTR',
+              companyName: 'Palantir Technologies Inc.',
+              market: 'US',
+              rationale: 'Leader in defense AI software and data integration systems.',
+            },
+            {
+              ticker: 'LMT',
+              companyName: 'Lockheed Martin Corporation',
+              market: 'US',
+              rationale: 'Major defense contractor with growing software and missile guidance focus.',
+            },
+          ],
+        },
+      };
+    }
 
     if (normalized.includes('pltr') && normalized.includes('gross margin')) {
       const mismatch = normalized.includes('simulate citation mismatch');
@@ -151,6 +182,9 @@ export class MockProvider implements LLMProvider {
   private responseText(input: string) {
     const normalized = input.toLowerCase();
     if (this.isUnsafeRequest(normalized)) return TRADE_REFUSAL;
+    if (normalized.includes('explore') || normalized.includes('sector') || normalized.includes('shortlist') || normalized.includes('defense')) {
+      return 'I found some candidate companies in the Defense Tech US sector. Check the shortlist below to track any of them.';
+    }
     if (this.fixtureFor(input)) {
       return 'I structured a draft thesis and its testable assumption. Review it before starting research.';
     }

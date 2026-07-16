@@ -35,6 +35,28 @@ export const thesisDraftSchema = z.object({
 
 export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
 
+export const explorationDraftSchema = z.object({
+  sectorName: z.string().trim().min(1).max(100),
+  candidates: z.array(
+    z.object({
+      ticker: z.string().trim().min(1).max(12),
+      companyName: z.string().trim().min(1).max(160),
+      market: marketSchema,
+      rationale: z.string().trim().min(1).max(1_000),
+    })
+  ).min(1).max(5),
+});
+
+export type ExplorationDraft = z.infer<typeof explorationDraftSchema>;
+
+export const chatResponsePayloadSchema = z.object({
+  type: z.enum(['thesis_draft', 'exploration_draft', 'none']),
+  thesisDraft: thesisDraftSchema.optional(),
+  explorationDraft: explorationDraftSchema.optional(),
+});
+
+export type ChatResponsePayload = z.infer<typeof chatResponsePayloadSchema>;
+
 export const chatRequestSchema = z.object({
   conversationId: z.string().uuid(),
   content: z.string().trim().min(1).max(4_000),
@@ -58,7 +80,7 @@ export type MessageDTO = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  structuredPayload: ThesisDraft | null;
+  structuredPayload: ChatResponsePayload | ThesisDraft | null;
   validationOutcome: 'valid' | 'invalid' | 'not_applicable';
   createdAt: string;
 };

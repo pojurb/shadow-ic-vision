@@ -98,6 +98,26 @@ export function Sidebar() {
     }, 0);
   }, []);
 
+  useEffect(() => {
+    const handleTrackAsset = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setEditingPosition(null);
+        setFormTicker(detail.ticker);
+        setFormMarket(detail.market);
+        setFormShares('');
+        setFormPrice('');
+        setFormThesisId('');
+        setModalOpen(true);
+      }
+    };
+    window.addEventListener('jp-invest:track-asset', handleTrackAsset);
+    return () => {
+      window.removeEventListener('jp-invest:track-asset', handleTrackAsset);
+    };
+  }, []);
+
+
   const createNew = async () => {
     try {
       const res = await fetch('/api/conversations', {

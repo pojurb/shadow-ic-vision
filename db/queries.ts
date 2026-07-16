@@ -5,7 +5,7 @@ import { conversations, messages, theses, portfolioPositions, portfolioAlerts, s
 import { eq, desc } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { ProviderMetadata } from '@/lib/ai/provider';
-import { thesisDraftSchema, type MessageDTO, type ThesisDraft } from '@/lib/domain/contracts';
+import { thesisDraftSchema, chatResponsePayloadSchema, type MessageDTO, type ThesisDraft, type ChatResponsePayload } from '@/lib/domain/contracts';
 
 export async function createConversation(title: string) {
   const { db } = getDatabase();
@@ -39,7 +39,7 @@ export async function addMessage(
   content: string, 
   options: {
     providerMetadata?: ProviderMetadata;
-    structuredPayload?: ThesisDraft;
+    structuredPayload?: ChatResponsePayload | ThesisDraft;
     validationOutcome?: 'valid' | 'invalid' | 'not_applicable';
   } = {},
 ) {
@@ -76,11 +76,17 @@ export async function getTheses() {
 
 
 export function toMessageDTO(message: typeof messages.$inferSelect): MessageDTO {
-  let structuredPayload: ThesisDraft | null = null;
+  let structuredPayload: ChatResponsePayload | ThesisDraft | null = null;
   if (message.structuredPayload) {
     try {
-      const parsed = thesisDraftSchema.safeParse(JSON.parse(message.structuredPayload));
-      structuredPayload = parsed.success ? parsed.data : null;
+      const parsedJSON = JSON.parse(message.structuredPayload);
+      if (parsedJSON && (parsedJSON.type === 'exploration_draft' || parsedJSON.type === 'thesis_draft' || parsedJSON.type === 'none')) {
+        const parsed = chatResponsePayloadSchema.safeParse(parsedJSON);
+        structuredPayload = parsed.success ? parsed.data : null;
+      } else {
+        const parsed = thesisDraftSchema.safeParse(parsedJSON);
+        structuredPayload = parsed.success ? parsed.data : null;
+      }
     } catch {
       structuredPayload = null;
     }

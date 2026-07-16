@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "91fe20b5278e085e5b10812e6b5b8c7b0cb2a404ec417b68caa896d498cfa497",
+  "sourceDigest": "20b9f1f3343d213d289415695b69b1a4f87a4ddc4a6b28719df5f1ae36144612",
   "roots": [
     "app",
     "components",
@@ -857,11 +857,13 @@
         }
       ],
       "exports": [
+        "ChatResponsePayload",
         "DecisionAction",
         "DecisionDTO",
         "DecisionOutcome",
         "DecisionRecommendation",
         "EvidenceDTO",
+        "ExplorationDraft",
         "MessageDTO",
         "ResearchItemDTO",
         "ResearchPanelDTO",
@@ -869,10 +871,12 @@
         "ThesisExport",
         "assumptionStatusSchema",
         "chatRequestSchema",
+        "chatResponsePayloadSchema",
         "confirmRequestSchema",
         "decisionActionSchema",
         "decisionOutcomeSchema",
         "decisionRecommendationSchema",
+        "explorationDraftSchema",
         "marketSchema",
         "recordDecisionRequestSchema",
         "researchJobStatusSchema",
