@@ -9,13 +9,15 @@ product and architecture authority remains in milestones, decisions, and
 
 | Layer | Ownership | Primary paths |
 |---|---|---|
-| App routes | HTTP validation and response mapping | `app/api/`, `app/c/` |
-| UI | Conversation workspace and research states | `components/` |
+| App routes | HTTP validation and response mapping | `app/api/`, `app/c/`, `app/portfolio/` |
+| UI | Conversation workspace, research states, portfolio briefing | `components/` |
 | Domain contracts | Zod inputs and DTOs crossing boundaries | `lib/domain/contracts.ts` |
 | AI boundary | Project-owned provider contract and deterministic mock | `lib/ai/` |
+| Portfolio logic | Priority queue scoring, briefing queries | `lib/portfolio/`, `db/queries.ts#getPortfolioBriefing` |
 | Research orchestration | Jobs, ingestion, citation pipeline, snapshots | `lib/research/` |
 | Source adapters | SEC, IDX, issuer, and synthetic fixtures | `lib/research/adapters/` |
 | Persistence | Drizzle schema, queries, migrations, external SQLite | `db/` |
+| Support scripts | Environment loading, evaluation harness | `scripts/dotenv-quiet.ts`, `scripts/eval-*.ts` |
 | Verification | Unit, integration, live opt-in, and browser checks | `tests/` |
 
 Route handlers validate transport input and delegate. Business behavior belongs
@@ -37,6 +39,9 @@ Market + ticker -> SourceCursor
 IngestionRun + IngestionLease coordinate periodic refresh
 PortfolioPosition many -> 0..1 Thesis
 PortfolioPosition 1 -> many PortfolioAlerts
+  (PortfolioAlert.documentHash -> SourceSnapshot.documentHash)
+Thesis 1 -> many Assumptions (for briefing priority scoring)
+Thesis 1 -> many Decisions (for staleness calculation in priority queue)
 ```
 
 Raw source bytes are immutable and content-addressed outside the repository.
@@ -76,6 +81,22 @@ Chat input
   -> Evidence(exact_verified, interpretation=pending)
 ```
 
+### Portfolio Briefing (Priority Queue & Status Index)
+
+```text
+getPortfolioBriefing query
+  -> all PortfolioPositions (leftJoin Thesis for conversationId)
+  -> grouped SQL aggregates:
+     - unread PortfolioAlerts per position
+     - latest Decision.createdAt per thesis
+     - existence of challenged Assumptions per thesis
+  -> calculatePriorityScore (alerts, staleness, challenged)
+  -> sorted descending by priorityScore
+  -> returned as PortfolioHoldingQueueItem[] for:
+     - TopTenQueue: sidebar briefing of top 10 holdings
+     - StatusIndex: full sortable/filterable table at /portfolio
+```
+
 ### Periodic official-source ingestion
 
 ```text
@@ -100,7 +121,13 @@ Windows Task Scheduler or protected local endpoint
 - `exact_verified` Evidence keeps interpretation `pending` and the assumption
   unchanged until a separate governed interpretation or user action.
 - Portfolio positions and automated ingestion alerts are local-only under DEC-0009 and never routed to external providers.
+- Portfolio briefing (`getPortfolioBriefing`) links positions to conversations
+  via thesis, never to thesis directly (the `/c/[id]` route resolves conversation
+  ids).
 - Migrations are committed and preceded by an external database backup.
+- Environment variables are loaded quietly (dotenv `quiet: true`) to suppress
+  upstream promotional tips; errors still surface through separate logging
+  paths.
 - Generated code intelligence is derived navigation data, never authority.
 
 ## Task Routing
@@ -111,6 +138,8 @@ Windows Task Scheduler or protected local endpoint
 | Next.js route or component | relevant `node_modules/next/dist/docs/`, route/component, contracts | `verify:full` when user-visible |
 | Domain or DTO change | contracts, schema, affected routes/UI | typecheck, unit/integration, build |
 | Database or migration | `db/schema.ts`, prior migrations, ADR-0006 | migration/backup tests, full standard verify |
+| Portfolio briefing or priority queue | `lib/portfolio/priorityQueue.ts`, `db/queries.ts#getPortfolioBriefing`, schema | `tests/portfolio-briefing.test.ts` coverage, standard verify, link resolution (conversationId, not thesisId) |
+| Portfolio UI (queue/index) | `components/TopTenQueue.tsx`, `app/portfolio/page.tsx`, briefing route | `verify:full` with Playwright, sorting/filtering correctness, refresh-on-sync behavior |
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |

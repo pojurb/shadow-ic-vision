@@ -1,14 +1,16 @@
 # Active Milestone
 
-Status: `planning`
+Status: `in_progress`
 
-Active Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (proposed)
+Active Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (accepted)
 
 ## Current Phase
 
 M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), and M003 (Explore-To-Tracked Loop) are 100% completed, verified, and merged. 
 
-We are now entering the planning phase for Milestone 4 (Multi-Thesis Briefing), designed to scale holding tracking up to 100 assets with priority ranking queues and a comprehensive status index.
+Milestone 4 (Multi-Thesis Briefing) is accepted and in progress, designed to scale holding tracking up to 100 assets with priority ranking queues and a comprehensive status index.
+
+The Top-10 Priority Queue and the filterable Status Index (steps 2 and 3) are implemented: `lib/portfolio/priorityQueue.ts` scores holdings from unread filing alerts, review staleness, and challenged assumptions; `db/queries.ts#getPortfolioBriefing` computes the ranked list via grouped SQL aggregates; `components/TopTenQueue.tsx` and `app/portfolio/page.tsx` render the sidebar queue and the full sortable/filterable index. A prior review found and fixed a navigation bug where thesis-linked items routed to the thesis id instead of its conversation id (the `/c/[id]` route resolves conversations); the briefing query now also returns `conversationId` and both UI surfaces link with it. Coverage for the scoring function and the briefing query lives in `tests/portfolio-briefing.test.ts`. Remaining scope: Review History Retention (step 4).
 
 The deterministic mock workflow remains the default QA path. The live research
 slice already provides SEC filing retrieval, official IDX announcement
@@ -50,7 +52,7 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-11.
+Latest full verification: 2026-07-17.
 
 Latest targeted provider-package verification: 2026-07-11.
 
@@ -58,17 +60,21 @@ Latest targeted provider-package verification: 2026-07-11.
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- `npm run context:check`: pass
-- `npm run status:check`: pass
-- TypeScript `tsc --noEmit`: pass
-- ESLint `eslint`: pass
-- Vitest: 76 pass; 3 opt-in live checks skipped
-- Next.js production build: pass
-- Playwright: 3 pass
+- `npm run context:check`: pass on 2026-07-17 after regenerating the code index
+- `npm run status:check`: pass on 2026-07-17 after accepting the M004 packet
+- TypeScript `tsc --noEmit`: pass on 2026-07-17 (a stale `.next` build artifact
+  had been causing 5 spurious errors in generated dev types; cleared and
+  rebuilt clean)
+- ESLint `eslint`: pass on 2026-07-17
+- Vitest: 104 pass; 3 opt-in live checks skipped on 2026-07-17 (adds
+  `tests/portfolio-briefing.test.ts` covering the M4 priority queue and
+  briefing query)
+- Next.js production build: pass on 2026-07-17
+- Playwright: 3 pass on 2026-07-17
   - deterministic PLTR desktop and narrow Research drawer
   - live-labelled IDX fail-closed UI without a network request
   - OCR and derived trust-class labels visible in the Research drawer
-- `npm run verify:full`: pass
+- `npm run verify:full`: pass on 2026-07-17
 - `npm run eval:m001:multimodal -- --output test-results\m001-multimodal-report.json`: pass
   - base case count: 16
   - multimodal addendum case count: 16
@@ -121,14 +127,15 @@ Release evidence:
   provider-boundary gates; it does not approve a model, provider, cloud
   processor, or native browsing capability.
 - Secondary-source and general-news ingestion remain deferred.
-- `npm audit` previously reported six moderate dependency findings; no forced
-  breaking upgrade was applied in this slice.
+- `npm audit --omit=dev` currently reports two moderate dependency findings
+  (transitive `postcss` via `next`); no forced breaking upgrade was applied in
+  this slice.
 
-## Next Steps (Milestone 4 Planning & Core Steps)
+## Next Steps (Milestone 4 Core Steps)
 
-1. **Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.
-2. **Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.
-3. **Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.
+1. ~~**Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.~~ Done; packet accepted.
+2. ~~**Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.~~ Done.
+3. ~~**Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.~~ Done.
 4. **Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.
 
 Promoted lessons consulted: `LC-20260703-001`

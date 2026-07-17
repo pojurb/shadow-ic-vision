@@ -61,6 +61,7 @@ export function Sidebar() {
 
   // Sync & Alerts states
   const [isSyncing, setIsSyncing] = useState(false);
+  const [portfolioRefreshKey, setPortfolioRefreshKey] = useState(0);
   const [alertsModalOpen, setAlertsModalOpen] = useState(false);
   const [activeAlertPosition, setActiveAlertPosition] = useState<PortfolioPosition | null>(null);
 
@@ -237,6 +238,7 @@ export function Sidebar() {
         throw new Error(data.error ?? 'Filing synchronization failed.');
       }
       await loadPortfolio();
+      setPortfolioRefreshKey(prev => prev + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Filing synchronization failed.');
     } finally {
@@ -303,9 +305,9 @@ export function Sidebar() {
         </ul>
       </div>
 
-      <TopTenQueue onSelect={(holding) => {
-        if (holding.thesisId) {
-          router.push(`/c/${holding.thesisId}`);
+      <TopTenQueue refreshKey={portfolioRefreshKey} onSelect={(holding) => {
+        if (holding.conversationId) {
+          router.push(`/c/${holding.conversationId}`);
         } else {
           setEditingPosition({
             id: holding.id,

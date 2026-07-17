@@ -8,7 +8,7 @@ import path from 'node:path';
 import * as schema from './schema';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 export type AppDatabase = ReturnType<typeof drizzle<typeof schema>>;
 

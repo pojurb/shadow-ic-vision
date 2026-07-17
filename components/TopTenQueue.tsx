@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
+import { STALE_REVIEW_DAYS, type PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
 
-export function TopTenQueue({ onSelect }: { onSelect: (holding: PortfolioHoldingQueueItem) => void }) {
+export function TopTenQueue({
+  onSelect,
+  refreshKey,
+}: {
+  onSelect: (holding: PortfolioHoldingQueueItem) => void;
+  refreshKey?: number;
+}) {
   const [queue, setQueue] = useState<PortfolioHoldingQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +28,7 @@ export function TopTenQueue({ onSelect }: { onSelect: (holding: PortfolioHolding
       }
     }
     fetchQueue();
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return <div className="text-sm text-gray-500 p-2">Loading priority queue...</div>;
@@ -52,7 +58,7 @@ export function TopTenQueue({ onSelect }: { onSelect: (holding: PortfolioHolding
                 )}
               </div>
               <div className="flex gap-1">
-                {item.daysSinceLastReview > 7 && (
+                {item.daysSinceLastReview > STALE_REVIEW_DAYS && (
                   <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded" title="Stale Review">Stale</span>
                 )}
                 {item.hasChallengedAssumptions && (

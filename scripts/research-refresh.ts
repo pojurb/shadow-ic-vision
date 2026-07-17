@@ -1,3 +1,4 @@
+import './dotenv-quiet';
 import 'dotenv/config';
 
 import { refreshOfficialSources } from '../lib/research/ingestion';

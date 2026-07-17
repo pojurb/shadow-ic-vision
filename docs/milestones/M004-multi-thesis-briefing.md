@@ -1,6 +1,6 @@
 # M004: Multi-Thesis Briefing
 
-Status: `proposed`
+Status: `accepted`
 
 Approval authority: user
 

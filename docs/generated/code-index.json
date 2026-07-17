@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "dcc7e070e9b765b43037dae0f4183ab71da423c12348be4848950e6fe28bc7a0",
+  "sourceDigest": "a5fcbe95bd4e4f373633f5c68cd2a4ca1a8ff7368b3f31955432bbe36d592cba",
   "roots": [
     "app",
     "components",
@@ -675,6 +675,10 @@
           "resolved": "lib/domain/contracts.ts"
         },
         {
+          "specifier": "@/lib/portfolio/priorityQueue",
+          "resolved": "lib/portfolio/priorityQueue.ts"
+        },
+        {
           "specifier": "drizzle-orm",
           "resolved": null
         },
@@ -953,6 +957,7 @@
       "imports": [],
       "exports": [
         "PortfolioHoldingQueueItem",
+        "STALE_REVIEW_DAYS",
         "calculatePriorityScore"
       ]
     },
@@ -1844,6 +1849,61 @@
       "exports": []
     },
     {
+      "path": "tests/portfolio-briefing.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/queries",
+          "resolved": "db/queries.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/portfolio/priorityQueue",
+          "resolved": "lib/portfolio/priorityQueue.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/lib/research/snapshot-store",
+          "resolved": "lib/research/snapshot-store.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/portfolio.test.ts",
       "kind": "test",
       "imports": [
@@ -2420,6 +2480,17 @@
       "productionModules": [
         "lib/ai/adapters/ollama.ts",
         "lib/ai/provider.ts"
+      ]
+    },
+    {
+      "path": "tests/portfolio-briefing.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/queries.ts",
+        "db/schema.ts",
+        "lib/portfolio/priorityQueue.ts",
+        "lib/research/adapters/types.ts",
+        "lib/research/snapshot-store.ts"
       ]
     },
     {

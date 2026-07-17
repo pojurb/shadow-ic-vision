@@ -6,11 +6,14 @@ export type PortfolioHoldingQueueItem = {
   averageBuyPrice: number;
   thesisId: string | null;
   thesisTitle: string | null;
+  conversationId: string | null;
   priorityScore: number;
   unreadAlertCount: number;
   daysSinceLastReview: number;
   hasChallengedAssumptions: boolean;
 };
+
+export const STALE_REVIEW_DAYS = 7;
 
 export function calculatePriorityScore(
   unreadAlertCount: number,
@@ -23,7 +26,7 @@ export function calculatePriorityScore(
   score += unreadAlertCount * 50;
 
   // Staleness
-  if (daysSinceLastReview > 7) {
+  if (daysSinceLastReview > STALE_REVIEW_DAYS) {
     score += (daysSinceLastReview * 5);
   }
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
+import { STALE_REVIEW_DAYS, type PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
 
 export default function PortfolioStatusIndex() {
   const [index, setIndex] = useState<PortfolioHoldingQueueItem[]>([]);
@@ -107,32 +107,34 @@ export default function PortfolioStatusIndex() {
                   <td className="p-3 font-mono">
                     {item.priorityScore}
                   </td>
-                  <td className="p-3 flex gap-2 items-center flex-wrap">
-                    {item.unreadAlertCount > 0 && (
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                        {item.unreadAlertCount} Alert(s)
-                      </span>
-                    )}
-                    {item.hasChallengedAssumptions && (
-                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        Challenged
-                      </span>
-                    )}
-                    {item.daysSinceLastReview > 7 && (
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                        Stale
-                      </span>
-                    )}
-                    {item.unreadAlertCount === 0 && !item.hasChallengedAssumptions && item.daysSinceLastReview <= 7 && (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
+                  <td className="p-3">
+                    <div className="flex gap-2 items-center flex-wrap">
+                      {item.unreadAlertCount > 0 && (
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                          {item.unreadAlertCount} Alert(s)
+                        </span>
+                      )}
+                      {item.hasChallengedAssumptions && (
+                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                          Challenged
+                        </span>
+                      )}
+                      {item.daysSinceLastReview > STALE_REVIEW_DAYS && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                          Stale
+                        </span>
+                      )}
+                      {item.unreadAlertCount === 0 && !item.hasChallengedAssumptions && item.daysSinceLastReview <= STALE_REVIEW_DAYS && (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3">
                     {item.daysSinceLastReview} days ago
                   </td>
                   <td className="p-3">
-                    {item.thesisId ? (
-                      <Link href={`/c/${item.thesisId}`} className="text-blue-500 hover:underline">
+                    {item.conversationId ? (
+                      <Link href={`/c/${item.conversationId}`} className="text-blue-500 hover:underline">
                         {item.thesisTitle || 'Untitled Thesis'}
                       </Link>
                     ) : (
