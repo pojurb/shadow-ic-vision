@@ -95,6 +95,7 @@ export default function PortfolioStatusIndex() {
                 <th className="p-3 font-semibold cursor-pointer" onClick={() => handleSort('daysSinceLastReview')}>
                   Last Reviewed {sortField === 'daysSinceLastReview' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
+                <th className="p-3 font-semibold">Last Decision</th>
                 <th className="p-3 font-semibold">Thesis Link</th>
               </tr>
             </thead>
@@ -133,6 +134,15 @@ export default function PortfolioStatusIndex() {
                     {item.daysSinceLastReview} days ago
                   </td>
                   <td className="p-3">
+                    {item.lastOutcome ? (
+                      <span>
+                        {item.lastOutcome}{item.lastAction ? ` (${item.lastAction})` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">No decisions</span>
+                    )}
+                  </td>
+                  <td className="p-3">
                     {item.conversationId ? (
                       <Link href={`/c/${item.conversationId}`} className="text-blue-500 hover:underline">
                         {item.thesisTitle || 'Untitled Thesis'}
@@ -145,7 +155,7 @@ export default function PortfolioStatusIndex() {
               ))}
               {sortedIndex.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-3 text-center text-gray-500">
+                  <td colSpan={6} className="p-3 text-center text-gray-500">
                     No portfolio holdings match your filters.
                   </td>
                 </tr>

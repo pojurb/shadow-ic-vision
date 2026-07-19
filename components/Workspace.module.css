@@ -39,6 +39,32 @@
 .evidence dd { margin: 0; color: #bbb; overflow-wrap: anywhere; }
 .evidence a { color: #93c5fd; }
 
+.decisionLibrary { border-top: 1px solid #444; margin-top: 24px; padding-top: 24px; }
+.decisionLibraryTitle { margin: 0 0 12px; font-size: 1.1rem; color: #fff; }
+.decisionList { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.decisionCard { background: #222; padding: 12px; border-radius: 6px; font-size: .875rem; border-left: 3px solid #ff4444; }
+.decisionCardHeader { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.decisionCardOutcome { color: #fff; }
+.decisionCardTimestamp { font-size: .75rem; }
+.decisionDelta { margin: 0 0 6px; color: #fcd34d; font-size: .75rem; font-style: italic; }
+.decisionReasoning { margin: 0; color: #ccc; }
+.decisionForm { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.decisionFormHeader { display: flex; justify-content: space-between; align-items: center; }
+.decisionFormTitle { margin: 0; font-size: .9rem; color: #fff; }
+.aiAnalystButton { font-size: .75rem; padding: 4px 8px; background: var(--color-bg-secondary, #333); color: #ff4444; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
+.recommendationBox { background: #111; border: 1px dashed #ff4444; padding: 12px; border-radius: 4px; font-size: .875rem; margin-top: 4px; }
+.recommendationHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.recommendationLabel { color: #ff4444; }
+.applyRecommendationButton { font-size: .725rem; padding: 2px 6px; background: #ff4444; color: #fff; border: none; border-radius: 2px; cursor: pointer; font-weight: 700; }
+.recommendationOutcome { margin: 0 0 6px; color: #fff; font-weight: 700; }
+.recommendationRationale { margin: 0; color: #ccc; font-size: .8rem; line-height: 1.4; font-style: italic; }
+.decisionFieldRow { display: flex; gap: 8px; }
+.decisionField { flex: 1; }
+.decisionFieldLabel { display: block; font-size: .75rem; color: #aaa; margin-bottom: 4px; }
+.decisionSelect { width: 100%; padding: 6px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; }
+.decisionTextarea { width: 100%; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; resize: vertical; }
+.recordDecisionButton { padding: 8px; background: #ff4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; }
+
 @media (max-width: 1050px) {
   .researchPanel { position: fixed; inset: 0 0 0 auto; z-index: 20; width: min(420px, 92vw); transform: translateX(100%); transition: transform .2s ease; box-shadow: -12px 0 35px rgba(0,0,0,.45); }
   .researchPanelOpen { transform: translateX(0); }

@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MockProvider } from '@/lib/ai/adapters/mock';
 import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
 import {
@@ -151,7 +152,8 @@ describe('Decision Library & Import/Export persistence', () => {
 
     const importedDecisions = handle.db.select().from(decisions).where(eq(decisions.thesisId, importResult.thesisId)).all();
     expect(importedDecisions).toHaveLength(1);
-    expect(importedDecisions[0].decision).toBe('Update Thesis: Hold');
+    expect(importedDecisions[0].outcome).toBe('Update Thesis');
+    expect(importedDecisions[0].action).toBe('Hold');
     expect(importedDecisions[0].rationale).toBe('Holding due to current valuation');
   });
 
@@ -172,5 +174,40 @@ describe('Decision Library & Import/Export persistence', () => {
     expect(rec.recommendedOutcome).toBe('Investigate Further');
     expect(rec.recommendedAction).toBe('Buy');
     expect(rec.rationale).toContain('Palantir gross margin');
+  });
+
+  it('returns the decision timeline in chronological order with a previousAction delta', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+
+    await recordDecision(thesisId, 'Investigate Further', 'Buy', 'Initial buy rationale', { db: handle.db });
+    await recordDecision(thesisId, 'No Change', 'Buy', 'Still confident', { db: handle.db });
+    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Thesis broke down', { db: handle.db });
+
+    const panel = await getResearchPanel(conversationId, { db: handle.db });
+    expect(panel.decisions).toHaveLength(3);
+    expect(panel.decisions.map((d) => d.userReasoning)).toEqual([
+      'Initial buy rationale',
+      'Still confident',
+      'Thesis broke down',
+    ]);
+
+    expect(panel.decisions[0].previousAction).toBeUndefined();
+    expect(panel.decisions[1].previousAction).toBe('Buy');
+    expect(panel.decisions[2].previousAction).toBe('Buy');
+  });
+
+  it('never sends recorded decision history to the LLM provider (DEC-0009 boundary)', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Prior review outcome that must stay local-only', { db: handle.db });
+
+    const spy = vi.spyOn(MockProvider.prototype, 'structuredExtract');
+    await generateDecisionRecommendation(thesisId, { db: handle.db });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [sentMessages] = spy.mock.calls[0];
+    const promptText = sentMessages.map((m) => m.content).join('\n');
+    expect(promptText).not.toContain('Prior review outcome that must stay local-only');
+
+    spy.mockRestore();
   });
 });

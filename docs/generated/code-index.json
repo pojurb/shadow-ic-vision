@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "a5fcbe95bd4e4f373633f5c68cd2a4ca1a8ff7368b3f31955432bbe36d592cba",
+  "sourceDigest": "45e78ed7dacb3966a8acaa76c0a178caaa4ecb5edfb71f7695dfb12c167e0e32",
   "roots": [
     "app",
     "components",
@@ -941,6 +941,7 @@
         "decisionActionSchema",
         "decisionOutcomeSchema",
         "decisionRecommendationSchema",
+        "decisionRecordSchema",
         "explorationDraftSchema",
         "marketSchema",
         "recordDecisionRequestSchema",
@@ -1622,6 +1623,10 @@
           "resolved": "db/schema.ts"
         },
         {
+          "specifier": "@/lib/ai/adapters/mock",
+          "resolved": "lib/ai/adapters/mock.ts"
+        },
+        {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
         },
@@ -1729,6 +1734,41 @@
         {
           "specifier": "@/lib/research/verifier",
           "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/migrations.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "better-sqlite3",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
         },
         {
           "specifier": "vitest",
@@ -2420,6 +2460,7 @@
       "productionModules": [
         "db/client.ts",
         "db/schema.ts",
+        "lib/ai/adapters/mock.ts",
         "lib/domain/contracts.ts",
         "lib/research/service.ts"
       ]
@@ -2446,6 +2487,13 @@
         "lib/research/config.ts",
         "lib/research/http.ts",
         "lib/research/verifier.ts"
+      ]
+    },
+    {
+      "path": "tests/migrations.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts"
       ]
     },
     {

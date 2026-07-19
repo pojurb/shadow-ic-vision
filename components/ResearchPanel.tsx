@@ -306,86 +306,74 @@ export function ResearchPanel({
           ))}
 
           {/* Decision Library section */}
-          <section className={styles.thesisSummary} style={{ borderTop: '1px solid #444', marginTop: '24px', paddingTop: '24px' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#fff' }}>Decision Library</h3>
-            
+          <section className={`${styles.thesisSummary} ${styles.decisionLibrary}`}>
+            <h3 className={styles.decisionLibraryTitle}>Decision Library</h3>
+
             {data.decisions.length === 0 ? (
               <p className={styles.muted} style={{ fontSize: '0.875rem' }}>No decisions recorded yet for this thesis.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                {data.decisions.map((dec) => (
-                  <div key={dec.id} style={{ backgroundColor: '#222', padding: '12px', borderRadius: '6px', fontSize: '0.875rem', borderLeft: '3px solid #ff4444' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <strong style={{ color: '#fff' }}>
+              <div className={styles.decisionList}>
+                {[...data.decisions].reverse().map((dec) => (
+                  <div key={dec.id} className={styles.decisionCard}>
+                    <div className={styles.decisionCardHeader}>
+                      <strong className={styles.decisionCardOutcome}>
                         {dec.outcome} {dec.optionalAction ? `(${dec.optionalAction})` : ''}
                       </strong>
-                      <span className={styles.muted} style={{ fontSize: '0.75rem' }}>
+                      <span className={`${styles.muted} ${styles.decisionCardTimestamp}`}>
                         {new Date(dec.timestamp).toLocaleString()}
                       </span>
                     </div>
-                    <p style={{ margin: 0, color: '#ccc' }}>{dec.userReasoning}</p>
+                    {dec.previousAction !== undefined && dec.previousAction !== dec.optionalAction && (
+                      <p className={styles.decisionDelta}>
+                        changed from {dec.previousAction ?? 'None'}
+                      </p>
+                    )}
+                    <p className={styles.decisionReasoning}>{dec.userReasoning}</p>
                   </div>
                 ))}
               </div>
             )}
 
-            <form onSubmit={recordUserDecision} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>Record New Decision</h4>
+            <form onSubmit={recordUserDecision} className={styles.decisionForm}>
+              <div className={styles.decisionFormHeader}>
+                <h4 className={styles.decisionFormTitle}>Record New Decision</h4>
                 <button
                   type="button"
                   onClick={getSystemRecommendation}
                   disabled={analyzing}
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '4px 8px',
-                    backgroundColor: 'var(--color-bg-secondary, #333)',
-                    color: '#ff4444',
-                    border: '1px solid #444',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
+                  className={styles.aiAnalystButton}
                 >
                   {analyzing ? 'Analyzing…' : '🪄 Ask AI Analyst'}
                 </button>
               </div>
 
               {recommendation && (
-                <div style={{ backgroundColor: '#111', border: '1px dashed #ff4444', padding: '12px', borderRadius: '4px', fontSize: '0.875rem', marginTop: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' }}>
-                    <strong style={{ color: '#ff4444' }}>AI Suggestion:</strong>
+                <div className={styles.recommendationBox}>
+                  <div className={styles.recommendationHeader}>
+                    <strong className={styles.recommendationLabel}>AI Suggestion:</strong>
                     <button
                       type="button"
                       onClick={applyRecommendation}
-                      style={{
-                        fontSize: '0.725rem',
-                        padding: '2px 6px',
-                        backgroundColor: '#ff4444',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '2px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                      }}
+                      className={styles.applyRecommendationButton}
                     >
                       Apply
                     </button>
                   </div>
-                  <p style={{ margin: '0 0 6px 0', color: '#fff', fontWeight: 'bold' }}>
+                  <p className={styles.recommendationOutcome}>
                     {recommendation.recommendedOutcome}
                     {recommendation.recommendedAction ? ` (${recommendation.recommendedAction})` : ''}
                   </p>
-                  <p style={{ margin: 0, color: '#ccc', fontSize: '0.8rem', lineHeight: '1.4', fontStyle: 'italic' }}>{recommendation.rationale}</p>
+                  <p className={styles.recommendationRationale}>{recommendation.rationale}</p>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <div style={{ flex: 1 }}>
-                  <label htmlFor="outcome-select" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>Outcome</label>
+              <div className={styles.decisionFieldRow}>
+                <div className={styles.decisionField}>
+                  <label htmlFor="outcome-select" className={styles.decisionFieldLabel}>Outcome</label>
                   <select
                     id="outcome-select"
                     value={outcome}
                     onChange={(e) => setOutcome(e.target.value as DecisionOutcome)}
-                    style={{ width: '100%', padding: '6px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
+                    className={styles.decisionSelect}
                   >
                     <option value="No Change">No Change</option>
                     <option value="Investigate Further">Investigate Further</option>
@@ -393,13 +381,13 @@ export function ResearchPanel({
                     <option value="Archive">Archive</option>
                   </select>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label htmlFor="action-select" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>Optional Action</label>
+                <div className={styles.decisionField}>
+                  <label htmlFor="action-select" className={styles.decisionFieldLabel}>Optional Action</label>
                   <select
                     id="action-select"
                     value={optionalAction || ''}
                     onChange={(e) => setOptionalAction(e.target.value ? (e.target.value as DecisionAction) : null)}
-                    style={{ width: '100%', padding: '6px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px' }}
+                    className={styles.decisionSelect}
                   >
                     <option value="">None</option>
                     <option value="Buy">Buy</option>
@@ -410,28 +398,20 @@ export function ResearchPanel({
                 </div>
               </div>
               <div>
-                <label htmlFor="reasoning-textarea" style={{ display: 'block', fontSize: '0.75rem', color: '#aaa', marginBottom: '4px' }}>User Reasoning / Rationale</label>
+                <label htmlFor="reasoning-textarea" className={styles.decisionFieldLabel}>User Reasoning / Rationale</label>
                 <textarea
                   id="reasoning-textarea"
                   rows={3}
                   value={userReasoning}
                   onChange={(e) => setUserReasoning(e.target.value)}
                   placeholder="Explain the reasoning..."
-                  style={{ width: '100%', padding: '8px', backgroundColor: '#222', color: '#fff', border: '1px solid #444', borderRadius: '4px', resize: 'vertical' }}
+                  className={styles.decisionTextarea}
                 />
               </div>
               <button
                 type="submit"
                 disabled={recording}
-                style={{
-                  padding: '8px',
-                  backgroundColor: '#ff4444',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                }}
+                className={styles.recordDecisionButton}
               >
                 {recording ? 'Recording…' : 'Record Decision'}
               </button>

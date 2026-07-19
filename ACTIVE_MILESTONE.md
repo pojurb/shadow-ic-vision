@@ -10,7 +10,9 @@ M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), and 
 
 Milestone 4 (Multi-Thesis Briefing) is accepted and in progress, designed to scale holding tracking up to 100 assets with priority ranking queues and a comprehensive status index.
 
-The Top-10 Priority Queue and the filterable Status Index (steps 2 and 3) are implemented: `lib/portfolio/priorityQueue.ts` scores holdings from unread filing alerts, review staleness, and challenged assumptions; `db/queries.ts#getPortfolioBriefing` computes the ranked list via grouped SQL aggregates; `components/TopTenQueue.tsx` and `app/portfolio/page.tsx` render the sidebar queue and the full sortable/filterable index. A prior review found and fixed a navigation bug where thesis-linked items routed to the thesis id instead of its conversation id (the `/c/[id]` route resolves conversations); the briefing query now also returns `conversationId` and both UI surfaces link with it. Coverage for the scoring function and the briefing query lives in `tests/portfolio-briefing.test.ts`. Remaining scope: Review History Retention (step 4).
+The Top-10 Priority Queue and the filterable Status Index (steps 2 and 3) are implemented: `lib/portfolio/priorityQueue.ts` scores holdings from unread filing alerts, review staleness, and challenged assumptions; `db/queries.ts#getPortfolioBriefing` computes the ranked list via grouped SQL aggregates; `components/TopTenQueue.tsx` and `app/portfolio/page.tsx` render the sidebar queue and the full sortable/filterable index. A prior review found and fixed a navigation bug where thesis-linked items routed to the thesis id instead of its conversation id (the `/c/[id]` route resolves conversations); the briefing query now also returns `conversationId` and both UI surfaces link with it. Coverage for the scoring function and the briefing query lives in `tests/portfolio-briefing.test.ts`.
+
+Review History Retention (step 4) is now implemented, completing all four Milestone 4 core steps: `db/schema.ts#decisions` stores typed `outcome`/`action` columns (migration `0006_normalize_decision_outcomes` backfilled prior packed rows and normalized mixed timestamp formats), decision reads carry an explicit `orderBy(createdAt)`, and the Research drawer, Status Index, and Top-10 Queue all surface the resulting chronological timeline and latest recorded outcome. See "Next Steps" below for full detail.
 
 The deterministic mock workflow remains the default QA path. The live research
 slice already provides SEC filing retrieval, official IDX announcement
@@ -136,7 +138,25 @@ Release evidence:
 1. ~~**Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.~~ Done; packet accepted.
 2. ~~**Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.~~ Done.
 3. ~~**Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.~~ Done.
-4. **Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.
+4. ~~**Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.~~ Done.
+
+All four Milestone 4 core steps are complete. Migration `0006_normalize_decision_outcomes`
+split the packed `decisions.decision` text column into typed `outcome`/`action`
+columns (backfilling existing rows) and normalized mixed `CURRENT_TIMESTAMP`/ISO
+timestamps to ISO-8601 UTC, fixing a lexicographic-sort bug in
+`getPortfolioBriefing`'s staleness math. Decision reads now carry an explicit
+`orderBy(createdAt)` (previously implicit rowid order) and the Research drawer's
+Decision Library renders a chronological, newest-first timeline with a
+"changed from X" delta between consecutive decisions. The Status Index
+(`app/portfolio/page.tsx`) and Top-10 Queue (`components/TopTenQueue.tsx`) now
+surface each holding's latest recorded outcome/action alongside staleness.
+Review-history data (recorded outcomes and user reasoning) is local-only and is
+never sent to an LLM provider; `generateDecisionRecommendation` continues to
+build its prompt from thesis/assumptions/evidence only, with a regression test
+guarding that boundary. DEC-0009 lines 80/81 still describe recorded
+Buy/Hold/Reduce/Exit decisions inconsistently (allowed as "POC workflow
+confidential" vs. blocked as "portfolio and position data"); this slice does
+not resolve that conflict and treats the stricter reading as binding.
 
 Promoted lessons consulted: `LC-20260703-001`
 

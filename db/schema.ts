@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text, uniqueIndex, real } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex, real } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Conversations (multi-turn interactions)
@@ -134,10 +134,15 @@ export const researchJobSources = sqliteTable('research_job_sources', {
 export const decisions = sqliteTable('decisions', {
   id: text('id').primaryKey(),
   thesisId: text('thesis_id').notNull().references(() => theses.id, { onDelete: 'cascade' }),
-  decision: text('decision').notNull(), // e.g. "Buy", "Hold", "Reject"
+  outcome: text('outcome', {
+    enum: ['No Change', 'Investigate Further', 'Update Thesis', 'Archive'],
+  }).notNull(),
+  action: text('action', { enum: ['Buy', 'Hold', 'Reduce', 'Exit'] }),
   rationale: text('rationale').notNull(),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index('decisions_thesis_created_idx').on(table.thesisId, table.createdAt),
+]);
 
 export const sourceCursors = sqliteTable('source_cursors', {
   market: text('market', { enum: ['US', 'ID'] }).notNull(),

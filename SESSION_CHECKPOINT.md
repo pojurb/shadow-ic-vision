@@ -1,4 +1,4 @@
-# Session Checkpoint - 2026-07-17
+# Session Checkpoint - 2026-07-18
 
 ## Repository State
 
@@ -7,15 +7,63 @@
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- Phase: Milestone 4 in progress (packet accepted)
-- Working scope: fixed a review-flagged navigation bug in the Milestone 4
-  priority queue / status index, added test coverage, and reconciled
-  governance docs with the already-implemented steps
+- Phase: Milestone 4 — all four core steps implemented (packet accepted)
+- Working scope: implemented Review History Retention (step 4), the final
+  Milestone 4 step; normalized the packed `decisions.decision` column into
+  typed `outcome`/`action` columns via migration `0006`
 - App state: allowlisted model selector active for approved Ollama Cloud
-  models; local portfolio holdings, priority queue, and status index fully
-  integrated
+  models; local portfolio holdings, priority queue, status index, and
+  decision-history timeline fully integrated
 
-## Implemented This Session
+## Implemented This Session (2026-07-18)
+
+### Milestone 4 Step 4: Review History Retention
+
+- Migration `db/migrations/0006_normalize_decision_outcomes.sql` rebuilds the
+  `decisions` table: splits the packed `decision` text column (e.g.
+  `"Update Thesis: Hold"`) into typed `outcome`/`action` columns via a
+  backfill `CASE`/`instr` expression, normalizes any space-separated
+  `CURRENT_TIMESTAMP` rows to ISO-8601 UTC, and adds a
+  `decisions_thesis_created_idx` index on `(thesis_id, created_at)`.
+  `db/schema.ts#decisions` matches the new shape.
+- `lib/research/service.ts`: removed the duplicated `split(': ')` unpack logic
+  in `getResearchPanel` and `exportThesisData` and the re-pack in
+  `recordDecision`/`importThesisData`; decision reads now carry an explicit
+  `orderBy(asc(decisions.createdAt))` (previously implicit, incidental rowid
+  order). `getResearchPanel` computes a `previousAction` delta per decision
+  for the timeline.
+- `lib/domain/contracts.ts`: added `decisionRecordSchema` as the single source
+  for the decision-record shape, referenced by `recordDecisionRequestSchema`,
+  `thesisExportSchema.decisions`, and `DecisionDTO` (now `.previousAction?`).
+  Export schema stays `version: 1` — the wire shape is unchanged.
+- `db/queries.ts#getPortfolioBriefing`: added a correlated-subquery lookup for
+  each thesis's latest `outcome`/`action`, exposed as `lastOutcome`/`lastAction`
+  on `PortfolioHoldingQueueItem` (`lib/portfolio/priorityQueue.ts`).
+- UI: `components/ResearchPanel.tsx`'s Decision Library now renders
+  newest-first with a "changed from X" delta label, moved off inline styles
+  onto `Workspace.module.css` classes; `app/portfolio/page.tsx` gained a
+  "Last Decision" column (`colSpan` 5→6 on the empty state);
+  `components/TopTenQueue.tsx` gained a last-action chip.
+- Governance lock-in: `tests/decisions.test.ts` spies on
+  `MockProvider.prototype.structuredExtract` to assert
+  `generateDecisionRecommendation` never sends recorded decision text to the
+  provider (DEC-0009 boundary). Flagged, unresolved: DEC-0009 lines 80/81
+  describe recorded Buy/Hold/Reduce/Exit decisions inconsistently (allowed as
+  workflow-confidential vs. blocked as portfolio data) — this slice treats the
+  blocked reading as binding and keeps review history local-only.
+- Tests: `tests/migrations.test.ts` (new) proves the migration round trip on
+  an empty database (schema matches the ORM definition, index present) and
+  independently validates the exact backfill SQL against a hand-built legacy
+  packed-row fixture. `tests/decisions.test.ts` and
+  `tests/portfolio-briefing.test.ts` updated for the typed columns and ISO
+  timestamps; both gained new coverage (chronological timeline + delta,
+  `lastOutcome`/`lastAction` in the briefing).
+- Manually verified the full Buy → Hold → Exit flow end-to-end against a real
+  temp SQLite DB (outside the mocked test harness): timeline renders
+  chronologically with correct deltas, and the portfolio briefing surfaces
+  the latest outcome/action.
+
+## Previous Session (2026-07-17)
 
 ### Milestone 4 Critical Fixes & Tests
 
@@ -91,17 +139,23 @@
 
 ## Verification Evidence
 
-Latest full verification: 2026-07-17.
+Latest full verification: 2026-07-18.
 
-- `npm run context:check`: pass
+- `npm run context:generate` + `npm run context:check`: pass
 - `npm run status:check`: pass
 - `npm run typecheck`: pass
 - `npm run lint`: pass
-- `npm test`: pass — 104 tests passed, 3 skipped
+- `npm test`: pass — 109 tests passed, 3 skipped (adds `tests/migrations.test.ts`
+  and new coverage in `tests/decisions.test.ts` / `tests/portfolio-briefing.test.ts`)
 - `npm run build`: pass
 - `npm run test:e2e`: pass — 3 Playwright checks passed
-- `npm run verify:full`: pass
-- `git diff --check`: pass
+- `npm run verify`: pass
+- Manual end-to-end smoke (temp SQLite DB, real migration + service stack):
+  Buy → Hold → Exit timeline chronologically ordered with correct
+  `previousAction` deltas; portfolio briefing returns the correct
+  `lastOutcome`/`lastAction`.
+
+Previous full verification: 2026-07-17 (104 tests passed, 3 skipped).
 
 ## Remaining Boundaries
 
@@ -117,12 +171,17 @@ Latest full verification: 2026-07-17.
 - `npm audit --omit=dev` reports two moderate dependency findings (transitive
   `postcss` via `next`); no forced breaking upgrade was applied in this
   slice.
-- Milestone 4 Review History Retention (step 4) is not started.
+- DEC-0009 lines 80/81 describe recorded Buy/Hold/Reduce/Exit decisions
+  inconsistently (allowed as "POC workflow confidential" vs. blocked as
+  "portfolio and position data"); unresolved, flagged for a decision
+  amendment. This slice treats the blocked reading as binding and keeps
+  review history local-only.
 
 ## Exact Resume Point
 
-1. **Review History Retention:** Add DB persistence (e.g. a `decisionOutcomes`
-   or extended `decisions` shape) and frontend rendering for a timeline of
-   past Buy/Hold/Exit outcomes and user reasoning logs across multiple
-   evaluation cycles, per `docs/milestones/M004-multi-thesis-briefing.md`
-   section 1 and 2.
+Milestone 4 (all four core steps) is implemented and fully verified
+(`npm run verify` and `npm run test:e2e` both pass as of 2026-07-18). Next
+decision is whether to flip the milestone packet
+(`docs/milestones/M004-multi-thesis-briefing.md`) and `ACTIVE_MILESTONE.md`
+top-level `Status:` to complete, and whether to open a decision amendment
+resolving the DEC-0009 lines 80/81 conflict on recorded decision data.

@@ -58,6 +58,9 @@ export function TopTenQueue({
                 )}
               </div>
               <div className="flex gap-1">
+                {item.lastAction && (
+                  <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded" title="Last Recorded Action">{item.lastAction}</span>
+                )}
                 {item.daysSinceLastReview > STALE_REVIEW_DAYS && (
                   <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded" title="Stale Review">Stale</span>
                 )}

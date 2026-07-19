@@ -41,7 +41,8 @@ PortfolioPosition many -> 0..1 Thesis
 PortfolioPosition 1 -> many PortfolioAlerts
   (PortfolioAlert.documentHash -> SourceSnapshot.documentHash)
 Thesis 1 -> many Assumptions (for briefing priority scoring)
-Thesis 1 -> many Decisions (for staleness calculation in priority queue)
+Thesis 1 -> many Decisions (for staleness calculation and the review history timeline)
+  (Decision.outcome/action are typed columns since migration 0006; ordered by createdAt)
 ```
 
 Raw source bytes are immutable and content-addressed outside the repository.
@@ -121,6 +122,13 @@ Windows Task Scheduler or protected local endpoint
 - `exact_verified` Evidence keeps interpretation `pending` and the assumption
   unchanged until a separate governed interpretation or user action.
 - Portfolio positions and automated ingestion alerts are local-only under DEC-0009 and never routed to external providers.
+- Recorded decision outcomes/actions and user reasoning (review history) are
+  local-only; `generateDecisionRecommendation` builds its provider prompt from
+  thesis/assumptions/evidence only and must never read the `decisions` table
+  (guarded by a regression test in `tests/decisions.test.ts`). DEC-0009 lines
+  80/81 describe this data inconsistently (allowed as workflow-confidential vs.
+  blocked as portfolio data); treat the blocked reading as binding until a
+  decision amendment resolves it.
 - Portfolio briefing (`getPortfolioBriefing`) links positions to conversations
   via thesis, never to thesis directly (the `/c/[id]` route resolves conversation
   ids).

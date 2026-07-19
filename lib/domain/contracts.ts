@@ -122,11 +122,14 @@ export const decisionActionSchema = z.enum([
 export type DecisionOutcome = z.infer<typeof decisionOutcomeSchema>;
 export type DecisionAction = z.infer<typeof decisionActionSchema>;
 
-export const recordDecisionRequestSchema = z.object({
+export const decisionRecordSchema = z.object({
   outcome: decisionOutcomeSchema,
   optionalAction: decisionActionSchema,
   userReasoning: z.string().trim().min(1).max(4_000),
+  timestamp: z.string(),
 });
+
+export const recordDecisionRequestSchema = decisionRecordSchema.omit({ timestamp: true });
 
 export type DecisionDTO = {
   id: string;
@@ -134,6 +137,7 @@ export type DecisionDTO = {
   optionalAction: DecisionAction;
   userReasoning: string;
   timestamp: string;
+  previousAction?: DecisionAction;
 };
 
 export const thesisExportSchema = z.object({
@@ -177,14 +181,7 @@ export const thesisExportSchema = z.object({
       ),
     })
   ),
-  decisions: z.array(
-    z.object({
-      outcome: decisionOutcomeSchema,
-      optionalAction: decisionActionSchema,
-      userReasoning: z.string().trim().min(1).max(4_000),
-      timestamp: z.string(),
-    })
-  ),
+  decisions: z.array(decisionRecordSchema),
 });
 
 export type ThesisExport = z.infer<typeof thesisExportSchema>;

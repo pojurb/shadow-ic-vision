@@ -2,7 +2,7 @@ import 'server-only';
 
 import { getDatabase } from './client';
 import { conversations, messages, theses, portfolioPositions, portfolioAlerts, sourceSnapshots, decisions, assumptions } from './schema';
-import { eq, desc, count, max } from 'drizzle-orm';
+import { eq, desc, count, max, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { ProviderMetadata } from '@/lib/ai/provider';
 import { thesisDraftSchema, chatResponsePayloadSchema, type MessageDTO, type ThesisDraft, type ChatResponsePayload } from '@/lib/domain/contracts';
@@ -238,6 +238,17 @@ export async function getPortfolioBriefing() {
     .groupBy(decisions.thesisId);
   const latestDecisionAtByThesisId = new Map(latestDecisionByThesis.map((row) => [row.thesisId, row.lastDecisionAt]));
 
+  const latestDecisionOutcomes = await db.all<{
+    thesisId: string;
+    outcome: string;
+    action: string | null;
+  }>(sql`
+    SELECT thesis_id as thesisId, outcome, action
+    FROM decisions d
+    WHERE created_at = (SELECT MAX(created_at) FROM decisions WHERE thesis_id = d.thesis_id)
+  `);
+  const latestOutcomeByThesisId = new Map(latestDecisionOutcomes.map((row) => [row.thesisId, row]));
+
   const challengedAssumptionTheses = await db
     .selectDistinct({ thesisId: assumptions.thesisId })
     .from(assumptions)
@@ -256,12 +267,16 @@ export async function getPortfolioBriefing() {
 
     const priorityScore = calculatePriorityScore(unreadAlertCount, daysSinceLastReview, hasChallengedAssumptions);
 
+    const latestOutcome = pos.thesisId ? latestOutcomeByThesisId.get(pos.thesisId) : undefined;
+
     return {
       ...pos,
       priorityScore,
       unreadAlertCount,
       daysSinceLastReview,
       hasChallengedAssumptions,
+      lastOutcome: latestOutcome?.outcome ?? null,
+      lastAction: latestOutcome?.action ?? null,
     };
   }).sort((a, b) => b.priorityScore - a.priorityScore);
 }

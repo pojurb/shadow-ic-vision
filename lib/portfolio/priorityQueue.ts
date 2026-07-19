@@ -11,6 +11,8 @@ export type PortfolioHoldingQueueItem = {
   unreadAlertCount: number;
   daysSinceLastReview: number;
   hasChallengedAssumptions: boolean;
+  lastOutcome: string | null;
+  lastAction: string | null;
 };
 
 export const STALE_REVIEW_DAYS = 7;

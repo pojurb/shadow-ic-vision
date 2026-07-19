@@ -15,15 +15,10 @@ type GlobalDatabase = typeof globalThis & {
   __jpInvestDatabase?: DatabaseHandle;
 };
 
-function formatSqliteTimestamp(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
 function daysAgoTimestamp(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() - days);
-  return formatSqliteTimestamp(date);
+  return date.toISOString();
 }
 
 describe('calculatePriorityScore', () => {
@@ -152,14 +147,16 @@ describe('getPortfolioBriefing', () => {
     handle.db.insert(decisions).values({
       id: randomUUID(),
       thesisId,
-      decision: 'Hold',
+      outcome: 'No Change',
+      action: 'Hold',
       rationale: 'Older review',
       createdAt: daysAgoTimestamp(10),
     }).run();
     handle.db.insert(decisions).values({
       id: randomUUID(),
       thesisId,
-      decision: 'Hold',
+      outcome: 'Update Thesis',
+      action: 'Exit',
       rationale: 'Most recent review',
       createdAt: daysAgoTimestamp(3),
     }).run();
@@ -168,6 +165,41 @@ describe('getPortfolioBriefing', () => {
     const item = briefing.find((entry) => entry.id === posId);
 
     expect(item?.daysSinceLastReview).toBe(3);
+    expect(item?.lastOutcome).toBe('Update Thesis');
+    expect(item?.lastAction).toBe('Exit');
+  });
+
+  it('returns a null lastOutcome/lastAction when the linked thesis has no decisions', async () => {
+    const secondConversationId = randomUUID();
+    const secondThesisId = randomUUID();
+    handle.db.insert(conversations).values({ id: secondConversationId, title: 'No Decisions Conversation' }).run();
+    handle.db.insert(theses).values({
+      id: secondThesisId,
+      conversationId: secondConversationId,
+      draftMessageId: null,
+      ticker: 'MSFT',
+      companyName: 'Microsoft Corporation',
+      market: 'US',
+      coreBelief: 'Cloud growth',
+      title: 'MSFT Thesis',
+      description: 'Hold',
+    }).run();
+
+    const posId = randomUUID();
+    handle.db.insert(portfolioPositions).values({
+      id: posId,
+      ticker: 'MSFT',
+      market: 'US',
+      shares: 5,
+      averageBuyPrice: 400,
+      thesisId: secondThesisId,
+    }).run();
+
+    const briefing = await getPortfolioBriefing();
+    const item = briefing.find((entry) => entry.id === posId);
+
+    expect(item?.lastOutcome).toBeNull();
+    expect(item?.lastAction).toBeNull();
   });
 
   it('falls back to position creation time when the linked thesis has no decisions', async () => {

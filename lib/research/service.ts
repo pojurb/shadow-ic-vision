@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt } from 'drizzle-orm';
 import type { AppDatabase } from '@/db/client';
 import { getDatabase } from '@/db/client';
 import {
@@ -158,25 +158,21 @@ export async function getResearchPanel(
     .select()
     .from(decisions)
     .where(eq(decisions.thesisId, thesis.id))
+    .orderBy(asc(decisions.createdAt))
     .all();
 
+  let previousAction: DecisionAction | undefined;
   const mappedDecisions: DecisionDTO[] = decisionRows.map((row) => {
-    let outcome: DecisionOutcome = 'No Change';
-    let optionalAction: DecisionAction = null;
-    if (row.decision.includes(': ')) {
-      const [outStr, actStr] = row.decision.split(': ');
-      outcome = outStr as DecisionOutcome;
-      optionalAction = actStr as DecisionAction;
-    } else {
-      outcome = row.decision as DecisionOutcome;
-    }
-    return {
+    const mapped: DecisionDTO = {
       id: row.id,
-      outcome,
-      optionalAction,
+      outcome: row.outcome as DecisionOutcome,
+      optionalAction: row.action as DecisionAction,
       userReasoning: row.rationale,
       timestamp: row.createdAt,
+      previousAction,
     };
+    previousAction = row.action as DecisionAction;
+    return mapped;
   });
 
   return {
@@ -463,13 +459,13 @@ export async function recordDecision(
 ) {
   const { db, now } = dependencies(input);
   const decisionId = randomUUID();
-  const serializedDecision = optionalAction ? `${outcome}: ${optionalAction}` : outcome;
   const createdAt = now().toISOString();
 
   await db.insert(decisions).values({
     id: decisionId,
     thesisId,
-    decision: serializedDecision,
+    outcome,
+    action: optionalAction,
     rationale: userReasoning,
     createdAt,
   }).run();
@@ -492,7 +488,12 @@ export async function exportThesisData(
     ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
     : [];
 
-  const decisionRows = await db.select().from(decisions).where(eq(decisions.thesisId, thesisId)).all();
+  const decisionRows = await db
+    .select()
+    .from(decisions)
+    .where(eq(decisions.thesisId, thesisId))
+    .orderBy(asc(decisions.createdAt))
+    .all();
 
   const exportedAssumptions = assumptionRows.map((a) => {
     const aEvidence = evidenceRows
@@ -526,23 +527,12 @@ export async function exportThesisData(
     };
   });
 
-  const exportedDecisions = decisionRows.map((row) => {
-    let outcome: DecisionOutcome = 'No Change';
-    let optionalAction: DecisionAction = null;
-    if (row.decision.includes(': ')) {
-      const [outStr, actStr] = row.decision.split(': ');
-      outcome = outStr as DecisionOutcome;
-      optionalAction = actStr as DecisionAction;
-    } else {
-      outcome = row.decision as DecisionOutcome;
-    }
-    return {
-      outcome,
-      optionalAction,
-      userReasoning: row.rationale,
-      timestamp: row.createdAt,
-    };
-  });
+  const exportedDecisions = decisionRows.map((row) => ({
+    outcome: row.outcome as DecisionOutcome,
+    optionalAction: row.action as DecisionAction,
+    userReasoning: row.rationale,
+    timestamp: row.createdAt,
+  }));
 
   return {
     version: 1,
@@ -660,12 +650,11 @@ export async function importThesisData(
     }
 
     for (const d of importedDecisions) {
-      const decisionId = randomUUID();
-      const serializedDecision = d.optionalAction ? `${d.outcome}: ${d.optionalAction}` : d.outcome;
       tx.insert(decisions).values({
-        id: decisionId,
+        id: randomUUID(),
         thesisId,
-        decision: serializedDecision,
+        outcome: d.outcome,
+        action: d.optionalAction,
         rationale: d.userReasoning,
         createdAt: d.timestamp,
       }).run();

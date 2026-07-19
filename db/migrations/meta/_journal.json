@@ -43,6 +43,13 @@
       "when": 1784169731081,
       "tag": "0005_add_portfolio_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784583600000,
+      "tag": "0006_normalize_decision_outcomes",
+      "breakpoints": true
     }
   ]
 }
