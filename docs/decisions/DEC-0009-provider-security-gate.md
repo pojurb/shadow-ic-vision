@@ -8,6 +8,13 @@ Date accepted: 2026-07-07
 
 Approving authority: user
 
+> **Amendment:** [`DEC-0011`](DEC-0011-decision-record-classification-amendment.md)
+> clarifies that user-recorded decision outcomes (Buy/Hold/Reduce/Exit and
+> associated rationale) are governed exclusively by the "Portfolio and
+> position data" row below and remain blocked; the "POC workflow
+> confidential data" row's reference to "decisions" means in-flight workflow
+> actions only.
+
 ## Context
 
 DEC-0008 requires OCR, vision, table, chart, and XBRL handling for M001.

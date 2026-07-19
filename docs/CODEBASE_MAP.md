@@ -125,10 +125,11 @@ Windows Task Scheduler or protected local endpoint
 - Recorded decision outcomes/actions and user reasoning (review history) are
   local-only; `generateDecisionRecommendation` builds its provider prompt from
   thesis/assumptions/evidence only and must never read the `decisions` table
-  (guarded by a regression test in `tests/decisions.test.ts`). DEC-0009 lines
-  80/81 describe this data inconsistently (allowed as workflow-confidential vs.
-  blocked as portfolio data); treat the blocked reading as binding until a
-  decision amendment resolves it.
+  (guarded by a regression test in `tests/decisions.test.ts`).
+  [`DEC-0011`](decisions/DEC-0011-decision-record-classification-amendment.md)
+  (`proposed`) resolves DEC-0009 lines 80/81's prior inconsistency: recorded
+  decision data is governed exclusively by the blocked "portfolio and
+  position data" row, never "POC workflow confidential data."
 - Portfolio briefing (`getPortfolioBriefing`) links positions to conversations
   via thesis, never to thesis directly (the `/c/[id]` route resolves conversation
   ids).

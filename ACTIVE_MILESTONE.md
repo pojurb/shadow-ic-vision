@@ -1,8 +1,12 @@
 # Active Milestone
 
-Status: `complete`
+Status: `proposed` (M005 drafted, pending user acceptance)
+
+Active Packet: [`docs/milestones/M005-ocr-vision-provider-eligibility.md`](docs/milestones/M005-ocr-vision-provider-eligibility.md) (proposed)
 
 Latest Completed Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (accepted)
+
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the full M005→M006→M007 sequence.
 
 ## Current Phase
 
@@ -126,6 +130,9 @@ Release evidence:
   eligibility. Portfolio/position data, credentials, account screenshots, raw
   database exports, identity documents, and unrelated personal files remain
   blocked unless a later explicit decision allows them.
+  [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
+  (`proposed`) clarifies that recorded decision outcomes fall under this
+  blocked "portfolio and position data" classification.
 - The deterministic multimodal evaluator proves first-slice application and
   provider-boundary gates; it does not approve a model, provider, cloud
   processor, or native browsing capability.
@@ -136,11 +143,19 @@ Release evidence:
 
 ## Next Steps
 
-Milestone 4 is complete and verified (2026-07-19). Remaining open items:
+Milestone 4 is complete and verified (2026-07-19).
 
-1. **DEC-0009 Amendment** — lines 80/81 classify recorded Buy/Hold/Reduce/Exit decisions inconsistently (allowed as "POC workflow confidential" vs. blocked as "portfolio and position data"). Currently treating the stricter reading as binding (decisions are local-only, never sent to providers). A short amendment would resolve the contradiction across three documents (CODEBASE_MAP.md, ACTIVE_MILESTONE.md, DEC-0009 itself).
+1. ~~**DEC-0009 Amendment**~~ Resolved: [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
+   (`proposed`, pending user acceptance) clarifies that recorded Buy/Hold/Reduce/Exit
+   decisions are governed exclusively by DEC-0009's "Portfolio and position data" row
+   and remain blocked. See `docs/decisions/DEC-0009-provider-security-gate.md`'s
+   amendment signpost.
 
-2. **Milestone 5 Scope** — next packet to be defined per roadmap. Current known-deferred scope includes secondary-source/news ingestion, production confidential-data provider approval, and OCR/vision provider eligibility.
+2. **Milestone 5 Roadmap** — see [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md)
+   for the sequenced M005 (OCR/vision provider eligibility) → M006 (production
+   confidential-data provider approval) → M007 (secondary-source/news ingestion)
+   plan. M005's packet is drafted (`proposed`) at
+   [`docs/milestones/M005-ocr-vision-provider-eligibility.md`](docs/milestones/M005-ocr-vision-provider-eligibility.md).
 
 Promoted lessons consulted: `LC-20260703-001`
 

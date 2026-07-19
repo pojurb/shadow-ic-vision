@@ -14,7 +14,35 @@
   models; local portfolio holdings (100 asset scale), priority queue, status
   index, and decision-history timeline fully integrated with typed schema
 
-## Implemented This Session (2026-07-18)
+## Implemented This Session (2026-07-19)
+
+### Governance: DEC-0009 Amendment & Milestone 5 Roadmap
+
+- Drafted `DEC-0011` (`proposed`), amending DEC-0009's ambiguous Data
+  Classification Gate: recorded Buy/Hold/Reduce/Exit decision outcomes are
+  now explicitly governed by the "Portfolio and position data" row only
+  (blocked), never the "POC workflow confidential data" row. Added a
+  one-line signpost to `DEC-0009-provider-security-gate.md` pointing to
+  DEC-0011 without rewriting the original decision text, per this repo's
+  amend-via-new-decision convention (`DEC-0008`).
+- Updated `docs/decisions/INDEX.md`, `ACTIVE_MILESTONE.md`,
+  `docs/CODEBASE_MAP.md`, and this checkpoint to stop describing the
+  classification as unresolved and point to DEC-0011 instead.
+- Drafted `docs/milestones/ROADMAP.md` sequencing three previously-deferred
+  candidates as separate milestones (per R-005's small-vertical-milestone
+  preference) rather than one bundled packet: M005 (OCR/vision provider
+  eligibility) → M006 (production confidential-data provider approval) →
+  M007 (secondary-source/news ingestion). Ordered by readiness: M005 already
+  has evaluator scaffolding for `vision` capability flags and
+  `exact_verified`/`ocr_matched`/`derived` classes; M006 has a concrete
+  checklist in DEC-0009 but needs real vendor terms verified; M007 has no
+  scaffolding and needs its own upstream product decision first.
+- Drafted `docs/milestones/M005-ocr-vision-provider-eligibility.md`
+  (`proposed`) using the full M001 packet template. Deliberately left the
+  provider/model choice open in "Options Considered" — a product decision,
+  not something to preselect.
+- No application code, schema, or test changes this session — governance and
+  roadmap documentation only.
 
 ### Milestone 4 Step 4: Review History Retention
 
@@ -46,10 +74,10 @@
 - Governance lock-in: `tests/decisions.test.ts` spies on
   `MockProvider.prototype.structuredExtract` to assert
   `generateDecisionRecommendation` never sends recorded decision text to the
-  provider (DEC-0009 boundary). Flagged, unresolved: DEC-0009 lines 80/81
-  describe recorded Buy/Hold/Reduce/Exit decisions inconsistently (allowed as
-  workflow-confidential vs. blocked as portfolio data) — this slice treats the
-  blocked reading as binding and keeps review history local-only.
+  provider (DEC-0009 boundary). The DEC-0009 lines 80/81 ambiguity on
+  recorded Buy/Hold/Reduce/Exit decision classification is now resolved by
+  `DEC-0011` (`proposed`), which binds the blocked "portfolio and position
+  data" reading.
 - Tests: `tests/migrations.test.ts` (new) proves the migration round trip on
   an empty database (schema matches the ORM definition, index present) and
   independently validates the exact backfill SQL against a hand-built legacy
@@ -170,20 +198,22 @@ Previous full verification: 2026-07-17 (104 tests passed, 3 skipped).
 - `npm audit --omit=dev` reports two moderate dependency findings (transitive
   `postcss` via `next`); no forced breaking upgrade was applied in this
   slice.
-- DEC-0009 lines 80/81 describe recorded Buy/Hold/Reduce/Exit decisions
-  inconsistently (allowed as "POC workflow confidential" vs. blocked as
-  "portfolio and position data"); unresolved, flagged for a decision
-  amendment. This slice treats the blocked reading as binding and keeps
-  review history local-only.
+- DEC-0009 lines 80/81 inconsistency on recorded Buy/Hold/Reduce/Exit decision
+  classification is resolved by `DEC-0011` (`proposed`, pending user
+  acceptance): recorded decisions remain blocked "portfolio and position
+  data," never POC-confidential.
 
 ## Exact Resume Point
 
 Milestone 4 (all four core steps) is complete and merged. Next actions:
 
-1. **DEC-0009 Amendment** — Draft decision amendment resolving lines 80/81
-   inconsistency on recorded decision classification (workflow-confidential vs.
-   portfolio data). This is a governance cleanup task, not a code/test change.
+1. **DEC-0009 Amendment** — `DEC-0011` is drafted (`proposed`) at
+   `docs/decisions/DEC-0011-decision-record-classification-amendment.md`,
+   pending user acceptance.
 
-2. **Milestone 5 Scope** — Define next packet per roadmap. Known candidates:
-   secondary-source/news ingestion, production provider approval, OCR/vision
-   eligibility.
+2. **Milestone 5 Roadmap** — Sequenced in `docs/milestones/ROADMAP.md`:
+   M005 (OCR/vision provider eligibility, drafted at
+   `docs/milestones/M005-ocr-vision-provider-eligibility.md`, `proposed`) →
+   M006 (production confidential-data provider approval) → M007
+   (secondary-source/news ingestion). Pending user acceptance of M005 to
+   begin implementation.
