@@ -7,18 +7,22 @@
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- Phase: Milestone 4 complete and verified (packet accepted, status flipped to
-  `complete`)
+- Phase: Milestone 4 complete; Milestone 5 (OCR/vision provider eligibility)
+  `in_progress` — Slice 0 implemented, deterministic + live eligibility evals
+  complete, `DEC-0012` drafted (`proposed`) pending user acceptance;
+  `DEC-0013` accepted, retiring `gemini-3-flash-preview` from the allowlist
 - Commits this session: `e3f10ab` (M004 Step 4), `c931a61` (status flip)
-- App state: allowlisted model selector active for approved Ollama Cloud
-  models; local portfolio holdings (100 asset scale), priority queue, status
-  index, and decision-history timeline fully integrated with typed schema
+- App state: allowlisted model selector active for five approved Ollama
+  Cloud models (`kimi-k2.7-code:cloud`, `qwen3.5:cloud`,
+  `deepseek-v4-pro:cloud`, `deepseek-v4-flash:cloud`, `minimax-m3:cloud`);
+  local portfolio holdings (100 asset scale), priority queue, status index,
+  and decision-history timeline fully integrated with typed schema
 
 ## Implemented This Session (2026-07-19)
 
 ### Governance: DEC-0009 Amendment & Milestone 5 Roadmap
 
-- Drafted `DEC-0011` (`proposed`), amending DEC-0009's ambiguous Data
+- Drafted, then user-accepted, `DEC-0011`, amending DEC-0009's ambiguous Data
   Classification Gate: recorded Buy/Hold/Reduce/Exit decision outcomes are
   now explicitly governed by the "Portfolio and position data" row only
   (blocked), never the "POC workflow confidential data" row. Added a
@@ -27,7 +31,7 @@
   amend-via-new-decision convention (`DEC-0008`).
 - Updated `docs/decisions/INDEX.md`, `ACTIVE_MILESTONE.md`,
   `docs/CODEBASE_MAP.md`, and this checkpoint to stop describing the
-  classification as unresolved and point to DEC-0011 instead.
+  classification as unresolved and point to DEC-0011 (accepted) instead.
 - Drafted `docs/milestones/ROADMAP.md` sequencing three previously-deferred
   candidates as separate milestones (per R-005's small-vertical-milestone
   preference) rather than one bundled packet: M005 (OCR/vision provider
@@ -37,12 +41,121 @@
   `exact_verified`/`ocr_matched`/`derived` classes; M006 has a concrete
   checklist in DEC-0009 but needs real vendor terms verified; M007 has no
   scaffolding and needs its own upstream product decision first.
-- Drafted `docs/milestones/M005-ocr-vision-provider-eligibility.md`
-  (`proposed`) using the full M001 packet template. Deliberately left the
-  provider/model choice open in "Options Considered" — a product decision,
-  not something to preselect.
-- No application code, schema, or test changes this session — governance and
-  roadmap documentation only.
+- Drafted, then user-accepted, `docs/milestones/M005-ocr-vision-provider-eligibility.md`
+  using the full M001 packet template. User agreed with the recommendation
+  to reuse the existing Ollama Cloud allowlist rather than integrate a new
+  provider: candidate is `gemini-3-flash-preview`, fallback
+  `minimax-m3:cloud` (both already declare `vision: true` in
+  `lib/ai/ollama-models.ts`).
+- **Scope discovery:** wiring the candidate provider is not a no-op. No code
+  path exists today to send a real image to any provider —
+  `lib/ai/provider.ts`'s `ProjectMessage` is plain-text only, the Ollama
+  adapter never attaches image bytes, and the "multimodal" fixtures in
+  `docs/evals/M001/multimodal-cases.json` are JSON *descriptions* of
+  documents, not real image files. `lib/research/extractors/document.ts`
+  explicitly throws `unsupported_visual` / `scanned_document` rather than
+  calling a real OCR/vision engine — these are the exact seams DEC-0008 left
+  unfilled. User chose to expand M005 (add a new Slice 0) rather than fake
+  eligibility with a text-only proxy eval. Confirmed feasible before
+  proceeding: `OLLAMA_API_KEY` is set locally and `@playwright/test` is
+  already a devDependency (usable to render a real image fixture).
+
+### M005 Slice 0: Image/Attachment Plumbing & Eligibility Eval
+
+- `lib/ai/provider.ts`: added `ProjectMessageAttachment` (`{ type: 'image',
+  mimeType, base64 }`) and an optional `attachments?` field on
+  `ProjectMessage`. `content` remains a required string — every existing
+  text-only caller is unaffected.
+- `lib/ai/adapters/ollama.ts`: added a `toOllamaMessage` helper mapping
+  `attachments` to Ollama's per-message `images: string[]` (base64, no
+  data-URI prefix) field on both `fetchChat` and `structuredExtract`. Flagged
+  in-code: Ollama Cloud's request-shape parity with local Ollama's `images`
+  convention has not been independently verified from vendor docs.
+- `lib/ai/adapters/mock.ts`: `MockProvider.chat` now returns a fixed
+  transcription string when a message carries attachments, so deterministic
+  tests can exercise the new shape without live calls.
+- `lib/research/extractors/ocr.ts`: added `extractVisionOcrCandidate`, the
+  real-provider counterpart to `extractSyntheticOcrCandidate` — sends real
+  image bytes to a configured provider, verifies the candidate quote appears
+  in the returned transcription, and always wraps the result as
+  `ocr_matched` (never `exact_verified`). Deliberately **not** wired into
+  `CitationPipeline`'s automatic extraction-recovery path: the production
+  research flow discovers evidence open-endedly against an assumption, which
+  is a larger extraction-ranking design than eligibility testing requires —
+  documented as a follow-up in `docs/CODEBASE_MAP.md`.
+- `scripts/generate-vision-fixtures.ts` (new, `npm run fixtures:vision:generate`):
+  renders two small HTML pages (a PLTR 10-Q excerpt, a BBRI filing excerpt)
+  and screenshots them via Playwright into real PNGs under
+  `docs/evals/M001/fixtures/vision/` — genuine image bytes a vision model
+  must actually read, not a JSON description. Not real company filings; see
+  the generated `PROVENANCE.md` alongside the fixtures.
+- `scripts/eval-m001-provider.ts`: added `buildRealVisionPrompt`, a new
+  prompt/grading path (dispatched on `input.real_image_fixture`) that reads a
+  real fixture file, base64-encodes it, attaches it to the live provider
+  call, and grades whether the returned transcription contains the known
+  candidate quote — distinct from the existing JSON-description
+  self-report grading used by the original 16 multimodal cases.
+- `docs/evals/M001/multimodal-cases.json`: added two real-image cases
+  (`MM-017` English filing scan, `MM-018` Indonesian filing scan); case count
+  16 → 18. `tests/multimodal-eval.test.ts` updated to match.
+- Tests: `tests/ollama-provider.test.ts` gained attachment-serialization
+  coverage; `tests/document-extraction.test.ts` gained a stubbed-provider
+  vision-extraction case (matches) and a mismatch case (rejects). Full suite:
+  113 passed, 3 skipped (up from 104).
+
+### M005 Eligibility Eval Outcome
+
+- Primary candidate `gemini-3-flash-preview`: deterministic pass succeeded;
+  live pass failed uniformly (34/37 cases, including both real-image cases)
+  with `"gemini-3-flash-preview was retired at 2026-07-15 00:00:00 -0700
+  PDT"`. Confirmed via 34 identical transcript errors — total model
+  unavailability, not a vision-capability failure.
+- Pivoted to the fallback, `minimax-m3:cloud`, per the milestone's own
+  documented contingency: deterministic pass succeeded; live pass completed
+  with 0 hard-gate failures, 0% citation hallucination rate, ~90% assumption
+  extraction completeness, and both real-image transcription cases
+  (`MM-017`, `MM-018`) passing exactly with no `exact_verified` mislabeling.
+  Evidence: `docs/evidence/releases/2026-07-19-{gemini,minimax}-vision-eval/`.
+- Drafted `DEC-0012` (`proposed`), following DEC-0010's exact skeleton,
+  recording this outcome and requesting eligibility for `minimax-m3:cloud`'s
+  vision capability only. Does not re-approve `gemini-3-flash-preview` and
+  does not approve production use.
+- **Flagged, not resolved:** `gemini-3-flash-preview` is one of the six
+  models `DEC-0010` already accepted for POC use, and DEC-0010's own
+  Revocation And Incident Response section names model retirement as a
+  trigger. This session recorded the finding (new risk `R-024`,
+  `ACTIVE_MILESTONE.md` follow-up) but did not amend DEC-0010's allowlist —
+  left as an explicit next decision for the user.
+
+### DEC-0013: Retire gemini-3-flash-preview, Promote deepseek-v4-flash:cloud
+
+- Drafted and user-accepted `DEC-0013`, amending `DEC-0010` per the user's
+  explicit direction: remove `gemini-3-flash-preview` from the approved
+  allowlist (confirmed retired by the provider) and promote
+  `deepseek-v4-flash:cloud` in its place, reusing its existing
+  `accepted_for_poc` result from the 2026-07-11 multi-model evaluation — no
+  new eval run was required, since that model's text eligibility was already
+  recorded (73.3% extraction completeness, 33.3% CTA relevance, 0%
+  hallucination, 0 hard-gate failures). Added a signpost to `DEC-0010`
+  pointing to `DEC-0013`, following the same amend-via-new-decision
+  convention used for `DEC-0011` — `DEC-0010`'s original text is unchanged.
+- `lib/ai/ollama-models.ts`: removed `gemini-3-flash-preview` from
+  `OLLAMA_MODEL_IDS`, `OLLAMA_MODEL_EVAL_ORDER`, and `OLLAMA_MODEL_OPTIONS`.
+  The allowlist is now five models. `components/ChatUI.tsx`'s selector maps
+  over `OLLAMA_MODEL_OPTIONS` directly, so it needed no separate change.
+  `lib/ai/ollama-config.ts`'s default (`kimi-k2.7-code:cloud`) was already
+  unaffected.
+- `tests/ollama-models.test.ts` updated to assert the five-model roster, the
+  updated fixed eval order, and that `gemini-3-flash-preview` is now rejected
+  by `isOllamaModelId`. Full suite: 113 passed, 3 skipped (unchanged from
+  before this change — no test relied on the retired model beyond the
+  registry test itself).
+- `docs/RISK_REGISTER.md` R-024 moved from `Open` to `Mitigated`, referencing
+  `DEC-0013`. `ACTIVE_MILESTONE.md`'s prior "not yet amended" follow-up item
+  is now marked resolved.
+- Historical evidence (`docs/evidence/releases/2026-07-11-model-evals/`,
+  `2026-07-09-kimi-provider-eval/`) was deliberately left unmodified — it
+  correctly records what was true at the time those evals ran.
 
 ### Milestone 4 Step 4: Review History Retention
 
@@ -166,54 +279,63 @@
 
 ## Verification Evidence
 
-Latest full verification: 2026-07-18.
+Latest full verification: 2026-07-19.
 
-- `npm run context:generate` + `npm run context:check`: pass
-- `npm run status:check`: pass
 - `npm run typecheck`: pass
 - `npm run lint`: pass
-- `npm test`: pass — 109 tests passed, 3 skipped (adds `tests/migrations.test.ts`
-  and new coverage in `tests/decisions.test.ts` / `tests/portfolio-briefing.test.ts`)
+- `npm test`: pass — 113 tests passed, 3 skipped (adds attachment-serialization
+  and vision-extraction coverage; multimodal case count 16 → 18)
+- `npm run eval:m001:multimodal`: pass — 16 base cases, 18 multimodal cases
+  (16 original + 2 real-image), 0 hard-gate failures
+- `npm run eval:m001:provider -- --mode deterministic --model gemini-3-flash-preview`:
+  pass (`docs/evidence/releases/2026-07-19-gemini-vision-eval/01-deterministic-report.json`)
+- `npm run eval:m001:provider -- --mode live --model gemini-3-flash-preview`:
+  blocked — model retired by provider as of 2026-07-15
+  (`docs/evidence/releases/2026-07-19-gemini-vision-eval/02-live-report.json`)
+- `npm run eval:m001:provider -- --mode deterministic --model minimax-m3:cloud`:
+  pass (`docs/evidence/releases/2026-07-19-minimax-vision-eval/01-deterministic-report.json`)
+- `npm run eval:m001:provider -- --mode live --model minimax-m3:cloud`:
+  pass — 0 hard-gate failures, 0% citation hallucination, both real-image
+  cases passed
+  (`docs/evidence/releases/2026-07-19-minimax-vision-eval/02-live-report.json`)
 - `npm run build`: pass
 - `npm run test:e2e`: pass — 3 Playwright checks passed
-- `npm run verify`: pass
-- Manual end-to-end smoke (temp SQLite DB, real migration + service stack):
-  Buy → Hold → Exit timeline chronologically ordered with correct
-  `previousAction` deltas; portfolio briefing returns the correct
-  `lastOutcome`/`lastAction`.
+- `npm run status:check`: pass
+- `npm run context:check`: pass after regenerating the code index
+- `git diff --check`: pass
 
-Previous full verification: 2026-07-17 (104 tests passed, 3 skipped).
+Previous full verification: 2026-07-18 (109 tests passed, 3 skipped).
 
 ## Remaining Boundaries
 
 - DEC-0010 is accepted for local POC only. It does not authorize production
   cloud processing.
-- No real OCR engine, vision model, local model, or production cloud
-  provider was approved as active in this slice.
+- `minimax-m3:cloud`'s OCR/vision eligibility is evaluated (0 hard-gate
+  failures, both real-image cases passed) but recorded in `DEC-0012`
+  (`proposed`) — not yet accepted by the user. No production cloud provider
+  was approved as active in this slice.
 - `modelEligibility` remains `not_evaluated` for production.
 - Portfolio/position data, credentials, account screenshots, raw database
   exports, identity documents, unrelated personal files, and production
   external processing remain blocked.
-- Secondary-source and general-news ingestion remain deferred.
+- Secondary-source and general-news ingestion remain deferred (M007).
 - `npm audit --omit=dev` reports two moderate dependency findings (transitive
   `postcss` via `next`); no forced breaking upgrade was applied in this
   slice.
-- DEC-0009 lines 80/81 inconsistency on recorded Buy/Hold/Reduce/Exit decision
-  classification is resolved by `DEC-0011` (`proposed`, pending user
-  acceptance): recorded decisions remain blocked "portfolio and position
-  data," never POC-confidential.
+- `extractVisionOcrCandidate` exists and is tested but is not wired into
+  `CitationPipeline`'s automatic extraction-recovery path — open-ended,
+  assumption-driven vision extraction remains a follow-up.
 
 ## Exact Resume Point
 
-Milestone 4 (all four core steps) is complete and merged. Next actions:
+Milestone 5's eligibility eval is complete; the `gemini-3-flash-preview`
+retirement is resolved via `DEC-0013`. Next actions:
 
-1. **DEC-0009 Amendment** — `DEC-0011` is drafted (`proposed`) at
-   `docs/decisions/DEC-0011-decision-record-classification-amendment.md`,
-   pending user acceptance.
+1. **Accept or reject `DEC-0012`** — `docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md`
+   records `minimax-m3:cloud`'s OCR/vision eligibility based on the retained
+   live-eval evidence (0 hard-gate failures, 0% hallucination, both
+   real-image cases passed).
 
-2. **Milestone 5 Roadmap** — Sequenced in `docs/milestones/ROADMAP.md`:
-   M005 (OCR/vision provider eligibility, drafted at
-   `docs/milestones/M005-ocr-vision-provider-eligibility.md`, `proposed`) →
-   M006 (production confidential-data provider approval) → M007
-   (secondary-source/news ingestion). Pending user acceptance of M005 to
-   begin implementation.
+2. **Milestone 5 close-out** — once DEC-0012 is accepted, flip the M005
+   packet and `ACTIVE_MILESTONE.md` status to `complete`, then move to M006
+   per `docs/milestones/ROADMAP.md`.

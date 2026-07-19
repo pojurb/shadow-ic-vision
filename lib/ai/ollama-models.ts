@@ -1,5 +1,4 @@
 export const OLLAMA_MODEL_IDS = [
-  'gemini-3-flash-preview',
   'kimi-k2.7-code:cloud',
   'qwen3.5:cloud',
   'deepseek-v4-pro:cloud',
@@ -11,7 +10,6 @@ export type OllamaModelId = typeof OLLAMA_MODEL_IDS[number];
 
 export const OLLAMA_MODEL_EVAL_ORDER = [
   'kimi-k2.7-code:cloud',
-  'gemini-3-flash-preview',
   'deepseek-v4-pro:cloud',
   'deepseek-v4-flash:cloud',
   'qwen3.5:cloud',
@@ -19,13 +17,6 @@ export const OLLAMA_MODEL_EVAL_ORDER = [
 ] as const satisfies ReadonlyArray<OllamaModelId>;
 
 export const OLLAMA_MODEL_OPTIONS = [
-  {
-    id: 'gemini-3-flash-preview',
-    label: 'Gemini 3 Flash Preview',
-    description: 'Multimodal, fast preview model for text and image workflows.',
-    vision: true,
-    contextLimit: 128_000,
-  },
   {
     id: 'kimi-k2.7-code:cloud',
     label: 'Kimi K2.7 Code',

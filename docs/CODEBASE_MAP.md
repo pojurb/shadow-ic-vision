@@ -17,7 +17,7 @@ product and architecture authority remains in milestones, decisions, and
 | Research orchestration | Jobs, ingestion, citation pipeline, snapshots | `lib/research/` |
 | Source adapters | SEC, IDX, issuer, and synthetic fixtures | `lib/research/adapters/` |
 | Persistence | Drizzle schema, queries, migrations, external SQLite | `db/` |
-| Support scripts | Environment loading, evaluation harness | `scripts/dotenv-quiet.ts`, `scripts/eval-*.ts` |
+| Support scripts | Environment loading, evaluation harness, fixture generation | `scripts/dotenv-quiet.ts`, `scripts/eval-*.ts`, `scripts/generate-vision-fixtures.ts` |
 | Verification | Unit, integration, live opt-in, and browser checks | `tests/` |
 
 Route handlers validate transport input and delegate. Business behavior belongs
@@ -127,7 +127,7 @@ Windows Task Scheduler or protected local endpoint
   thesis/assumptions/evidence only and must never read the `decisions` table
   (guarded by a regression test in `tests/decisions.test.ts`).
   [`DEC-0011`](decisions/DEC-0011-decision-record-classification-amendment.md)
-  (`proposed`) resolves DEC-0009 lines 80/81's prior inconsistency: recorded
+  (`accepted`) resolves DEC-0009 lines 80/81's prior inconsistency: recorded
   decision data is governed exclusively by the blocked "portfolio and
   position data" row, never "POC workflow confidential data."
 - Portfolio briefing (`getPortfolioBriefing`) links positions to conversations
@@ -138,6 +138,15 @@ Windows Task Scheduler or protected local endpoint
   upstream promotional tips; errors still surface through separate logging
   paths.
 - Generated code intelligence is derived navigation data, never authority.
+- `ProjectMessage` (`lib/ai/provider.ts`) carries an optional `attachments`
+  array (base64 image bytes, no data-URI prefix) so a vision-capable provider
+  can receive real image content; `content` remains a required string and
+  every existing text-only caller is unaffected.
+  `extractVisionOcrCandidate` (`lib/research/extractors/ocr.ts`) is the real
+  provider counterpart to `extractSyntheticOcrCandidate`: it always wraps
+  provider transcription as `ocr_matched`, never `exact_verified`, and is not
+  wired into `CitationPipeline`'s automatic recovery path (open-ended
+  assumption-driven vision extraction remains a follow-up).
 
 ## Task Routing
 

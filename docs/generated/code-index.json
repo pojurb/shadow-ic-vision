@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "45e78ed7dacb3966a8acaa76c0a178caaa4ecb5edfb71f7695dfb12c167e0e32",
+  "sourceDigest": "66165ffdedcefc086052a381fb9cb39c433c6aadbec3a168bc10e2446d0226b6",
   "roots": [
     "app",
     "components",
@@ -900,6 +900,7 @@
         "ChatResult",
         "LLMProvider",
         "ProjectMessage",
+        "ProjectMessageAttachment",
         "ProviderCallContext",
         "ProviderCallRuntime",
         "ProviderCapabilities",
@@ -1261,11 +1262,16 @@
         {
           "specifier": "./candidate",
           "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
         }
       ],
       "exports": [
         "SyntheticOcrPage",
-        "extractSyntheticOcrCandidate"
+        "extractSyntheticOcrCandidate",
+        "extractVisionOcrCandidate"
       ]
     },
     {
@@ -1661,6 +1667,10 @@
       "path": "tests/document-extraction.test.ts",
       "kind": "test",
       "imports": [
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
         {
           "specifier": "@/lib/research/extractors/candidate",
           "resolved": "lib/research/extractors/candidate.ts"
@@ -2468,6 +2478,7 @@
     {
       "path": "tests/document-extraction.test.ts",
       "productionModules": [
+        "lib/ai/provider.ts",
         "lib/research/extractors/candidate.ts",
         "lib/research/extractors/document.ts",
         "lib/research/extractors/ocr.ts",

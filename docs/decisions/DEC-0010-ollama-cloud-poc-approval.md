@@ -11,6 +11,13 @@ Supersedes: none
 
 Depends on: [`DEC-0009`](DEC-0009-provider-security-gate.md)
 
+> **Amendment:** [`DEC-0013`](DEC-0013-ollama-allowlist-gemini-retirement-amendment.md)
+> removes `gemini-3-flash-preview` from the approved allowlist below (found
+> retired by the provider on 2026-07-19) and promotes `deepseek-v4-flash:cloud`
+> into its place. The allowlist and fixed eval order in this document reflect
+> the roster as accepted on 2026-07-11; DEC-0013 is the current authority for
+> the model roster.
+
 ## Context
 
 DEC-0009 accepts external provider processing as the default M001 POC path only
