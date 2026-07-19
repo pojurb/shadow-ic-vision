@@ -15,14 +15,18 @@ rather than one bundled packet.
 
 ## M005: OCR/Vision Provider Eligibility
 
-Status: `proposed` — packet drafted at
+Status: `complete` — packet accepted at
 [`M005-ocr-vision-provider-eligibility.md`](M005-ocr-vision-provider-eligibility.md).
 
-Run a real OCR/vision provider through the existing multimodal evaluator
-harness and record an eligibility decision, following the same pattern
-DEC-0010 used for the text-only Kimi provider eval. Addresses R-017
-(OCR/derived output mistaken for source-exact), R-018 (embedded document
-injection), and R-019 (multimodal scope creep).
+Ran a real OCR/vision provider through the existing multimodal evaluator
+harness (extended with real image-attachment support) and recorded an
+eligibility decision, following the same pattern DEC-0010 used for the
+text-only Kimi provider eval. The primary candidate, `gemini-3-flash-preview`,
+was found retired by the provider mid-eval ([`DEC-0013`](../decisions/DEC-0013-ollama-allowlist-gemini-retirement-amendment.md)
+removed it from the allowlist); the fallback, `minimax-m3:cloud`, passed
+cleanly and is accepted via [`DEC-0012`](../decisions/DEC-0012-ocr-vision-provider-eligibility.md).
+Addressed R-017 (OCR/derived output mistaken for source-exact), R-018
+(embedded document injection), and R-019 (multimodal scope creep).
 
 ## M006: Production Confidential-Data Provider Approval
 

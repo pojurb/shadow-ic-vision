@@ -16,7 +16,7 @@ must match the linked documents.
 | DEC-0009 | `accepted` | [M001 provider security gate](DEC-0009-provider-security-gate.md) | M001 provider approval | External provider processing is accepted as the POC default; production use still requires a separate decision |
 | DEC-0010 | `accepted` | [Ollama Cloud POC provider approval package](DEC-0010-ollama-cloud-poc-approval.md) | Provider-specific POC approval | Completed; verified via live Kimi evaluation on 2026-07-11 |
 | DEC-0011 | `accepted` | [Decision record classification amendment](DEC-0011-decision-record-classification-amendment.md) | Amends DEC-0009 | Clarifies that recorded decision outcomes remain blocked portfolio data, not POC-confidential data |
-| DEC-0012 | `proposed` | [OCR/vision provider eligibility](DEC-0012-ocr-vision-provider-eligibility.md) | M005 provider-specific eligibility | `minimax-m3:cloud` vision eligibility pending user acceptance; `gemini-3-flash-preview` found retired |
+| DEC-0012 | `accepted` | [OCR/vision provider eligibility](DEC-0012-ocr-vision-provider-eligibility.md) | M005 provider-specific eligibility | `minimax-m3:cloud` accepted for POC OCR/vision use; `gemini-3-flash-preview` found retired (see DEC-0013) |
 | DEC-0013 | `accepted` | [Ollama allowlist amendment](DEC-0013-ollama-allowlist-gemini-retirement-amendment.md) | Amends DEC-0010 | Removes retired `gemini-3-flash-preview`; promotes `deepseek-v4-flash:cloud` |
 
 ## Historical Drafts

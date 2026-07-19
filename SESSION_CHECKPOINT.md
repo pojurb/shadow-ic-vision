@@ -7,11 +7,13 @@
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- Phase: Milestone 4 complete; Milestone 5 (OCR/vision provider eligibility)
-  `in_progress` — Slice 0 implemented, deterministic + live eligibility evals
-  complete, `DEC-0012` drafted (`proposed`) pending user acceptance;
-  `DEC-0013` accepted, retiring `gemini-3-flash-preview` from the allowlist
-- Commits this session: `e3f10ab` (M004 Step 4), `c931a61` (status flip)
+- Phase: Milestones 4 and 5 complete. Milestone 5 (OCR/vision provider
+  eligibility): Slice 0 implemented, `DEC-0012` accepted (`minimax-m3:cloud`
+  POC OCR/vision eligibility), `DEC-0013` accepted (retired
+  `gemini-3-flash-preview` from the allowlist, promoted
+  `deepseek-v4-flash:cloud`)
+- Commits this session: `e3f10ab` (M004 Step 4), `c931a61` (status flip),
+  `ff91d24` (M005 implementation), `f997bc1` (DEC-0013 amendment)
 - App state: allowlisted model selector active for five approved Ollama
   Cloud models (`kimi-k2.7-code:cloud`, `qwen3.5:cloud`,
   `deepseek-v4-pro:cloud`, `deepseek-v4-flash:cloud`, `minimax-m3:cloud`);
@@ -116,16 +118,14 @@
   extraction completeness, and both real-image transcription cases
   (`MM-017`, `MM-018`) passing exactly with no `exact_verified` mislabeling.
   Evidence: `docs/evidence/releases/2026-07-19-{gemini,minimax}-vision-eval/`.
-- Drafted `DEC-0012` (`proposed`), following DEC-0010's exact skeleton,
-  recording this outcome and requesting eligibility for `minimax-m3:cloud`'s
-  vision capability only. Does not re-approve `gemini-3-flash-preview` and
-  does not approve production use.
-- **Flagged, not resolved:** `gemini-3-flash-preview` is one of the six
-  models `DEC-0010` already accepted for POC use, and DEC-0010's own
-  Revocation And Incident Response section names model retirement as a
-  trigger. This session recorded the finding (new risk `R-024`,
-  `ACTIVE_MILESTONE.md` follow-up) but did not amend DEC-0010's allowlist —
-  left as an explicit next decision for the user.
+- Drafted, then user-accepted, `DEC-0012`, following DEC-0010's exact
+  skeleton, recording this outcome and granting eligibility for
+  `minimax-m3:cloud`'s vision capability only. Does not re-approve
+  `gemini-3-flash-preview` and does not approve production use. Added
+  evidence manifests (`docs/evidence/releases/2026-07-19-{gemini,minimax}-vision-eval/manifest.md`)
+  matching the Kimi eval's retained-evidence convention, including a
+  dedicated "blocked" manifest documenting the gemini retirement finding.
+  M005's packet is now `complete` — all four Acceptance Criteria met.
 
 ### DEC-0013: Retire gemini-3-flash-preview, Promote deepseek-v4-flash:cloud
 
@@ -303,6 +303,8 @@ Latest full verification: 2026-07-19.
 - `npm run status:check`: pass
 - `npm run context:check`: pass after regenerating the code index
 - `git diff --check`: pass
+- Re-verified (typecheck, lint, 113 tests, build, status/context checks)
+  after accepting `DEC-0012` and updating cross-referencing docs — all pass.
 
 Previous full verification: 2026-07-18 (109 tests passed, 3 skipped).
 
@@ -310,11 +312,8 @@ Previous full verification: 2026-07-18 (109 tests passed, 3 skipped).
 
 - DEC-0010 is accepted for local POC only. It does not authorize production
   cloud processing.
-- `minimax-m3:cloud`'s OCR/vision eligibility is evaluated (0 hard-gate
-  failures, both real-image cases passed) but recorded in `DEC-0012`
-  (`proposed`) — not yet accepted by the user. No production cloud provider
-  was approved as active in this slice.
-- `modelEligibility` remains `not_evaluated` for production.
+- `modelEligibility` remains `not_evaluated` for production — DEC-0012 only
+  covers POC OCR/vision eligibility.
 - Portfolio/position data, credentials, account screenshots, raw database
   exports, identity documents, unrelated personal files, and production
   external processing remain blocked.
@@ -325,17 +324,16 @@ Previous full verification: 2026-07-18 (109 tests passed, 3 skipped).
 - `extractVisionOcrCandidate` exists and is tested but is not wired into
   `CitationPipeline`'s automatic extraction-recovery path — open-ended,
   assumption-driven vision extraction remains a follow-up.
+- The real-image eval cases (`MM-017`, `MM-018`) did not include an embedded
+  prompt-injection probe (R-018 residual risk).
 
 ## Exact Resume Point
 
-Milestone 5's eligibility eval is complete; the `gemini-3-flash-preview`
-retirement is resolved via `DEC-0013`. Next actions:
+Milestones 4 and 5 are both complete and merged. Next action:
 
-1. **Accept or reject `DEC-0012`** — `docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md`
-   records `minimax-m3:cloud`'s OCR/vision eligibility based on the retained
-   live-eval evidence (0 hard-gate failures, 0% hallucination, both
-   real-image cases passed).
-
-2. **Milestone 5 close-out** — once DEC-0012 is accepted, flip the M005
-   packet and `ACTIVE_MILESTONE.md` status to `complete`, then move to M006
-   per `docs/milestones/ROADMAP.md`.
+1. **Milestone 6** — Production Confidential-Data Provider Approval, per
+   `docs/milestones/ROADMAP.md`. Not yet scoped as a packet. Complete
+   DEC-0009's "Provider Approval Requirements" checklist for the five
+   currently-accepted models (Ollama Cloud vendor terms already reviewed
+   under DEC-0010; this is largely a verification/decision-record task, not
+   new application code).

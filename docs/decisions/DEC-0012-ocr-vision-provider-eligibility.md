@@ -1,8 +1,10 @@
 # DEC-0012 - OCR/Vision Provider Eligibility
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-19
+
+Date accepted: 2026-07-19
 
 Approving authority: user
 
@@ -58,9 +60,8 @@ eval found retired.
 
 ## Blocking Issue Before Activation
 
-This package remains `proposed` until the user reviews the live eval results
-below and explicitly accepts. The deterministic and live passes are already
-complete (2026-07-19); no further eval run is required before acceptance.
+Resolved. The user reviewed the live eval results below and accepted this
+package on 2026-07-19.
 
 ## Approved Scope If Accepted
 

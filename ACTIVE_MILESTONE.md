@@ -1,16 +1,33 @@
 # Active Milestone
 
-Status: `in_progress`
+Status: `complete`
 
-Active Packet: [`docs/milestones/M005-ocr-vision-provider-eligibility.md`](docs/milestones/M005-ocr-vision-provider-eligibility.md) (accepted; live eval complete, eligibility decision [`DEC-0012`](docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md) `proposed` pending user acceptance)
+Active Packet: [`docs/milestones/M005-ocr-vision-provider-eligibility.md`](docs/milestones/M005-ocr-vision-provider-eligibility.md) (accepted; all four ACs met; M006 not yet scoped as a packet)
 
-Latest Completed Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (accepted)
+Latest Completed Packet: [`docs/milestones/M005-ocr-vision-provider-eligibility.md`](docs/milestones/M005-ocr-vision-provider-eligibility.md) (accepted; all four ACs met)
 
-See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the full M005→M006→M007 sequence.
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M006→M007 sequence.
 
 ## Current Phase
 
-M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), and M004 (Multi-Thesis Briefing) are 100% completed, verified, and merged.
+M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), and M005 (OCR/Vision Provider Eligibility) are 100% completed, verified, and merged.
+
+Milestone 5 answered one question: is a real OCR/vision-capable model,
+reached through the already-accepted Ollama Cloud POC boundary, eligible for
+continued POC use on the multimodal evidence pipeline scaffolded since
+DEC-0008. Real image-attachment support was added to the provider boundary
+(`lib/ai/provider.ts`, `lib/ai/adapters/ollama.ts`), a real-provider vision-
+extraction seam (`extractVisionOcrCandidate` in `lib/research/extractors/ocr.ts`)
+was added alongside the existing synthetic-fixture path, and two genuine
+Playwright-rendered image fixtures were used for a live eligibility eval. The
+primary candidate, `gemini-3-flash-preview`, was found retired by the
+provider mid-eval; the fallback, `minimax-m3:cloud`, passed cleanly (0
+hard-gate failures, 0% hallucination, both real-image transcription cases
+exact). [`DEC-0012`](docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md)
+(accepted) records `minimax-m3:cloud`'s POC OCR/vision eligibility.
+[`DEC-0013`](docs/decisions/DEC-0013-ollama-allowlist-gemini-retirement-amendment.md)
+(accepted) removed the retired model from DEC-0010's allowlist and promoted
+`deepseek-v4-flash:cloud` for general POC use.
 
 Milestone 4 scaled holding tracking from one active thesis to 100 assets with priority ranking and comprehensive status. All four core steps shipped:
 
@@ -127,13 +144,16 @@ Release evidence:
 [`docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md`](docs/evidence/releases/2026-07-08-dec-0009-poc-provider-gate/manifest.md)
 [`docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md`](docs/evidence/releases/2026-07-09-kimi-provider-eval/manifest.md)
 [`docs/evidence/releases/2026-07-11-model-evals/manifest.md`](docs/evidence/releases/2026-07-11-model-evals/manifest.md)
+[`docs/evidence/releases/2026-07-19-gemini-vision-eval/manifest.md`](docs/evidence/releases/2026-07-19-gemini-vision-eval/manifest.md)
+[`docs/evidence/releases/2026-07-19-minimax-vision-eval/manifest.md`](docs/evidence/releases/2026-07-19-minimax-vision-eval/manifest.md)
 
 ## Remaining Boundaries
 
-- M001 is not fully closed because real OCR/vision provider eligibility
-  (evaluated, pending acceptance — see DEC-0012), provider-specific
-  current-source approval, and production confidential-data provider approval
-  remain unapproved.
+- M001 is not fully closed because provider-specific current-source approval
+  and production confidential-data provider approval remain unapproved.
+  Real OCR/vision provider eligibility is now resolved for POC use —
+  `minimax-m3:cloud` is accepted via DEC-0012 — but production/hosted-demo
+  use of any provider remains M006's scope.
 - [`DEC-0010`](docs/decisions/DEC-0010-ollama-cloud-poc-approval.md) is an
   accepted Ollama Cloud POC approval package. The app now exposes an
   allowlisted selector for `kimi-k2.7-code:cloud`, `qwen3.5:cloud`,
@@ -165,7 +185,7 @@ Release evidence:
 
 ## Next Steps
 
-Milestone 4 is complete and verified (2026-07-19).
+Milestones 4 and 5 are complete and verified (2026-07-19).
 
 1. ~~**DEC-0009 Amendment**~~ Accepted: [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
    clarifies that recorded Buy/Hold/Reduce/Exit decisions are governed
@@ -173,24 +193,20 @@ Milestone 4 is complete and verified (2026-07-19).
    blocked. See `docs/decisions/DEC-0009-provider-security-gate.md`'s
    amendment signpost.
 
-2. **Milestone 5 (in progress, eval complete)** — Slice 0 (image/attachment
-   plumbing in `lib/ai/`, a real-provider `extractVisionOcrCandidate` seam in
-   `lib/research/extractors/ocr.ts`, and two Playwright-rendered image
-   fixtures under `docs/evals/M001/fixtures/vision/`) is implemented and
-   tested. The primary candidate, `gemini-3-flash-preview`, was found
-   **retired by the provider as of 2026-07-15** — its live pass failed
-   uniformly (34/37 cases) with that exact error, not a vision-capability
-   failure. Pivoted to the fallback, `minimax-m3:cloud`: live pass completed
-   with 0 hard-gate failures, 0% citation hallucination, and both real-image
-   transcription cases passing exactly. [`DEC-0012`](docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md)
-   (`proposed`) records this outcome and awaits user acceptance. See
-   [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the
-   M005→M006→M007 sequence.
+2. ~~**Milestone 5**~~ Complete: all four Acceptance Criteria met.
+   [`DEC-0012`](docs/decisions/DEC-0012-ocr-vision-provider-eligibility.md)
+   (accepted) records `minimax-m3:cloud`'s POC OCR/vision eligibility after
+   the primary candidate, `gemini-3-flash-preview`, was found retired by the
+   provider mid-eval.
 
 3. ~~**Follow-up finding**~~ Resolved: [`DEC-0013`](docs/decisions/DEC-0013-ollama-allowlist-gemini-retirement-amendment.md)
    removes `gemini-3-flash-preview` from the DEC-0010 allowlist and promotes
    `deepseek-v4-flash:cloud` (already `accepted_for_poc`) in its place. See
    `docs/RISK_REGISTER.md` R-024.
+
+4. **Milestone 6** — Production Confidential-Data Provider Approval, per
+   [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md). Not yet
+   scoped as a packet.
 
 Promoted lessons consulted: `LC-20260703-001`
 

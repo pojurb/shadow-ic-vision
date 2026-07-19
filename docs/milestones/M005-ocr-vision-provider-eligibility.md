@@ -4,9 +4,16 @@ Status: `accepted`
 
 Approval authority: user
 
-Candidate provider/model: `gemini-3-flash-preview` (Ollama Cloud, already
-allowlisted under DEC-0010), fallback `minimax-m3:cloud` if the live pass
-shows hard-gate failures or fails to genuinely process real image input.
+Candidate provider/model: `gemini-3-flash-preview` was the primary candidate
+but was found retired by the provider during the live pass (2026-07-19,
+[`DEC-0013`](../decisions/DEC-0013-ollama-allowlist-gemini-retirement-amendment.md)
+removed it from the allowlist). The fallback, `minimax-m3:cloud`, completed
+the live pass cleanly (0 hard-gate failures, both real-image cases passed)
+and is accepted for OCR/vision POC use via
+[`DEC-0012`](../decisions/DEC-0012-ocr-vision-provider-eligibility.md).
+
+All four Acceptance Criteria (AC-M005-01 through AC-M005-04) are met;
+this milestone is complete.
 
 ---
 
