@@ -1,4 +1,4 @@
-# Session Checkpoint - 2026-07-18
+# Session Checkpoint - 2026-07-19
 
 ## Repository State
 
@@ -7,13 +7,12 @@
   `00dd1fe97f0de9740e8868b9b9c1015870533254`
 - Remote:
   `https://github.com/pojurb/shadow-ic-vision.git`
-- Phase: Milestone 4 — all four core steps implemented (packet accepted)
-- Working scope: implemented Review History Retention (step 4), the final
-  Milestone 4 step; normalized the packed `decisions.decision` column into
-  typed `outcome`/`action` columns via migration `0006`
+- Phase: Milestone 4 complete and verified (packet accepted, status flipped to
+  `complete`)
+- Commits this session: `e3f10ab` (M004 Step 4), `c931a61` (status flip)
 - App state: allowlisted model selector active for approved Ollama Cloud
-  models; local portfolio holdings, priority queue, status index, and
-  decision-history timeline fully integrated
+  models; local portfolio holdings (100 asset scale), priority queue, status
+  index, and decision-history timeline fully integrated with typed schema
 
 ## Implemented This Session (2026-07-18)
 
@@ -179,9 +178,12 @@ Previous full verification: 2026-07-17 (104 tests passed, 3 skipped).
 
 ## Exact Resume Point
 
-Milestone 4 (all four core steps) is implemented and fully verified
-(`npm run verify` and `npm run test:e2e` both pass as of 2026-07-18). Next
-decision is whether to flip the milestone packet
-(`docs/milestones/M004-multi-thesis-briefing.md`) and `ACTIVE_MILESTONE.md`
-top-level `Status:` to complete, and whether to open a decision amendment
-resolving the DEC-0009 lines 80/81 conflict on recorded decision data.
+Milestone 4 (all four core steps) is complete and merged. Next actions:
+
+1. **DEC-0009 Amendment** — Draft decision amendment resolving lines 80/81
+   inconsistency on recorded decision classification (workflow-confidential vs.
+   portfolio data). This is a governance cleanup task, not a code/test change.
+
+2. **Milestone 5 Scope** — Define next packet per roadmap. Known candidates:
+   secondary-source/news ingestion, production provider approval, OCR/vision
+   eligibility.
