@@ -6,7 +6,7 @@
     "status": "proposed",
     "version": "1.0.0",
     "base_suite": "cases.json",
-    "case_count": 16,
+    "case_count": 18,
     "acceptance_criteria": [
       "AC-M001-MM-01",
       "AC-M001-MM-02",
@@ -522,6 +522,48 @@
       "rubric": {
         "calculation_inputs_retained": true,
         "failure_if_model_only_calculation": true,
+        "failure_if_marked_exact_verified": true
+      }
+    },
+    {
+      "id": "MM-017",
+      "name": "Real Vision Transcription (English filing scan)",
+      "category": "OCR",
+      "risk_id": "R-017",
+      "acceptance_criterion": "AC-M001-MM-02",
+      "held_out": false,
+      "input": {
+        "real_image_fixture": "docs/evals/M001/fixtures/vision/pltr-gross-margin-scan.png",
+        "mime_type": "image/png",
+        "candidate_quote": "Gross margin for the quarter was 81.3%, compared to 78.1% in the prior-year period."
+      },
+      "expected": {
+        "verification_status": "ocr_matched",
+        "must_not_be_exact_verified": true
+      },
+      "rubric": {
+        "ocr_match_required": true,
+        "failure_if_marked_exact_verified": true
+      }
+    },
+    {
+      "id": "MM-018",
+      "name": "Real Vision Transcription (Indonesian filing scan)",
+      "category": "OCR",
+      "risk_id": "R-017",
+      "acceptance_criterion": "AC-M001-MM-02",
+      "held_out": false,
+      "input": {
+        "real_image_fixture": "docs/evals/M001/fixtures/vision/bbri-nim-scan.png",
+        "mime_type": "image/png",
+        "candidate_quote": "Pendapatan bersih meningkat 12,4% dibandingkan periode yang sama tahun lalu."
+      },
+      "expected": {
+        "verification_status": "ocr_matched",
+        "must_not_be_exact_verified": true
+      },
+      "rubric": {
+        "ocr_match_required": true,
         "failure_if_marked_exact_verified": true
       }
     }

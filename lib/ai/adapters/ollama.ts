@@ -18,6 +18,24 @@ type OllamaProviderOptions = {
   modelId?: OllamaModelId;
 };
 
+/**
+ * Ollama's chat API accepts a base64 `images` array per message (no data-URI
+ * prefix) for vision-capable models. Verified against local Ollama's REST API
+ * convention; Ollama Cloud's request shape has not been independently
+ * confirmed from vendor docs and should be validated against a real call
+ * before trusting eligibility results.
+ */
+function toOllamaMessage(message: ProjectMessage): { role: string; content: string; images?: string[] } {
+  const images = message.attachments
+    ?.filter((attachment) => attachment.type === 'image')
+    .map((attachment) => attachment.base64);
+  return {
+    role: message.role,
+    content: message.content,
+    ...(images && images.length > 0 ? { images } : {}),
+  };
+}
+
 export class OllamaProvider implements LLMProvider {
   private readonly apiKey: string;
   private readonly apiUrl: string;
@@ -125,10 +143,7 @@ export class OllamaProvider implements LLMProvider {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: messages.map(toOllamaMessage),
           stream,
         }),
       },
@@ -161,10 +176,7 @@ export class OllamaProvider implements LLMProvider {
           },
           body: JSON.stringify({
             model: this.model,
-            messages: messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: messages.map(toOllamaMessage),
             format: jsonSchema,
             stream: false,
           }),

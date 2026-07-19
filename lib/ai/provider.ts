@@ -8,9 +8,17 @@
 
 import { z } from 'zod';
 
+export type ProjectMessageAttachment = {
+  type: 'image';
+  mimeType: string;
+  /** Base64-encoded bytes, no data-URI prefix. */
+  base64: string;
+};
+
 export type ProjectMessage = {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  attachments?: ProjectMessageAttachment[];
 };
 
 export type ProviderDataClass =

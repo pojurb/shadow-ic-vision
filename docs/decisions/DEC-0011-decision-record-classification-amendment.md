@@ -1,8 +1,10 @@
 # DEC-0011 - Decision Record Classification Amendment
 
-Status: `proposed`
+Status: `accepted`
 
 Date proposed: 2026-07-19
+
+Date accepted: 2026-07-19
 
 Approving authority: user
 

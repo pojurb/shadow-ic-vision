@@ -7,7 +7,7 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report).toMatchObject({
       suite: 'M001-multimodal-first-slice',
       baseCaseCount: 16,
-      additionalCaseCount: 16,
+      additionalCaseCount: 18,
       modelEligibility: 'not_evaluated',
       hardGateFailures: [],
     });

@@ -19,7 +19,8 @@
     "eval:m001:multimodal": "node --import ./node_modules/tsx/dist/loader.mjs scripts/eval-m001-multimodal.ts",
     "eval:m001:provider": "node --import ./node_modules/tsx/dist/loader.mjs scripts/eval-m001-provider.ts",
     "research:refresh": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
-    "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1"
+    "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1",
+    "fixtures:vision:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/generate-vision-fixtures.ts"
   },
   "dependencies": {
     "ai": "^7.0.14",

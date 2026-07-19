@@ -15,6 +15,8 @@ const TRADE_REFUSAL =
   'I cannot recommend or execute trades. I can help structure and research your thesis assumptions.';
 const UNSUPPORTED =
   "The local mock currently supports PLTR gross-margin and BBRI net-interest-margin thesis fixtures. Try: “I believe PLTR gross margin will remain above 80%.”";
+const MOCK_VISION_RECOGNIZED_TEXT =
+  'Mock deterministic vision transcription placeholder text for fixture-driven tests.';
 
 export class MockProvider implements LLMProvider {
   constructor(private readonly mode: MockMode = 'normal') {}
@@ -40,9 +42,15 @@ export class MockProvider implements LLMProvider {
 
   async chat(messages: ProjectMessage[], context: ProviderCallContext): Promise<ChatResult> {
     void context;
-    const lastMessage = messages.at(-1)?.content ?? '';
+    const lastMessage = messages.at(-1);
+    if (lastMessage?.attachments?.length) {
+      return {
+        text: MOCK_VISION_RECOGNIZED_TEXT,
+        metadata: this.getMetadata(),
+      };
+    }
     return {
-      text: this.responseText(lastMessage),
+      text: this.responseText(lastMessage?.content ?? ''),
       metadata: this.getMetadata(),
     };
   }

@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
+import type { ChatResult, LLMProvider, ProjectMessage, ProviderCallContext, ProviderCapabilities, ProviderMetadata, StructuredExtractResult } from '@/lib/ai/provider';
 import { createDerivedCandidate, createOcrCandidate, extractDeterministicCandidates } from '@/lib/research/extractors/candidate';
 import { extractDocument, extractHtml, extractPdf } from '@/lib/research/extractors/document';
-import { extractSyntheticOcrCandidate } from '@/lib/research/extractors/ocr';
+import { extractSyntheticOcrCandidate, extractVisionOcrCandidate } from '@/lib/research/extractors/ocr';
 import { calculateGrossMarginFromFacts } from '@/lib/research/extractors/xbrl';
 import { verifyExactMatch, verifyPageExactMatch } from '@/lib/research/verifier';
+
+const stubContext: ProviderCallContext = {
+  route: 'tests.document-extraction',
+  dataClass: 'synthetic_fixture',
+  runtime: { deployment: 'local' },
+};
+
+class StubVisionProvider implements LLMProvider {
+  constructor(private readonly recognizedText: string) {}
+
+  getMetadata(): ProviderMetadata {
+    return { provider: 'stub-vision', modelId: 'stub-vision-1', promptVersion: '1.0.0', settings: {} };
+  }
+
+  getCapabilities(): ProviderCapabilities {
+    return { streaming: false, structuredOutput: false, vision: true, contextLimit: 8_192, languages: ['en'] };
+  }
+
+  async chat(messages: ProjectMessage[]): Promise<ChatResult> {
+    expect(messages.at(-1)?.attachments?.[0]?.type).toBe('image');
+    return { text: this.recognizedText, metadata: this.getMetadata() };
+  }
+
+  async *streamCompletion(): AsyncIterable<string> {
+    yield this.recognizedText;
+  }
+
+  async structuredExtract<T>(): Promise<StructuredExtractResult<T>> {
+    return { data: null, success: false, error: 'not_implemented', metadata: this.getMetadata() };
+  }
+}
 
 describe('deterministic document extraction', () => {
   it('removes executable markup and preserves canonical source text', () => {
@@ -91,6 +123,32 @@ describe('deterministic document extraction', () => {
     });
     expect(candidate).toMatchObject({ verificationStatus: 'ocr_matched', pageNumber: 1 });
     expect(candidate.verificationStatus).not.toBe('exact_verified');
+  });
+
+  it('wraps real provider vision transcription as ocr_matched, never exact_verified', async () => {
+    const provider = new StubVisionProvider('Pendapatan bersih meningkat 12,4% dibandingkan periode yang sama tahun lalu.');
+    const candidate = await extractVisionOcrCandidate({
+      rawBytes: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/png',
+      candidateQuote: 'Pendapatan bersih meningkat 12,4%',
+      impactSummary: 'Real provider vision transcription matched.',
+      provider,
+      context: stubContext,
+    });
+    expect(candidate).toMatchObject({ verificationStatus: 'ocr_matched', pageNumber: null });
+    expect(candidate.verificationStatus).not.toBe('exact_verified');
+  });
+
+  it('blocks a vision candidate whose quote is absent from the real transcription', async () => {
+    const provider = new StubVisionProvider('An unrelated transcription with no matching figures.');
+    await expect(extractVisionOcrCandidate({
+      rawBytes: new Uint8Array([1, 2, 3]),
+      mimeType: 'image/png',
+      candidateQuote: 'Pendapatan bersih meningkat 12,4%',
+      impactSummary: 'Should not match.',
+      provider,
+      context: stubContext,
+    })).rejects.toMatchObject({ code: 'citation_not_found' });
   });
 
   it('blocks OCR single-character corruption against retained OCR output', () => {

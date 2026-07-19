@@ -65,4 +65,44 @@ describe('OllamaProvider', () => {
     expect(logLine).not.toContain('test message');
     fs.rmSync(directory, { recursive: true, force: true });
   });
+
+  it('serializes image attachments as a base64 images array per message', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        message: { role: 'assistant', content: 'Transcribed text' },
+      }),
+    });
+
+    const provider = new OllamaProvider({ fetchImpl: mockFetch });
+    await provider.chat(
+      [{
+        role: 'user',
+        content: 'Transcribe the visible text in this image.',
+        attachments: [{ type: 'image', mimeType: 'image/png', base64: 'ZmFrZS1iYXNlNjQ=' }],
+      }],
+      context,
+    );
+
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body.messages[0].images).toEqual(['ZmFrZS1iYXNlNjQ=']);
+    expect(body.messages[0].content).toBe('Transcribe the visible text in this image.');
+  });
+
+  it('omits images when a message has no attachments', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: { role: 'assistant', content: 'ok' } }),
+    });
+
+    const provider = new OllamaProvider({ fetchImpl: mockFetch });
+    await provider.chat([{ role: 'user', content: 'plain text' }], context);
+
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(init.body as string);
+    expect(body.messages[0]).not.toHaveProperty('images');
+  });
 });

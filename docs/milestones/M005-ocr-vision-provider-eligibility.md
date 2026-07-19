@@ -1,8 +1,12 @@
 # M005: OCR/Vision Provider Eligibility
 
-Status: `proposed`
+Status: `accepted`
 
 Approval authority: user
+
+Candidate provider/model: `gemini-3-flash-preview` (Ollama Cloud, already
+allowlisted under DEC-0010), fallback `minimax-m3:cloud` if the live pass
+shows hard-gate failures or fails to genuinely process real image input.
 
 ---
 
@@ -52,12 +56,15 @@ text-only Kimi.
 ## 3. Workflows, States, and Recovery Behavior
 
 ### Workflow 1: Candidate Selection
-1. A candidate OCR/vision provider/model is chosen and documented (provider
-   name, model/engine id, version pinning) — this is a product/cost decision
-   left open in "Options Considered" below, not preselected by this packet.
+1. Candidate chosen: `gemini-3-flash-preview` (Ollama Cloud), already
+   allowlisted under DEC-0010; fallback `minimax-m3:cloud`. See "Options
+   Considered" for the resolved rationale.
 2. The candidate is wired behind the existing project-owned provider
    boundary (`lib/ai/`), reusing the DEC-0009 gate and outbound logging —
-   no new bypass path is introduced.
+   no new bypass path is introduced. **Discovered during scoping:** this
+   wiring is not a no-op — no code path in `lib/ai/provider.ts` or
+   `lib/ai/adapters/ollama.ts` can send a real image to any provider today.
+   See new Slice 0 below.
 
 ### Workflow 2: Deterministic Eligibility Pass
 1. Run `eval:m001:provider -- --mode deterministic --model <candidate>`.
@@ -97,6 +104,18 @@ change to `db/schema.ts`.
 
 ## 5. Implementation Slices
 
+- **Slice 0 (discovered during scoping): Image/Attachment Plumbing.**
+  `lib/ai/provider.ts`'s `ProjectMessage` is plain-text only and
+  `lib/ai/adapters/ollama.ts` never attaches image bytes — the existing
+  "multimodal" fixtures are JSON *descriptions* of documents, not real
+  image files. Before Slice 1 can mean anything, add an optional
+  `attachments` field to `ProjectMessage`, wire the Ollama adapter to send
+  real base64 image bytes, extend `MockProvider` to accept attachments as a
+  no-op passthrough, and wire the real extraction seam already left open in
+  `lib/research/extractors/document.ts` (`unsupported_visual` /
+  `scanned_document` throws) to call the real provider through the existing
+  `createOcrCandidate` contract. Produce 2-3 genuine (Playwright-rendered,
+  not JSON-described) image fixtures since none exist in the repo today.
 - **Slice 1:** Wire the candidate OCR/vision provider behind the existing
   `lib/ai/` provider boundary and adapter interface (no new bypass path).
 - **Slice 2:** Run the deterministic eligibility pass; fix any fixture gaps
@@ -177,10 +196,13 @@ change to `db/schema.ts`.
 
 1. Reuse the existing text-only Ollama Cloud provider if it exposes a
    vision-capable model in the same allowlist family — lowest integration
-   effort, reuses the already-approved DEC-0010 boundary.
+   effort, reuses the already-approved DEC-0010 boundary. **Adopted:**
+   `gemini-3-flash-preview` (fallback `minimax-m3:cloud`) — both already
+   declare `vision: true` in `lib/ai/ollama-models.ts`, and Gemini 3 Flash
+   Preview's registry description explicitly calls out "image workflows."
 2. Introduce a separate, purpose-built OCR/vision provider or local engine
    — potentially better extraction quality, but requires its own
    provider-boundary wiring and a fresh DEC-0009-style adapter review.
-
-Left open for user decision at milestone acceptance; this packet does not
-preselect a provider or model.
+   Rejected for this milestone: no evidence yet that Option 1 is
+   insufficient, and it would duplicate governance work already done for
+   the existing allowlist.
