@@ -1,18 +1,19 @@
 # Active Milestone
 
-Status: `in_progress`
+Status: `complete`
 
-Active Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (accepted)
+Latest Completed Packet: [`docs/milestones/M004-multi-thesis-briefing.md`](docs/milestones/M004-multi-thesis-briefing.md) (accepted)
 
 ## Current Phase
 
-M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), and M003 (Explore-To-Tracked Loop) are 100% completed, verified, and merged. 
+M001 (Existing Thesis Loop), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), and M004 (Multi-Thesis Briefing) are 100% completed, verified, and merged.
 
-Milestone 4 (Multi-Thesis Briefing) is accepted and in progress, designed to scale holding tracking up to 100 assets with priority ranking queues and a comprehensive status index.
+Milestone 4 scaled holding tracking from one active thesis to 100 assets with priority ranking and comprehensive status. All four core steps shipped:
 
-The Top-10 Priority Queue and the filterable Status Index (steps 2 and 3) are implemented: `lib/portfolio/priorityQueue.ts` scores holdings from unread filing alerts, review staleness, and challenged assumptions; `db/queries.ts#getPortfolioBriefing` computes the ranked list via grouped SQL aggregates; `components/TopTenQueue.tsx` and `app/portfolio/page.tsx` render the sidebar queue and the full sortable/filterable index. A prior review found and fixed a navigation bug where thesis-linked items routed to the thesis id instead of its conversation id (the `/c/[id]` route resolves conversations); the briefing query now also returns `conversationId` and both UI surfaces link with it. Coverage for the scoring function and the briefing query lives in `tests/portfolio-briefing.test.ts`.
-
-Review History Retention (step 4) is now implemented, completing all four Milestone 4 core steps: `db/schema.ts#decisions` stores typed `outcome`/`action` columns (migration `0006_normalize_decision_outcomes` backfilled prior packed rows and normalized mixed timestamp formats), decision reads carry an explicit `orderBy(createdAt)`, and the Research drawer, Status Index, and Top-10 Queue all surface the resulting chronological timeline and latest recorded outcome. See "Next Steps" below for full detail.
+1. **Top-10 Priority Queue** (`lib/portfolio/priorityQueue.ts`, `components/TopTenQueue.tsx`) — scores holdings from unread filing alerts, review staleness, and challenged assumptions.
+2. **Comprehensive Status Index** (`app/portfolio/page.tsx`) — sortable/filterable table of all watchlisted and active portfolio positions.
+3. **Navigation & Briefing Integration** — fixed routing bug (thesis-linked items now use conversationId, not thesisId); `db/queries.ts#getPortfolioBriefing` computes ranked list via grouped SQL aggregates and returns both `conversationId` and latest decision outcome/action.
+4. **Review History Retention** — `db/schema.ts#decisions` now stores typed `outcome`/`action` columns (migration `0006_normalize_decision_outcomes` backfilled prior packed rows and normalized timestamp formats); decision reads carry explicit `orderBy(createdAt)`; Research drawer, Status Index, and Top-10 Queue surface chronological timeline with "changed from X" deltas and latest recorded outcome/action. Regression test guards that recorded decisions never reach provider prompts (DEC-0009 boundary).
 
 The deterministic mock workflow remains the default QA path. The live research
 slice already provides SEC filing retrieval, official IDX announcement
@@ -133,30 +134,13 @@ Release evidence:
   (transitive `postcss` via `next`); no forced breaking upgrade was applied in
   this slice.
 
-## Next Steps (Milestone 4 Core Steps)
+## Next Steps
 
-1. ~~**Milestone 4 Planning:** Draft functional specification packet `docs/milestones/M004-multi-thesis-briefing.md`.~~ Done; packet accepted.
-2. ~~**Top-10 Priority Queue:** Implement priority ranking rules based on recent filing alerts, last-reviewed timestamps, and assumption changes.~~ Done.
-3. ~~**Comprehensive Status Index:** Expand UI to list, sort, and filter all watchlisted and active portfolio companies.~~ Done.
-4. ~~**Review History Retention:** Support storing outcome selections, action changes (Buy/Hold/Exit), and user reasoning logs across multiple evaluation cycles.~~ Done.
+Milestone 4 is complete and verified (2026-07-19). Remaining open items:
 
-All four Milestone 4 core steps are complete. Migration `0006_normalize_decision_outcomes`
-split the packed `decisions.decision` text column into typed `outcome`/`action`
-columns (backfilling existing rows) and normalized mixed `CURRENT_TIMESTAMP`/ISO
-timestamps to ISO-8601 UTC, fixing a lexicographic-sort bug in
-`getPortfolioBriefing`'s staleness math. Decision reads now carry an explicit
-`orderBy(createdAt)` (previously implicit rowid order) and the Research drawer's
-Decision Library renders a chronological, newest-first timeline with a
-"changed from X" delta between consecutive decisions. The Status Index
-(`app/portfolio/page.tsx`) and Top-10 Queue (`components/TopTenQueue.tsx`) now
-surface each holding's latest recorded outcome/action alongside staleness.
-Review-history data (recorded outcomes and user reasoning) is local-only and is
-never sent to an LLM provider; `generateDecisionRecommendation` continues to
-build its prompt from thesis/assumptions/evidence only, with a regression test
-guarding that boundary. DEC-0009 lines 80/81 still describe recorded
-Buy/Hold/Reduce/Exit decisions inconsistently (allowed as "POC workflow
-confidential" vs. blocked as "portfolio and position data"); this slice does
-not resolve that conflict and treats the stricter reading as binding.
+1. **DEC-0009 Amendment** — lines 80/81 classify recorded Buy/Hold/Reduce/Exit decisions inconsistently (allowed as "POC workflow confidential" vs. blocked as "portfolio and position data"). Currently treating the stricter reading as binding (decisions are local-only, never sent to providers). A short amendment would resolve the contradiction across three documents (CODEBASE_MAP.md, ACTIVE_MILESTONE.md, DEC-0009 itself).
+
+2. **Milestone 5 Scope** — next packet to be defined per roadmap. Current known-deferred scope includes secondary-source/news ingestion, production confidential-data provider approval, and OCR/vision provider eligibility.
 
 Promoted lessons consulted: `LC-20260703-001`
 
