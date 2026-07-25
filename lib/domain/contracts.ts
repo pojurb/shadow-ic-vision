@@ -7,6 +7,12 @@ export const assumptionStatusSchema = z.enum([
   'verified',
   'challenged',
   'held-belief',
+  // M007: secondary-only evidence with no official confirmation yet.
+  'pending_confirmation',
+  // M007: explicitly accepted by the user; deliberately distinct from
+  // 'verified' so a secondary-only assumption never looks officially
+  // verified even after acceptance.
+  'user_confirmed_secondary',
 ]);
 export const researchJobStatusSchema = z.enum([
   'queued',
@@ -94,7 +100,7 @@ export type EvidenceDTO = {
   retrievalTimestamp: string;
   exactQuote: string;
   impactSummary: string;
-  verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived';
+  verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news';
   sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
   sourceVariant: string | null;
   contentKind: 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact';
@@ -166,7 +172,7 @@ export const thesisExportSchema = z.object({
           retrievalTimestamp: z.string(),
           exactQuote: z.string(),
           impactSummary: z.string(),
-          verificationStatus: z.enum(['exact_verified', 'ocr_matched', 'derived']),
+          verificationStatus: z.enum(['exact_verified', 'ocr_matched', 'derived', 'secondary_issuer', 'secondary_news']),
           sourceFormat: z.enum(['html', 'pdf', 'image', 'xbrl']),
           sourceVariant: z.string().nullable().optional(),
           contentKind: z.enum(['text', 'table', 'chart', 'screenshot', 'structured_fact']).default('text'),

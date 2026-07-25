@@ -2,15 +2,49 @@
 
 Status: `complete`
 
-Active Packet: [`docs/milestones/M006-in-pipeline-vision-extraction.md`](docs/milestones/M006-in-pipeline-vision-extraction.md) (complete 2026-07-25; all five slices done, live probe evidence recorded; M007 not yet scoped as a packet)
+Active Packet: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md) (complete 2026-07-25; all eight slices done; one AC only structurally prepared, not exercised — see the packet's "Slice Outcomes"; M008 not yet scoped as a packet)
 
-Latest Completed Packet: [`docs/milestones/M006-in-pipeline-vision-extraction.md`](docs/milestones/M006-in-pipeline-vision-extraction.md) (complete; all five ACs met, one honestly-recorded caveat on AC-M006-04's Indonesian probe — see the packet's "Slice Outcomes")
+Latest Completed Packet: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md) (complete; AC-M007-01/02/03/05/06 fully met, AC-M007-04 structurally prepared but not exercised since Class C was deferred; R-010 → `Mitigated`, R-013 stays `Open` — see "Slice Outcomes")
 
-See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M006→M007 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md).
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M008 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to a new M008 slot, not yet scoped.
 
 ## Current Phase
 
-M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), and M006 (In-Pipeline Vision Extraction & Injection Hardening) are 100% completed and verified.
+M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), M006 (In-Pipeline Vision Extraction & Injection Hardening), and M007 (Secondary-Source/General-News Ingestion) are 100% completed and verified.
+
+Milestone 7 added two secondary evidence classes — `secondary_issuer`
+(company IR press releases) and `secondary_news` (curated financial news
+wires) — structurally incapable of ever being promoted to `exact_verified`/
+`ocr_matched`: `extractSecondaryCandidates` (`lib/research/extractors/candidate.ts`)
+is a dedicated function whose only exits are dedicated factories, so the
+invariant lives in which function was called, not in a runtime check.
+Proven adversarially by reusing exact-verified-shaped source text through
+the secondary path (unit test and eval case `MM-023`) and confirming it
+still cannot be promoted. New adapters `IssuerPressReleaseAdapter`/
+`NewsWireAdapter` (`lib/research/adapters/`) always tag `sourceTier: 'secondary'`
+— deliberately siblings to, not reuses of, `IssuerAdapter`, which hardcodes
+`'official'`. An assumption resting only on secondary evidence is gated to
+`pending_confirmation`, clearing to `untested` when official evidence
+arrives or to a distinct `user_confirmed_secondary` (never `verified`) on
+explicit user acceptance — both transitions proven end-to-end through real
+`processResearchJobs` calls, not just the pure decision function in
+isolation. Secondary-source failures are isolated: a throwing adapter never
+changes `research_jobs.status`. R-010 moved to `Mitigated`.
+
+**Deliberately not done — Class C (web search discovery):** no
+search-provider integration exists anywhere in this codebase; a
+`discoveryCandidates` table (schema-ready, structurally excludes snippet
+text) sits unpopulated. Recorded as a new, unscoped **M008** rather than
+silently left inside M007. R-013 (search snippets treated as evidence)
+**stays `Open`** — a milestone that ships none of the search-handling code
+cannot be credited with mitigating the risk that code would address. See
+the M007 packet's "Slice Outcomes" and `docs/milestones/ROADMAP.md`.
+
+A real regression surfaced and was fixed mid-milestone: turning the
+assumption-status line from raw enum text into a proper badge broke two
+pre-existing Playwright assertions expecting the old literal text — caught
+by `npm run test:e2e`, not vitest, and fixed by updating the assertions to
+match the new (correct) UI.
 
 Milestone 6 made M005's proven OCR/vision capability reachable from the
 product instead of remaining an isolated eval seam, and moved R-018's
@@ -109,7 +143,27 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-25 (M006 implementation + live injection-probe eval).
+Latest full verification: 2026-07-25 (M007 implementation, all eight slices).
+
+- `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-25 (156
+  passed, 3 skipped — up from 130 at M006's addendum; adds schema,
+  extractor/candidate structural gate, adapter, pipeline/service
+  integration, confirmation-gate, UI, and eval coverage for M007)
+- `npm run build`: pass on 2026-07-25
+- `npm run test:e2e` (Playwright): 3/3 pass on 2026-07-25, after fixing a
+  real regression the suite caught (assumption-status badge text change —
+  see "Current Phase")
+- `npm run eval:m001:multimodal -- --output test-results/m007-slice7-multimodal-report.json`:
+  pass on 2026-07-25; 0 hard-gate failures, `additionalCaseCount: 23` (up
+  from 20) — includes the first genuinely assertive cases in this suite
+  (`MM-021`/`022`/`023`); every prior case in this file had `status: 'passed'`
+  hardcoded and could not actually fail
+- `npm run eval:m001:provider -- --mode deterministic --model minimax-m3:cloud --output test-results/m007-slice7-provider-report.json`:
+  pass on 2026-07-25; 0 hard-gate failures, confirms `additionalCaseCount: 23`
+  propagates through this script unchanged
+- `npm run status:check`, `npm run context:check`: pass on 2026-07-25
+
+Previous full verification: 2026-07-25 (M006 implementation + live injection-probe eval).
 
 - `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-25 (124
   passed, 3 skipped — adds vision-extraction-pipeline, R-017 structural
@@ -243,14 +297,23 @@ Release evidence:
 - No production wiring selects a vision provider. `CitationPipeline` is
   constructed without one in `lib/research/service.ts`, so image sources
   still fail closed in the running app even after M006.
-- Secondary-source and general-news ingestion remain deferred (M007).
+- **M007 boundaries.** Class C (web search discovery) is entirely deferred —
+  no search-provider integration exists; the `discoveryCandidates` table
+  (`db/schema.ts`) is schema-ready but unpopulated. R-013 (search snippets
+  treated as evidence) **stays `Open`** pending that work, tracked as a new,
+  unscoped **M008** (`docs/milestones/ROADMAP.md`). DEC-0015 named the
+  Top-10 Queue and Portfolio Briefing as additional secondary-evidence badge
+  locations; only the Research drawer and alerts sidebar were built — those
+  two surfaces don't currently render any evidence-level trust badges at
+  all (confirmed by grep), so extending them would have meant inventing new
+  UI surface beyond this milestone's scope, not filling in an existing gap.
 - `npm audit --omit=dev` currently reports two moderate dependency findings
   (transitive `postcss` via `next`); no forced breaking upgrade was applied in
   this slice.
 
 ## Next Steps
 
-Milestones 4, 5, and 6 are complete and verified (2026-07-25).
+Milestones 4, 5, 6, and 7 are complete and verified (2026-07-25).
 
 1. ~~**DEC-0009 Amendment**~~ Accepted: [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
    clarifies that recorded Buy/Hold/Reduce/Exit decisions are governed
@@ -284,13 +347,24 @@ Milestones 4, 5, and 6 are complete and verified (2026-07-25).
    rather than closed. See the packet's "Slice Outcomes" and
    [`docs/evidence/releases/2026-07-25-m006-injection-eval/manifest.md`](docs/evidence/releases/2026-07-25-m006-injection-eval/manifest.md).
 
-6. **Milestone 7** — Secondary-Source/General-News Ingestion, per
-   [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md). Not yet scoped
-   as a packet; needs its own upstream product decision (source allowlist,
-   trust/licensing rules) before scoping can start.
+6. ~~**Milestone 7**~~ Complete: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md)
+   (complete 2026-07-25). Product-scoping decision
+   [`DEC-0015`](docs/decisions/DEC-0015-secondary-source-ingestion-boundaries.md)
+   accepted the same day. AC-M007-01/02/03/05/06 fully met; AC-M007-04
+   (R-013 snippet exclusion) only structurally prepared, not exercised,
+   since Class C was deferred in full. R-010 moved to `Mitigated`; R-013
+   stays `Open`. See the packet's "Slice Outcomes".
+
+7. **Milestone 8** — Web Search Discovery (Class C), per
+   [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md). Not yet
+   scoped as a packet. Deliberately deferred out of M007 per R-005 (Class
+   A/B already deliver full secondary-source functionality without a
+   search-API dependency); needs a search-provider integration decision and
+   a mandatory fetch-and-classify promotion workflow before scoping can
+   start. Addresses R-013.
 
 Promoted lessons consulted: `LC-20260703-001`
 
 Learning candidates created: `LC-20260708-001` (2026-07-05, separate session);
-`LC-20260725-001` through `LC-20260725-003` (2026-07-25, this session — not
-yet reviewed)
+`LC-20260725-001` through `LC-20260725-003` (2026-07-25, earlier this
+session — not yet reviewed)

@@ -10,13 +10,28 @@ const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [], decisions: [] }
 function evidenceBadge(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
   if (status === 'ocr_matched') return 'OCR matched';
   if (status === 'derived') return 'Derived';
+  if (status === 'secondary_issuer') return 'Secondary: Issuer PR';
+  if (status === 'secondary_news') return 'Secondary: News Wire';
   return 'Exact source match';
 }
 
 function evidenceWarning(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
   if (status === 'ocr_matched') return 'OCR evidence is matched to retained OCR text, not source-exact document text.';
   if (status === 'derived') return 'Derived evidence is calculated or parsed from retained inputs and must keep its method visible.';
+  if (status === 'secondary_issuer') return 'Secondary evidence from a company press release. Not an official filing; interpretation and official confirmation remain pending.';
+  if (status === 'secondary_news') return 'Secondary evidence from a curated news wire. Not an official filing; interpretation and official confirmation remain pending.';
   return null;
+}
+
+// M007. Assumption-level status badge, mirroring evidenceBadge's shape —
+// today's plain-text rendering is the only status without one.
+function assumptionStatusBadge(status: ResearchPanelDTO['items'][number]['assumptionStatus']) {
+  if (status === 'pending_confirmation') return 'Pending confirmation';
+  if (status === 'user_confirmed_secondary') return 'User-confirmed (secondary)';
+  if (status === 'verified') return 'Verified';
+  if (status === 'challenged') return 'Challenged';
+  if (status === 'held-belief') return 'Held belief';
+  return 'Untested';
 }
 
 // R-018. The flag rides in the evidence `metadata` JSON column; unparseable
@@ -63,6 +78,8 @@ export function ResearchPanel({
   const [optionalAction, setOptionalAction] = useState<'Buy' | 'Hold' | 'Reduce' | 'Exit' | null>(null);
   const [userReasoning, setUserReasoning] = useState('');
   const [recording, setRecording] = useState(false);
+
+  const [acceptingSecondaryEvidence, setAcceptingSecondaryEvidence] = useState<string | null>(null);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [recommendation, setRecommendation] = useState<{
@@ -204,6 +221,24 @@ export function ResearchPanel({
     await runQueued();
   };
 
+  // M007 Slice 5/6. Explicit user acceptance of a secondary-only assumption
+  // (clearing path 2) — lands on 'user_confirmed_secondary', never
+  // 'verified', so the badge stays visibly distinct even after acceptance.
+  const acceptSecondaryEvidence = async (assumptionId: string) => {
+    setAcceptingSecondaryEvidence(assumptionId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/assumptions/${assumptionId}/accept-secondary-evidence`, { method: 'POST' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Unable to accept secondary evidence.');
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to accept secondary evidence.');
+    } finally {
+      setAcceptingSecondaryEvidence(null);
+    }
+  };
+
   const refreshAll = async () => {
     setRefreshing(true);
     setError(null);
@@ -281,7 +316,21 @@ export function ResearchPanel({
                 </span>
               </div>
               <h3>{item.statement}</h3>
-              <p className={styles.muted}>Assumption: {item.assumptionStatus}</p>
+              <p className={styles.muted}>
+                Assumption:{' '}
+                <span className={`${styles.statusBadge} ${styles[`status_${item.assumptionStatus.replace('-', '_')}`] ?? ''}`}>
+                  {assumptionStatusBadge(item.assumptionStatus)}
+                </span>
+              </p>
+              {item.assumptionStatus === 'pending_confirmation' && (
+                <button
+                  className={styles.acceptSecondaryEvidenceButton}
+                  onClick={() => acceptSecondaryEvidence(item.assumptionId)}
+                  disabled={acceptingSecondaryEvidence === item.assumptionId}
+                >
+                  {acceptingSecondaryEvidence === item.assumptionId ? 'Accepting…' : 'Accept secondary evidence'}
+                </button>
+              )}
               {(item.job.status === 'queued' || item.job.status === 'running') && (
                 <p className={styles.muted}>
                   Checking {item.job.sourceMode === 'live' ? 'the live official source' : 'the synthetic official-source fixture'}…

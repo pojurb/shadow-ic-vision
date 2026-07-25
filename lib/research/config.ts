@@ -41,3 +41,39 @@ export function getIssuerSourceUrls(): Record<string, string> {
     return {};
   }
 }
+
+// M007 Class A: same shape as getIssuerSourceUrls (ticker -> allowlisted
+// IR page URL), but for press-release pages rather than financial-report
+// pages — kept as a separate env var and reader so the two source classes
+// (official-filing-mirror vs. secondary press releases) can be configured
+// and revoked independently.
+export function getIssuerPressReleaseUrls(): Record<string, string> {
+  const raw = process.env.ISSUER_PRESS_RELEASE_URLS?.trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).flatMap(([ticker, value]) =>
+      typeof value === 'string' && value.startsWith('https://') ? [[ticker.toUpperCase(), value]] : [],
+    ));
+  } catch {
+    return {};
+  }
+}
+
+// M007 Class B: publisher name -> allowlisted RSS/Atom/JSON feed URL. Not
+// keyed by ticker (a news wire serves many tickers from one feed) — the
+// NewsWireAdapter filters items by ticker after fetching.
+export function getNewsWireFeedUrls(): Record<string, string> {
+  const raw = process.env.NEWS_WIRE_FEED_URLS?.trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).flatMap(([publisherName, value]) =>
+      typeof value === 'string' && value.startsWith('https://') ? [[publisherName, value]] : [],
+    ));
+  } catch {
+    return {};
+  }
+}

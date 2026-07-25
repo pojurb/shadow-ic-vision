@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "9bab3310f7835497d44f3b10d7c97ae9543df66f1b62cd1590069e176e875ec7",
+  "sourceDigest": "dcebfe817e3be555d0bfec64a59088f2e6c73e0e44447b02449b7b10bb0197b3",
   "roots": [
     "app",
     "components",
@@ -9,6 +9,23 @@
     "tests"
   ],
   "modules": [
+    {
+      "path": "app/api/assumptions/[id]/accept-secondary-evidence/route.ts",
+      "kind": "route",
+      "imports": [
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "next/server",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "POST"
+      ]
+    },
     {
       "path": "app/api/chat/route.ts",
       "kind": "route",
@@ -728,6 +745,7 @@
         "assumptions",
         "conversations",
         "decisions",
+        "discoveryCandidates",
         "evidence",
         "ingestionLeases",
         "ingestionRuns",
@@ -984,12 +1002,28 @@
           "resolved": "lib/research/adapters/issuer.ts"
         },
         {
+          "specifier": "./issuer-press",
+          "resolved": "lib/research/adapters/issuer-press.ts"
+        },
+        {
           "specifier": "./mock-idx",
           "resolved": "lib/research/adapters/mock-idx.ts"
         },
         {
+          "specifier": "./mock-issuer-press",
+          "resolved": "lib/research/adapters/mock-issuer-press.ts"
+        },
+        {
+          "specifier": "./mock-news-wire",
+          "resolved": "lib/research/adapters/mock-news-wire.ts"
+        },
+        {
           "specifier": "./mock-sec",
           "resolved": "lib/research/adapters/mock-sec.ts"
+        },
+        {
+          "specifier": "./news-wire",
+          "resolved": "lib/research/adapters/news-wire.ts"
         },
         {
           "specifier": "./sec",
@@ -1001,6 +1035,8 @@
         }
       ],
       "exports": [
+        "SecondarySourceAdapters",
+        "createSecondarySourceAdapters",
         "createSourceAdapters"
       ]
     },
@@ -1046,6 +1082,32 @@
       ]
     },
     {
+      "path": "lib/research/adapters/issuer-press.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "IssuerPressReleaseAdapter",
+        "discoverIssuerPressReleases"
+      ]
+    },
+    {
       "path": "lib/research/adapters/issuer.ts",
       "kind": "module",
       "imports": [
@@ -1085,6 +1147,32 @@
       ]
     },
     {
+      "path": "lib/research/adapters/mock-issuer-press.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockIssuerPressReleaseAdapter"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/mock-news-wire.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockNewsWireAdapter"
+      ]
+    },
+    {
       "path": "lib/research/adapters/mock-sec.ts",
       "kind": "module",
       "imports": [
@@ -1095,6 +1183,32 @@
       ],
       "exports": [
         "MockSecAdapter"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/news-wire.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "NewsWireAdapter",
+        "parseNewsFeedItems"
       ]
     },
     {
@@ -1140,6 +1254,20 @@
       ]
     },
     {
+      "path": "lib/research/assumption-status.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./extractors/candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        }
+      ],
+      "exports": [
+        "AssumptionStatus",
+        "deriveAssumptionStatus"
+      ]
+    },
+    {
       "path": "lib/research/config.ts",
       "kind": "module",
       "imports": [
@@ -1154,7 +1282,9 @@
       ],
       "exports": [
         "getCronSecret",
+        "getIssuerPressReleaseUrls",
         "getIssuerSourceUrls",
+        "getNewsWireFeedUrls",
         "getOutboundLogPath",
         "getResearchSchedule",
         "getResearchSourceMode",
@@ -1191,7 +1321,10 @@
         "EvidenceVerificationStatus",
         "createDerivedCandidate",
         "createOcrCandidate",
-        "extractDeterministicCandidates"
+        "createSecondaryIssuerCandidate",
+        "createSecondaryNewsCandidate",
+        "extractDeterministicCandidates",
+        "extractSecondaryCandidates"
       ]
     },
     {
@@ -1466,6 +1599,18 @@
       "kind": "module",
       "imports": [
         {
+          "specifier": "./adapters/factory",
+          "resolved": "lib/research/adapters/factory.ts"
+        },
+        {
+          "specifier": "./adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "./assumption-status",
+          "resolved": "lib/research/assumption-status.ts"
+        },
+        {
           "specifier": "./config",
           "resolved": "lib/research/config.ts"
         },
@@ -1527,6 +1672,7 @@
         }
       ],
       "exports": [
+        "acceptSecondaryEvidence",
         "confirmDraft",
         "exportThesisData",
         "generateDecisionRecommendation",
@@ -1601,6 +1747,21 @@
         {
           "specifier": "@/lib/domain/contracts",
           "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/assumption-status.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/assumption-status",
+          "resolved": "lib/research/assumption-status.ts"
         },
         {
           "specifier": "vitest",
@@ -1813,6 +1974,10 @@
         },
         {
           "specifier": "better-sqlite3",
+          "resolved": null
+        },
+        {
+          "specifier": "drizzle-orm",
           "resolved": null
         },
         {
@@ -2176,6 +2341,14 @@
           "resolved": "lib/research/adapters/issuer.ts"
         },
         {
+          "specifier": "@/lib/research/adapters/issuer-press",
+          "resolved": "lib/research/adapters/issuer-press.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/news-wire",
+          "resolved": "lib/research/adapters/news-wire.ts"
+        },
+        {
           "specifier": "@/lib/research/adapters/sec",
           "resolved": "lib/research/adapters/sec.ts"
         },
@@ -2250,6 +2423,14 @@
     }
   ],
   "routes": [
+    {
+      "path": "/api/assumptions/[id]/accept-secondary-evidence",
+      "kind": "route",
+      "module": "app/api/assumptions/[id]/accept-secondary-evidence/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
     {
       "path": "/api/chat",
       "kind": "route",
@@ -2435,6 +2616,11 @@
       "module": "db/schema.ts"
     },
     {
+      "name": "discovery_candidates",
+      "symbol": "discoveryCandidates",
+      "module": "db/schema.ts"
+    },
+    {
       "name": "evidence",
       "symbol": "evidence",
       "module": "db/schema.ts"
@@ -2500,6 +2686,12 @@
       "path": "tests/api-contracts.test.ts",
       "productionModules": [
         "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/assumption-status.test.ts",
+      "productionModules": [
+        "lib/research/assumption-status.ts"
       ]
     },
     {
@@ -2642,7 +2834,9 @@
       "path": "tests/source-adapters.test.ts",
       "productionModules": [
         "lib/research/adapters/idx.ts",
+        "lib/research/adapters/issuer-press.ts",
         "lib/research/adapters/issuer.ts",
+        "lib/research/adapters/news-wire.ts",
         "lib/research/adapters/sec.ts",
         "lib/research/http.ts"
       ]

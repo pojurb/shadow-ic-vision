@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeIdxAttachmentUrl, parseIdxAnnouncements } from '@/lib/research/adapters/idx';
 import { discoverIssuerDocuments } from '@/lib/research/adapters/issuer';
+import { discoverIssuerPressReleases } from '@/lib/research/adapters/issuer-press';
+import { NewsWireAdapter, parseNewsFeedItems } from '@/lib/research/adapters/news-wire';
 import { SecAdapter, selectLatestFiling } from '@/lib/research/adapters/sec';
 import { OfficialHttpClient, resetHttpStateForTests } from '@/lib/research/http';
 
@@ -91,6 +93,96 @@ describe('official source adapters', () => {
       ]);
   });
 
+  // M007 Class A. Deliberately does NOT reuse discoverIssuerDocuments's test
+  // fixture verbatim: press releases must be found without a .pdf extension
+  // (unlike official filings) and must always carry sourceTier 'secondary',
+  // never 'official' — the whole reason this is a sibling function.
+  it('discovers HTML press releases without requiring a .pdf extension, always tagged secondary', () => {
+    const html = '<a href="/press/q1-2026-update">Q1 2026 business update press release</a><a href="/reports/financial-20260430.pdf">Financial report</a><a href="https://evil.test/press/fake">Press release</a>';
+    const found = discoverIssuerPressReleases(html, 'https://issuer.test/newsroom', { market: 'ID', ticker: 'BBRI', documentTypes: [] });
+    expect(found).toEqual([
+      expect.objectContaining({ sourceUrl: 'https://issuer.test/press/q1-2026-update', sourceTier: 'secondary', sourceFormat: 'html' }),
+    ]);
+    // The financial-report link matches REPORT_TERMS's domain, not PRESS_RELEASE_TERMS
+    // ("financial" alone isn't a press-release term) — confirms this function
+    // uses its own term list, not IssuerAdapter's.
+    expect(found.some((item) => item.sourceUrl.includes('financial-20260430'))).toBe(false);
+    expect(found.every((item) => item.sourceTier === 'secondary')).toBe(true);
+  });
+
+  // M007 Class B.
+  describe('news wire feed parsing and discovery', () => {
+    it('parses RSS items', () => {
+      const rss = `<?xml version="1.0"?><rss><channel>
+        <item><title>PLTR reports strong quarter</title><link>https://wire.test/pltr-strong-quarter</link><pubDate>Fri, 25 Jul 2026 10:00:00 GMT</pubDate><description>Palantir (PLTR) update.</description></item>
+        <item><title>Unrelated market news</title><link>https://wire.test/unrelated</link><pubDate>Fri, 25 Jul 2026 09:00:00 GMT</pubDate><description>No ticker mentioned.</description></item>
+      </channel></rss>`;
+      const items = parseNewsFeedItems(rss, 'application/rss+xml');
+      expect(items).toHaveLength(2);
+      expect(items[0]).toMatchObject({ title: 'PLTR reports strong quarter', link: 'https://wire.test/pltr-strong-quarter' });
+    });
+
+    it('parses Atom entries', () => {
+      const atom = `<?xml version="1.0"?><feed>
+        <entry><title>BBRI update</title><link href="https://wire.test/bbri-update"/><updated>2026-07-25T10:00:00Z</updated><summary>BBRI news.</summary></entry>
+      </feed>`;
+      const items = parseNewsFeedItems(atom, 'application/atom+xml');
+      expect(items).toEqual([expect.objectContaining({ title: 'BBRI update', link: 'https://wire.test/bbri-update' })]);
+    });
+
+    it('parses a JSON feed', () => {
+      const json = JSON.stringify({ items: [{ title: 'PLTR note', link: 'https://wire.test/pltr-note', pubDate: '2026-07-25' }] });
+      const items = parseNewsFeedItems(json, 'application/json');
+      expect(items).toEqual([expect.objectContaining({ title: 'PLTR note', link: 'https://wire.test/pltr-note' })]);
+    });
+
+    it('filters discovered items by ticker and tags them secondary_news-eligible (sourceTier secondary)', async () => {
+      const rss = `<rss><channel>
+        <item><title>PLTR reports strong quarter</title><link>https://wire.test/pltr-strong-quarter</link><pubDate>Fri, 25 Jul 2026 10:00:00 GMT</pubDate><description>Palantir update.</description></item>
+        <item><title>Unrelated market news</title><link>https://wire.test/unrelated</link><pubDate>Fri, 25 Jul 2026 09:00:00 GMT</pubDate><description>No ticker mentioned.</description></item>
+      </channel></rss>`;
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(rss, { status: 200, headers: { 'content-type': 'application/rss+xml' } }));
+      const client = clientWith(fetchImpl, directory, ['wire.test']);
+      const adapter = new NewsWireAdapter({ 'Mock Wire': 'https://wire.test/feed.xml' }, { 'https://wire.test': client });
+
+      const outcome = await adapter.discover({ market: 'US', ticker: 'PLTR', documentTypes: [] });
+      expect(outcome).toMatchObject({
+        kind: 'found',
+        value: [expect.objectContaining({ sourceUrl: 'https://wire.test/pltr-strong-quarter', sourceTier: 'secondary', sourceName: 'Mock Wire' })],
+      });
+      if (outcome.kind === 'found') {
+        expect(outcome.value.some((item) => item.sourceUrl.includes('unrelated'))).toBe(false);
+      }
+    });
+
+    it('does not let one broken feed block matches from another configured feed', async () => {
+      const workingRss = '<rss><channel><item><title>PLTR update</title><link>https://good.test/pltr</link><pubDate>Fri, 25 Jul 2026 10:00:00 GMT</pubDate><description>d</description></item></channel></rss>';
+      const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.includes('broken.test')) return new Response('boom', { status: 500 });
+        return new Response(workingRss, { status: 200, headers: { 'content-type': 'application/rss+xml' } });
+      });
+      const client = clientWith(fetchImpl, directory, ['broken.test', 'good.test']);
+      const adapter = new NewsWireAdapter(
+        { 'Broken Wire': 'https://broken.test/feed.xml', 'Good Wire': 'https://good.test/feed.xml' },
+        { 'https://broken.test': client, 'https://good.test': client },
+      );
+
+      const outcome = await adapter.discover({ market: 'US', ticker: 'PLTR', documentTypes: [] });
+      expect(outcome).toMatchObject({ kind: 'found', value: [expect.objectContaining({ sourceUrl: 'https://good.test/pltr' })] });
+    });
+
+    it('reports unavailable, never throws, when no configured feed mentions the ticker', async () => {
+      const rss = '<rss><channel><item><title>Unrelated</title><link>https://wire.test/unrelated</link><description>d</description></item></channel></rss>';
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(rss, { status: 200, headers: { 'content-type': 'application/rss+xml' } }));
+      const client = clientWith(fetchImpl, directory, ['wire.test']);
+      const adapter = new NewsWireAdapter({ 'Mock Wire': 'https://wire.test/feed.xml' }, { 'https://wire.test': client });
+
+      const outcome = await adapter.discover({ market: 'US', ticker: 'PLTR', documentTypes: [] });
+      expect(outcome).toMatchObject({ kind: 'unavailable', code: 'news_wire_source_unavailable' });
+    });
+  });
+
   it('blocks non-allowlisted URLs before fetch', async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     const client = clientWith(fetchImpl, directory);
@@ -138,9 +230,9 @@ describe('official source adapters', () => {
   });
 });
 
-function clientWith(fetchImpl: typeof fetch, directory: string) {
+function clientWith(fetchImpl: typeof fetch, directory: string, allowedHosts: string[] = ['www.sec.gov']) {
   return new OfficialHttpClient({
-    allowedHosts: ['www.sec.gov'],
+    allowedHosts,
     userAgent: 'JP Invest test@example.com',
     logPath: path.join(directory, 'outbound.log'),
     fetchImpl,

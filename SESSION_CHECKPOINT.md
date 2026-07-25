@@ -1,5 +1,320 @@
 # Session Checkpoint - 2026-07-25
 
+## M007 Slice 1 — Schema (done 2026-07-25)
+
+Milestone: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md)
+(`accepted`), governed by [`DEC-0015`](docs/decisions/DEC-0015-secondary-source-ingestion-boundaries.md)
+(`accepted`). Packet co-drafted with a second AI collaborator (Gemini,
+working in the same VS Code workspace) — I corrected three issues in their
+draft before treating it as final: a premature "R-010/R-013 already
+Mitigated" claim (fixed to "currently Open, aims to mitigate," matching this
+repo's evidence-first convention), and two missing template sections
+("Workflows, States, and Recovery Behavior", "Assumptions, Risks, and
+Explicit Deferrals" — the section that's supposed to catch exactly the
+premature-Mitigated problem).
+
+Verified 131 passed / 3 skipped (up from 130), typecheck/lint clean.
+
+- `db/schema.ts`: `assumptions.status` widened with `'pending_confirmation'`
+  and `'user_confirmed_secondary'` (Drizzle `{enum:}` — TS-only narrowing,
+  confirmed no `CHECK` constraint exists anywhere in `db/migrations/*.sql`,
+  so this needed no migration). `evidence.verificationStatus`'s comment
+  widened (it was already a bare, unconstrained `text()` column — also no
+  migration). New `discoveryCandidates` table (`discovery_candidates`):
+  pre-fetch candidate URLs for the *deferred* Class C (web-search discovery)
+  path — deliberately not populated by anything in M007, and deliberately a
+  different table from the pre-existing `sourceDiscoveries` (which requires
+  an already-fetched, hashed document and can't represent a pre-fetch,
+  possibly-never-resolved candidate). No snippet/title column exists on it
+  by design — a type-level guarantee search text can never be persisted.
+- Migration `db/migrations/0007_add_discovery_candidates.sql` generated via
+  `npx drizzle-kit generate --name=add_discovery_candidates` (not hand-authored
+  — this repo's migrations are tracked via `db/migrations/meta/_journal.json`
+  + a matching snapshot, which the CLI produces correctly; confirmed the
+  generated diff touched *only* the new table, nothing else, validating the
+  no-DDL-for-enum-widening finding).
+- `lib/domain/contracts.ts`: `assumptionStatusSchema` and both
+  `verificationStatus` zod sites (`EvidenceDTO`, `thesisExportSchema`)
+  widened to match.
+- `tests/migrations.test.ts`: new case proving the widened enum values
+  round-trip, the `assumptions` table's `CREATE TABLE` SQL contains no
+  `CHECK` (the schema-level claim this design rests on), and
+  `discoveryCandidates`'s unique index + null-by-default
+  `resultingDocumentHash` behave as specified.
+
+## M007 Slice 2 — Extractor/Candidate Layer (done 2026-07-25)
+
+Verified 135 passed / 3 skipped (up from 131), typecheck/lint clean.
+
+- `lib/research/extractors/candidate.ts`: widened `EvidenceVerificationStatus`;
+  added two `EvidenceCandidate` branches (`secondary_issuer`, `secondary_news`);
+  added `createSecondaryIssuerCandidate`/`createSecondaryNewsCandidate`
+  factories; refactored the shared sentence-ranking logic out of
+  `extractDeterministicCandidates` into a new `rankSentenceCandidates` helper
+  so both it and the new `extractSecondaryCandidates` use identical scoring.
+  `extractSecondaryCandidates` is a dedicated sibling function (not a branch
+  inside `extractDeterministicCandidates`) — its only return paths call the
+  two new factories, so it has no code path capable of constructing
+  `exact_verified`/`ocr_matched`, regardless of the input document's
+  `sourceVariant`. This is the R-010 structural gate.
+- **Deliberate simplification from the packet's literal wording**: the
+  packet said secondary metadata "carries `{ publisherName }` /
+  `{ publisherName, wireService }`." Skipped as redundant —
+  `VerifiedEvidence.sourceName` (set from `SourceSnapshot.sourceName` at the
+  pipeline level, unchanged) already carries publisher/wire-service identity
+  for every evidence class; duplicating it into candidate metadata would
+  just be two names for the same fact. Both new branches keep `metadata`
+  optional/freeform, matching `exact_verified`/`ocr_matched`'s precedent
+  rather than `derived`'s required shape.
+- **Extractor field choice**: both factories hardcode
+  `extractionMethod: 'html_parser'` and `sourceVariant: 'text_layer'` —
+  reused rather than widened, since Class A/B documents are genuinely
+  HTML-parsed pages; no new `EvidenceExtractionMethod` value was needed.
+- **Ripple, expected and handled in-slice**: widening `EvidenceCandidate`
+  broke `lib/research/pipeline.ts`'s `VerifiedEvidence.verificationStatus`
+  (was hardcoded to the old 3-value union). Widened it to
+  `EvidenceVerificationStatus` — a type-only change. The pipeline's actual
+  behavioral bug (the branch that would reject every secondary candidate at
+  runtime) is **not** fixed yet — that's Slice 4, on schedule, and confirmed
+  still present by design at this point.
+- Tests (`tests/document-extraction.test.ts`, 28 → 32): both secondary
+  classes extract correctly; an adversarial case feeds a `scanned` document
+  into `extractSecondaryCandidates` and confirms it still only ever produces
+  `secondary_issuer`/`secondary_news`; factories proven to hardcode their own
+  status.
+
+## M007 Slice 3 — Adapters, Class A + B (done 2026-07-25)
+
+Verified 142 passed / 3 skipped (up from 135), typecheck/lint clean,
+`npm run build` clean.
+
+- New `lib/research/adapters/issuer-press.ts` (`IssuerPressReleaseAdapter`,
+  `discoverIssuerPressReleases`): sibling to `IssuerAdapter`, always sets
+  `sourceTier: 'secondary'`, uses its own `PRESS_RELEASE_TERMS` list, and
+  deliberately drops `IssuerAdapter`'s `.pdf`-only filter (press releases are
+  typically HTML).
+- New `lib/research/adapters/news-wire.ts` (`NewsWireAdapter`,
+  `parseNewsFeedItems`): first feed-based (not page-crawl) adapter in this
+  codebase — no existing precedent to mirror. Parses RSS `<item>`, Atom
+  `<entry>`, or a JSON `items` array; no new dependency (`cheerio`'s
+  `xmlMode: true`, already installed). Filters items by ticker
+  (word-boundary regex against title+description) after fetching, since one
+  feed typically covers many tickers. A single unreachable/broken feed never
+  blocks matches from the other configured feeds (proven by test).
+- **Real bug my own test caught before it shipped**: `PRESS_RELEASE_TERMS`
+  initially only had hyphenated/underscored forms (`press-release`), which
+  matched URL paths but not rendered link text ("press release" with a
+  space). The discovery test failed against a realistic link-text fixture,
+  which is how this was found — fixed by adding space-separated forms
+  alongside the URL-path forms.
+- New `lib/research/adapters/mock-issuer-press.ts`/`mock-news-wire.ts` for
+  `RESEARCH_SOURCE_MODE=mock`, mirroring `mock-sec.ts`'s shape.
+- `lib/research/adapters/factory.ts`: new sibling `createSecondarySourceAdapters()`
+  returning `Record<ResearchMarket, { issuerPr?; newsWire? }>` — deliberately
+  not a change to `createSourceAdapters()`'s existing return shape (other
+  code/tests depend on it). Both fields optional per market/ticker; a
+  missing config is `undefined`, never an error.
+- `lib/research/config.ts`: `getIssuerPressReleaseUrls()`/`getNewsWireFeedUrls()`,
+  mirroring `getIssuerSourceUrls()`. New env vars `ISSUER_PRESS_RELEASE_URLS`
+  (ticker → URL, like the existing issuer map) and `NEWS_WIRE_FEED_URLS`
+  (publisher name → feed URL — not ticker-keyed, since one feed covers many
+  tickers).
+- `lib/research/adapters/types.ts`: new `SourceErrorCode` value
+  `'news_wire_source_unavailable'`; `IssuerPressReleaseAdapter` reuses the
+  existing `'issuer_source_unavailable'` (same conceptual role as
+  `IssuerAdapter`'s).
+- **Two known, deliberately unsolved limitations, documented in-code** (not
+  silently absorbed): (1) article links must resolve to the same origin as
+  their feed URL — a feed whose articles live on a different domain will
+  fail closed (`source_access_denied`) rather than silently trust an
+  unconfigured domain; (2) ticker-symbol matching only, not also legal-name
+  matching as DEC-0015 §4 describes — would need either a new field on the
+  shared `SourceQuery` type (used by every adapter) or a separate
+  ticker→legal-name map, a larger cross-cutting change deferred as a
+  follow-up.
+- Tests (`tests/source-adapters.test.ts`, 9 → 16): press-release discovery
+  (HTML, no `.pdf` requirement, always `secondary`); RSS/Atom/JSON feed
+  parsing; ticker filtering; multi-feed soft-failure isolation; clean
+  `unavailable` (never a throw) when no feed matches.
+
+## M007 Slice 4 — Pipeline/Service Integration + Bug Fix (done 2026-07-25)
+
+Verified 146 passed / 3 skipped (up from 142), typecheck/lint/build clean.
+
+- **Plan deviation, reasoned not silent**: skipped adding the planned optional
+  `documentTypes` parameter to `executeResearchJob` — verified neither new
+  Slice 3 adapter reads `query.documentTypes` at all, so the parameter would
+  have been dead API surface. Only `evidenceClass: 'official' | 'secondary_issuer' | 'secondary_news' = 'official'`
+  was added.
+- `lib/research/pipeline.ts`: **fixed the confirmed pre-existing bug** — the
+  verification branch's final `else if (!candidate.metadata?.method...)` was
+  unconditional (meant for `'derived'` only) and would throw for any
+  non-official class; narrowed to `else if (verificationStatus === 'derived')`,
+  with a new `else` branch for `secondary_issuer`/`secondary_news` that
+  verifies the quote appears in `extracted.canonicalText` (proves it wasn't
+  hallucinated) but never sets `canonicalTextHash` or promotes the status —
+  that stays reserved for `exact_verified` alone. `executeResearchJob` now
+  routes to `extractSecondaryCandidates` when `evidenceClass !== 'official'`.
+  Proven end-to-end by a new pipeline-level test in
+  `tests/document-extraction.test.ts` (32 → 34) — would have produced zero
+  evidence if the fix regressed.
+- `lib/research/service.ts`: `processResearchJobs` now calls two additional
+  secondary passes per claimed job (Class A via `secondaryAdapters[market].issuerPr`,
+  Class B via `.newsWire`, both from the new `createSecondarySourceAdapters()`
+  default dependency), each through new helper `runSecondaryResearchCall`.
+  **Real placement bug caught before it shipped**: my first draft placed the
+  secondary calls *after* the official `try/catch` block — but that block has
+  early `continue` statements (`unchanged`, empty evidence) that would have
+  skipped the secondary calls entirely on those paths. Moved them *before*
+  the official try/catch so they always run, independent of the official
+  outcome (a press release can be new even when the official filing hasn't
+  changed). `runSecondaryResearchCall` never touches `research_jobs.status`/
+  `error`/`errorCode` — confirmed by a dedicated test that a throwing
+  secondary adapter leaves the job `succeeded` with `error: null`.
+  Extracted shared `evidenceInsertValues()` used by both the official
+  transaction and the secondary helper (removes ~15 lines of duplicated
+  field-mapping).
+  Also widened two more `verificationStatus` cast sites in `service.ts`
+  (`getResearchPanel`, `exportThesisData`) found by grep, not caught by
+  typecheck alone since they were type assertions (`as`), not inferred types.
+- **Test-driven discovery, not a bug but worth recording**: the *existing*
+  test suite's snapshot/evidence counts were unaffected by adding live
+  secondary calls, because the default mock secondary adapters
+  (`createSecondarySourceAdapters()` in mock mode) use generic fixture text
+  that shares too little vocabulary with those tests' assumptions to clear
+  `rankSentenceCandidates`'s `tokenMatches >= 2` threshold — confirmed by
+  tracing the token-matching logic, then proving it two ways: a new test
+  supplies a vocabulary-matching secondary adapter and confirms real
+  persistence (`secondary_issuer` row, correct `sourceTier`, official
+  evidence unaffected); a second new test confirms the soft-failure
+  guarantee. `tests/research-service.test.ts`: 12 → 14.
+
+## M007 Slice 5 — Assumption Confirmation Gate (done 2026-07-25)
+
+Verified 156 passed / 3 skipped (up from 146), typecheck/lint/build clean
+(confirmed the new route `/api/assumptions/[id]/accept-secondary-evidence`
+registered in the build output).
+
+- New `lib/research/assumption-status.ts`: `deriveAssumptionStatus`, a pure
+  decision function (current status + which verification statuses were just
+  inserted + whether official evidence already exists → next status or
+  `null`). Deliberately pure/testable in isolation from any DB access —
+  callers query state and apply the result themselves.
+- `lib/research/service.ts`: new `hasOfficialEvidence`/`applyAssumptionStatusGate`
+  helpers, wired into **both** evidence-insert transactions — the official
+  one in `processResearchJobs` (handles clearing path 1: official evidence
+  arriving reverts `pending_confirmation` → `untested`) and
+  `runSecondaryResearchCall`'s (handles the forward path: secondary-only
+  evidence moves an untouched `untested` assumption to `pending_confirmation`).
+  `runSecondaryResearchCall` gained a `now: () => Date` parameter to reach
+  the same injectable clock the rest of the module uses.
+- New `acceptSecondaryEvidence(assumptionId)` (clearing path 2): a
+  conditional update requiring current status `pending_confirmation`,
+  transitioning to `user_confirmed_secondary` — deliberately not `verified`,
+  so an accepted secondary-only assumption never looks officially verified.
+  Throws if the assumption isn't actually pending confirmation, matching
+  `retryResearchJob`'s existing conditional-update-then-throw pattern.
+- New route `app/api/assumptions/[id]/accept-secondary-evidence/route.ts`
+  (POST), matching the exact `{error: message}` / status-code convention
+  already used by `app/api/research/retry/route.ts` — no new response shape
+  invented.
+- Tests: new `tests/assumption-status.test.ts` (6 cases) unit-tests the pure
+  function directly (including "never promotes to verified — that is not
+  this function's job"). `tests/research-service.test.ts` (14 → 18) proves
+  the gate end-to-end through real `processResearchJobs` calls: an
+  assumption seeded via the built-in "simulate citation mismatch" fixture
+  (guarantees zero official evidence) plus a vocabulary-matching secondary
+  adapter reaches `pending_confirmation`; a pre-seeded `pending_confirmation`
+  assumption reverts to `untested` once official evidence arrives; and
+  `acceptSecondaryEvidence`'s success and rejection paths.
+
+## M007 Slice 6 — UI (done 2026-07-25)
+
+Verified 156 passed / 3 skipped, typecheck/lint/build clean, **and** the
+Playwright e2e suite (3/3) after fixing a real regression it caught.
+
+- `components/ResearchPanel.tsx`: `evidenceBadge`/`evidenceWarning` widened
+  for `secondary_issuer`/`secondary_news`. New `assumptionStatusBadge` —
+  every assumption status now renders as a proper badge (`.status_*` class),
+  not plain text as before; a conditional "Accept secondary evidence" button
+  appears for `pending_confirmation` assumptions, posting to Slice 5's route
+  and reloading on success.
+- `components/Workspace.module.css`: `.verified_secondary_issuer` (violet)/
+  `.verified_secondary_news` (cyan) — deliberately NOT amber, since
+  `.verified_ocr_matched` already occupies that family (DEC-0015's literal
+  "amber for secondary" wording would have collided with existing OCR/
+  degraded badges). New `.status_*` classes for every assumption status
+  (previously only job statuses had badge CSS).
+- `db/queries.ts`: `getUnreadAlerts()` projects `sourceTier`; `components/Sidebar.tsx`/
+  `ChatUI.module.css` badge it (violet `.alertSecondaryBadge`) alongside the
+  existing format badge when an alert originates from a secondary source.
+- **Real regression caught by the Playwright suite, not vitest**: turning
+  the assumption-status line from raw enum text ("untested") into a badge
+  ("Untested") broke two existing e2e assertions
+  (`tests/e2e/vertical-slice.spec.ts`) that expected the literal old text
+  verbatim. Fixed by updating both assertions to the new capitalized badge
+  text — the UI change was correct and intended; the test just needed to
+  follow it. This is exactly why the project convention requires running
+  the Playwright suite, not just vitest, before calling a UI-touching slice
+  done.
+- Existing `tests/portfolio.test.ts` alert test extended with a `sourceTier: 'official'`
+  assertion on the new projection field.
+
+## M007 Slice 7 — Evals (done 2026-07-25)
+
+Verified 156 passed / 3 skipped, typecheck/lint/build clean, plus the
+multimodal and provider evals both re-run directly: 0 hard-gate failures,
+`additionalCaseCount: 23` (up from 20) confirmed in both report shapes.
+
+- `docs/evals/M001/multimodal-cases.json`: three new cases. `MM-021`
+  (secondary_issuer) / `MM-022` (secondary_news) prove correct labeling.
+  `MM-023` is the adversarial case: it deliberately reuses `MM-001`'s exact
+  source text (the one that mints `exact_verified` through the *official*
+  path) to prove the *secondary* path cannot produce `exact_verified`/
+  `ocr_matched` for the identical text — the invariant lives in which
+  function was called, not in the text's content. `metadata.case_count`
+  updated 18 → 23 (was already stale after M006 added two cases without
+  updating it; not fixing further pre-existing looseness in that field
+  beyond accuracy).
+- `scripts/eval-m001-multimodal.ts`: widened `MultimodalCase.expected.verification_status`
+  and added `input.assumption`/`input.ticker`/`input.source_class`.
+  **Structural fix, not just new cases**: before this slice, `evaluateCase`
+  hardcoded `status: 'passed'` unconditionally — nothing in the entire
+  multimodal suite could actually fail; `hardGateFailures` was fed only by
+  provider-boundary mismatches. Restructured `deterministicNotes`/`evaluateCase`
+  to return `{ notes, hardGateFailures }`, aggregated into the top-level
+  report. `MM-021`/`MM-022`/`MM-023` are the first cases in this suite that
+  call a real extractor (`extractSecondaryCandidates`) and can genuinely
+  report `'unsupported'` with a hard-gate failure if the R-010 structural
+  gate regresses — closing the exact gap flagged in the M007 plan ("a real
+  assertion is needed so a regression can't pass silently").
+- `tests/multimodal-eval.test.ts`: case count assertion 20 → 23; explicit
+  per-case assertions for the three new cases, matching the file's existing
+  style for MM-002/005/012.
+- Confirmed `scripts/eval-m001-provider.ts` (reads the same JSON, no code
+  change needed) correctly reflects `additionalCaseCount: 23` with 0
+  hard-gate failures.
+
+### Exact Resume Point
+
+Slices 1-7 complete — all application-code slices done. Next: **Slice 8 —
+governance docs (final slice)**. `docs/RISK_REGISTER.md`: R-010 → `Mitigated`
+(structural enum isolation, confirmation gate, distinct badging — all now
+implemented and tested) with honest residual-risk language (a user can
+still misread a correctly-badged secondary source as authoritative); R-013
+→ **stays `Open`**, not `Mitigated` — Class C (the actual search-snippet
+handling code) was deferred entirely, so the risk it names cannot be
+mitigated by a milestone that shipped none of the code that would create
+it. `docs/CODEBASE_MAP.md`: research job state-machine note gains
+`pending_confirmation`/`user_confirmed_secondary` and the multi-snapshot-
+per-job reality; new "Secondary-Source Ingestion" flow paragraph; R-010
+structural gate added alongside R-017. `ACTIVE_MILESTONE.md`: flip M007 to
+`complete`, list all AC-M007-* as met. `docs/milestones/ROADMAP.md`: M007
+status → `complete`. Then a final full verification pass
+(`typecheck`/`lint`/`test`/`build`/`test:e2e`) before declaring the
+milestone done. See the packet's Slice 8 section and the plan at
+`C:\Users\napst\.claude\plans\ethereal-wandering-ladybug.md`.
+
 ## This Session (2026-07-25): M006 Re-Plan & Acceptance
 
 Governance-only session so far; no application code changed yet.

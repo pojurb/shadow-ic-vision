@@ -194,6 +194,9 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
       market: 'US',
       sourceUrl: 'https://sec.gov/pltr-10q',
       sourceName: 'SEC EDGAR 10-Q',
+      // M007: getUnreadAlerts now projects sourceTier so the UI can badge
+      // alerts originating from secondary sources.
+      sourceTier: 'official',
     });
 
     // 4. Mark specific alert as read

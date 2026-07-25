@@ -1,7 +1,7 @@
 import type { ResearchMarket, ResearchSourceMode, SourceAdapter, SourceSnapshot } from './adapters/types';
 import { createSourceAdapters } from './adapters/factory';
 import { ResearchSourceError } from './errors';
-import { extractDeterministicCandidates, type EvidenceCandidate, type EvidenceContentKind, type EvidenceExtractionMethod } from './extractors/candidate';
+import { extractDeterministicCandidates, extractSecondaryCandidates, type EvidenceCandidate, type EvidenceContentKind, type EvidenceExtractionMethod, type EvidenceVerificationStatus } from './extractors/candidate';
 import { extractDocument, type VisionTranscriber } from './extractors/document';
 import type { InstructionClassifier } from './extractors/safety';
 import { createHash, verifyExactMatch, verifyPageExactMatch } from './verifier';
@@ -20,7 +20,10 @@ export interface VerifiedEvidence {
   publishDate: string | null;
   retrievalTimestamp: string;
   extractionMethod: EvidenceExtractionMethod;
-  verificationStatus: 'exact_verified' | 'ocr_matched' | 'derived';
+  // M007 Slice 2: type widened to match EvidenceVerificationStatus. The
+  // pipeline's own branching bug that would reject secondary candidates at
+  // runtime is fixed in Slice 4, not here — this is a type-only change.
+  verificationStatus: EvidenceVerificationStatus;
   pageNumber: number | null;
   boundingBox: [number, number, number, number] | null;
   metadata: Record<string, unknown>;
@@ -54,12 +57,22 @@ export class CitationPipeline {
     this.sourceMode = adapters.US.mode === 'live' || adapters.ID.mode === 'live' ? 'live' : 'mock';
   }
 
+  /**
+   * `evidenceClass` (M007 Slice 4) selects which extraction path runs when
+   * `candidateOverrides` is absent: `'official'` (default, unchanged
+   * behavior) calls `extractDeterministicCandidates`; the two secondary
+   * classes call `extractSecondaryCandidates`. Callers making a secondary
+   * call construct a separate `CitationPipeline` instance wired with the
+   * relevant secondary adapter (see `lib/research/service.ts`) — this
+   * method does not switch adapters mid-call, only extraction behavior.
+   */
   async executeResearchJob(
     market: ResearchMarket,
     ticker: string,
     assumption: string,
     candidateOverrides?: EvidenceCandidate[],
     knownDocumentIds: ReadonlySet<string> = new Set(),
+    evidenceClass: 'official' | 'secondary_issuer' | 'secondary_news' = 'official',
   ): Promise<ResearchExecution> {
     const adapter = this.adapters[market];
     const discovery = await adapter.discover({ market, ticker, documentTypes: ['10-Q', '10-K'] });
@@ -67,7 +80,7 @@ export class CitationPipeline {
       throw new ResearchSourceError(discovery.code, discovery.message);
     }
     if (discovery.value.length === 0) {
-      throw new ResearchSourceError('source_not_found', 'Official source returned no eligible documents.');
+      throw new ResearchSourceError('source_not_found', `${evidenceClass === 'official' ? 'Official' : 'Secondary'} source returned no eligible documents.`);
     }
     if (knownDocumentIds.has(discovery.value[0].documentId)) {
       return { unchanged: true, documentId: discovery.value[0].documentId };
@@ -91,7 +104,11 @@ export class CitationPipeline {
       throw error;
     }
     const canonicalTextHash = createHash(extracted.canonicalText);
-    const candidates = candidateOverrides ?? extractDeterministicCandidates(extracted, assumption, ticker);
+    const candidates = candidateOverrides ?? (
+      evidenceClass === 'official'
+        ? extractDeterministicCandidates(extracted, assumption, ticker)
+        : extractSecondaryCandidates(extracted, assumption, ticker, evidenceClass === 'secondary_issuer' ? 'issuer' : 'news')
+    );
     const verifiedEvidence: VerifiedEvidence[] = [];
 
     for (const candidate of candidates) {
@@ -102,8 +119,22 @@ export class CitationPipeline {
           if (candidate.pageNumber !== null) verifyPageExactMatch(candidate.quote, extracted.pages, candidate.pageNumber);
         } else if (verificationStatus === 'ocr_matched') {
           verifyExactMatch(candidate.quote, candidate.ocrText);
-        } else if (!candidate.metadata?.method || candidate.metadata.inputs === undefined) {
-          throw new Error('Derived evidence is missing deterministic derivation metadata.');
+        } else if (verificationStatus === 'derived') {
+          // Confirmed pre-existing bug (M007 Slice 4): this branch used to be
+          // an unconditional `else`, so it also ran for secondary_issuer/
+          // secondary_news candidates — which have no metadata.method and
+          // would always throw here, silently discarding every secondary
+          // candidate through the catch below. Narrowed to 'derived' only.
+          if (!candidate.metadata?.method || candidate.metadata.inputs === undefined) {
+            throw new Error('Derived evidence is missing deterministic derivation metadata.');
+          }
+        } else {
+          // secondary_issuer / secondary_news (M007): the quote must still
+          // appear verbatim in the retained document text — proves it wasn't
+          // hallucinated — but this NEVER sets canonicalTextHash below and
+          // NEVER promotes verificationStatus; that distinction is reserved
+          // for exact_verified alone (R-017/R-010).
+          verifyExactMatch(candidate.quote, extracted.canonicalText);
         }
 
         verifiedEvidence.push({

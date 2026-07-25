@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ChatResult, LLMProvider, ProjectMessage, ProviderCallContext, ProviderCapabilities, ProviderMetadata, StructuredExtractResult } from '@/lib/ai/provider';
 import type { SourceAdapter } from '@/lib/research/adapters/types';
 import { CitationPipeline } from '@/lib/research/pipeline';
-import { createDerivedCandidate, createOcrCandidate, extractDeterministicCandidates } from '@/lib/research/extractors/candidate';
+import { createDerivedCandidate, createOcrCandidate, createSecondaryIssuerCandidate, createSecondaryNewsCandidate, extractDeterministicCandidates, extractSecondaryCandidates } from '@/lib/research/extractors/candidate';
 import { extractDocument, extractHtml, extractPdf } from '@/lib/research/extractors/document';
 import { createVisionTranscriber, extractSyntheticOcrCandidate, extractVisionOcrCandidate } from '@/lib/research/extractors/ocr';
 import { calculateGrossMarginFromFacts } from '@/lib/research/extractors/xbrl';
@@ -180,6 +180,65 @@ describe('deterministic document extraction', () => {
     }, 'PLTR gross margin remains above 80%.', 'PLTR');
 
     expect(candidates[0].verificationStatus).toBe('exact_verified');
+  });
+
+  // M007 R-010 structural gate. extractSecondaryCandidates is a dedicated
+  // function whose only return paths call createSecondaryIssuerCandidate/
+  // createSecondaryNewsCandidate — it must be incapable of producing
+  // exact_verified/ocr_matched regardless of the input document's shape.
+  describe('secondary-source candidate extraction (M007)', () => {
+    const issuerText = 'Net revenue increased 10%. Palantir reported gross margin of 81.3% in the quarter.';
+    const textLayerDocument = {
+      canonicalText: issuerText,
+      pages: [{ pageNumber: null, text: issuerText }],
+      parserVersion: 'test',
+      extractionMethod: 'html_parser' as const,
+      sourceVariant: 'text_layer' as const,
+      untrustedInstructionFlagged: false,
+    };
+    const scannedDocument = {
+      ...textLayerDocument,
+      extractionMethod: 'vision' as const,
+      sourceVariant: 'scanned' as const,
+      parserVersion: 'vision-stub-vision-1',
+    };
+
+    it('extracts secondary_issuer candidates from a text-layer document, never exact_verified', () => {
+      const candidates = extractSecondaryCandidates(textLayerDocument, 'PLTR gross margin remains above 80%.', 'PLTR', 'issuer');
+      expect(candidates.length).toBeGreaterThan(0);
+      for (const candidate of candidates) {
+        expect(candidate.verificationStatus).toBe('secondary_issuer');
+        expect(candidate.verificationStatus).not.toBe('exact_verified');
+        expect(candidate.verificationStatus).not.toBe('ocr_matched');
+      }
+    });
+
+    it('extracts secondary_news candidates, never exact_verified or ocr_matched', () => {
+      const candidates = extractSecondaryCandidates(textLayerDocument, 'PLTR gross margin remains above 80%.', 'PLTR', 'news');
+      expect(candidates.length).toBeGreaterThan(0);
+      for (const candidate of candidates) {
+        expect(candidate.verificationStatus).toBe('secondary_news');
+      }
+    });
+
+    // The adversarial case: even a document shaped exactly like the input
+    // that would make extractDeterministicCandidates mint exact_verified
+    // (a text-layer document) still cannot produce exact_verified here,
+    // because extractSecondaryCandidates has no code path to that factory.
+    it('never mints exact_verified or ocr_matched even under adversarial input (scanned document)', () => {
+      const candidates = extractSecondaryCandidates(scannedDocument, 'PLTR gross margin remains above 80%.', 'PLTR', 'issuer');
+      expect(candidates.length).toBeGreaterThan(0);
+      for (const candidate of candidates) {
+        expect(['secondary_issuer', 'secondary_news']).toContain(candidate.verificationStatus);
+      }
+    });
+
+    it('createSecondaryIssuerCandidate/createSecondaryNewsCandidate hardcode their own verificationStatus', () => {
+      const issuerCandidate = createSecondaryIssuerCandidate({ quote: 'q', impactSummary: 'i', pageNumber: null });
+      const newsCandidate = createSecondaryNewsCandidate({ quote: 'q', impactSummary: 'i', pageNumber: null });
+      expect(issuerCandidate.verificationStatus).toBe('secondary_issuer');
+      expect(newsCandidate.verificationStatus).toBe('secondary_news');
+    });
   });
 
   // R-018. Before M006 these scans ran only in tests and the eval script; the
@@ -430,6 +489,72 @@ describe('vision extraction through the citation pipeline', () => {
       expect(item.canonicalTextHash).toBeNull();
       expect(item.metadata.untrustedInstructionFlagged).toBe(true);
     }
+  });
+});
+
+// M007 Slice 4. Proves the confirmed pre-existing pipeline bug is actually
+// fixed end-to-end: before the fix, a secondary candidate's lack of
+// metadata.method would hit the unconditional 'derived' validation branch
+// and throw, silently discarding it through the surrounding catch — this
+// test would have produced zero evidence if the fix regressed.
+describe('secondary-source evidence through the citation pipeline (M007)', () => {
+  const htmlAdapter = (): SourceAdapter => {
+    const snapshot = {
+      documentId: 'press-release-1',
+      market: 'US' as const,
+      ticker: 'PLTR',
+      sourceUrl: 'https://example.invalid/press/pltr-update',
+      sourceName: 'Issuer press release (PLTR)',
+      sourceTier: 'secondary' as const,
+      publishDate: '2026-07-20',
+      sourceFormat: 'html' as const,
+      rawBytes: new TextEncoder().encode('<html><body><p>Palantir reported gross margin of 81.3% in the quarter.</p></body></html>'),
+      retrievalTimestamp: '2026-07-20T00:00:00.000Z',
+      contentType: 'text/html',
+      httpStatus: 200,
+    };
+    return {
+      mode: 'mock',
+      async discover() { return { kind: 'found', value: [snapshot] }; },
+      async fetchSnapshot() { return { kind: 'found', value: snapshot }; },
+    };
+  };
+
+  it('produces secondary_issuer evidence, never exact_verified, with the correct extraction/source fields', async () => {
+    const adapter = htmlAdapter();
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+
+    const result = await pipeline.executeResearchJob(
+      'US', 'PLTR', 'PLTR gross margin remains above 80%.', undefined, new Set(), 'secondary_issuer',
+    );
+    if (result.unchanged) throw new Error('Expected a fresh execution.');
+
+    expect(result.evidence.length).toBeGreaterThan(0);
+    for (const item of result.evidence) {
+      expect(item.verificationStatus).toBe('secondary_issuer');
+      expect(item.verificationStatus).not.toBe('exact_verified');
+      // Confirms the fallback expressions (sourceVariant/extractionMethod)
+      // are never hit for secondary rows — the factories always set both
+      // explicitly, so these must never fall through to the OCR-flavored
+      // defaults ('ocr' / null-then-non-text_layer).
+      expect(item.extractionMethod).toBe('html_parser');
+      expect(item.sourceVariant).toBe('text_layer');
+      expect(item.sourceTier).toBe('secondary');
+      // canonicalTextHash stays reserved for exact_verified alone (R-017/R-010).
+      expect(item.canonicalTextHash).toBeNull();
+    }
+  });
+
+  it('produces secondary_news evidence via the same pipeline call shape', async () => {
+    const adapter = htmlAdapter();
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+
+    const result = await pipeline.executeResearchJob(
+      'US', 'PLTR', 'PLTR gross margin remains above 80%.', undefined, new Set(), 'secondary_news',
+    );
+    if (result.unchanged) throw new Error('Expected a fresh execution.');
+    expect(result.evidence.length).toBeGreaterThan(0);
+    expect(result.evidence.every((item) => item.verificationStatus === 'secondary_news')).toBe(true);
   });
 });
 

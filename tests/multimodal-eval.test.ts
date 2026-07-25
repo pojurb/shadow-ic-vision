@@ -7,7 +7,7 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report).toMatchObject({
       suite: 'M001-multimodal-first-slice',
       baseCaseCount: 16,
-      additionalCaseCount: 20,
+      additionalCaseCount: 23,
       modelEligibility: 'not_evaluated',
       hardGateFailures: [],
     });
@@ -21,6 +21,22 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report.cases.find((item) => item.id === 'MM-002')).toMatchObject({ status: 'passed' });
     expect(report.cases.find((item) => item.id === 'MM-005')).toMatchObject({ status: 'passed' });
     expect(report.cases.find((item) => item.id === 'MM-012')?.notes).toContain('selected_page=237');
+    // M007: these three cases are genuinely assertive (call
+    // extractSecondaryCandidates for real), not merely descriptive — unlike
+    // most of this suite, they could actually report 'unsupported' and add
+    // a hardGateFailures entry if the R-010 structural gate regressed.
+    expect(report.cases.find((item) => item.id === 'MM-021')).toMatchObject({
+      status: 'passed',
+      notes: expect.arrayContaining(['verification_status=secondary_issuer']),
+    });
+    expect(report.cases.find((item) => item.id === 'MM-022')).toMatchObject({
+      status: 'passed',
+      notes: expect.arrayContaining(['verification_status=secondary_news']),
+    });
+    expect(report.cases.find((item) => item.id === 'MM-023')).toMatchObject({
+      status: 'passed',
+      notes: expect.arrayContaining(['verification_status=secondary_issuer']),
+    });
     expect(report.cases.every((item) => item.status === 'passed')).toBe(true);
   });
 

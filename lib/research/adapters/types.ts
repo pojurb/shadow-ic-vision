@@ -12,6 +12,7 @@ export type SourceErrorCode =
   | 'source_redirect_blocked'
   | 'source_access_denied'
   | 'issuer_source_unavailable'
+  | 'news_wire_source_unavailable'
   | 'crawl_limit_exceeded'
   | 'already_running'
   | 'citation_not_found'

@@ -27,16 +27,20 @@ import {
 } from '@/lib/domain/contracts';
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
-import { CitationPipeline } from './pipeline';
+import { CitationPipeline, type VerifiedEvidence } from './pipeline';
 import { createDerivedCandidate, createOcrCandidate, type EvidenceCandidate } from './extractors/candidate';
 import { scanEmbeddedInstructions } from './extractors/safety';
 import { getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
 import { persistSourceSnapshot } from './snapshot-store';
+import { createSecondarySourceAdapters, type SecondarySourceAdapters } from './adapters/factory';
+import type { ResearchMarket, SourceAdapter } from './adapters/types';
+import { deriveAssumptionStatus, type AssumptionStatus } from './assumption-status';
 
 type ServiceDependencies = {
   db?: AppDatabase;
   pipeline?: CitationPipeline;
+  secondaryAdapters?: Record<ResearchMarket, SecondarySourceAdapters>;
   now?: () => Date;
   snapshotDirectory?: string;
   llmModelId?: string | null;
@@ -46,6 +50,7 @@ function dependencies(input: ServiceDependencies = {}) {
   return {
     db: input.db ?? getDatabase().db,
     pipeline: input.pipeline ?? new CitationPipeline(),
+    secondaryAdapters: input.secondaryAdapters ?? createSecondarySourceAdapters(),
     now: input.now ?? (() => new Date()),
     snapshotDirectory: input.snapshotDirectory ?? getSnapshotDirectory(),
   };
@@ -207,7 +212,7 @@ export async function getResearchPanel(
           retrievalTimestamp: record.retrievalTimestamp,
           exactQuote: record.content,
           impactSummary: record.impactSummary,
-          verificationStatus: record.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
+          verificationStatus: record.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news',
           sourceFormat: record.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
           sourceVariant: record.sourceVariant,
           contentKind: record.contentKind as 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact',
@@ -226,7 +231,7 @@ export async function processResearchJobs(
   conversationId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db, pipeline, now, snapshotDirectory } = dependencies(input);
+  const { db, pipeline, secondaryAdapters, now, snapshotDirectory } = dependencies(input);
   const currentTime = now();
   const nowIso = currentTime.toISOString();
 
@@ -263,20 +268,43 @@ export async function processResearchJobs(
 
     if (!claimed || !row.thesis.ticker || !row.thesis.market) continue;
 
+    const market = row.thesis.market;
+    const ticker = row.thesis.ticker;
+    const knownDocumentIds = row.job.attemptCount > 0
+      ? new Set(db.select({ documentId: sourceSnapshots.documentId }).from(sourceSnapshots).where(and(
+          eq(sourceSnapshots.market, market), eq(sourceSnapshots.ticker, ticker),
+        )).all().map((item) => item.documentId))
+      : undefined;
+
+    // M007 Slice 4. Deliberately runs BEFORE the official try/catch below,
+    // not after it: the official path has early `continue`s (unchanged,
+    // empty evidence) that would otherwise skip these calls entirely.
+    // Secondary sources are independent of the official outcome — a press
+    // release or news item can be new even when the official filing hasn't
+    // changed — and never touch research_jobs.status (soft-failure
+    // boundary, decided scope: see runSecondaryResearchCall).
+    const marketSecondaryAdapters = secondaryAdapters[market];
+    await runSecondaryResearchCall({
+      db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+      jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+      adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer',
+    });
+    await runSecondaryResearchCall({
+      db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+      jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+      adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news',
+    });
+
     try {
       const candidateOverrides = pipeline.sourceMode === 'mock'
-        ? [candidateFor(row.thesis.market, row.assumption.statement)]
+        ? [candidateFor(market, row.assumption.statement)]
         : undefined;
       const execution = await pipeline.executeResearchJob(
-        row.thesis.market,
-        row.thesis.ticker,
+        market,
+        ticker,
         row.assumption.statement,
         candidateOverrides,
-        row.job.attemptCount > 0
-          ? new Set(db.select({ documentId: sourceSnapshots.documentId }).from(sourceSnapshots).where(and(
-              eq(sourceSnapshots.market, row.thesis.market), eq(sourceSnapshots.ticker, row.thesis.ticker),
-            )).all().map((item) => item.documentId))
-          : undefined,
+        knownDocumentIds,
       );
 
       if (execution.unchanged) {
@@ -322,29 +350,11 @@ export async function processResearchJobs(
             eq(evidence.content, result.exactQuote),
           )).get();
           if (duplicate) continue;
-          tx.insert(evidence).values({
-            id: randomUUID(),
-            assumptionId: row.assumption.id,
-            sourceFormat: result.sourceFormat,
-            contentKind: result.contentKind,
-            sourceVariant: result.sourceVariant,
-            extractionMethod: result.extractionMethod,
-            verificationStatus: result.verificationStatus,
-            sourceTier: result.sourceTier,
-            sourceName: result.sourceName,
-            publishDate: result.publishDate,
-            documentHash: result.documentHash,
-            canonicalTextHash: result.canonicalTextHash,
-            boundingBox: result.boundingBox ? JSON.stringify(result.boundingBox) : null,
-            sourceUrl: result.sourceUrl,
-            retrievalTimestamp: result.retrievalTimestamp,
-            content: result.exactQuote,
-            impactSummary: result.impactSummary,
-            pageNumber: result.pageNumber,
-            interpretationStatus: 'pending',
-            metadata: JSON.stringify(result.metadata),
-          }).run();
+          tx.insert(evidence).values(evidenceInsertValues(row.assumption.id, result)).run();
         }
+        // M007 Slice 5: official evidence arriving reverts a pending
+        // secondary-only assumption back to untested (clearing path 1).
+        applyAssumptionStatusGate(tx, row.assumption.id, execution.evidence.map((e) => e.verificationStatus), now().toISOString());
         tx.update(researchJobs).set({
           status: 'succeeded',
           error: null,
@@ -380,6 +390,130 @@ export async function processResearchJobs(
   return getResearchPanel(conversationId, input);
 }
 
+function hasOfficialEvidence(
+  tx: { select: AppDatabase['select'] },
+  assumptionId: string,
+): boolean {
+  const row = tx.select({ id: evidence.id }).from(evidence).where(and(
+    eq(evidence.assumptionId, assumptionId),
+    inArray(evidence.verificationStatus, ['exact_verified', 'ocr_matched']),
+  )).get();
+  return Boolean(row);
+}
+
+/**
+ * M007 Slice 5. Applies the confirmation-gate decision inside the same
+ * transaction as an evidence insert, given the just-inserted evidence's
+ * verification statuses. No-op when `deriveAssumptionStatus` returns null
+ * (nothing to change) or the same status (avoids a pointless write).
+ */
+function applyAssumptionStatusGate(
+  tx: { select: AppDatabase['select']; update: AppDatabase['update'] },
+  assumptionId: string,
+  insertedVerificationStatuses: VerifiedEvidence['verificationStatus'][],
+  nowIso: string,
+): void {
+  const current = tx.select({ status: assumptions.status }).from(assumptions).where(eq(assumptions.id, assumptionId)).get();
+  if (!current) return;
+  const nextStatus = deriveAssumptionStatus({
+    currentStatus: current.status as AssumptionStatus,
+    insertedVerificationStatuses,
+    hasOfficialEvidence: hasOfficialEvidence(tx, assumptionId),
+  });
+  if (nextStatus && nextStatus !== current.status) {
+    tx.update(assumptions).set({ status: nextStatus, updatedAt: nowIso }).where(eq(assumptions.id, assumptionId)).run();
+  }
+}
+
+function evidenceInsertValues(assumptionId: string, result: VerifiedEvidence) {
+  return {
+    id: randomUUID(),
+    assumptionId,
+    sourceFormat: result.sourceFormat,
+    contentKind: result.contentKind,
+    sourceVariant: result.sourceVariant,
+    extractionMethod: result.extractionMethod,
+    verificationStatus: result.verificationStatus,
+    sourceTier: result.sourceTier,
+    sourceName: result.sourceName,
+    publishDate: result.publishDate,
+    documentHash: result.documentHash,
+    canonicalTextHash: result.canonicalTextHash,
+    boundingBox: result.boundingBox ? JSON.stringify(result.boundingBox) : null,
+    sourceUrl: result.sourceUrl,
+    retrievalTimestamp: result.retrievalTimestamp,
+    content: result.exactQuote,
+    impactSummary: result.impactSummary,
+    pageNumber: result.pageNumber,
+    interpretationStatus: 'pending' as const,
+    metadata: JSON.stringify(result.metadata),
+  };
+}
+
+/**
+ * M007 Slice 4. Runs one secondary source class (Class A or B) for one
+ * assumption, entirely independent of the official research call above.
+ * Deliberate soft-failure boundary: any error here — missing adapter
+ * config, HTTP failure, empty discovery, a rejected candidate — is caught
+ * and silently absorbed. `research_jobs.status`/`error`/`errorCode` are
+ * never touched by this function; the official outcome fully owns them, so
+ * a broken news feed can never make a healthy assumption look broken.
+ */
+async function runSecondaryResearchCall(params: {
+  db: AppDatabase;
+  snapshotDirectory: string;
+  now: () => Date;
+  market: ResearchMarket;
+  ticker: string;
+  jobId: string;
+  assumptionId: string;
+  assumptionStatement: string;
+  knownDocumentIds: ReadonlySet<string> | undefined;
+  adapter: SourceAdapter | undefined;
+  evidenceClass: 'secondary_issuer' | 'secondary_news';
+}): Promise<void> {
+  if (!params.adapter) return;
+  try {
+    const pipeline = new CitationPipeline({ US: params.adapter, ID: params.adapter });
+    const execution = await pipeline.executeResearchJob(
+      params.market,
+      params.ticker,
+      params.assumptionStatement,
+      undefined,
+      params.knownDocumentIds,
+      params.evidenceClass,
+    );
+    if (execution.unchanged || execution.evidence.length === 0) return;
+
+    persistSourceSnapshot({
+      db: params.db,
+      jobId: params.jobId,
+      snapshot: execution.snapshot,
+      documentHash: execution.documentHash,
+      sourceMode: pipeline.sourceMode,
+      snapshotDirectory: params.snapshotDirectory,
+      outcome: 'verified',
+    });
+    params.db.transaction((tx) => {
+      for (const result of execution.evidence) {
+        const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
+          eq(evidence.assumptionId, params.assumptionId),
+          eq(evidence.documentHash, result.documentHash),
+          eq(evidence.content, result.exactQuote),
+        )).get();
+        if (duplicate) continue;
+        tx.insert(evidence).values(evidenceInsertValues(params.assumptionId, result)).run();
+      }
+      // M007 Slice 5: secondary evidence may move an untouched 'untested'
+      // assumption to 'pending_confirmation' (clearing path handled on the
+      // official side above — this call only ever inserts secondary rows).
+      applyAssumptionStatusGate(tx, params.assumptionId, execution.evidence.map((e) => e.verificationStatus), params.now().toISOString());
+    });
+  } catch {
+    // Soft failure, by design — see the function doc comment above.
+  }
+}
+
 export async function retryResearchJob(jobId: string, input: ServiceDependencies = {}) {
   const { db, now } = dependencies(input);
   const result = await db.update(researchJobs).set({
@@ -394,6 +528,28 @@ export async function retryResearchJob(jobId: string, input: ServiceDependencies
   )).returning({ id: researchJobs.id }).get();
 
   if (!result) throw new Error('Only degraded or failed research jobs can be retried.');
+  return result;
+}
+
+/**
+ * M007 Slice 5, clearing path 2. Explicit user acceptance of a
+ * secondary-only assumption — lands on 'user_confirmed_secondary', a status
+ * distinct from 'verified' by deliberate design decision (see the M007
+ * packet's Workflow 3 / Slice 5), so the Research drawer never shows a
+ * secondary-only assumption with the same badge as an officially-verified
+ * one, even after acceptance.
+ */
+export async function acceptSecondaryEvidence(assumptionId: string, input: ServiceDependencies = {}) {
+  const { db, now } = dependencies(input);
+  const result = await db.update(assumptions).set({
+    status: 'user_confirmed_secondary',
+    updatedAt: now().toISOString(),
+  }).where(and(
+    eq(assumptions.id, assumptionId),
+    eq(assumptions.status, 'pending_confirmation'),
+  )).returning({ id: assumptions.id, status: assumptions.status }).get();
+
+  if (!result) throw new Error('Only assumptions pending secondary confirmation can be accepted.');
   return result;
 }
 
@@ -507,7 +663,7 @@ export async function exportThesisData(
         retrievalTimestamp: e.retrievalTimestamp,
         exactQuote: e.content,
         impactSummary: e.impactSummary,
-        verificationStatus: e.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived',
+        verificationStatus: e.verificationStatus as 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news',
         sourceFormat: e.sourceFormat as 'html' | 'pdf' | 'image' | 'xbrl',
         sourceVariant: e.sourceVariant,
         contentKind: e.contentKind as 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact',

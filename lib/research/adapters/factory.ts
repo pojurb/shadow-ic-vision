@@ -1,9 +1,13 @@
-import { getIssuerSourceUrls, getOutboundLogPath, getResearchSourceMode } from '../config';
+import { getIssuerPressReleaseUrls, getIssuerSourceUrls, getNewsWireFeedUrls, getOutboundLogPath, getResearchSourceMode } from '../config';
 import { OfficialHttpClient } from '../http';
 import { IdxAdapter } from './idx';
 import { IssuerAdapter } from './issuer';
+import { IssuerPressReleaseAdapter } from './issuer-press';
 import { MockIdxAdapter } from './mock-idx';
+import { MockIssuerPressReleaseAdapter } from './mock-issuer-press';
+import { MockNewsWireAdapter } from './mock-news-wire';
 import { MockSecAdapter } from './mock-sec';
+import { NewsWireAdapter } from './news-wire';
 import { SecAdapter } from './sec';
 import type { ResearchMarket, SourceAdapter } from './types';
 
@@ -33,5 +37,55 @@ export function createSourceAdapters(): Record<ResearchMarket, SourceAdapter> {
       logPath,
       requestsPerSecond: 4,
     }), issuerAdapter),
+  };
+}
+
+export type SecondarySourceAdapters = {
+  issuerPr?: SourceAdapter;
+  newsWire?: SourceAdapter;
+};
+
+function buildClientsByOrigin(urls: Record<string, string>, logPath: string): Record<string, OfficialHttpClient> {
+  return Object.fromEntries([...new Set(Object.values(urls).map((value) => new URL(value).origin))].flatMap((origin) => {
+    const host = new URL(origin).hostname;
+    const alternateHost = host.startsWith('www.') ? host.slice(4) : `www.${host}`;
+    const client = new OfficialHttpClient({ allowedHosts: [host, alternateHost], userAgent: 'JP Invest official-source research', logPath, requestsPerSecond: 2, maxBytes: 25 * 1024 * 1024 });
+    return [[origin, client], [`https://${alternateHost}`, client]];
+  }));
+}
+
+/**
+ * M007 Slice 3. Sibling to `createSourceAdapters` — deliberately not a
+ * change to that function's `Record<ResearchMarket, SourceAdapter>` return
+ * shape, which is depended on elsewhere (including tests). Both fields are
+ * optional per market: a ticker with no configured press-release URL or no
+ * reachable news feed simply gets `undefined`, which callers must handle by
+ * skipping that source class (never by erroring).
+ */
+export function createSecondarySourceAdapters(): Record<ResearchMarket, SecondarySourceAdapters> {
+  if (getResearchSourceMode() === 'mock') {
+    const mockIssuerPr = new MockIssuerPressReleaseAdapter();
+    const mockNewsWire = new MockNewsWireAdapter();
+    return {
+      US: { issuerPr: mockIssuerPr, newsWire: mockNewsWire },
+      ID: { issuerPr: mockIssuerPr, newsWire: mockNewsWire },
+    };
+  }
+
+  const logPath = getOutboundLogPath();
+
+  const pressReleaseUrls = getIssuerPressReleaseUrls();
+  const issuerPrAdapter = Object.keys(pressReleaseUrls).length
+    ? new IssuerPressReleaseAdapter(pressReleaseUrls, buildClientsByOrigin(pressReleaseUrls, logPath))
+    : undefined;
+
+  const newsFeedUrls = getNewsWireFeedUrls();
+  const newsWireAdapter = Object.keys(newsFeedUrls).length
+    ? new NewsWireAdapter(newsFeedUrls, buildClientsByOrigin(newsFeedUrls, logPath))
+    : undefined;
+
+  return {
+    US: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
+    ID: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
   };
 }

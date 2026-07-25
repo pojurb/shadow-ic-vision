@@ -49,7 +49,11 @@ export const assumptions = sqliteTable('assumptions', {
   thesisId: text('thesis_id').notNull().references(() => theses.id, { onDelete: 'cascade' }),
   statement: text('statement').notNull(),
   status: text('status', {
-    enum: ['untested', 'verified', 'challenged', 'held-belief'],
+    // M007: 'pending_confirmation' (secondary-only evidence, no official
+    // confirmation yet) and 'user_confirmed_secondary' (explicitly accepted
+    // by the user, deliberately distinct from 'verified' — see
+    // docs/milestones/M007-secondary-source-ingestion.md Workflow 3).
+    enum: ['untested', 'verified', 'challenged', 'held-belief', 'pending_confirmation', 'user_confirmed_secondary'],
   }).notNull().default('untested'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -65,7 +69,7 @@ export const evidence = sqliteTable('evidence', {
   contentKind: text('content_kind').notNull(), // text, table, chart, screenshot, structured_fact
   sourceVariant: text('source_variant'), // text_layer, scanned, encrypted, corrupt, unsupported
   extractionMethod: text('extraction_method').notNull(), // html_parser, pdf_text, ocr, vision, table_parser, xbrl_parser, deterministic_calculation
-  verificationStatus: text('verification_status').notNull(), // exact_verified, ocr_matched, derived
+  verificationStatus: text('verification_status').notNull(), // exact_verified, ocr_matched, derived, secondary_issuer, secondary_news
   sourceTier: text('source_tier', { enum: ['official', 'secondary'] }).notNull().default('official'),
   sourceName: text('source_name').notNull().default('Unknown source'),
   publishDate: text('publish_date'),
@@ -178,6 +182,27 @@ export const sourceDiscoveries = sqliteTable('source_discoveries', {
   discoveryMethod: text('discovery_method', { enum: ['exchange_api', 'issuer_crawl'] }).notNull(),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [primaryKey({ columns: [table.documentHash, table.discoveredFromUrl] })]);
+
+// M007: pre-fetch candidate URLs for the (deferred) Class C web-search
+// discovery path. Deliberately NOT the same table as sourceDiscoveries
+// above, which requires an already-fetched, hashed document — this table
+// exists for candidates that may never resolve to one. No snippet/title
+// column exists here by design: search text is never persisted (R-013).
+export const discoveryCandidates = sqliteTable('discovery_candidates', {
+  id: text('id').primaryKey(),
+  market: text('market', { enum: ['US', 'ID'] }).notNull(),
+  ticker: text('ticker').notNull(),
+  candidateUrl: text('candidate_url').notNull(),
+  discoveredVia: text('discovered_via', { enum: ['web_search'] }).notNull().default('web_search'),
+  searchQuery: text('search_query').notNull(),
+  status: text('status', { enum: ['pending', 'fetched', 'unreachable', 'rejected'] }).notNull().default('pending'),
+  rejectionReason: text('rejection_reason'),
+  resultingDocumentHash: text('resulting_document_hash').references(() => sourceSnapshots.documentHash, { onDelete: 'set null' }),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex('discovery_candidates_market_ticker_url_unique').on(table.market, table.ticker, table.candidateUrl),
+]);
 
 // Portfolio Positions (Holdings)
 export const portfolioPositions = sqliteTable('portfolio_positions', {

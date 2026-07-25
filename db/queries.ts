@@ -182,6 +182,7 @@ export async function getUnreadAlerts() {
       sourceUrl: sourceSnapshots.sourceUrl,
       sourceName: sourceSnapshots.sourceName,
       sourceFormat: sourceSnapshots.sourceFormat,
+      sourceTier: sourceSnapshots.sourceTier,
       publishDate: sourceSnapshots.publishDate,
     })
     .from(portfolioAlerts)

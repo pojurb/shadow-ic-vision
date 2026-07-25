@@ -6,7 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
 import { assumptions, conversations, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
 import { thesisDraftSchema } from '@/lib/domain/contracts';
-import { confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
+import { acceptSecondaryEvidence, confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
 
 const draft = thesisDraftSchema.parse({
@@ -179,5 +179,138 @@ describe('local vertical slice persistence', () => {
     handle.db.insert(ingestionLeases).values({ id: 'official-source-refresh', ownerId: 'other', expiresAt: '2099-01-01T00:00:00.000Z', updatedAt: '2026-07-05T00:00:00.000Z' }).run();
     await expect(refreshOfficialSources('cron', { db: handle.db })).rejects.toBeInstanceOf(IngestionAlreadyRunningError);
     expect(handle.db.select().from(ingestionRuns).all()).toHaveLength(0);
+  });
+
+  // M007 Slice 4. The default mock secondary adapters (createSecondarySourceAdapters
+  // in mock mode) use generic fixture text that shares too little vocabulary
+  // with these tests' assumptions to pass rankSentenceCandidates's threshold —
+  // that's why the tests above see unchanged snapshot/evidence counts; it's
+  // not evidence the integration is inert. This test supplies a secondary
+  // adapter whose content genuinely matches the assumption, to prove
+  // secondary evidence really persists end-to-end through processResearchJobs.
+  it('persists secondary_issuer evidence end-to-end alongside the official result', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const issuerPrSnapshot = {
+      documentId: 'press-1', market: 'US' as const, ticker: 'PLTR',
+      sourceUrl: 'https://example.invalid/press/pltr', sourceName: 'Issuer press release (PLTR)',
+      sourceTier: 'secondary' as const, publishDate: '2026-07-20', sourceFormat: 'html' as const,
+      rawBytes: new TextEncoder().encode('<html><body><p>Palantir reported gross margin of 81.3% in the quarter, remaining above 80%.</p></body></html>'),
+      retrievalTimestamp: '2026-07-20T00:00:00.000Z', contentType: 'text/html', httpStatus: 200,
+    };
+    const issuerPrAdapter = {
+      mode: 'mock' as const,
+      async discover() { return { kind: 'found' as const, value: [issuerPrSnapshot] }; },
+      async fetchSnapshot() { return { kind: 'found' as const, value: issuerPrSnapshot }; },
+    };
+
+    const panel = await processResearchJobs(conversationId, {
+      db: handle.db,
+      snapshotDirectory: path.join(directory, 'snapshots'),
+      secondaryAdapters: {
+        US: { issuerPr: issuerPrAdapter, newsWire: undefined },
+        ID: { issuerPr: issuerPrAdapter, newsWire: undefined },
+      },
+    });
+
+    // Official evidence is unaffected.
+    expect(panel.items[0].job.status).toBe('succeeded');
+    expect(panel.items[0].evidence.some((e) => e.verificationStatus === 'exact_verified')).toBe(true);
+    // Secondary evidence was persisted too, correctly tagged, alongside it.
+    const secondaryRows = handle.db.select().from(evidence).where(eq(evidence.verificationStatus, 'secondary_issuer')).all();
+    expect(secondaryRows.length).toBeGreaterThan(0);
+    expect(secondaryRows[0]).toMatchObject({ sourceTier: 'secondary', content: expect.stringContaining('gross margin of 81.3%') });
+  });
+
+  // The soft-failure guarantee: a secondary adapter that throws must never
+  // change research_jobs.status away from the official outcome.
+  it('never fails or degrades the job when a secondary adapter errors', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const throwingAdapter = {
+      mode: 'mock' as const,
+      async discover(): Promise<never> { throw new Error('secondary source boom'); },
+      async fetchSnapshot(): Promise<never> { throw new Error('unreachable'); },
+    };
+
+    const panel = await processResearchJobs(conversationId, {
+      db: handle.db,
+      snapshotDirectory: path.join(directory, 'snapshots'),
+      secondaryAdapters: {
+        US: { issuerPr: throwingAdapter, newsWire: throwingAdapter },
+        ID: { issuerPr: throwingAdapter, newsWire: throwingAdapter },
+      },
+    });
+
+    expect(panel.items[0].job.status).toBe('succeeded');
+    expect(panel.items[0].job.error).toBeNull();
+    expect(handle.db.select().from(evidence).where(eq(evidence.verificationStatus, 'secondary_issuer')).all()).toHaveLength(0);
+  });
+
+  // M007 Slice 5. "simulate citation mismatch" (built into candidateFor)
+  // guarantees the official candidate is rejected by verifyExactMatch, so
+  // this assumption ends up with zero official evidence — exactly the
+  // "secondary-only" scenario the confirmation gate exists for.
+  it('moves an assumption to pending_confirmation when only secondary evidence is found', async () => {
+    const mismatchDraft = { ...draft, assumptions: [{ statement: 'simulate citation mismatch for gross margin.', status: 'untested' as const }] };
+    handle.db.update(messages).set({ structuredPayload: JSON.stringify(mismatchDraft) }).where(eq(messages.id, messageId)).run();
+    confirmDraft(conversationId, messageId, { db: handle.db });
+
+    const issuerPrSnapshot = {
+      documentId: 'press-mismatch-1', market: 'US' as const, ticker: 'PLTR',
+      sourceUrl: 'https://example.invalid/press/pltr-mismatch', sourceName: 'Issuer press release (PLTR)',
+      sourceTier: 'secondary' as const, publishDate: '2026-07-20', sourceFormat: 'html' as const,
+      rawBytes: new TextEncoder().encode('<html><body><p>Palantir simulate citation mismatch for gross margin update, remaining confident.</p></body></html>'),
+      retrievalTimestamp: '2026-07-20T00:00:00.000Z', contentType: 'text/html', httpStatus: 200,
+    };
+    const issuerPrAdapter = {
+      mode: 'mock' as const,
+      async discover() { return { kind: 'found' as const, value: [issuerPrSnapshot] }; },
+      async fetchSnapshot() { return { kind: 'found' as const, value: issuerPrSnapshot }; },
+    };
+
+    await processResearchJobs(conversationId, {
+      db: handle.db,
+      snapshotDirectory: path.join(directory, 'snapshots'),
+      secondaryAdapters: {
+        US: { issuerPr: issuerPrAdapter, newsWire: undefined },
+        ID: { issuerPr: issuerPrAdapter, newsWire: undefined },
+      },
+    });
+
+    expect(handle.db.select().from(evidence).where(eq(evidence.verificationStatus, 'exact_verified')).all()).toHaveLength(0);
+    expect(handle.db.select().from(evidence).where(eq(evidence.verificationStatus, 'secondary_issuer')).all().length).toBeGreaterThan(0);
+    expect(handle.db.select().from(assumptions).get()?.status).toBe('pending_confirmation');
+  });
+
+  // Clearing path 1: official evidence arriving reverts pending_confirmation
+  // back to untested — never to 'verified'.
+  it('reverts pending_confirmation to untested when official evidence later confirms the assumption', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    handle.db.update(assumptions).set({ status: 'pending_confirmation' }).run();
+
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+
+    expect(panel.items[0].evidence.some((e) => e.verificationStatus === 'exact_verified')).toBe(true);
+    expect(handle.db.select().from(assumptions).get()?.status).toBe('untested');
+  });
+
+  describe('acceptSecondaryEvidence (M007 clearing path 2)', () => {
+    it('transitions a pending_confirmation assumption to user_confirmed_secondary', async () => {
+      const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+      const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+      handle.db.update(assumptions).set({ status: 'pending_confirmation' }).where(eq(assumptions.id, assumption.id)).run();
+
+      const result = await acceptSecondaryEvidence(assumption.id, { db: handle.db });
+      expect(result.status).toBe('user_confirmed_secondary');
+      expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('user_confirmed_secondary');
+    });
+
+    it('refuses to accept an assumption that is not pending confirmation', async () => {
+      const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+      const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+      expect(assumption.status).toBe('untested');
+
+      await expect(acceptSecondaryEvidence(assumption.id, { db: handle.db })).rejects.toThrow();
+      expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('untested');
+    });
   });
 });

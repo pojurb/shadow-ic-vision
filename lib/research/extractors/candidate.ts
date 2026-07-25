@@ -1,6 +1,6 @@
 import type { ExtractedDocument } from './document';
 
-export type EvidenceVerificationStatus = 'exact_verified' | 'ocr_matched' | 'derived';
+export type EvidenceVerificationStatus = 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news';
 export type EvidenceContentKind = 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact';
 export type EvidenceExtractionMethod =
   | 'html_parser'
@@ -48,6 +48,31 @@ export type EvidenceCandidate = {
     formula?: string;
     parserVersion?: string;
   };
+} | {
+  // M007. Publisher/wire-service identity is already carried by
+  // `VerifiedEvidence.sourceName` (set from `SourceSnapshot.sourceName` at
+  // the pipeline level) — duplicating it into `metadata` would be
+  // redundant, so `metadata` stays optional/freeform here, matching
+  // `exact_verified`/`ocr_matched` rather than `derived`'s required shape.
+  quote: string;
+  impactSummary: string;
+  verificationStatus: 'secondary_issuer';
+  pageNumber: number | null;
+  contentKind?: 'text';
+  extractionMethod?: 'html_parser';
+  sourceVariant?: 'text_layer';
+  boundingBox?: [number, number, number, number] | null;
+  metadata?: Record<string, unknown>;
+} | {
+  quote: string;
+  impactSummary: string;
+  verificationStatus: 'secondary_news';
+  pageNumber: number | null;
+  contentKind?: 'text';
+  extractionMethod?: 'html_parser';
+  sourceVariant?: 'text_layer';
+  boundingBox?: [number, number, number, number] | null;
+  metadata?: Record<string, unknown>;
 };
 
 const STOP_WORDS = new Set([
@@ -56,12 +81,12 @@ const STOP_WORDS = new Set([
   'saya', 'tetap', 'untuk', 'yang',
 ]);
 
-export function extractDeterministicCandidates(
+function rankSentenceCandidates(
   document: ExtractedDocument,
   assumption: string,
   ticker: string,
-  limit = 3,
-): EvidenceCandidate[] {
+  limit: number,
+): Array<{ quote: string; pageNumber: number | null }> {
   const assumptionTokens = significantTokens(`${ticker} ${assumption}`);
   const assumptionNumbers = numbers(assumption);
   const ranked = document.pages.flatMap((page) => splitSentences(page.text).map((quote) => {
@@ -77,10 +102,20 @@ export function extractDeterministicCandidates(
     };
   }));
 
-  const selected = ranked
+  return ranked
     .filter((candidate) => candidate.tokenMatches >= 2 && candidate.score >= 8 && candidate.quote.length >= 20)
     .sort((left, right) => right.score - left.score || left.quote.length - right.quote.length)
-    .slice(0, limit);
+    .slice(0, limit)
+    .map(({ quote, pageNumber }) => ({ quote, pageNumber }));
+}
+
+export function extractDeterministicCandidates(
+  document: ExtractedDocument,
+  assumption: string,
+  ticker: string,
+  limit = 3,
+): EvidenceCandidate[] {
+  const selected = rankSentenceCandidates(document, assumption, ticker, limit);
 
   // R-017 invariant. A quote drawn from a model transcription is only ever
   // exact with respect to that transcription, never to the source document —
@@ -105,6 +140,38 @@ export function extractDeterministicCandidates(
     contentKind: 'text' as const,
     impactSummary: 'Exact source passage matched deterministically. Interpretation remains pending.',
   }));
+}
+
+/**
+ * M007. A sibling to `extractDeterministicCandidates`, not a branch inside
+ * it. Its only return paths call `createSecondaryIssuerCandidate`/
+ * `createSecondaryNewsCandidate`, so it has no code path capable of
+ * constructing `exact_verified`/`ocr_matched` — the R-010 structural gate
+ * lives in which function was called, not in a runtime check on the
+ * document's shape. (Branching inside `extractDeterministicCandidates`
+ * instead, mirroring its `sourceVariant === 'scanned'` gate, was considered
+ * and rejected: that function's exact-verified branch already constructs
+ * evidence inline rather than via a factory, so a third inline branch would
+ * let one function's source construct all five verification statuses — a
+ * weaker invariant than a dedicated function whose only exits are dedicated
+ * factories. See the M007 packet's "Options Considered" #2.)
+ */
+export function extractSecondaryCandidates(
+  document: ExtractedDocument,
+  assumption: string,
+  ticker: string,
+  sourceClass: 'issuer' | 'news',
+  limit = 3,
+): EvidenceCandidate[] {
+  const selected = rankSentenceCandidates(document, assumption, ticker, limit);
+  const impactSummary = sourceClass === 'issuer'
+    ? 'Passage matched against a company investor-relations release. Secondary source; official confirmation remains pending.'
+    : 'Passage matched against a curated news-wire article. Secondary source; official confirmation remains pending.';
+
+  if (sourceClass === 'issuer') {
+    return selected.map(({ quote, pageNumber }) => createSecondaryIssuerCandidate({ quote, pageNumber, impactSummary }));
+  }
+  return selected.map(({ quote, pageNumber }) => createSecondaryNewsCandidate({ quote, pageNumber, impactSummary }));
 }
 
 export function createOcrCandidate(input: {
@@ -159,6 +226,46 @@ export function createDerivedCandidate(input: {
       formula: input.formula,
       parserVersion: input.parserVersion ?? 'synthetic-derived-1.0',
     },
+  };
+}
+
+export function createSecondaryIssuerCandidate(input: {
+  quote: string;
+  impactSummary: string;
+  pageNumber: number | null;
+  boundingBox?: [number, number, number, number] | null;
+  metadata?: Record<string, unknown>;
+}): EvidenceCandidate {
+  return {
+    quote: input.quote,
+    impactSummary: input.impactSummary,
+    verificationStatus: 'secondary_issuer',
+    pageNumber: input.pageNumber,
+    contentKind: 'text',
+    extractionMethod: 'html_parser',
+    sourceVariant: 'text_layer',
+    boundingBox: input.boundingBox ?? null,
+    metadata: input.metadata,
+  };
+}
+
+export function createSecondaryNewsCandidate(input: {
+  quote: string;
+  impactSummary: string;
+  pageNumber: number | null;
+  boundingBox?: [number, number, number, number] | null;
+  metadata?: Record<string, unknown>;
+}): EvidenceCandidate {
+  return {
+    quote: input.quote,
+    impactSummary: input.impactSummary,
+    verificationStatus: 'secondary_news',
+    pageNumber: input.pageNumber,
+    contentKind: 'text',
+    extractionMethod: 'html_parser',
+    sourceVariant: 'text_layer',
+    boundingBox: input.boundingBox ?? null,
+    metadata: input.metadata,
   };
 }
 

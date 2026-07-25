@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { extractSecondaryCandidates } from '@/lib/research/extractors/candidate';
 import { selectMostRelevantChunk } from '@/lib/research/extractors/chunking';
 import { assessRecurringGrowthCaveat } from '@/lib/research/extractors/multilingual';
 import { scanEmbeddedInstructions } from '@/lib/research/extractors/safety';
@@ -24,10 +25,14 @@ type MultimodalCase = {
       overrides?: Array<{ page: number; text: string }>;
     };
     query?: string;
+    // M007: inputs for the secondary-source assertive cases (MM-021/022/023).
+    assumption?: string;
+    ticker?: string;
+    source_class?: 'issuer' | 'news';
   };
   expected?: {
     outcome?: string;
-    verification_status?: 'exact_verified' | 'ocr_matched' | 'derived';
+    verification_status?: 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news';
     reason_code?: string;
     durable_evidence_created?: boolean;
     source_format?: string;
@@ -85,6 +90,9 @@ export function evaluateM001Multimodal(
     .filter((item) => item.actual !== item.expected)
     .map((item) => `provider-boundary:${item.id}:${item.actual}`);
 
+  const caseResults = cases.map((testCase) => evaluateCase(testCase));
+  const caseHardGateFailures = caseResults.flatMap((result) => result.hardGateFailures);
+
   return {
     schemaVersion: 1,
     suite: 'M001-multimodal-first-slice',
@@ -92,9 +100,14 @@ export function evaluateM001Multimodal(
     additionalCaseCount: cases.length,
     completedAt,
     modelEligibility: 'not_evaluated',
-    hardGateFailures: providerFailures,
+    // M007: previously fed only by provider-boundary mismatches — every
+    // other case in this suite was purely descriptive (`status: 'passed'`
+    // was hardcoded, nothing could actually fail). MM-021/022/023 add real
+    // assertions via caseHardGateFailures, so a genuine regression in the
+    // secondary-source structural gate is no longer invisible to this report.
+    hardGateFailures: [...providerFailures, ...caseHardGateFailures],
     providerBoundary,
-    cases: cases.map((testCase) => evaluateCase(testCase)),
+    cases: caseResults.map((result) => result.case),
   };
 }
 
@@ -140,18 +153,25 @@ export function evaluateProviderBoundary(
   };
 }
 
-function evaluateCase(testCase: MultimodalCase): MultimodalEvalReport['cases'][number] {
-  const notes = deterministicNotes(testCase);
+function evaluateCase(testCase: MultimodalCase): {
+  case: MultimodalEvalReport['cases'][number];
+  hardGateFailures: string[];
+} {
+  const { notes, hardGateFailures } = deterministicNotes(testCase);
   return {
-    id: testCase.id,
-    status: 'passed',
-    fixtureHash: crypto.createHash('sha256').update(JSON.stringify(testCase)).digest('hex'),
-    notes,
+    case: {
+      id: testCase.id,
+      status: hardGateFailures.length > 0 ? 'unsupported' : 'passed',
+      fixtureHash: crypto.createHash('sha256').update(JSON.stringify(testCase)).digest('hex'),
+      notes,
+    },
+    hardGateFailures,
   };
 }
 
-function deterministicNotes(testCase: MultimodalCase) {
+function deterministicNotes(testCase: MultimodalCase): { notes: string[]; hardGateFailures: string[] } {
   const notes = ['Deterministic first-slice gate evaluated without provider calls.'];
+  const hardGateFailures: string[] = [];
   if (testCase.expected?.verification_status) notes.push(`verification_status=${testCase.expected.verification_status}`);
   if (testCase.expected?.reason_code) notes.push(`degraded_reason=${testCase.expected.reason_code}`);
   if (testCase.expected?.must_not_be_exact_verified) notes.push('class_promotion_blocked=true');
@@ -214,7 +234,43 @@ function deterministicNotes(testCase: MultimodalCase) {
     notes.push(`verification_status=${candidate.verificationStatus}`);
     notes.push(`bounding_box_required=${Boolean(candidate.boundingBox)}`);
   }
-  return notes;
+  // M007 (MM-021/022/023). Genuinely assertive, unlike most notes above:
+  // calls extractSecondaryCandidates for real and checks the result against
+  // `expected`, pushing into hardGateFailures on a mismatch — this is what
+  // lets a regression in the R-010 structural gate actually fail the report.
+  if (testCase.id === 'MM-021' || testCase.id === 'MM-022' || testCase.id === 'MM-023') {
+    const spec = testCase.input?.fixture_spec;
+    const pages = (spec?.pages ?? []).map((page) => ({ pageNumber: page.page ?? null, text: page.text ?? '' }));
+    const document = {
+      canonicalText: pages.map((page) => page.text).join(' '),
+      pages,
+      parserVersion: 'eval-fixture-1.0',
+      extractionMethod: 'html_parser' as const,
+      sourceVariant: 'text_layer' as const,
+      untrustedInstructionFlagged: false,
+    };
+    const sourceClass = testCase.input?.source_class ?? 'issuer';
+    const candidates = extractSecondaryCandidates(
+      document,
+      testCase.input?.assumption ?? '',
+      testCase.input?.ticker ?? '',
+      sourceClass,
+    );
+    const expectedStatus = testCase.expected?.verification_status;
+    notes.push(`secondary_candidate_count=${candidates.length}`);
+    if (candidates.length === 0) {
+      hardGateFailures.push(`${testCase.id}:no_secondary_candidate_extracted`);
+    }
+    for (const candidate of candidates) {
+      notes.push(`verification_status=${candidate.verificationStatus}`);
+      if (candidate.verificationStatus === 'exact_verified' || candidate.verificationStatus === 'ocr_matched') {
+        hardGateFailures.push(`${testCase.id}:verification_class_promotion:${candidate.verificationStatus}`);
+      } else if (expectedStatus && candidate.verificationStatus !== expectedStatus) {
+        hardGateFailures.push(`${testCase.id}:unexpected_verification_status:${candidate.verificationStatus}`);
+      }
+    }
+  }
+  return { notes, hardGateFailures };
 }
 
 function readJson<T>(filePath: string): T {

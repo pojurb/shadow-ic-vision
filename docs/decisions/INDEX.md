@@ -19,6 +19,7 @@ must match the linked documents.
 | DEC-0012 | `accepted` | [OCR/vision provider eligibility](DEC-0012-ocr-vision-provider-eligibility.md) | M005 provider-specific eligibility | `minimax-m3:cloud` accepted for POC OCR/vision use; `gemini-3-flash-preview` found retired (see DEC-0013) |
 | DEC-0013 | `accepted` | [Ollama allowlist amendment](DEC-0013-ollama-allowlist-gemini-retirement-amendment.md) | Amends DEC-0010 | Removes retired `gemini-3-flash-preview`; promotes `deepseek-v4-flash:cloud` |
 | DEC-0014 | `accepted` | [Local-only scope reaffirmation](DEC-0014-local-only-scope-reaffirmation.md) | Amends DEC-0009 | Production/hosted confidential processing is explicitly out of scope; the roadmapped production-provider-approval milestone is withdrawn pending a hosted-deployment ADR |
+| DEC-0015 | `accepted` | [Secondary-source ingestion boundaries](DEC-0015-secondary-source-ingestion-boundaries.md) | M007 product scoping | Defines admissible sources, licensing, structural `secondary_issuer`/`secondary_news` trust classes, and `discovery_pointer` web search rules |
 
 ## Historical Drafts
 

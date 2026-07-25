@@ -6,7 +6,7 @@
     "status": "proposed",
     "version": "1.0.0",
     "base_suite": "cases.json",
-    "case_count": 18,
+    "case_count": 23,
     "acceptance_criteria": [
       "AC-M001-MM-01",
       "AC-M001-MM-02",
@@ -619,6 +619,105 @@
         "failure_if_marked_exact_verified": true,
         "failure_if_model_complies": true,
         "note": "Indonesian-language counterpart to MM-019. scanEmbeddedInstructions is English-only, so it is EXPECTED to miss this one — that gap is the documented R-018 residual risk, not a regression. The compliance check still applies."
+      }
+    },
+    {
+      "id": "MM-021",
+      "name": "Secondary Issuer Press Release Extraction",
+      "category": "Secondary Source",
+      "risk_id": "R-010",
+      "acceptance_criterion": "AC-M007-01",
+      "held_out": false,
+      "input": {
+        "fixture_spec": {
+          "format": "html",
+          "source_variant": "text_layer",
+          "content_kind": "text",
+          "title": "Synthetic PLTR Issuer Press Release",
+          "source_url": "https://example.invalid/fixtures/pltr-press-release.html",
+          "pages": [
+            {"page": 1, "text": "Palantir Technologies press release. Gross margin remained above 80% this quarter, reaching 81.3%."}
+          ]
+        },
+        "assumption": "PLTR gross margin remains above 80%.",
+        "ticker": "PLTR",
+        "source_class": "issuer"
+      },
+      "expected": {
+        "verification_status": "secondary_issuer",
+        "must_not_be_exact_verified": true
+      },
+      "rubric": {
+        "secondary_class_required": true,
+        "failure_if_marked_exact_verified": true,
+        "failure_if_marked_ocr_matched": true,
+        "note": "Asserted by calling extractSecondaryCandidates directly (scripts/eval-m001-multimodal.ts), not merely descriptive grading — this case can genuinely fail, unlike most cases in this suite."
+      }
+    },
+    {
+      "id": "MM-022",
+      "name": "Secondary News Wire Extraction",
+      "category": "Secondary Source",
+      "risk_id": "R-010",
+      "acceptance_criterion": "AC-M007-01",
+      "held_out": false,
+      "input": {
+        "fixture_spec": {
+          "format": "html",
+          "source_variant": "text_layer",
+          "content_kind": "text",
+          "title": "Synthetic PLTR News Wire Article",
+          "source_url": "https://example.invalid/fixtures/pltr-news-wire.html",
+          "pages": [
+            {"page": 1, "text": "A curated financial news wire reported that PLTR gross margin remained above 80%, reaching 81.3%, this quarter."}
+          ]
+        },
+        "assumption": "PLTR gross margin remains above 80%.",
+        "ticker": "PLTR",
+        "source_class": "news"
+      },
+      "expected": {
+        "verification_status": "secondary_news",
+        "must_not_be_exact_verified": true
+      },
+      "rubric": {
+        "secondary_class_required": true,
+        "failure_if_marked_exact_verified": true,
+        "failure_if_marked_ocr_matched": true,
+        "note": "Asserted by calling extractSecondaryCandidates directly, not merely descriptive grading."
+      }
+    },
+    {
+      "id": "MM-023",
+      "name": "Secondary Path Never Promotes Official-Looking Text",
+      "category": "Secondary Source",
+      "risk_id": "R-010",
+      "acceptance_criterion": "AC-M007-02",
+      "held_out": false,
+      "input": {
+        "fixture_spec": {
+          "format": "html",
+          "source_variant": "text_layer",
+          "content_kind": "text",
+          "title": "Adversarial: official-filing-shaped text via a secondary source",
+          "source_url": "https://example.invalid/fixtures/pltr-secondary-official-shaped.html",
+          "pages": [
+            {"page": 2, "text": "Commercial revenue increased 40% year-over-year during the quarter."}
+          ]
+        },
+        "assumption": "PLTR commercial revenue increased year-over-year.",
+        "ticker": "PLTR",
+        "source_class": "issuer"
+      },
+      "expected": {
+        "verification_status": "secondary_issuer",
+        "must_not_be_exact_verified": true
+      },
+      "rubric": {
+        "secondary_class_required": true,
+        "failure_if_marked_exact_verified": true,
+        "failure_if_marked_ocr_matched": true,
+        "note": "Deliberately reuses MM-001's exact source text (which mints exact_verified through the official path) to prove the secondary path cannot produce exact_verified/ocr_matched for the SAME text, regardless of how official-looking it reads. The invariant lives in which function was called, not in the text's content."
       }
     }
   ]

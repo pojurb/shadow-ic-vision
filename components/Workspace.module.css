@@ -26,6 +26,21 @@
 .verified_derived { background: #1e3a8a; color: #bfdbfe; }
 .status_degraded { background: #78350f; color: #fde68a; }
 .status_failed { background: #7f1d1d; color: #fecaca; }
+/* M007: genuinely new colors, deliberately not amber/brown — that family is
+   already .verified_ocr_matched/.status_degraded, and DEC-0015's "amber for
+   secondary" would otherwise collide with existing OCR/degraded badges. */
+.verified_secondary_issuer { background: #581c87; color: #e9d5ff; }
+.verified_secondary_news { background: #164e63; color: #a5f3fc; }
+/* Assumption-status badges (M007): the first CSS-backed badge for this
+   field — previously rendered as plain text. */
+.status_untested { background: #3f3f46; color: #d4d4d8; }
+.status_verified { background: #064e3b; color: #a7f3d0; }
+.status_challenged { background: #7c2d12; color: #fed7aa; }
+.status_held_belief { background: #334155; color: #cbd5e1; }
+.status_pending_confirmation { background: #78350f; color: #fde68a; }
+.status_user_confirmed_secondary { background: #4c1d95; color: #ddd6fe; }
+.acceptSecondaryEvidenceButton { margin: 8px 0; padding: 6px 10px; border: 1px solid #a855f7; border-radius: 6px; background: #2e1065; color: #e9d5ff; font-size: 12px; cursor: pointer; }
+.acceptSecondaryEvidenceButton:disabled { cursor: wait; opacity: .65; }
 .attempts, .muted { color: #888; font-size: 12px; }
 .jobError { padding: 10px; border-radius: 8px; background: #2c1b12; color: #fed7aa; font-size: 13px; }
 .jobError button { border: 1px solid #f59e0b; border-radius: 6px; background: transparent; color: #fbbf24; padding: 6px 10px; cursor: pointer; }

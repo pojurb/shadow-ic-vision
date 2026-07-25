@@ -3,8 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { decisions, theses } from '@/db/schema';
+import { assumptions, decisions, discoveryCandidates, theses } from '@/db/schema';
 
 type ColumnInfo = { name: string; notnull: number; pk: number };
 type IndexInfo = { name: string };
@@ -51,6 +52,65 @@ describe('migration round trip (ADR-0006)', () => {
     const inserted = handle.db.select().from(decisions).all();
     expect(inserted).toHaveLength(1);
     expect(inserted[0]).toMatchObject({ outcome: 'No Change', action: null });
+  });
+
+  // M007 Slice 1. Confirms both the widened assumptions.status enum (no
+  // migration needed, since Drizzle's {enum:} narrowing is TS-only) and the
+  // new discovery_candidates table round-trip on a freshly-migrated database.
+  it('applies migration 0007 and round-trips discovery_candidates and the widened assumption status', () => {
+    handle = createDatabase(path.join(directory, 'test-0007.sqlite'));
+
+    const columns = handle.sqlite.prepare("PRAGMA table_info('assumptions')").all() as ColumnInfo[];
+    const statusColumn = columns.find((column) => column.name === 'status');
+    expect(statusColumn?.notnull).toBe(1);
+    // Confirms the finding that drove Slice 1's design: Drizzle's {enum:}
+    // narrowing on SQLite emits a plain text column, never a CHECK
+    // constraint — so widening the TS-level enum required no migration.
+    const createTableSql = (
+      handle.sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='assumptions'").get() as { sql: string }
+    ).sql;
+    expect(createTableSql.toUpperCase()).not.toContain('CHECK');
+
+    handle.db.insert(theses).values({ id: 'thesis-m007', title: 'M007 schema smoke test', description: 'd' }).run();
+    handle.db.insert(assumptions).values({
+      id: 'assumption-m007',
+      thesisId: 'thesis-m007',
+      statement: 'Net revenue grows next quarter.',
+      status: 'pending_confirmation',
+    }).run();
+    const [insertedAssumption] = handle.db.select().from(assumptions).where(eq(assumptions.id, 'assumption-m007')).all();
+    expect(insertedAssumption.status).toBe('pending_confirmation');
+
+    handle.db.update(assumptions).set({ status: 'user_confirmed_secondary' }).where(eq(assumptions.id, 'assumption-m007')).run();
+    const [updatedAssumption] = handle.db.select().from(assumptions).where(eq(assumptions.id, 'assumption-m007')).all();
+    expect(updatedAssumption.status).toBe('user_confirmed_secondary');
+
+    const discoveryIndexes = handle.sqlite.prepare("PRAGMA index_list('discovery_candidates')").all() as IndexInfo[];
+    expect(discoveryIndexes.some((index) => index.name === 'discovery_candidates_market_ticker_url_unique')).toBe(true);
+
+    handle.db.insert(discoveryCandidates).values({
+      id: 'candidate-1',
+      market: 'US',
+      ticker: 'PLTR',
+      candidateUrl: 'https://example.invalid/pltr-news',
+      searchQuery: 'PLTR Palantir Technologies',
+    }).run();
+    const [candidate] = handle.db.select().from(discoveryCandidates).where(eq(discoveryCandidates.id, 'candidate-1')).all();
+    expect(candidate).toMatchObject({
+      status: 'pending',
+      discoveredVia: 'web_search',
+      resultingDocumentHash: null,
+      rejectionReason: null,
+    });
+
+    // Uniqueness on (market, ticker, candidateUrl) is enforced.
+    expect(() => handle!.db.insert(discoveryCandidates).values({
+      id: 'candidate-2',
+      market: 'US',
+      ticker: 'PLTR',
+      candidateUrl: 'https://example.invalid/pltr-news',
+      searchQuery: 'duplicate url, different id',
+    }).run()).toThrow();
   });
 
   it('backfills legacy packed decision rows and normalizes timestamps', () => {

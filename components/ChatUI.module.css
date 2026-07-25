@@ -665,6 +665,18 @@
   font-weight: bold;
 }
 
+/* M007: distinct from alertFormatBadge's neutral gray so a secondary-source
+   alert is never visually mistaken for an official one at a glance. */
+.alertSecondaryBadge {
+  font-size: 0.65rem;
+  background-color: #581c87;
+  color: #e9d5ff;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-left: 0.3rem;
+}
+
 .alertDocumentRow {
   display: flex;
   justify-content: space-between;

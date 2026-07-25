@@ -23,7 +23,8 @@ withdrawn subject.
 |---|---|---|---|
 | M005 | OCR/vision provider eligibility | Highest — evaluator scaffolding already models `vision` capability flags (`scripts/eval-m001-provider.ts`) and `exact_verified`/`ocr_matched`/`derived` evidence classes (`scripts/eval-m001-multimodal.ts`) | Went first: closed DEC-0008's deferred multimodal requirement with the least new scaffolding, and established which model (`minimax-m3:cloud`) later work can use |
 | M006 | In-pipeline vision extraction & injection hardening | High — the provider seam, eligible model, and eval harness all exist from M005; the gap is wiring, not capability | Goes next: M005 proved a capability the product cannot reach, and opening that path requires R-018 enforcement to exist in product code rather than only in the evaluator. Two `Open`/Critical risks (R-017, R-018) are in scope |
-| M007 | Secondary-source/general-news ingestion | Lowest — no ADR or evaluator scaffolding exists yet; two open risks (R-010, R-013) | Goes last: needs its own upstream product decision (source allowlist, trust/licensing rules) before a packet can even be drafted |
+| M007 | Secondary-source/general-news ingestion | Lowest — no ADR or evaluator scaffolding exists yet; two open risks (R-010, R-013) | Went last of the three original candidates: needed its own upstream product decision (source allowlist, trust/licensing rules) before a packet could even be drafted (`DEC-0015`) |
+| M008 | Web search discovery (Class C) | Not scoped — no search-provider integration exists; `discoveryCandidates` table exists but is inert | Deliberately deferred out of M007 per R-005: Class A/B already deliver full secondary-source functionality without a search-API dependency, and Class C's cost (provider keys/quota, a separate promotion workflow, new UI) is disproportionate to its narrow incremental value. R-013 stays `Open` until this ships |
 | — | Production confidential-data provider approval | Withdrawn | Deferred out of scope by `DEC-0014`; blocked on a hosted-deployment ADR that does not exist and is not currently intended |
 
 ## M005: OCR/Vision Provider Eligibility
@@ -84,10 +85,26 @@ be drafted fresh.
 
 ## M007: Secondary-Source/General-News Ingestion
 
+Status: `complete` (2026-07-25) — packet at [`M007-secondary-source-ingestion.md`](M007-secondary-source-ingestion.md). Product-scoping decision accepted at [`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md) (2026-07-25).
+
+Shipped Class A (issuer press releases) and Class B (curated financial news
+wires) with structural `secondary_issuer`/`secondary_news` trust classes
+that can never be promoted to `exact_verified`/`ocr_matched`, and the
+`pending_confirmation`/`user_confirmed_secondary` assumption gate. R-010
+moved to `Mitigated`. Class C (web search discovery) was deliberately
+deferred in full — no search-provider code exists — so R-013 stays `Open`;
+see the packet's "Slice Outcomes" and `docs/RISK_REGISTER.md`.
+
+## M008: Web Search Discovery (Class C)
+
 Status: not yet scoped as a packet.
 
-Needs a preceding product-scoping decision on which secondary sources are
-admissible and what trust/licensing rules apply before implementation
-scoping can start — no existing ADR or evaluator scaffolding covers this
-area. Addresses R-010 (secondary evidence mistaken for official fact) and
-R-013 (search snippets treated as evidence).
+Deliberately deferred out of M007 (see that packet's "Options Considered").
+Would add search-provider discovery producing `discoveryCandidates` rows
+(pre-fetch candidate URLs, structurally excluding snippet/title text) and a
+mandatory fetch-and-classify promotion step before anything can become
+evidence — the schema already exists (M007 Slice 1) but is inert until this
+milestone populates and consumes it. Addresses R-013 (search snippets
+treated as evidence), which stays `Open` until this ships.
+
+

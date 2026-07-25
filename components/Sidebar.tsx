@@ -39,6 +39,7 @@ interface PortfolioAlert {
   sourceUrl: string;
   sourceName: string;
   sourceFormat: string;
+  sourceTier: 'official' | 'secondary';
   publishDate: string;
 }
 
@@ -506,6 +507,9 @@ export function Sidebar() {
                   <div className={styles.alertMeta}>
                     <span className={styles.alertDate}>{a.publishDate || 'Unknown Date'}</span>
                     <span className={styles.alertFormatBadge}>{a.sourceFormat?.toUpperCase()}</span>
+                    {a.sourceTier === 'secondary' && (
+                      <span className={styles.alertSecondaryBadge}>Secondary</span>
+                    )}
                   </div>
                   <div className={styles.alertDocumentRow}>
                     <a href={a.sourceUrl} target="_blank" rel="noreferrer" className={styles.alertDocumentLink}>

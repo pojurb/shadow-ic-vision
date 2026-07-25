@@ -52,7 +52,9 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
   await expect(researchPanel.getByText('succeeded', { exact: true })).toBeVisible();
   await expect(researchPanel.getByText('Exact source match', { exact: true })).toBeVisible();
   await expect(researchPanel.getByText('pending', { exact: true })).toBeVisible();
-  await expect(researchPanel.getByText('Assumption: untested', { exact: true })).toBeVisible();
+  // M007: assumption status now renders via assumptionStatusBadge (a proper
+  // badge, e.g. "Untested"), not the raw enum value ("untested").
+  await expect(researchPanel.getByText('Assumption: Untested', { exact: true })).toBeVisible();
   await expect(researchPanel.locator('blockquote')).toContainText('gross margin of 81.3%');
   await expect(researchPanel.getByRole('link', { name: 'SEC Form 10-Q Q1 2026 (PLTR)' })).toBeVisible();
 
@@ -123,7 +125,9 @@ test('shows a live IDX fail-closed state without making a network request', asyn
   const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
   await expect(researchPanel.getByText(/Live official source/)).toBeVisible();
   await expect(researchPanel.getByText('idx_source_unavailable', { exact: true })).toBeVisible();
-  await expect(researchPanel.getByText('Assumption: untested', { exact: true })).toBeVisible();
+  // M007: assumption status now renders via assumptionStatusBadge (a proper
+  // badge, e.g. "Untested"), not the raw enum value ("untested").
+  await expect(researchPanel.getByText('Assumption: Untested', { exact: true })).toBeVisible();
   await expect(researchPanel.getByRole('button', { name: 'Retry' })).toBeVisible();
   expect(await researchPanel.locator('blockquote').count()).toBe(0);
   await page.screenshot({ path: path.join(evidenceDirectory, 'live-idx-degraded.png') });

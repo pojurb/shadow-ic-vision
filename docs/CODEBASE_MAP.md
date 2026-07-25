@@ -34,7 +34,13 @@ Thesis 1 -> many Decisions
 Assumption 1 -> 1 ResearchJob
 Assumption 1 -> many Evidence
 ResearchJob many <-> many SourceSnapshots via ResearchJobSources
+  (M007: one job now typically accumulates up to three snapshots — official,
+  issuer press release, news wire — a capability the join table already had
+  and previously went unused)
 SourceSnapshot 1 -> many SourceDiscoveries
+  (M007: unrelated to DiscoveryCandidates below — SourceDiscoveries requires
+  an already-fetched, hashed document; see "Critical Invariants")
+DiscoveryCandidate: pre-fetch Class C staging, not yet populated by anything (deferred)
 Market + ticker -> SourceCursor
 IngestionRun + IngestionLease coordinate periodic refresh
 PortfolioPosition many -> 0..1 Thesis
@@ -63,6 +69,26 @@ stateDiagram-v2
     running --> queued: expired lease recovery
 ```
 
+M007 (2026-07-25): secondary-source calls (`runSecondaryResearchCall` in
+`lib/research/service.ts`) run alongside this state machine but never
+participate in it — they cannot cause `succeeded`→`degraded`/`failed` or vice
+versa. The diagram above describes the official path only.
+
+**Assumption confirmation gate** (separate from the job state machine
+above — this is `assumptions.status`, not `research_jobs.status`):
+
+```mermaid
+stateDiagram-v2
+    [*] --> untested
+    untested --> pending_confirmation: secondary-only evidence arrives
+    pending_confirmation --> untested: official evidence arrives
+    pending_confirmation --> user_confirmed_secondary: explicit user acceptance
+```
+
+`deriveAssumptionStatus` (`lib/research/assumption-status.ts`) is the pure
+decision function; it never produces `verified` — nothing in this app
+auto-marks an assumption verified.
+
 ## Critical Flows
 
 ### Thesis to exact Evidence
@@ -81,6 +107,26 @@ Chat input
   -> exact verifier
   -> Evidence(exact_verified, interpretation=pending)
 ```
+
+### Secondary-Source Ingestion (M007, 2026-07-25)
+
+```text
+processResearchJobs (per claimed job, before the official try/catch)
+  -> runSecondaryResearchCall x2 (Class A issuer press release, Class B news wire)
+  -> ephemeral CitationPipeline scoped to one secondary SourceAdapter
+  -> executeResearchJob(..., evidenceClass: 'secondary_issuer' | 'secondary_news')
+  -> extractSecondaryCandidates (dedicated function, no code path to
+     exact_verified/ocr_matched — see extractors/candidate.ts)
+  -> Evidence(secondary_issuer | secondary_news, sourceTier=secondary)
+  -> applyAssumptionStatusGate (may move assumption to pending_confirmation)
+```
+
+Deliberately independent of the official flow above: a missing feed config,
+HTTP failure, or empty discovery result is caught inside
+`runSecondaryResearchCall` and never touches `research_jobs.status` — a
+broken news feed can never make a healthy assumption look broken. Class C
+(web search discovery) is not part of this flow; it was scoped out of M007
+entirely (see "Critical Invariants").
 
 ### Portfolio Briefing (Priority Queue & Status Index)
 
@@ -183,6 +229,29 @@ Windows Task Scheduler or protected local endpoint
   prompt boundary (a deliberate scope decision, not an oversight — see the
   M006 packet addendum). Proven by unit test with a stub classifier catching
   the same Indonesian text the regex misses.
+- **M007 (2026-07-25):** two new evidence classes, `secondary_issuer`
+  (company IR press releases) and `secondary_news` (curated financial news
+  wires), structurally incapable of ever becoming `exact_verified`/
+  `ocr_matched` (R-010) — the invariant lives in `extractSecondaryCandidates`
+  (`extractors/candidate.ts`) having no code path to the official-evidence
+  factories, not in a runtime check on document shape; proven by an
+  adversarial test/eval case (`MM-023`) that reuses `exact_verified`-shaped
+  source text through the secondary path and confirms it still cannot be
+  promoted. New adapters `IssuerPressReleaseAdapter`/`NewsWireAdapter`
+  (`lib/research/adapters/`) always set `sourceTier: 'secondary'` — never
+  reuse `IssuerAdapter`, which hardcodes `'official'` for its actual role as
+  `idx.ts`'s official-filing fallback. **Class C (web search discovery) is
+  entirely out of scope** — no search-provider integration, no code that
+  reads a search result, exists anywhere in this codebase. The
+  `discoveryCandidates` table (`db/schema.ts`) exists for that future work
+  but is not populated by anything today; it is unrelated to the
+  pre-existing `sourceDiscoveries` table, which requires an already-fetched,
+  hashed document and cannot represent a pre-fetch, possibly-never-resolved
+  candidate. R-013 (search snippets treated as evidence) therefore **stays
+  `Open`** — a milestone that ships none of the search-handling code cannot
+  be credited with mitigating the risk that code would address. Confirmation
+  gate (`lib/research/assumption-status.ts`) never produces `verified`; it
+  only ever narrows what's shown.
 
 ## Task Routing
 
@@ -195,6 +264,7 @@ Windows Task Scheduler or protected local endpoint
 | Portfolio briefing or priority queue | `lib/portfolio/priorityQueue.ts`, `db/queries.ts#getPortfolioBriefing`, schema | `tests/portfolio-briefing.test.ts` coverage, standard verify, link resolution (conversationId, not thesisId) |
 | Portfolio UI (queue/index) | `components/TopTenQueue.tsx`, `app/portfolio/page.tsx`, briefing route | `verify:full` with Playwright, sorting/filtering correctness, refresh-on-sync behavior |
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
+| Secondary-source evidence (M007) | `lib/research/extractors/candidate.ts` (structural gate), `lib/research/assumption-status.ts`, `lib/research/adapters/issuer-press.ts`/`news-wire.ts`, milestone packet §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), confirmation-gate test, standard verify. Class C is out of scope — do not add search-provider code without a new milestone packet. |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |
 | Release/checkpoint | `.agents/RELEASE.md`, verification summary, active/checkpoint docs | `verify:full`, retained evidence review |
