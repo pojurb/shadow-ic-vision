@@ -2,7 +2,8 @@ import type { ResearchMarket, ResearchSourceMode, SourceAdapter, SourceSnapshot 
 import { createSourceAdapters } from './adapters/factory';
 import { ResearchSourceError } from './errors';
 import { extractDeterministicCandidates, type EvidenceCandidate, type EvidenceContentKind, type EvidenceExtractionMethod } from './extractors/candidate';
-import { extractDocument } from './extractors/document';
+import { extractDocument, type VisionTranscriber } from './extractors/document';
+import type { InstructionClassifier } from './extractors/safety';
 import { createHash, verifyExactMatch, verifyPageExactMatch } from './verifier';
 
 export interface VerifiedEvidence {
@@ -35,7 +36,21 @@ export type ResearchExecution = {
 export class CitationPipeline {
   readonly sourceMode: ResearchSourceMode;
 
-  constructor(private readonly adapters: Record<ResearchMarket, SourceAdapter> = createSourceAdapters()) {
+  /**
+   * `visionTranscriber` is optional and absent by default: image sources keep
+   * failing closed with `unsupported_visual` unless a caller opts in with a
+   * DEC-0012-eligible vision provider.
+   *
+   * `instructionClassifier` is likewise optional and absent by default (M006
+   * follow-on, 2026-07-25): without one, R-018 detection is the free regex
+   * only. Configuring one adds a provider call at extraction time as a second
+   * opinion for languages the regex cannot match.
+   */
+  constructor(
+    private readonly adapters: Record<ResearchMarket, SourceAdapter> = createSourceAdapters(),
+    private readonly visionTranscriber?: VisionTranscriber,
+    private readonly instructionClassifier?: InstructionClassifier,
+  ) {
     this.sourceMode = adapters.US.mode === 'live' || adapters.ID.mode === 'live' ? 'live' : 'mock';
   }
 
@@ -65,7 +80,10 @@ export class CitationPipeline {
     const documentHash = createHash(snapshot.rawBytes);
     let extracted;
     try {
-      extracted = await extractDocument(snapshot);
+      extracted = await extractDocument(snapshot, {
+        visionTranscriber: this.visionTranscriber,
+        instructionClassifier: this.instructionClassifier,
+      });
     } catch (error) {
       if (error instanceof ResearchSourceError) {
         throw new ResearchSourceError(error.code, error.message, { snapshot, documentHash });
@@ -105,9 +123,16 @@ export class CitationPipeline {
           canonicalTextHash: verificationStatus === 'exact_verified' ? canonicalTextHash : null,
           exactQuote: candidate.quote,
           impactSummary: candidate.impactSummary,
-          metadata: verificationStatus === 'exact_verified'
-            ? { parserVersion: extracted.parserVersion }
-            : candidate.metadata ?? {},
+          // R-018: the flag rides in the existing `metadata` JSON column, so no
+          // schema migration is needed. It is recorded on every evidence class,
+          // not just the vision path — any source document can carry an
+          // embedded instruction.
+          metadata: {
+            ...(verificationStatus === 'exact_verified'
+              ? { parserVersion: extracted.parserVersion }
+              : candidate.metadata ?? {}),
+            untrustedInstructionFlagged: extracted.untrustedInstructionFlagged,
+          },
         });
       } catch {
         // Rejected candidates remain diagnostic artifacts and never become Evidence.

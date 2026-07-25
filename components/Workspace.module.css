@@ -33,6 +33,14 @@
 .evidence blockquote { margin: 12px 0; padding-left: 12px; border-left: 2px solid #10b981; color: #f5f5f5; line-height: 1.5; }
 .evidence > p { color: #c7c7c7; font-size: 13px; line-height: 1.5; }
 .evidenceWarning { margin: 8px 0 0; color: #fcd34d !important; }
+/* R-018: a security flag must not read as just another trust-class note. */
+.evidenceInjectionWarning {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5 !important;
+}
 .evidence dl { margin: 12px 0 0; font-size: 11px; }
 .evidence dl div { display: grid; grid-template-columns: 70px 1fr; gap: 6px; margin-top: 6px; }
 .evidence dt { color: #777; }

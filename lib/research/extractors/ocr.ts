@@ -2,6 +2,11 @@ import type { LLMProvider, ProviderCallContext } from '@/lib/ai/provider';
 import { ResearchSourceError } from '../errors';
 import { normalizeText } from '../verifier';
 import { createOcrCandidate, type EvidenceCandidate } from './candidate';
+import type { ExtractedDocument, VisionTranscriber } from './document';
+import { detectEmbeddedInstructions, type InstructionClassifier } from './safety';
+
+const TRANSCRIPTION_SYSTEM_PROMPT =
+  'Transcribe only the literal text visible in the attached image. Return the transcription verbatim with no commentary, formatting, or added claims.';
 
 export type SyntheticOcrPage = {
   pageNumber: number;
@@ -57,7 +62,7 @@ export async function extractVisionOcrCandidate(input: {
     [
       {
         role: 'system',
-        content: 'Transcribe only the literal text visible in the attached image. Return the transcription verbatim with no commentary, formatting, or added claims.',
+        content: TRANSCRIPTION_SYSTEM_PROMPT,
       },
       {
         role: 'user',
@@ -82,4 +87,52 @@ export async function extractVisionOcrCandidate(input: {
     contentKind: input.contentKind,
     ocrVersion: result.metadata.modelId,
   });
+}
+
+/**
+ * Builds the `VisionTranscriber` that `extractDocument` calls for image
+ * sources. This is the pipeline-facing counterpart to
+ * `extractVisionOcrCandidate`, and deliberately a different shape: it
+ * transcribes *without* being told what to look for, because the research flow
+ * discovers evidence open-endedly against an assumption and has no candidate
+ * quote to verify up front. Ranking the transcription against the assumption is
+ * left to the existing `extractDeterministicCandidates` machinery.
+ *
+ * The returned document is marked `sourceVariant: 'scanned'`, which is what
+ * blocks it from ever producing `exact_verified` evidence (R-017).
+ */
+export function createVisionTranscriber(config: {
+  provider: LLMProvider;
+  context: ProviderCallContext;
+  instructionClassifier?: InstructionClassifier;
+}): VisionTranscriber {
+  return async (snapshot): Promise<ExtractedDocument> => {
+    const base64 = Buffer.from(snapshot.rawBytes).toString('base64');
+    const result = await config.provider.chat(
+      [
+        { role: 'system', content: TRANSCRIPTION_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: 'Transcribe the visible text in this image.',
+          attachments: [{ type: 'image', mimeType: snapshot.contentType, base64 }],
+        },
+      ],
+      config.context,
+    );
+
+    const canonicalText = normalizeText(result.text);
+    if (!canonicalText) {
+      throw new ResearchSourceError('unsupported_visual', 'Vision provider returned no readable text for the image source.');
+    }
+
+    const scan = await detectEmbeddedInstructions(canonicalText, config.instructionClassifier);
+    return {
+      canonicalText,
+      pages: [{ pageNumber: null, text: canonicalText }],
+      parserVersion: `vision-${result.metadata.modelId}`,
+      extractionMethod: 'vision',
+      sourceVariant: 'scanned',
+      untrustedInstructionFlagged: scan.untrustedInstructionFlagged,
+    };
+  };
 }

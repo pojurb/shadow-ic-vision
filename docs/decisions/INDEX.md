@@ -18,6 +18,7 @@ must match the linked documents.
 | DEC-0011 | `accepted` | [Decision record classification amendment](DEC-0011-decision-record-classification-amendment.md) | Amends DEC-0009 | Clarifies that recorded decision outcomes remain blocked portfolio data, not POC-confidential data |
 | DEC-0012 | `accepted` | [OCR/vision provider eligibility](DEC-0012-ocr-vision-provider-eligibility.md) | M005 provider-specific eligibility | `minimax-m3:cloud` accepted for POC OCR/vision use; `gemini-3-flash-preview` found retired (see DEC-0013) |
 | DEC-0013 | `accepted` | [Ollama allowlist amendment](DEC-0013-ollama-allowlist-gemini-retirement-amendment.md) | Amends DEC-0010 | Removes retired `gemini-3-flash-preview`; promotes `deepseek-v4-flash:cloud` |
+| DEC-0014 | `accepted` | [Local-only scope reaffirmation](DEC-0014-local-only-scope-reaffirmation.md) | Amends DEC-0009 | Production/hosted confidential processing is explicitly out of scope; the roadmapped production-provider-approval milestone is withdrawn pending a hosted-deployment ADR |
 
 ## Historical Drafts
 

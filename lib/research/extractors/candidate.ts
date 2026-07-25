@@ -27,7 +27,7 @@ export type EvidenceCandidate = {
   verificationStatus: 'ocr_matched';
   pageNumber: number | null;
   ocrText: string;
-  extractionMethod?: 'ocr';
+  extractionMethod?: 'ocr' | 'vision';
   contentKind?: 'text' | 'screenshot';
   sourceVariant?: 'scanned';
   boundingBox?: [number, number, number, number] | null;
@@ -77,17 +77,34 @@ export function extractDeterministicCandidates(
     };
   }));
 
-  return ranked
+  const selected = ranked
     .filter((candidate) => candidate.tokenMatches >= 2 && candidate.score >= 8 && candidate.quote.length >= 20)
     .sort((left, right) => right.score - left.score || left.quote.length - right.quote.length)
-    .slice(0, limit)
-    .map(({ quote, pageNumber }) => ({
+    .slice(0, limit);
+
+  // R-017 invariant. A quote drawn from a model transcription is only ever
+  // exact with respect to that transcription, never to the source document —
+  // so a `'scanned'` document can never mint `exact_verified` here. This is the
+  // single site that produces exact-verified candidates from an
+  // `ExtractedDocument`; the check belongs here rather than at each call site.
+  if (document.sourceVariant === 'scanned') {
+    return selected.map(({ quote, pageNumber }) => createOcrCandidate({
       quote,
+      ocrText: document.pages.find((page) => page.pageNumber === pageNumber)?.text ?? document.canonicalText,
       pageNumber,
-      verificationStatus: 'exact_verified' as const,
-      contentKind: 'text' as const,
-      impactSummary: 'Exact source passage matched deterministically. Interpretation remains pending.',
+      impactSummary: 'Passage matched against retained transcription of a visual source. Not source-exact; interpretation remains pending.',
+      ocrVersion: document.parserVersion,
+      extractionMethod: document.extractionMethod === 'vision' ? 'vision' : 'ocr',
     }));
+  }
+
+  return selected.map(({ quote, pageNumber }) => ({
+    quote,
+    pageNumber,
+    verificationStatus: 'exact_verified' as const,
+    contentKind: 'text' as const,
+    impactSummary: 'Exact source passage matched deterministically. Interpretation remains pending.',
+  }));
 }
 
 export function createOcrCandidate(input: {
@@ -98,13 +115,14 @@ export function createOcrCandidate(input: {
   contentKind?: 'text' | 'screenshot';
   boundingBox?: [number, number, number, number] | null;
   ocrVersion?: string;
+  extractionMethod?: 'ocr' | 'vision';
 }): EvidenceCandidate {
   return {
     quote: input.quote,
     ocrText: input.ocrText,
     impactSummary: input.impactSummary,
     verificationStatus: 'ocr_matched',
-    extractionMethod: 'ocr',
+    extractionMethod: input.extractionMethod ?? 'ocr',
     pageNumber: input.pageNumber,
     contentKind: input.contentKind ?? 'text',
     sourceVariant: 'scanned',

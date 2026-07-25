@@ -142,11 +142,47 @@ Windows Task Scheduler or protected local endpoint
   array (base64 image bytes, no data-URI prefix) so a vision-capable provider
   can receive real image content; `content` remains a required string and
   every existing text-only caller is unaffected.
-  `extractVisionOcrCandidate` (`lib/research/extractors/ocr.ts`) is the real
-  provider counterpart to `extractSyntheticOcrCandidate`: it always wraps
-  provider transcription as `ocr_matched`, never `exact_verified`, and is not
-  wired into `CitationPipeline`'s automatic recovery path (open-ended
-  assumption-driven vision extraction remains a follow-up).
+  `extractVisionOcrCandidate` (`lib/research/extractors/ocr.ts`) is the
+  eligibility-eval seam (requires a known candidate quote) and remains
+  separate from the pipeline path.
+- **M006 (2026-07-25):** `extractDocument` (`lib/research/extractors/document.ts`)
+  takes an optional `VisionTranscriber` and now handles `sourceFormat: 'image'`
+  when one is configured — `createVisionTranscriber` (`extractors/ocr.ts`) is
+  the pipeline-facing transcribe-first counterpart to
+  `extractVisionOcrCandidate` above; it has no candidate quote to verify and
+  lets `extractDeterministicCandidates` discover evidence against the
+  assumption instead. Fails closed to `unsupported_visual` when no
+  transcriber is configured (`CitationPipeline`'s default construction in
+  `lib/research/service.ts` still passes none). A vision-derived
+  `ExtractedDocument` is marked `sourceVariant: 'scanned'`, which
+  `extractDeterministicCandidates` (`extractors/candidate.ts`) uses as the
+  R-017 gate: it can only ever mint `ocr_matched` from such a document, never
+  `exact_verified`. `scanEmbeddedInstructions` (`extractors/safety.ts`) is now
+  called from every extractor (`extractHtml`, `extractPdf`,
+  `createVisionTranscriber`) and at the prompt boundary in
+  `generateDecisionRecommendation` (`lib/research/service.ts`) — previously it
+  ran only in tests and the eval script. Its coverage is a single English
+  phrase list; `docs/evidence/releases/2026-07-25-m006-injection-eval/manifest.md`
+  records that a live Indonesian-language probe (`MM-020`) did not exercise
+  the gap as designed (the model's transcription omitted the injected text
+  entirely, so the scanner had nothing to miss) — the regex limitation is
+  still real, confirmed instead by direct unit test.
+- **M006 follow-on (same day):** `detectEmbeddedInstructions`
+  (`extractors/safety.ts`) combines the regex with an optional
+  `InstructionClassifier` — a real provider call used as a second opinion,
+  invoked only when the regex finds nothing (never spends a call on a case
+  already caught for free). `createInstructionClassifier` builds one from an
+  `LLMProvider` + `ProviderCallContext` and fails closed on any error, thrown
+  or soft. Threaded through `extractHtml`/`extractPdf` (now `async`, a
+  signature change from before) and `createVisionTranscriber`, and through
+  `CitationPipeline`'s third constructor argument. **Off by default** —
+  nothing calls a provider for this unless a caller explicitly configures one;
+  `CitationPipeline`'s default construction in `lib/research/service.ts`
+  passes none, so the running app's R-018 coverage is still regex-only today.
+  Scoped to extraction time only, not the `generateDecisionRecommendation`
+  prompt boundary (a deliberate scope decision, not an oversight — see the
+  M006 packet addendum). Proven by unit test with a stub classifier catching
+  the same Indonesian text the regex misses.
 
 ## Task Routing
 

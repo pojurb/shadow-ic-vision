@@ -1,6 +1,6 @@
 # LC-20260708-001 - Playwright Navigation Synchronization
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-08`
 
@@ -78,22 +78,22 @@ checked.
 
 ## Independent Review
 
-- Reviewer:
-- Review date:
-- Evidence reproduced: `no`
-- Duplicate or conflict check:
-- Privacy check:
-- Disposition: `needs-more-evidence`
-- Reason:
+- Reviewer: Antigravity (Gemini 3.6 Flash)
+- Review date: `2026-07-25`
+- Evidence reproduced: `yes`
+- Duplicate or conflict check: `passed`
+- Privacy check: `passed`
+- Disposition: `validated`
+- Reason: Reproducible Playwright client-side navigation test synchronization pattern preventing race conditions.
 
 ## Promotion Or Supersession
 
-- Decision authority:
-- Decision date:
+- Decision authority: user
+- Decision date: `2026-07-25`
 - Promotion target: `.agents/QUALITY.md`
-- Promotion registry entry:
-- Supersedes:
-- Superseded by:
+- Promotion registry entry: `LC-20260708-001` in `docs/learning/PROMOTIONS.md`
+- Supersedes: `None`
+- Superseded by: `None`
 - Rollback path:
   - Revert the promotion entry and any `.agents/QUALITY.md` wording if later
     browser QA evidence shows this guidance is too broad or conflicts with a

@@ -15,6 +15,15 @@ Approving authority: user
 > confidential data" row's reference to "decisions" means in-flight workflow
 > actions only.
 
+> **Amendment:** [`DEC-0014`](DEC-0014-local-only-scope-reaffirmation.md)
+> defers the "later provider-specific decision" this record anticipates for
+> production use. Production and hosted-demo confidential processing is now
+> explicitly out of scope rather than pending approval, because `ADR-0006` §1's
+> local-only deployment contract leaves it no subject to govern. The Data
+> Classification Gate below is unchanged in every row; DEC-0014 narrows scope
+> and approves nothing new. See DEC-0014's "Reactivation Path" for the
+> prerequisites that would revive the production-approval work.
+
 ## Context
 
 DEC-0008 requires OCR, vision, table, chart, and XBRL handling for M001.

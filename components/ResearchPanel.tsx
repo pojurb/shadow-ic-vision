@@ -19,6 +19,20 @@ function evidenceWarning(status: ResearchPanelDTO['items'][number]['evidence'][n
   return null;
 }
 
+// R-018. The flag rides in the evidence `metadata` JSON column; unparseable
+// metadata is treated as unflagged rather than throwing in render.
+function hasEmbeddedInstruction(metadata: string | null): boolean {
+  if (!metadata) return false;
+  try {
+    const parsed: unknown = JSON.parse(metadata);
+    return typeof parsed === 'object'
+      && parsed !== null
+      && (parsed as { untrustedInstructionFlagged?: unknown }).untrustedInstructionFlagged === true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizePanelData(input: ResearchPanelDTO): ResearchPanelDTO {
   return {
     ...input,
@@ -288,6 +302,12 @@ export function ResearchPanel({
                   <blockquote>“{record.exactQuote}”</blockquote>
                   {evidenceWarning(record.verificationStatus) && (
                     <p className={styles.evidenceWarning}>{evidenceWarning(record.verificationStatus)}</p>
+                  )}
+                  {hasEmbeddedInstruction(record.metadata) && (
+                    <p className={styles.evidenceInjectionWarning}>
+                      This source contained embedded instruction text aimed at the model. It was withheld from
+                      model prompts and must not be treated as guidance.
+                    </p>
                   )}
                   <p>{record.impactSummary}</p>
                   <dl>

@@ -77,6 +77,10 @@ registration.
 This requirement does not apply to exploratory design review without a
 repeatable acceptance gate or to usability research requiring human judgment.
 
+### Playwright Navigation Synchronization
+
+When a Playwright browser test relies on client-side navigation triggered by an API mutation (such as creating or deleting a resource and calling `router.push`), synchronize the test on the app-owned request and response before asserting the destination route. Assert the created resource ID from the response payload and match the final route from that ID. Do not classify a navigation timeout as a product regression until the API response and route side effects have been verified.
+
 ## Scheduled Worker Verification
 
 Before approving a scheduled worker, map its execution environment to the

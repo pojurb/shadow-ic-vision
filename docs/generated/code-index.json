@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "66165ffdedcefc086052a381fb9cb39c433c6aadbec3a168bc10e2446d0226b6",
+  "sourceDigest": "9bab3310f7835497d44f3b10d7c97ae9543df66f1b62cd1590069e176e875ec7",
   "roots": [
     "app",
     "components",
@@ -1226,13 +1226,19 @@
           "resolved": "lib/research/verifier.ts"
         },
         {
+          "specifier": "./safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
           "specifier": "cheerio",
           "resolved": null
         }
       ],
       "exports": [
+        "ExtractDocumentOptions",
         "ExtractedDocument",
         "ExtractedPage",
+        "VisionTranscriber",
         "extractDocument",
         "extractHtml",
         "extractPdf"
@@ -1264,12 +1270,21 @@
           "resolved": "lib/research/extractors/candidate.ts"
         },
         {
+          "specifier": "./document",
+          "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "./safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
           "specifier": "@/lib/ai/provider",
           "resolved": "lib/ai/provider.ts"
         }
       ],
       "exports": [
         "SyntheticOcrPage",
+        "createVisionTranscriber",
         "extractSyntheticOcrCandidate",
         "extractVisionOcrCandidate"
       ]
@@ -1277,9 +1292,21 @@
     {
       "path": "lib/research/extractors/safety.ts",
       "kind": "module",
-      "imports": [],
+      "imports": [
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
       "exports": [
         "EmbeddedInstructionScan",
+        "InstructionClassifier",
+        "createInstructionClassifier",
+        "detectEmbeddedInstructions",
         "scanEmbeddedInstructions"
       ]
     },
@@ -1420,6 +1447,10 @@
           "resolved": "lib/research/extractors/document.ts"
         },
         {
+          "specifier": "./extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
           "specifier": "./verifier",
           "resolved": "lib/research/verifier.ts"
         }
@@ -1445,6 +1476,10 @@
         {
           "specifier": "./extractors/candidate",
           "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "./extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
         },
         {
           "specifier": "./pipeline",
@@ -1672,6 +1707,10 @@
           "resolved": "lib/ai/provider.ts"
         },
         {
+          "specifier": "@/lib/research/adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
           "specifier": "@/lib/research/extractors/candidate",
           "resolved": "lib/research/extractors/candidate.ts"
         },
@@ -1684,8 +1723,16 @@
           "resolved": "lib/research/extractors/ocr.ts"
         },
         {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
           "specifier": "@/lib/research/extractors/xbrl",
           "resolved": "lib/research/extractors/xbrl.ts"
+        },
+        {
+          "specifier": "@/lib/research/pipeline",
+          "resolved": "lib/research/pipeline.ts"
         },
         {
           "specifier": "@/lib/research/verifier",
@@ -2479,10 +2526,13 @@
       "path": "tests/document-extraction.test.ts",
       "productionModules": [
         "lib/ai/provider.ts",
+        "lib/research/adapters/types.ts",
         "lib/research/extractors/candidate.ts",
         "lib/research/extractors/document.ts",
         "lib/research/extractors/ocr.ts",
+        "lib/research/extractors/safety.ts",
         "lib/research/extractors/xbrl.ts",
+        "lib/research/pipeline.ts",
         "lib/research/verifier.ts"
       ]
     },
