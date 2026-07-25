@@ -561,16 +561,17 @@ posture as the vision path).
 - Full suite: typecheck, lint, 130 passed / 3 skipped (up from 125), build,
   deterministic eval (0 hard-gate failures) all green.
 - `docs/RISK_REGISTER.md` R-018 and the M006 packet updated with an addendum.
-  R-018 stays `Open` — this narrows the gap, it does not close it, and the
-  running app doesn't use it yet since nothing configures a classifier.
+  R-018 stays `Open`.
 
 ## Exact Resume Point
 
 M001 (`local-only complete`) through M006 (plus its same-day addendum) are
-complete and verified (2026-07-25). Nothing is committed yet — user asked to
-defer committing until after the live eval; that's done, and the addendum
-above followed in the same session. Committing is the natural next action but
-hasn't been requested.
+complete, verified, committed, and pushed to `origin/main` (`e1f8be2`) as of 2026-07-25.
+
+**Summary of Session Actions Completed:**
+- **Dotenv Quiet Configuration**: Added `DOTENV_CONFIG_QUIET=true` to `.env` and `.env.example`, silencing upstream promotional startup tips repository-wide.
+- **Learning Promotion & Candidates**: Promoted `LC-20260708-001` to `.agents/QUALITY.md` (Playwright client-side navigation sync); captured 3 new candidate learnings (`LC-20260725-001`, `LC-20260725-002`, `LC-20260725-003`) in `docs/learning/candidates/` and `docs/learning/INDEX.md`.
+- **Git Push**: All 38 modified/created files staged, committed, and pushed to remote `origin/main`.
 
 **Next milestone: M007** (Secondary-Source/General-News Ingestion), per
 `docs/milestones/ROADMAP.md` — not yet scoped as a packet, needs an upstream
