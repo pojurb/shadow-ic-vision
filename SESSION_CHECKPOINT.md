@@ -295,25 +295,39 @@ multimodal and provider evals both re-run directly: 0 hard-gate failures,
   change needed) correctly reflects `additionalCaseCount: 23` with 0
   hard-gate failures.
 
+### M007 Slice 8 — Governance Docs (done 2026-07-25)
+
+`docs/RISK_REGISTER.md`: R-010 → `Mitigated` (structural enum isolation,
+confirmation gate, distinct badging — all implemented and tested) with
+honest residual-risk language (a user can still misread a correctly-badged
+secondary source as authoritative); R-013 stays `Open` — Class C (the
+actual search-snippet handling code) was deferred entirely, so the risk it
+names cannot be mitigated by a milestone that shipped none of the code that
+would create it. `docs/CODEBASE_MAP.md`: research job state-machine note
+gained `pending_confirmation`/`user_confirmed_secondary` and the
+multi-snapshot-per-job reality; new "Secondary-Source Ingestion" flow
+paragraph; R-010 structural gate added alongside R-017.
+`ACTIVE_MILESTONE.md` flipped to `complete`, all AC-M007-* listed as met
+(01/02/03/05/06 fully; 04 structurally prepared, not exercised).
+`docs/milestones/ROADMAP.md`: M007 status → `complete`. Final full
+verification pass run and green: `typecheck`, `lint`, `test` (156 passed, 3
+skipped), `build`, `test:e2e` (3/3), `status:check`, `context:check`.
+
 ### Exact Resume Point
 
-Slices 1-7 complete — all application-code slices done. Next: **Slice 8 —
-governance docs (final slice)**. `docs/RISK_REGISTER.md`: R-010 → `Mitigated`
-(structural enum isolation, confirmation gate, distinct badging — all now
-implemented and tested) with honest residual-risk language (a user can
-still misread a correctly-badged secondary source as authoritative); R-013
-→ **stays `Open`**, not `Mitigated` — Class C (the actual search-snippet
-handling code) was deferred entirely, so the risk it names cannot be
-mitigated by a milestone that shipped none of the code that would create
-it. `docs/CODEBASE_MAP.md`: research job state-machine note gains
-`pending_confirmation`/`user_confirmed_secondary` and the multi-snapshot-
-per-job reality; new "Secondary-Source Ingestion" flow paragraph; R-010
-structural gate added alongside R-017. `ACTIVE_MILESTONE.md`: flip M007 to
-`complete`, list all AC-M007-* as met. `docs/milestones/ROADMAP.md`: M007
-status → `complete`. Then a final full verification pass
-(`typecheck`/`lint`/`test`/`build`/`test:e2e`) before declaring the
-milestone done. See the packet's Slice 8 section and the plan at
-`C:\Users\napst\.claude\plans\ethereal-wandering-ladybug.md`.
+**M007 is fully complete** (all 8 slices, verified, committed as `580b515`,
+pushed to `origin/main` — confirmed `HEAD == origin/main`, working tree
+clean as of end of session 2026-07-25). Nothing outstanding to resume within
+M007.
+
+**Next session starts fresh on Milestone 8** — Web Search Discovery (Class
+C), per `docs/milestones/ROADMAP.md`. Not yet scoped as a packet. Needs a
+search-provider integration decision and a mandatory fetch-and-classify
+promotion workflow design before a packet can be drafted (raw search
+snippets can never be treated as evidence directly — that's what R-013,
+still `Open`, is tracking). The `discoveryCandidates` table
+(`db/schema.ts`, migration `0007`) is already schema-ready and unpopulated,
+waiting for this milestone.
 
 ## This Session (2026-07-25): M006 Re-Plan & Acceptance
 
