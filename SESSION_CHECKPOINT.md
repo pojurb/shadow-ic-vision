@@ -1,3 +1,154 @@
+# Session Checkpoint - 2026-07-26 (M009 implemented + learning-promotions reviewed)
+
+Continues directly from the "M008 first live run + M009 drafted" entry
+below — same day, later in the session. That entry's "Exact Resume Point"
+said M009 was drafted but not accepted; this entry records that it was
+reviewed, accepted, implemented, and governance-closed in this session.
+
+## M009 Reviewed, Accepted, and Implemented (2026-07-26)
+
+Before implementation, the M009 packet got two independent code-level
+reviews, not one: mine (read the packet, R-025 register row, ROADMAP, and
+`candidate.ts`/`document.ts`/`pipeline.ts` directly) and a second AI
+collaborator's (Gemini, same workspace, prompted separately by the user and
+relayed back). Both independently confirmed the root cause from the code
+itself, and both converged on the same sharpening of the packet's Slice 3
+design: of the three real TLKM boilerplate examples, the CSR/coral-reef
+press release isn't boilerplate at all — it's genuine, on-domain,
+topically-irrelevant content that only clears the pre-fix threshold via
+ticker+year tokens, so no DOM stripping or phrase denylist could ever catch
+it; only a threshold fix could. That became Slice 3's actual mechanism.
+
+Planned via the plan-mode workflow (2 Explore agents for eval/test
+infrastructure and governance-doc conventions, 1 Plan agent for the
+implementation design, then a user-confirmed decision on scope: ticker +
+bare-year exclusion only, company-name exclusion explicitly deferred since
+no such field exists in the call chain, recorded as residual risk rather
+than silently widened). Plan approved 2026-07-26.
+
+Implemented all four slices in `lib/research/extractors/document.ts` and
+`lib/research/extractors/candidate.ts`:
+
+- **Slice 1 (DOM stripping):** `extractHtml`'s removal selector now
+  includes `nav, header, footer, aside` plus common cookie/consent-vendor
+  class/id patterns (case-insensitive `[class*="cookie" i]`-style
+  attribute selectors — confirmed working against the installed
+  `cheerio@1.2.0` with a direct `node -e` check before relying on it, not
+  assumed). Added a new official-tier HTML-chrome regression fixture
+  (nav/header/footer/cookie-banner wrapping dense filing text) since none
+  existed for either tier before this session — a real coverage gap found
+  during review, not hypothetical.
+- **Slice 2 (phrase denylist):** new `BOILERPLATE_PHRASES` const in
+  `candidate.ts` (English + Indonesian: "cookie policy", "all rights
+  reserved", "kebijakan privasi", etc.), checked before scoring in
+  `rankSentenceCandidates` — an outright exclusion, not a score penalty.
+- **Slice 3 (secondary-tier threshold re-tune):** `rankSentenceCandidates`
+  now takes a `sourceTier: 'official' | 'secondary'` parameter (literal at
+  each of its two call sites, never computed at runtime); for
+  `'secondary'` only, a candidate needs at least one qualifying token
+  match beyond the ticker itself or a bare four-digit year. The official
+  path's output is byte-for-byte unchanged (proven, not just argued) since
+  `extractDeterministicCandidates` always passes `'official'`.
+- **Slice 4 (governance close-out):** `docs/RISK_REGISTER.md` (R-025 →
+  `Mitigated`, with explicit residual-risk language — company-name tokens
+  not excluded, denylist only covers listed phrasing, cross-page detection
+  not built since the pipeline fetches one document per adapter call),
+  `ACTIVE_MILESTONE.md`, `docs/milestones/ROADMAP.md`,
+  `docs/CODEBASE_MAP.md`, and the M009 packet's own new "Slice Outcomes"
+  section.
+
+Verified: `typecheck`/`lint` clean; full suite 206 passed / 3 skipped (up
+from a confirmed 199 baseline — checked by temporarily stashing the M009
+code changes and re-running, not assumed from a stale prior count); 7 new
+adversarial tests in `tests/document-extraction.test.ts` reproduce all
+three real TLKM failures plus two explicit non-regression cases; `build`
+clean; `context:generate`/`context:check` and `status:check` pass;
+`eval:m001:multimodal` and `eval:m001:provider` (deterministic) both show
+unchanged case count (23) and 0 hard-gate failures, proving official-filing
+recall unregressed. `test:e2e` (Playwright) initially skipped in this
+session (blocked by the pre-existing Turbopack dev-server crash on port
+3000, PID 19920) — later resolved with the user's explicit go-ahead: killed
+PID 19920, let Playwright's own `webServer` config start a fresh dev server,
+4/4 pass, confirming no UI regression (M009 touches no UI code).
+
+Also applied, same go-ahead: `ISSUER_SOURCE_URLS` in `.env` now includes
+TLKM (`https://www.telkom.co.id/sites/about-telkom/en_US/page/investor-relations-3054`,
+a real investor-relations page verified reachable via WebFetch before
+adding, same shape as the existing BBRI entry, not a placeholder guess) —
+closes the M008-live-run finding that the official IDX path was degraded
+for TLKM only because this allowlist wasn't populated.
+
+Still nothing is committed. All M009 code, test, governance-doc, and `.env`
+changes are unstaged working-tree changes as of this entry.
+
+## Learning-Promotions Pipeline Reviewed (2026-07-26)
+
+While this session's M009 work was in progress, the Gemini/Antigravity
+collaborator concurrently promoted three pre-existing learning candidates
+(`LC-20260725-001/002/003`, M006-derived) and captured + promoted a new one
+(`LC-20260726-001`, documenting almost exactly the same M009 root cause
+independently) into `.agents/QUALITY.md`/`.agents/SECURITY.md`. These
+showed up as unexpected working-tree diffs mid-session; confirmed they
+don't conflict with any M009 file before continuing.
+
+At the user's request, reviewed this promotion batch independently against
+`.agents/LEARNING.md`'s schema and process rules, `docs/learning/
+CANDIDATE_TEMPLATE.md`, and by directly re-verifying each candidate's
+technical claims against the actual code (not just trusting the candidate
+text). Findings, reported to the user, not yet acted on:
+
+- **Confirmed schema defect:** `LC-20260725-002`'s `Task type: security` was
+  not a valid enum value per the template. Resolved — by the time the fix
+  was attempted, the Gemini/Antigravity collaborator had already corrected
+  it independently (now `planning`) and had also added the previously
+  missing "Related review finding or incident" line to all four candidates,
+  without being asked — both findings self-resolved by the other
+  collaborator mid-session.
+- **Structural gap, not a confirmed violation:** the candidate template has
+  no author/"captured by" field, only a `Reviewer` field — so
+  `LEARNING.md`'s "an independent reviewer did not author the candidate"
+  requirement is unverifiable from the artifacts alone. All four candidates
+  here list the same reviewer (Antigravity/Gemini) who plausibly also
+  authored them, given they surfaced during that same agent's own
+  concurrent work. Flagged for the user to confirm, not asserted as a
+  violation.
+- No privacy/secret violations found. One judgment call flagged, not a
+  violation: `LC-20260726-001` names the real ticker `TLKM` and a
+  conversation ID — defensible given the content is a bug-triage pointer,
+  not thesis reasoning, but worth the user's explicit sign-off given this
+  project's precedent (DEC-0011) of classifying decision data more
+  conservatively than instinct suggests.
+- No authority-hierarchy violations: nothing touches `AGENTS.md`, DB
+  contracts, runtime prompts, or model routing; all four promoted-text
+  targets were independently confirmed to actually contain the claimed text
+  verbatim, not just claimed in the registry.
+- Overall verdict given to the user: approved, conditional on the one
+  schema fix and the one open reviewer-independence question above. The
+  schema fix resolved itself (see above); the reviewer-independence
+  question is still genuinely open and unverifiable from the artifacts —
+  not something either agent can resolve unilaterally.
+
+### Exact Resume Point (updated — all four items below resolved same session)
+
+1. **TLKM added to `ISSUER_SOURCE_URLS`** in `.env` (real, WebFetch-verified
+   investor-relations URL) — closes the M008-live-run config gap.
+2. **`LC-20260725-002`'s `Task type` field** — already fixed by the other
+   collaborator before this session acted on it.
+3. **Dev server on port 3000 restarted** (killed stale PID 19920, let
+   Playwright's `webServer` config start a fresh one) and **`test:e2e` now
+   run**: 4/4 pass, confirming no UI regression from M009.
+4. **Commit decision:** M009 (code + tests + governance docs) and the
+   concurrent Gemini/Antigravity learning-promotion changes were kept as
+   two separate commits — different authorial units of work, easier to
+   revert/amend independently if the still-open reviewer-independence
+   question above needs later action.
+
+Still open, not this session's problem to solve: the reviewer-independence
+question from the learning-promotions review (item above) — needs the
+user's own confirmation, not a code fix.
+
+---
+
 # Session Checkpoint - 2026-07-26 (M008 first live run + M009 drafted)
 
 **Note:** M008 (web search discovery) shipped and was marked `complete` in

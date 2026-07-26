@@ -314,6 +314,28 @@ Windows Task Scheduler or protected local endpoint
   `NEWS_WIRE_FEED_URLS` remain unconfigured in the live environment (the
   same bootstrapping gap M007 already flagged for Class A/B), recorded
   honestly as residual risk rather than silently assumed away.
+- **M009 (2026-07-26):** fixes a precision defect the first live M008 run
+  surfaced — site-wide web boilerplate (cookie/privacy text, nav-menu
+  paragraphs, a genuine but topically unrelated press release) was clearing
+  `rankSentenceCandidates`' (`extractors/candidate.ts`) token-overlap
+  threshold, which was tuned for dense official filings and reused unchanged
+  when M007/M008 opened raw web HTML into the same path. Three layered
+  mechanisms, not one: `extractHtml` (`extractors/document.ts`) now strips
+  `nav/header/footer/aside` and cookie-consent-vendor DOM chrome before any
+  text reaches ranking; `rankSentenceCandidates` rejects sentences matching
+  an explicit English+Indonesian boilerplate-phrase denylist outright, before
+  scoring; and a `sourceTier`-gated qualifying-token rule requires at least
+  one token match beyond the ticker itself or a bare four-digit year for
+  `sourceTier === 'secondary'` candidates only. The invariant that keeps the
+  official path untouched lives in the call site, not a runtime branch:
+  `extractDeterministicCandidates` always passes `sourceTier: 'official'`,
+  `extractSecondaryCandidates` always passes `'secondary'` — mirroring the
+  same "invariant lives in which function was called" pattern R-010 already
+  established. Company-name tokens are deliberately **not** excluded from the
+  qualifying-token rule (no such field exists in the call chain reaching
+  `rankSentenceCandidates`) — recorded as an explicit residual-risk gap in
+  `docs/RISK_REGISTER.md`'s R-025 entry, not silently covered. R-025 →
+  `Mitigated`.
 
 ## Task Routing
 
@@ -326,7 +348,7 @@ Windows Task Scheduler or protected local endpoint
 | Portfolio briefing or priority queue | `lib/portfolio/priorityQueue.ts`, `db/queries.ts#getPortfolioBriefing`, schema | `tests/portfolio-briefing.test.ts` coverage, standard verify, link resolution (conversationId, not thesisId) |
 | Portfolio UI (queue/index) | `components/TopTenQueue.tsx`, `app/portfolio/page.tsx`, briefing route | `verify:full` with Playwright, sorting/filtering correctness, refresh-on-sync behavior |
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
-| Secondary-source evidence (M007) | `lib/research/extractors/candidate.ts` (structural gate), `lib/research/assumption-status.ts`, `lib/research/adapters/issuer-press.ts`/`news-wire.ts`, milestone packet §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), confirmation-gate test, standard verify. Class C is out of scope — do not add search-provider code without a new milestone packet. |
+| Secondary-source evidence (M007/M009) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule and boilerplate-phrase denylist), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping), `lib/research/assumption-status.ts`, `lib/research/adapters/issuer-press.ts`/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), confirmation-gate test, standard verify. Class C is out of scope — do not add search-provider code without a new milestone packet. |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |
 | Release/checkpoint | `.agents/RELEASE.md`, verification summary, active/checkpoint docs | `verify:full`, retained evidence review |

@@ -73,6 +73,35 @@ describe('deterministic document extraction', () => {
     expect(extracted.canonicalText).toBe('Gross margin was 81.3% in Q1.');
   });
 
+  const filingSentence = 'Commercial revenue increased 40% year-over-year during the quarter, and gross margin was 81.3%.';
+  const chromeWrappedFilingHtml = `<html><body>
+    <header><a href="/">Home</a><a href="/investors">Investor Relations</a></header>
+    <nav><a href="/about">About Us</a><a href="/contact">Contact</a></nav>
+    <div id="onetrust-consent-sdk">We use cookies to improve your experience. Accept all cookies?</div>
+    <div class="Cookie-Banner">Manage your cookie preferences here.</div>
+    <main><article><h2>Item 2. Management's Discussion and Analysis.</h2><p>${filingSentence}</p></article></main>
+    <footer>&copy; 2026 Example Corp. All rights reserved.</footer>
+  </body></html>`;
+
+  it('strips nav/header/footer/cookie-banner chrome while preserving dense official filing text (M009)', async () => {
+    const extracted = await extractHtml(new TextEncoder().encode(chromeWrappedFilingHtml));
+    expect(extracted.canonicalText).toContain(filingSentence);
+    expect(extracted.canonicalText).not.toContain('Investor Relations');
+    expect(extracted.canonicalText).not.toContain('About Us');
+    expect(extracted.canonicalText).not.toContain('cookies');
+    expect(extracted.canonicalText).not.toContain('All rights reserved');
+  });
+
+  it('extractDeterministicCandidates finds the same official-filing candidate whether or not the page has full HTML chrome (M009)', async () => {
+    const chromeFree = await extractHtml(new TextEncoder().encode(`<html><body><p>${filingSentence}</p></body></html>`));
+    const chromeWrapped = await extractHtml(new TextEncoder().encode(chromeWrappedFilingHtml));
+    const assumption = 'Commercial revenue grows at least 30% year-over-year.';
+    const chromeFreeCandidates = extractDeterministicCandidates(chromeFree, assumption, 'EXCO');
+    const chromeWrappedCandidates = extractDeterministicCandidates(chromeWrapped, assumption, 'EXCO');
+    expect(chromeWrappedCandidates).toEqual(chromeFreeCandidates);
+    expect(chromeWrappedCandidates[0]).toMatchObject({ quote: filingSentence, verificationStatus: 'exact_verified' });
+  });
+
   it('ranks exact numeric sentences using assumption terms', () => {
     const document = {
       canonicalText: 'Revenue increased 10%. Palantir reported gross margin of 81.3% in the quarter.',
@@ -238,6 +267,73 @@ describe('deterministic document extraction', () => {
       const newsCandidate = createSecondaryNewsCandidate({ quote: 'q', impactSummary: 'i', pageNumber: null });
       expect(issuerCandidate.verificationStatus).toBe('secondary_issuer');
       expect(newsCandidate.verificationStatus).toBe('secondary_news');
+    });
+  });
+
+  // M009 (R-025). Reproduces the three real TLKM boilerplate failures from
+  // the 2026-07-26 live run: a phrase-level denylist (Slice 2) catches
+  // cookie/legal text and accessibility nav-skip phrasing embedded in
+  // main-content prose (structural <nav>/<header>/<footer> chrome is instead
+  // handled at the DOM level — see the Slice 1 cases above); a
+  // secondary-tier-only qualifying-token gate (Slice 3) catches a genuine,
+  // on-domain but topically unrelated article that only shares the ticker
+  // and a bare year with the assumption, which no denylist or DOM rule can
+  // reach.
+  describe('boilerplate-phrase and secondary-threshold filtering (M009)', () => {
+    function toDocument(text: string) {
+      return {
+        canonicalText: text,
+        pages: [{ pageNumber: null, text }],
+        parserVersion: 'test',
+        extractionMethod: 'html_parser' as const,
+        sourceVariant: 'text_layer' as const,
+        untrustedInstructionFlagged: false,
+      };
+    }
+
+    it('excludes a cookie/privacy-policy sentence even though it would otherwise clear the pre-M009 threshold', () => {
+      const document = toDocument(
+        'TLKM uses cookies to improve your experience. See our Cookie Policy and Privacy Policy for details on data center and enterprise services.',
+      );
+      const candidates = extractSecondaryCandidates(document, "TLKM's enterprise data center services remain competitive.", 'TLKM', 'issuer');
+      expect(candidates.map((c) => c.quote)).not.toContain(
+        'See our Cookie Policy and Privacy Policy for details on data center and enterprise services.',
+      );
+    });
+
+    it('excludes a repeated nav-skip paragraph regardless of which unrelated assumption it is scored against', () => {
+      const document = toDocument(
+        'Skip to content: Home Investor Relations About Us Enterprise Data Center Solutions Contact Us',
+      );
+      const firstAssumption = "TLKM's enterprise data center solutions remain highly competitive this quarter.";
+      const secondAssumption = 'TLKM continues to expand its enterprise data center footprint.';
+      expect(extractSecondaryCandidates(document, firstAssumption, 'TLKM', 'issuer')).toHaveLength(0);
+      expect(extractSecondaryCandidates(document, secondAssumption, 'TLKM', 'news')).toHaveLength(0);
+    });
+
+    it('excludes a genuine but topically-unrelated article sharing only the ticker and a bare year with the assumption (secondary tier)', () => {
+      const document = toDocument(
+        'In 2026, TLKM inaugurated a new coral reef restoration program in Bali as part of its corporate social responsibility initiatives.',
+      );
+      const candidates = extractSecondaryCandidates(document, "TLKM's macro and IT-budget conditions remain favorable heading into 2026.", 'TLKM', 'news');
+      expect(candidates).toHaveLength(0);
+    });
+
+    it('does not over-filter a genuine short secondary press-release fact sharing non-generic tokens with the assumption', () => {
+      const issuerText = 'Net revenue increased 10%. Palantir reported gross margin of 81.3% in the quarter.';
+      const document = toDocument(issuerText);
+      const candidates = extractSecondaryCandidates(document, 'PLTR gross margin remains above 80%.', 'PLTR', 'issuer');
+      expect(candidates.length).toBeGreaterThan(0);
+      expect(candidates[0].quote).toBe('Palantir reported gross margin of 81.3% in the quarter.');
+    });
+
+    it('leaves the official path unaffected by the secondary-tier qualifying-token gate', () => {
+      const document = toDocument(
+        'In 2026, TLKM inaugurated a new coral reef restoration program in Bali as part of its corporate social responsibility initiatives.',
+      );
+      const candidates = extractDeterministicCandidates(document, "TLKM's macro and IT-budget conditions remain favorable heading into 2026.", 'TLKM');
+      expect(candidates.length).toBeGreaterThan(0);
+      expect(candidates[0].verificationStatus).toBe('exact_verified');
     });
   });
 

@@ -132,7 +132,7 @@ previously-untested problem, scoped as M009 below.
 
 ## M009: Secondary Evidence Boilerplate Filtering
 
-Status: `proposed` (2026-07-26) — packet at
+Status: `complete` (2026-07-26) — packet at
 [`M009-secondary-evidence-boilerplate-filtering.md`](M009-secondary-evidence-boilerplate-filtering.md).
 No new decision record required; governed by the already-accepted
 [`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md).
@@ -149,7 +149,24 @@ M007/M008 opened raw web HTML into the same path; `extractHtml`
 template/svg` but not `nav/header/footer/aside`. R-010's structural
 trust-tier gate still holds — nothing was mislabeled `exact_verified`/
 `ocr_matched` — this is a precision problem within the correctly-tiered
-`secondary_issuer` class, not a classification failure. Addresses newly
-opened R-025. Not yet accepted or implemented — awaiting review.
+`secondary_issuer` class, not a classification failure. Addresses R-025.
+
+**Implemented 2026-07-26.** Reviewed independently twice before
+implementation — a second AI collaborator (Gemini) and a separate
+reconciliation pass both traced the same root cause and converged on
+sharpening Slice 3's threshold fix to specifically exclude ticker/bare-year
+tokens from the secondary-path qualifying-match count, the only mechanism
+that can catch a genuine but topically unrelated article (the CSR/coral-reef
+class) that DOM stripping or a phrase denylist can't reach. All four slices
+shipped: DOM-level stripping in `extractHtml`, a phrase-level denylist
+(English + Indonesian) in `rankSentenceCandidates`, the `sourceTier`-gated
+qualifying-token rule, and this close-out. 7 new adversarial tests reproduce
+all three real TLKM failures plus two explicit non-regression cases; full
+suite (206 passed / 3 skipped, up from 199), typecheck, lint, and build all
+pass; M001 multimodal/provider evals show unchanged case counts (23) and 0
+hard-gate failures, proving the official path untouched. R-025 → `Mitigated`
+— see `docs/RISK_REGISTER.md` for the honest residual-risk statement
+(company-name tokens not excluded, denylist covers only listed phrasing,
+cross-page boilerplate detection not built).
 
 

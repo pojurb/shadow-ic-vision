@@ -2,15 +2,18 @@
 
 Status: `complete`
 
-Active Packet: [`docs/milestones/M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) (complete 2026-07-26; all five slices implemented and tested — see "Slice Outcomes")
+Active Packet: [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md) (complete 2026-07-26; all four slices implemented and tested — see "Slice Outcomes")
 
-Latest Completed Packet: [`docs/milestones/M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) (complete; R-013 → `Mitigated` — mechanism proven structurally and by test; real-world coverage still zero because the Class A/B allowlists remain unconfigured, recorded honestly as residual risk, not silently assumed away)
+Latest Completed Packet: [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md) (complete; R-025 → `Mitigated` — DOM stripping + phrase denylist + secondary-tier-only qualifying-token rule, proven by 7 new adversarial tests and unregressed M001 evals; company-name-token exclusion and cross-page detection recorded honestly as residual risk, not silently assumed away)
 
-See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M008 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0.
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M009 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0. M008's first live run then surfaced the precision defect M009 fixes; see the paragraph below.
 
 ## Current Phase
 
-M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), M006 (In-Pipeline Vision Extraction & Injection Hardening), M007 (Secondary-Source/General-News Ingestion), and M008 (Web Search Discovery, Class C) are 100% completed and verified.
+M009 closed the gap M008's first live run opened: several `secondary_issuer` evidence rows persisted as site-wide web boilerplate despite correct trust-tier labeling. Three layered mechanisms now guard `rankSentenceCandidates`
+(`lib/research/extractors/candidate.ts`) and `extractHtml` (`lib/research/extractors/document.ts`) — DOM-level chrome stripping, a phrase-level denylist, and a `sourceTier`-gated qualifying-token rule that excludes the ticker and bare years from the secondary-path match minimum, the only mechanism able to catch a genuine but topically irrelevant article (the real CSR/coral-reef case) that no denylist or DOM rule can reach. The official path is proven byte-for-byte unchanged: `extractDeterministicCandidates` always calls with `sourceTier: 'official'`, so the new gate never fires for it, confirmed by a new official-tier HTML-chrome regression fixture plus the unchanged M001 eval case count (23, 0 hard-gate failures). Reviewed independently twice before implementation — a second AI collaborator (Gemini) and a separate reconciliation pass both converged on the same root cause and the same qualifying-token mechanism as the fix for the CSR-class failure. Company-name-token exclusion was explicitly scoped out (no such field exists in the call chain) and recorded as residual risk rather than silently covered. R-025 → `Mitigated`.
+
+M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), M006 (In-Pipeline Vision Extraction & Injection Hardening), M007 (Secondary-Source/General-News Ingestion), M008 (Web Search Discovery, Class C), and M009 (Secondary Evidence Boilerplate Filtering) are 100% completed and verified.
 
 Milestone 8 closes the gap M007 deliberately left open: `discoveryCandidates`
 (schema-ready since M007, unpopulated until now) is wired to a real search
@@ -177,7 +180,33 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-26 (M008 implementation, all five slices).
+Latest full verification: 2026-07-26 (M009 implementation, all four slices).
+
+- `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-26 (206
+  passed, 3 skipped — up from 199 at M008's close; adds 7 adversarial
+  boilerplate-filtering cases to `tests/document-extraction.test.ts`: two
+  official-tier HTML-chrome regression fixtures for Slice 1, three for the
+  phrase denylist and secondary-tier qualifying-token rule reproducing the
+  real 2026-07-26 TLKM failures, and two explicit non-regression cases — a
+  genuine secondary press-release fact still passes, and the official path
+  is untouched by the new gate)
+- `npm run build`: pass on 2026-07-26
+- `npm run context:generate` / `npm run context:check`: pass on 2026-07-26
+- `npm run eval:m001:multimodal -- --output test-results/m009-multimodal-report.json`:
+  pass on 2026-07-26; `additionalCaseCount: 23` unchanged from M008, 0
+  hard-gate failures — confirms official-filing recall is unregressed
+- `npm run eval:m001:provider -- --mode deterministic --model minimax-m3:cloud --output test-results/m009-provider-report.json`:
+  pass on 2026-07-26; 0 hard-gate failures; deterministic only, no live run
+  needed since M009 makes no provider-boundary change
+- `npm run status:check`: pass on 2026-07-26
+- `npm run test:e2e` (Playwright): 4/4 pass on 2026-07-26, after restarting
+  the stale dev server on port 3000 (the pre-existing Turbopack
+  compiler-worker crash flagged at the end of the prior session) with the
+  user's explicit go-ahead — confirms no regression to the Research panel;
+  M009 touches no UI code, so this is a confirmation, not an expected-change
+  check.
+
+Previous full verification: 2026-07-26 (M008 implementation, all five slices).
 
 - `npm run typecheck`, `npm test`: pass on 2026-07-26 (191 passed, 3
   skipped — up from 156 at M007's close; adds discovery-provider
@@ -378,10 +407,25 @@ Release evidence:
 - `npm audit --omit=dev` currently reports two moderate dependency findings
   (transitive `postcss` via `next`); no forced breaking upgrade was applied in
   this slice.
+- **M009 boundary, 2026-07-26.** The boilerplate-phrase denylist covers only
+  the listed English/Indonesian phrasing found in the real 2026-07-26 TLKM
+  run — boilerplate worded differently, or in another language, is not
+  caught. The secondary-tier qualifying-token rule excludes only the ticker
+  and bare four-digit years; company-name tokens are deliberately **not**
+  excluded, since no company-display-name field exists anywhere in the call
+  chain reaching `rankSentenceCandidates` today (only ticker/assumption text
+  do) — threading one through was scoped out rather than silently assumed
+  unnecessary (see `docs/RISK_REGISTER.md` R-025). Repeated-across-pages
+  boilerplate detection (the same quote recurring across multiple fetched
+  pages of one domain) was considered and not built — the current pipeline
+  fetches one document per adapter call, so cross-page comparison isn't yet
+  structurally possible. Cleanup of the 15 already-persisted low-quality
+  evidence rows from the 2026-07-26 TLKM run was explicitly out of scope —
+  this milestone fixes the extractor going forward only.
 
 ## Next Steps
 
-Milestones 4, 5, 6, and 7 are complete and verified (2026-07-25).
+Milestones 4 through 9 are complete and verified.
 
 1. ~~**DEC-0009 Amendment**~~ Accepted: [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
    clarifies that recorded Buy/Hold/Reduce/Exit decisions are governed
@@ -430,16 +474,17 @@ Milestones 4, 5, 6, and 7 are complete and verified (2026-07-25).
    test, real-world coverage still zero pending allowlist population,
    recorded honestly as residual risk. See the packet's "Slice Outcomes".
 
-8. **Milestone 9 (drafted, not yet accepted):** [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md)
-   — found during M008's first live end-to-end run (2026-07-26, real TLKM
-   thesis): several persisted `secondary_issuer` evidence rows were
-   site-wide boilerplate (cookie policy, an unrelated CSR press release, a
-   repeated nav-menu paragraph) rather than substantive text, despite
-   correct trust-tier labeling. Addresses newly opened R-025. Awaiting user
-   acceptance before implementation — see `SESSION_CHECKPOINT.md`'s
-   2026-07-26 entry for the full finding.
+8. ~~**Milestone 9**~~ Complete: [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md)
+   (accepted and complete 2026-07-26). All four acceptance criteria met; all
+   four implementation slices shipped and tested. Reviewed independently
+   twice before implementation (a second AI collaborator and a separate
+   reconciliation pass), both converging on the qualifying-token mechanism
+   as the fix for the CSR/coral-reef failure class. R-025 moved to
+   `Mitigated` — three layered mechanisms proven by test and unregressed
+   M001 evals; company-name-token exclusion and cross-page detection
+   recorded honestly as residual risk. See the packet's "Slice Outcomes".
 
-No milestone is currently active. Milestone 9 is proposed, not accepted.
+No milestone is currently active. Milestone 9 is complete.
 
 Promoted lessons consulted: `LC-20260703-001`
 

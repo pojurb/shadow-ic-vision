@@ -78,7 +78,22 @@ export async function extractHtml(
 ): Promise<ExtractedDocument> {
   const html = new TextDecoder().decode(rawBytes);
   const $ = load(html);
-  $('script, style, noscript, template, svg').remove();
+  // M009 (R-025). Structural chrome and common cookie/consent-vendor
+  // containers never carry assumption-relevant content, for either official
+  // or secondary-tier HTML (both can reach this function — see
+  // adapters/sec.ts and adapters/issuer.ts, which fall back to 'html' when
+  // the fetched document isn't a PDF). Attribute-selector matching is
+  // case-insensitive (`i` flag) so `Cookie-Banner`-style class names match
+  // too. Kept as a single `.remove()` call, same position as before.
+  $([
+    'script, style, noscript, template, svg',
+    'nav, header, footer, aside',
+    '[class*="cookie" i], [id*="cookie" i]',
+    '[class*="consent" i], [id*="consent" i]',
+    '[class*="onetrust" i], [id*="onetrust" i]',
+    '[class*="gdpr" i], [id*="gdpr" i]',
+    '[class*="legal-notice" i], [id*="legal-notice" i]',
+  ].join(', ')).remove();
   $('br').replaceWith(' ');
   $('p, div, section, article, tr, li, h1, h2, h3, h4, h5, h6').append(' ');
   const canonicalText = normalizeText($('body').text() || $.root().text());

@@ -81,29 +81,84 @@ const STOP_WORDS = new Set([
   'saya', 'tetap', 'untuk', 'yang',
 ]);
 
+// M009 (R-025). Site-wide legal/cookie/navigation phrasing that DOM-level
+// stripping in extractHtml can't reach (e.g. embedded inside a main-content
+// <p>/<div> rather than a <nav>/<footer>). Checked case-insensitively as a
+// substring against the raw sentence, before scoring, so a boilerplate
+// sentence can't buy its way past the threshold via an incidental digit or
+// ticker mention. Applies identically to both source tiers.
+const BOILERPLATE_PHRASES = [
+  'all rights reserved',
+  'cookie policy',
+  'cookie preferences',
+  'manage your cookie',
+  'privacy policy',
+  'terms of use',
+  'terms and conditions',
+  'skip to content',
+  'skip to main content',
+  // Indonesian equivalents.
+  'kebijakan privasi',
+  'kebijakan cookie',
+  'syarat dan ketentuan',
+  'hak cipta dilindungi',
+  'seluruh hak cipta',
+  'lewati ke konten',
+];
+
+function isBoilerplatePhrase(quote: string): boolean {
+  const lower = quote.toLowerCase();
+  return BOILERPLATE_PHRASES.some((phrase) => lower.includes(phrase));
+}
+
 function rankSentenceCandidates(
   document: ExtractedDocument,
   assumption: string,
   ticker: string,
   limit: number,
+  sourceTier: 'official' | 'secondary' = 'official',
 ): Array<{ quote: string; pageNumber: number | null }> {
   const assumptionTokens = significantTokens(`${ticker} ${assumption}`);
   const assumptionNumbers = numbers(assumption);
-  const ranked = document.pages.flatMap((page) => splitSentences(page.text).map((quote) => {
-    const quoteTokens = significantTokens(quote);
-    const tokenMatches = [...assumptionTokens].filter((token) => quoteTokens.has(token)).length;
-    const numberMatches = assumptionNumbers.filter((number) => quote.includes(number)).length;
-    const hasNumericFact = /\d/.test(quote);
-    return {
-      quote,
-      pageNumber: page.pageNumber,
-      score: tokenMatches * 3 + numberMatches * 5 + (hasNumericFact ? 2 : 0),
-      tokenMatches,
-    };
-  }));
+  const lowerTicker = ticker.toLowerCase();
+  const ranked = document.pages.flatMap((page) => splitSentences(page.text)
+    .filter((quote) => !isBoilerplatePhrase(quote))
+    .map((quote) => {
+      const quoteTokens = significantTokens(quote);
+      const matchedTokens = [...assumptionTokens].filter((token) => quoteTokens.has(token));
+      const tokenMatches = matchedTokens.length;
+      const numberMatches = assumptionNumbers.filter((number) => quote.includes(number)).length;
+      const hasNumericFact = /\d/.test(quote);
+      // M009 (R-025). A token equal to the ticker itself or a bare four-digit
+      // year (a copyright year, a filing year mentioned in passing) is common
+      // to nearly every page on an issuer's own domain and carries no
+      // assumption-specific relevance on its own. Counted toward
+      // `tokenMatches`/`score` as before (official-path behavior unaffected);
+      // excluded only from `qualifyingTokenMatches`, which gates
+      // secondary-tier candidates below.
+      const qualifyingTokenMatches = matchedTokens.filter(
+        (token) => token !== lowerTicker && !/^\d{4}$/.test(token),
+      ).length;
+      return {
+        quote,
+        pageNumber: page.pageNumber,
+        score: tokenMatches * 3 + numberMatches * 5 + (hasNumericFact ? 2 : 0),
+        tokenMatches,
+        qualifyingTokenMatches,
+      };
+    }));
 
   return ranked
-    .filter((candidate) => candidate.tokenMatches >= 2 && candidate.score >= 8 && candidate.quote.length >= 20)
+    .filter((candidate) => {
+      if (candidate.tokenMatches < 2 || candidate.score < 8 || candidate.quote.length < 20) return false;
+      // M009 (R-025). Secondary-tier only: a candidate whose only qualifying
+      // matches are the ticker/a bare year (e.g. a genuine but topically
+      // unrelated press release that merely mentions the issuer and the
+      // current year) is rejected. The official path never applies this —
+      // its output is byte-for-byte unchanged from before M009.
+      if (sourceTier === 'secondary' && candidate.qualifyingTokenMatches < 1) return false;
+      return true;
+    })
     .sort((left, right) => right.score - left.score || left.quote.length - right.quote.length)
     .slice(0, limit)
     .map(({ quote, pageNumber }) => ({ quote, pageNumber }));
@@ -115,7 +170,7 @@ export function extractDeterministicCandidates(
   ticker: string,
   limit = 3,
 ): EvidenceCandidate[] {
-  const selected = rankSentenceCandidates(document, assumption, ticker, limit);
+  const selected = rankSentenceCandidates(document, assumption, ticker, limit, 'official');
 
   // R-017 invariant. A quote drawn from a model transcription is only ever
   // exact with respect to that transcription, never to the source document —
@@ -163,7 +218,7 @@ export function extractSecondaryCandidates(
   sourceClass: 'issuer' | 'news',
   limit = 3,
 ): EvidenceCandidate[] {
-  const selected = rankSentenceCandidates(document, assumption, ticker, limit);
+  const selected = rankSentenceCandidates(document, assumption, ticker, limit, 'secondary');
   const impactSummary = sourceClass === 'issuer'
     ? 'Passage matched against a company investor-relations release. Secondary source; official confirmation remains pending.'
     : 'Passage matched against a curated news-wire article. Secondary source; official confirmation remains pending.';

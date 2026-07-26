@@ -1,8 +1,12 @@
 # M009: Secondary Evidence Boilerplate Filtering
 
-Status: `proposed`
+Status: `complete`
 
 Date drafted: 2026-07-26
+
+Date accepted: 2026-07-26
+
+Date completed: 2026-07-26
 
 Approval authority: user
 
@@ -14,7 +18,71 @@ quality inside the scope [`DEC-0015`](../decisions/DEC-0015-secondary-source-ing
 already governs.
 
 Addresses: R-025 (site-wide web boilerplate persisted as secondary evidence) —
-newly opened by this packet, found during the first live M008 run.
+`Mitigated`. Three layered mechanisms implemented and tested; see "Slice
+Outcomes" for what is and isn't proven.
+
+---
+
+## Slice Outcomes (2026-07-26)
+
+All four slices implemented and verified: `typecheck`/`lint`/`test`/`build`
+clean; full test suite grew 199 → 206 (7 new adversarial cases, all in
+`tests/document-extraction.test.ts`); `npm run eval:m001:multimodal` and
+`npm run eval:m001:provider` (deterministic mode) both show unchanged
+`additionalCaseCount: 23` and 0 hard-gate failures, confirming official-filing
+recall is unregressed; `npm run status:check`/`context:check` pass.
+`npm run test:e2e` (Playwright) 4/4 pass, after restarting the stale dev
+server on port 3000 (a pre-existing Turbopack compiler-worker crash left over
+from the prior session, unrelated to this milestone — M009 touches no UI
+code).
+
+- **AC-M009-01 (Known boilerplate is excluded):** met. The three real TLKM
+  examples from the 2026-07-26 run no longer produce evidence candidates:
+  the cookie/privacy-policy sentence and a repeated nav-skip paragraph are
+  caught by the new phrase denylist in `rankSentenceCandidates`
+  (`lib/research/extractors/candidate.ts`); the genuine-but-unrelated
+  CSR/coral-reef article — which no phrase denylist or DOM rule can reach,
+  since it isn't boilerplate at all — is caught by the new
+  `sourceTier`-gated qualifying-token rule (Slice 3), the mechanism sharpened
+  by two independent reviews before implementation. Proven by 5 new
+  adversarial tests reproducing all three failures directly.
+- **AC-M009-02 (Official-filing recall is unregressed):** met, and proven
+  more concretely than the original packet's regression guard could have —
+  no existing fixture, for either tier, contained realistic HTML page chrome
+  before this milestone (confirmed by direct inspection during planning), so
+  a new official-tier HTML-chrome fixture (Slice 1) was added specifically to
+  close that gap, proving `extractDeterministicCandidates` returns an
+  identical candidate whether or not the source page has full chrome. The
+  `sourceTier`-gated qualifying-token rule (Slice 3) never fires for the
+  official path (`extractDeterministicCandidates` always calls with
+  `sourceTier: 'official'`), so its filter/sort/output is byte-for-byte
+  unchanged for every existing fixture. The full M001 multimodal/provider
+  eval suites also show unchanged case counts and 0 hard-gate failures.
+- **AC-M009-03 (Structural trust-class gate still holds):** met, unregressed.
+  No change to which function can produce `exact_verified`/`ocr_matched`;
+  the existing R-010 adversarial tests pass unmodified.
+- **AC-M009-04 (Governance closed honestly):** met. R-025 → `Mitigated` in
+  `docs/RISK_REGISTER.md`, with residual-risk language stating plainly what
+  is and isn't guaranteed — see the design-decision note below.
+
+**Design decision — company-name tokens excluded from Slice 3's scope.** The
+packet's §2 named "ticker/company-name/year tokens" as candidate exclusions
+for the qualifying-token rule. Direct inspection of the call chain
+(`lib/research/pipeline.ts` → `extractSecondaryCandidates` →
+`rankSentenceCandidates`) confirmed no company-display-name field exists
+anywhere in it today — only `ticker` and `assumption` text do. Threading one
+through would have added a new input beyond this milestone's own §4 scope
+("pure extraction-quality change... no new inputs"). Per explicit user
+decision during planning: implement ticker + bare-year exclusion only, and
+record the company-name gap as honest residual risk in R-025's close-out
+rather than silently widening scope or silently covering it.
+
+**Recorded follow-ups closed:** R-025 → `Mitigated` (`docs/RISK_REGISTER.md`).
+`docs/CODEBASE_MAP.md`'s Critical Invariants and Task Routing sections
+updated to name `rankSentenceCandidates` for the first time and route future
+secondary-evidence work to the new mechanisms.
+
+---
 
 ## 0. Why This Exists
 
