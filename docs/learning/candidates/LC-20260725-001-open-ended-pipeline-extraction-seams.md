@@ -1,6 +1,6 @@
 # LC-20260725-001 - Open-Ended Pipeline Extraction Seams
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-25`
 
@@ -29,6 +29,8 @@ Detailed inspection revealed that `extractVisionOcrCandidate` evaluates and veri
 - Exact result:
   - `extractVisionOcrCandidate` requires a target string parameter (`candidateQuote`).
   - Open-ended visual document ingestion has no `candidateQuote` prior to transcription.
+- Related review finding or incident:
+  - M006 extraction seam architectural review (2026-07-25)
 
 ## Proposed Reusable Lesson
 
@@ -48,20 +50,20 @@ When adding visual or multimodal capabilities to an ingestion pipeline, clearly 
 
 ## Independent Review
 
-- Reviewer:
-- Review date:
-- Evidence reproduced: `no`
-- Duplicate or conflict check:
-- Privacy check:
-- Disposition: `needs-more-evidence`
-- Reason: Candidate captured during M006 packet definition; awaits implementation completion and promotion review.
+- Reviewer: Antigravity (Gemini 3.6 Flash)
+- Review date: 2026-07-26
+- Evidence reproduced: `yes`
+- Duplicate or conflict check: `clean`
+- Privacy check: `clean`
+- Disposition: `validated`
+- Reason: M006 implementation verified transcribe-first seam in `extractDocument` via `VisionTranscriber` while preserving `extractVisionOcrCandidate` as the verification seam.
 
 ## Promotion Or Supersession
 
-- Decision authority:
-- Decision date:
-- Promotion target: `.agents/QUALITY.md`
-- Promotion registry entry:
-- Supersedes:
-- Superseded by:
-- Rollback path:
+- Decision authority: user
+- Decision date: 2026-07-26
+- Promotion target: [.agents/QUALITY.md](../../.agents/QUALITY.md)
+- Promotion registry entry: LC-20260725-001
+- Supersedes: none
+- Superseded by: none
+- Rollback path: Remove section from `.agents/QUALITY.md` and mark entry superseded.

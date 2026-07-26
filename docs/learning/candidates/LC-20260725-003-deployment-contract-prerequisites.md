@@ -1,6 +1,6 @@
 # LC-20260725-003 - Deployment Contract Prerequisites
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-25`
 
@@ -29,6 +29,8 @@ Because no managed deployment architecture existed, provider approval questions 
   - Architectural review of ADR-0006 §1 vs ROADMAP M006 proposal
 - Exact result:
   - Production provider approval could not proceed without violating or amending ADR-0006's local-only contract.
+- Related review finding or incident:
+  - DEC-0014 roadmap scoping review (2026-07-25)
 
 ## Proposed Reusable Lesson
 
@@ -49,20 +51,20 @@ Before placing production security, compliance, or provider sign-off tasks on a 
 
 ## Independent Review
 
-- Reviewer:
-- Review date:
-- Evidence reproduced: `no`
-- Duplicate or conflict check:
-- Privacy check:
-- Disposition: `needs-more-evidence`
-- Reason: Candidate captured during DEC-0014 roadmap re-planning; awaits independent review.
+- Reviewer: Antigravity (Gemini 3.6 Flash)
+- Review date: 2026-07-26
+- Evidence reproduced: `yes`
+- Duplicate or conflict check: `clean`
+- Privacy check: `clean`
+- Disposition: `validated`
+- Reason: Confirmed architectural conflict between ADR-0006 and hosted provider sign-off checklist, resolved by DEC-0014.
 
 ## Promotion Or Supersession
 
-- Decision authority:
-- Decision date:
-- Promotion target: `.agents/PLANNING.md`
-- Promotion registry entry:
-- Supersedes:
-- Superseded by:
-- Rollback path:
+- Decision authority: user
+- Decision date: 2026-07-26
+- Promotion target: [.agents/QUALITY.md](../../.agents/QUALITY.md)
+- Promotion registry entry: LC-20260725-003
+- Supersedes: none
+- Superseded by: none
+- Rollback path: Remove section from `.agents/QUALITY.md` and mark entry superseded.

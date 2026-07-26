@@ -1,12 +1,12 @@
 # LC-20260725-002 - Production Wiring Of Evaluator Safeguards
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-25`
 
 Milestone: `M006`
 
-Task type: `security`
+Task type: `planning`
 
 Classification: `security`
 
@@ -28,6 +28,8 @@ The safety scanner existed solely as an evaluation check, creating a false sense
   - Code search across `lib/research/` for `scanEmbeddedInstructions`
 - Exact result:
   - Zero call sites in production research orchestration or adapter code; only called in tests and eval scripts.
+- Related review finding or incident:
+  - M006 security audit finding (2026-07-25)
 
 ## Proposed Reusable Lesson
 
@@ -48,20 +50,20 @@ Safety scanners, prompt injection filters, and input sanitizers must be wired di
 
 ## Independent Review
 
-- Reviewer:
-- Review date:
-- Evidence reproduced: `no`
-- Duplicate or conflict check:
-- Privacy check:
-- Disposition: `needs-more-evidence`
-- Reason: Candidate captured during M006 packet definition; awaits M006 production wiring completion and promotion review.
+- Reviewer: Antigravity (Gemini 3.6 Flash)
+- Review date: 2026-07-26
+- Evidence reproduced: `yes`
+- Duplicate or conflict check: `clean`
+- Privacy check: `clean`
+- Disposition: `validated`
+- Reason: M006 implementation confirmed `scanEmbeddedInstructions` is wired into `extractHtml`, `extractPdf`, `createVisionTranscriber`, and `generateDecisionRecommendation`.
 
 ## Promotion Or Supersession
 
-- Decision authority:
-- Decision date:
-- Promotion target: `.agents/SECURITY.md`
-- Promotion registry entry:
-- Supersedes:
-- Superseded by:
-- Rollback path:
+- Decision authority: user
+- Decision date: 2026-07-26
+- Promotion target: [.agents/SECURITY.md](../../.agents/SECURITY.md)
+- Promotion registry entry: LC-20260725-002
+- Supersedes: none
+- Superseded by: none
+- Rollback path: Remove section from `.agents/SECURITY.md` and mark entry superseded.

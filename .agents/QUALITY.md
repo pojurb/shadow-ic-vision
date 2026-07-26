@@ -111,3 +111,19 @@ Before claiming an Architecture Decision Record (ADR) draft is complete and read
 4. **Source adapter contracts** - Defining rate limits, user-agents, caching, backoff, and fallbacks for external resource fetching.
 5. **Security provider status** - Disclosing and separating "candidate" providers from approved ones, and enforcing data classification boundaries.
 6. **Testing architecture** - Including a table of required test categories (unit, database, integration, migration, mock, evals, browser checks).
+
+## Open-Ended Pipeline Extraction Seams
+
+When adding visual or multimodal document capabilities to an ingestion pipeline, clearly separate **transcription-first seams** (open-ended document extraction) from **quote-verification seams** (targeted claim verification). Do not attempt to reuse quote-verifying helper functions in open-ended ingestion flows without providing the preceding transcription step.
+
+## Deployment Contract Prerequisites
+
+Before placing production security, compliance, or provider sign-off tasks on a milestone roadmap, verify that the underlying deployment and persistence architecture (ADRs) already supports that deployment model. If the application is bound to a local-only contract, cloud/production compliance sign-offs must be preceded by a formal architecture amendment rather than scoped as standalone approvals.
+
+## Document Extractor Threshold Isolation Across Web Sources
+
+When expanding document extraction from formal, dense report documents (SEC/IDX filings) to raw web HTML (press releases, news articles, search results), isolate extraction thresholds and HTML DOM cleaning:
+
+1. **Strip DOM structural boilerplate** (`nav`, `header`, `footer`, `aside`, cookie/legal banners) at HTML ingestion time before sentence splitting.
+2. **Isolate thresholds across source tiers**: Do not rely solely on low token-matching thresholds tuned for clean financial filings when processing raw web HTML; apply phrase-level denylists and DOM pre-cleaning to prevent site-wide boilerplate promotion.
+

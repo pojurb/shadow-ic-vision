@@ -14,6 +14,10 @@ evidence-bearing candidate.
 | LC-20260704-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | browser verification | [LC-20260704-001](candidates/LC-20260704-001-repository-owned-browser-qa.md) | Antigravity (Claude Sonnet 4.6) | user | 2026-07-05 | 2026-07-05 |
 | LC-20260705-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | scheduled-worker verification | [LC-20260705-001](candidates/LC-20260705-001-local-scheduled-worker-boundary.md) | Antigravity (Gemini 3.1 Pro) | user | 2026-07-05 | 2026-07-05 |
 | LC-20260708-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | browser verification | [LC-20260708-001](candidates/LC-20260708-001-playwright-navigation-synchronization.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-25 | 2026-07-25 |
+| LC-20260725-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | pipeline extraction | [LC-20260725-001](candidates/LC-20260725-001-open-ended-pipeline-extraction-seams.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
+| LC-20260725-002 | [.agents/SECURITY.md](../../.agents/SECURITY.md) | production safety wiring | [LC-20260725-002](candidates/LC-20260725-002-production-wiring-of-evaluator-safeguards.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
+| LC-20260725-003 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | roadmap planning | [LC-20260725-003](candidates/LC-20260725-003-deployment-contract-prerequisites.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
+| LC-20260726-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | document extraction tuning | [LC-20260726-001](candidates/LC-20260726-001-document-extractor-threshold-isolation.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
 
 ## Rejected Candidates
 

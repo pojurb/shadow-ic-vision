@@ -50,3 +50,8 @@ sent to a cloud model.
 Before external beta, create and approve a threat model covering identities,
 assets, trust boundaries, abuse cases, provider exposure, backup/restore, and
 incident response. Material security failures block verification and release.
+
+## Production Wiring of Evaluator Safeguards
+
+Safety scanners, prompt injection filters, and input sanitizers must be wired directly into production data flow pipelines (`lib/research/`) before claims of risk mitigation (e.g. Risk Register entries) are recorded. Evaluator-only checks measure safety but do not enforce it in production.
+
