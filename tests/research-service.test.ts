@@ -4,10 +4,11 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { assumptions, conversations, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
+import { assumptions, conversations, discoveryCandidates, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
 import { thesisDraftSchema } from '@/lib/domain/contracts';
 import { acceptSecondaryEvidence, confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
+import { OfficialHttpClient } from '@/lib/research/http';
 
 const draft = thesisDraftSchema.parse({
   ticker: 'PLTR',
@@ -311,6 +312,85 @@ describe('local vertical slice persistence', () => {
 
       await expect(acceptSecondaryEvidence(assumption.id, { db: handle.db })).rejects.toThrow();
       expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('untested');
+    });
+  });
+
+  // M008 Slices 1 & 3: web-search discovery persistence and automatic
+  // fetch-and-classify promotion, wired into the same per-job loop as
+  // M007's Class A/B calls, with the same soft-failure discipline.
+  describe('M008 web-search discovery + automatic promotion', () => {
+    it('persists discovered candidates as pending, without touching evidence, when the domain is not allowlisted', async () => {
+      confirmDraft(conversationId, messageId, { db: handle.db });
+      const discoveryProvider = {
+        providerId: 'stub',
+        async search() { return { kind: 'found' as const, value: [{ url: 'https://aggregator.example.com/quote/PLTR' }] }; },
+      };
+
+      const panel = await processResearchJobs(conversationId, {
+        db: handle.db,
+        snapshotDirectory: path.join(directory, 'snapshots'),
+        discoveryProvider,
+        promotionClients: {},
+      });
+
+      expect(panel.items[0].job.status).toBe('succeeded');
+      const candidates = handle.db.select().from(discoveryCandidates).all();
+      expect(candidates).toHaveLength(1);
+      expect(candidates[0]).toMatchObject({
+        market: 'US', ticker: 'PLTR', candidateUrl: 'https://aggregator.example.com/quote/PLTR',
+        status: 'rejected', rejectionReason: 'domain_not_allowlisted', discoveredVia: 'web_search',
+      });
+    });
+
+    it('never fails or degrades the job when the discovery provider throws', async () => {
+      confirmDraft(conversationId, messageId, { db: handle.db });
+      const throwingProvider = {
+        providerId: 'stub',
+        async search(): Promise<never> { throw new Error('discovery boom'); },
+      };
+
+      const panel = await processResearchJobs(conversationId, {
+        db: handle.db,
+        snapshotDirectory: path.join(directory, 'snapshots'),
+        discoveryProvider: throwingProvider,
+      });
+
+      expect(panel.items[0].job.status).toBe('succeeded');
+      expect(panel.items[0].job.error).toBeNull();
+      expect(handle.db.select().from(discoveryCandidates).all()).toHaveLength(0);
+    });
+
+    it('automatically promotes a discovered candidate into secondary_news evidence when its domain is already allowlisted', async () => {
+      confirmDraft(conversationId, messageId, { db: handle.db });
+      const discoveryProvider = {
+        providerId: 'stub',
+        async search() { return { kind: 'found' as const, value: [{ url: 'https://wire.example.com/pltr/margin-update' }] }; },
+      };
+      const html = '<html><body><p>Palantir reported gross margin of 81.3% in the quarter, remaining above 80%.</p></body></html>';
+      const promotionClients = {
+        'https://wire.example.com': {
+          client: new OfficialHttpClient({
+            allowedHosts: ['wire.example.com'],
+            userAgent: 'test',
+            logPath: path.join(directory, 'outbound.log'),
+            fetchImpl: (async () => new Response(html, { status: 200, headers: { 'content-type': 'text/html' } })) as unknown as typeof fetch,
+          }),
+          sourceClass: 'news' as const,
+        },
+      };
+
+      const panel = await processResearchJobs(conversationId, {
+        db: handle.db,
+        snapshotDirectory: path.join(directory, 'snapshots'),
+        discoveryProvider,
+        promotionClients,
+      });
+
+      expect(panel.items[0].job.status).toBe('succeeded');
+      expect(handle.db.select().from(discoveryCandidates).get()).toMatchObject({ status: 'fetched' });
+      const secondaryNews = handle.db.select().from(evidence).where(eq(evidence.verificationStatus, 'secondary_news')).all();
+      expect(secondaryNews.length).toBeGreaterThan(0);
+      expect(secondaryNews[0]).toMatchObject({ sourceTier: 'secondary', content: expect.stringContaining('gross margin of 81.3%') });
     });
   });
 });

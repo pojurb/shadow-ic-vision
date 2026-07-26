@@ -97,14 +97,31 @@ see the packet's "Slice Outcomes" and `docs/RISK_REGISTER.md`.
 
 ## M008: Web Search Discovery (Class C)
 
-Status: not yet scoped as a packet.
+Status: `complete` (2026-07-26) — packet at
+[`M008-web-search-discovery.md`](M008-web-search-discovery.md), governed by
+the already-accepted [`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md).
 
 Deliberately deferred out of M007 (see that packet's "Options Considered").
-Would add search-provider discovery producing `discoveryCandidates` rows
-(pre-fetch candidate URLs, structurally excluding snippet/title text) and a
-mandatory fetch-and-classify promotion step before anything can become
-evidence — the schema already exists (M007 Slice 1) but is inert until this
-milestone populates and consumes it. Addresses R-013 (search snippets
-treated as evidence), which stays `Open` until this ships.
+Provider selection was evaluated with real live data ahead of drafting (12
+live runs against Tavily, a rejected Google News RSS candidate with a
+documented technical reason, an untested Serper fallback) rather than chosen
+by reputation. Shipped search-provider discovery producing `discoveryCandidates`
+rows (pre-fetch candidate URLs, structurally excluding snippet/title text —
+proven adversarially) and a mandatory fetch-and-classify promotion step,
+domain-gated per DEC-0015 §3.2, before anything can become evidence — the
+schema existed since M007 Slice 1 but was inert until this milestone
+populated and consumed it. Promotion runs automatically inside
+`processResearchJobs`, plus an explicit `npm run research:promote-discoveries`
+CLI for re-evaluating candidates after `.env` allowlist changes. A real
+review-time gap (Tavily's outbound calls weren't logged to
+`logs/outbound.log`, unlike every other external call in this codebase) was
+found and fixed before shipping, not left as a known issue. Addresses R-013
+(search snippets treated as evidence), moved to `Mitigated` — the mechanism
+is proven structurally and by test (`docs/RISK_REGISTER.md`).
+Load-bearing caveat recorded honestly in the packet and the risk register:
+`ISSUER_PRESS_RELEASE_URLS`/`NEWS_WIRE_FEED_URLS` remain unconfigured in the
+live environment, so the domain gate promotes zero candidates today
+regardless of discovery quality — a bootstrapping gap, not a defect, and not
+yet exercised end-to-end outside test fixtures.
 
 

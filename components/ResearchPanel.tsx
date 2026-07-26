@@ -56,6 +56,18 @@ function normalizePanelData(input: ResearchPanelDTO): ResearchPanelDTO {
   };
 }
 
+// M008 Slice 4. Plain labels, not badges with their own CSS classes like
+// evidenceBadge/assumptionStatusBadge above — discovery candidates are a
+// much lighter-weight, denser list (potentially many rows) than evidence
+// cards, so this stays a compact single-line label per row.
+function discoveryStatusLabel(status: 'pending' | 'fetched' | 'unreachable' | 'rejected', rejectionReason: string | null): string {
+  if (status === 'fetched') return 'Fetched — classified as secondary evidence';
+  if (status === 'pending') return 'Pending — awaiting promotion';
+  if (status === 'unreachable') return 'Unreachable';
+  if (rejectionReason === 'domain_not_allowlisted') return 'Not allowlisted — add this domain to promote it';
+  return rejectionReason ?? 'Rejected';
+}
+
 export function ResearchPanel({
   conversationId,
   refreshVersion,
@@ -373,6 +385,46 @@ export function ResearchPanel({
               ))}
             </article>
           ))}
+
+          {/* M008 Slice 4. Discovery Candidates — web-search-discovered URLs
+              for this ticker, most-recent first, with plain-language status
+              so a "domain_not_allowlisted" row tells the user exactly what
+              to do (copy the URL's domain into .env) rather than showing a
+              terse code. */}
+          {data.discoverySummary && data.discoverySummary.candidates.length > 0 && (
+            <section className={styles.thesisSummary}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '15px' }}>Discovery Candidates</h3>
+              <p className={styles.muted} style={{ fontSize: '13px', marginBottom: '12px' }}>
+                URLs found by web search for this ticker. A candidate only becomes evidence once its
+                domain is added to the issuer press-release or news-wire allowlist.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[...data.discoverySummary.candidates].reverse().map((candidate) => (
+                  <div
+                    key={candidate.id}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #333',
+                      background: '#242424',
+                    }}
+                  >
+                    <a
+                      href={candidate.candidateUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#93c5fd', fontSize: '13px', wordBreak: 'break-all' }}
+                    >
+                      {candidate.candidateUrl}
+                    </a>
+                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#c7c7c7' }}>
+                      {discoveryStatusLabel(candidate.status, candidate.rejectionReason)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Decision Library section */}
           <section className={`${styles.thesisSummary} ${styles.decisionLibrary}`}>

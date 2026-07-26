@@ -45,7 +45,14 @@ export type SecondarySourceAdapters = {
   newsWire?: SourceAdapter;
 };
 
-function buildClientsByOrigin(urls: Record<string, string>, logPath: string): Record<string, OfficialHttpClient> {
+/**
+ * Exported for M008's `lib/research/discovery-promotion.ts` — the
+ * DEC-0015 §3.2 domain gate needs the exact same origin -> client map Class
+ * A/B already build, not a reimplementation of it (two host-matching
+ * implementations would be two places to keep in sync on the one thing that
+ * actually matters here: which domains are trusted).
+ */
+export function buildClientsByOrigin(urls: Record<string, string>, logPath: string): Record<string, OfficialHttpClient> {
   return Object.fromEntries([...new Set(Object.values(urls).map((value) => new URL(value).origin))].flatMap((origin) => {
     const host = new URL(origin).hostname;
     const alternateHost = host.startsWith('www.') ? host.slice(4) : `www.${host}`;

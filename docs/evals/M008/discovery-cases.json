@@ -1,0 +1,136 @@
+{
+  "milestone": "M008",
+  "suite": "search-discovery-coverage",
+  "metadata": {
+    "version": "1",
+    "grader_version": "1",
+    "case_count": 5,
+    "purpose": "Measure whether a candidate search-discovery provider can actually reach real IDX (Indonesian) and US issuer/financial-news sources for a tracked ticker. This suite evaluates COVERAGE, not evidence quality — a returned URL proves only that the provider can see the source, never that its content is true or usable. Promotion to evidence requires the separate fetch-and-classify pipeline (R-013).",
+    "pass_thresholds": {
+      "market_hit_rate": 0.66,
+      "min_urls_per_case": 1
+    },
+    "threshold_note": "market_hit_rate is 0.66, not 0.67, to express 'at least 2 of 3 cases'. The first live run (2026-07-26) tripped the gate at exactly 2/3 = 0.6667 against a 0.67 threshold — a representation bug, not a coverage finding. Raising the bar is a deliberate decision to make explicitly, not something that should happen by rounding.",
+    "domain_verification_note": "expected_domains lists were assembled from general knowledge of each issuer and of major Indonesian financial outlets. They have NOT been verified against each issuer's live IR site. A miss caused by a wrong expected domain is a suite bug, not a provider failure — inspect returnedUrls in the report before drawing a coverage conclusion.",
+    "market_balance_note": "The two US cases are experimental controls, not the subject under test. If US coverage is strong and ID coverage is weak, the provider has an Indonesian-coverage gap. If BOTH are weak, the harness or query construction is at fault."
+  },
+  "test_cases": [
+    {
+      "id": "DS-001",
+      "name": "IDX large cap: Bank Rakyat Indonesia",
+      "market": "ID",
+      "ticker": "BBRI",
+      "query": "BBRI Bank Rakyat Indonesia laporan keuangan siaran pers",
+      "expected_domains": [
+        "ir-bri.com",
+        "bri.co.id",
+        "idx.co.id",
+        "kontan.co.id",
+        "bisnis.com",
+        "cnbcindonesia.com",
+        "investor.id",
+        "emitennews.com"
+      ],
+      "deterministic_fixture": {
+        "expected_outcome": "hit",
+        "urls": [
+          "https://www.bri.co.id/en/investor-relations",
+          "https://www.idx.co.id/en/listed-companies/company-profile/BBRI",
+          "https://insight.kontan.co.id/news/bbri-contoh-berita"
+        ]
+      }
+    },
+    {
+      "id": "DS-002",
+      "name": "IDX large cap: Telkom Indonesia",
+      "market": "ID",
+      "ticker": "TLKM",
+      "query": "TLKM Telkom Indonesia laporan keuangan siaran pers",
+      "expected_domains": [
+        "telkom.co.id",
+        "idx.co.id",
+        "kontan.co.id",
+        "bisnis.com",
+        "cnbcindonesia.com",
+        "investor.id",
+        "emitennews.com"
+      ],
+      "deterministic_fixture": {
+        "expected_outcome": "hit",
+        "urls": [
+          "https://www.telkom.co.id/sites/investor-relations",
+          "https://www.bisnis.com/contoh-berita-tlkm"
+        ]
+      }
+    },
+    {
+      "id": "DS-003",
+      "name": "IDX mid cap: Ace Hardware Indonesia (thin-coverage probe)",
+      "market": "ID",
+      "ticker": "ACES",
+      "query": "ACES Ace Hardware Indonesia laporan keuangan siaran pers",
+      "expected_domains": [
+        "acehardware.co.id",
+        "aceshardware.co.id",
+        "kawanlamaretail.com",
+        "idx.co.id",
+        "kontan.co.id",
+        "bisnis.com",
+        "cnbcindonesia.com",
+        "investor.id",
+        "emitennews.com"
+      ],
+      "deterministic_fixture": {
+        "expected_outcome": "miss",
+        "urls": [
+          "https://www.example-aggregator.com/quote/ACES",
+          "https://finance.example.net/symbol/ACES.JK"
+        ],
+        "fixture_rationale": "Deliberately returns only generic aggregator domains — the realistic thin-coverage outcome for an IDX mid cap, and the negative path the grader must be able to report. If every fixture in this suite were a hit, the deterministic mode could not fail and would prove nothing (the exact defect found in the M001 multimodal suite during M007 Slice 7)."
+      }
+    },
+    {
+      "id": "DS-004",
+      "name": "US control: Palantir",
+      "market": "US",
+      "ticker": "PLTR",
+      "query": "PLTR Palantir Technologies investor relations press release quarterly results",
+      "expected_domains": [
+        "palantir.com",
+        "investors.palantir.com",
+        "sec.gov",
+        "businesswire.com",
+        "prnewswire.com"
+      ],
+      "deterministic_fixture": {
+        "expected_outcome": "hit",
+        "urls": [
+          "https://investors.palantir.com/news-details/example",
+          "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=PLTR"
+        ]
+      }
+    },
+    {
+      "id": "DS-005",
+      "name": "US control: NVIDIA",
+      "market": "US",
+      "ticker": "NVDA",
+      "query": "NVDA NVIDIA investor relations press release quarterly results",
+      "expected_domains": [
+        "nvidia.com",
+        "investor.nvidia.com",
+        "nvidianews.nvidia.com",
+        "sec.gov",
+        "businesswire.com",
+        "prnewswire.com"
+      ],
+      "deterministic_fixture": {
+        "expected_outcome": "hit",
+        "urls": [
+          "https://investor.nvidia.com/financial-info/example",
+          "https://nvidianews.nvidia.com/news/example"
+        ]
+      }
+    }
+  ]
+}

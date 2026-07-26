@@ -213,3 +213,81 @@ test('shows OCR and derived trust classes in the Research drawer', async ({ page
   await expect(researchPanel.getByText('image · chart · deterministic_calculation')).toBeVisible();
   await page.screenshot({ path: path.join(evidenceDirectory, 'multimodal-trust-classes.png') });
 });
+
+// M008 Slice 4. First real render of the Discovery Candidates section —
+// previously only proven at the data layer (research-service.test.ts),
+// never actually painted and looked at. Mocks `/api/research` directly,
+// same as the two tests above, rather than seeding `discoveryCandidates`
+// through a real processResearchJobs run (no Tavily key or allowlist is
+// configured in the e2e webServer env, so that path would produce nothing
+// to show).
+test('shows the Discovery Candidates section with pending, fetched, and rejected states', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await gotoHome(page);
+  await createNewConversation(page);
+  await page.route('**/api/research?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        thesis: {
+          id: '0ce51c8e-13b9-4dc2-ac53-306a5a7d6ec7',
+          ticker: 'BBRI',
+          companyName: 'PT Bank Rakyat Indonesia (Persero) Tbk',
+          market: 'ID',
+          coreBelief: 'NIM remains above 6%.',
+        },
+        decisions: [],
+        items: [{
+          assumptionId: '253d5af1-7158-4a06-9c64-867258a240a1',
+          statement: 'BBRI NIM remains above 6%.',
+          assumptionStatus: 'untested',
+          job: {
+            id: '33e33d84-53c4-4b09-a38a-5ce621c65478',
+            status: 'succeeded',
+            error: null,
+            errorCode: null,
+            attemptCount: 1,
+            sourceMode: 'live',
+          },
+          evidence: [],
+        }],
+        discoverySummary: {
+          candidates: [
+            {
+              id: 'cand-rejected',
+              candidateUrl: 'https://finance.aggregator.example.com/quote/BBRI',
+              status: 'rejected',
+              rejectionReason: 'domain_not_allowlisted',
+              updatedAt: '2026-07-26T01:00:00.000Z',
+            },
+            {
+              id: 'cand-pending',
+              candidateUrl: 'https://www.bri.co.id/press-release/q2-2026-results',
+              status: 'pending',
+              rejectionReason: null,
+              updatedAt: '2026-07-26T02:00:00.000Z',
+            },
+            {
+              id: 'cand-fetched',
+              candidateUrl: 'https://ir.bri.co.id/press/nim-update-2026',
+              status: 'fetched',
+              rejectionReason: null,
+              updatedAt: '2026-07-26T03:00:00.000Z',
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+  await page.reload();
+  const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
+  await expect(researchPanel.getByRole('heading', { name: 'Discovery Candidates' })).toBeVisible();
+  await expect(researchPanel.getByText('Not allowlisted — add this domain to promote it')).toBeVisible();
+  await expect(researchPanel.getByText('Pending — awaiting promotion')).toBeVisible();
+  await expect(researchPanel.getByText('Fetched — classified as secondary evidence')).toBeVisible();
+  await expect(researchPanel.getByRole('link', { name: 'https://finance.aggregator.example.com/quote/BBRI' })).toBeVisible();
+  await expect(researchPanel.getByRole('link', { name: 'https://ir.bri.co.id/press/nim-update-2026' })).toBeVisible();
+  await researchPanel.screenshot({ path: path.join(evidenceDirectory, 'discovery-candidates-section.png') });
+});

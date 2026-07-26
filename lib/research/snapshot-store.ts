@@ -10,7 +10,15 @@ import { randomUUID } from 'node:crypto';
 
 export function persistSourceSnapshot(input: {
   db: AppDatabase;
-  jobId: string;
+  /**
+   * M008: optional. `research_job_sources.job_id` is a required FK, so a
+   * fetch with no owning `researchJobs` row (the CLI-triggered discovery
+   * promotion path in `lib/research/discovery-promotion.ts` has none) simply
+   * skips that audit insert below — the snapshot itself, and the
+   * `portfolioAlerts`/`sourceDiscoveries` bookkeeping tied to the snapshot
+   * rather than to a job, still happen unconditionally.
+   */
+  jobId?: string;
   snapshot: SourceSnapshot;
   documentHash: string;
   sourceMode: ResearchSourceMode;
@@ -59,15 +67,17 @@ export function persistSourceSnapshot(input: {
       }
     }
 
-    tx.insert(researchJobSources).values({
-      jobId: input.jobId,
-      documentHash: input.documentHash,
-      outcome: input.outcome,
-      errorCode: input.errorCode ?? null,
-    }).onConflictDoUpdate({
-      target: [researchJobSources.jobId, researchJobSources.documentHash],
-      set: { outcome: input.outcome, errorCode: input.errorCode ?? null },
-    }).run();
+    if (input.jobId) {
+      tx.insert(researchJobSources).values({
+        jobId: input.jobId,
+        documentHash: input.documentHash,
+        outcome: input.outcome,
+        errorCode: input.errorCode ?? null,
+      }).onConflictDoUpdate({
+        target: [researchJobSources.jobId, researchJobSources.documentHash],
+        set: { outcome: input.outcome, errorCode: input.errorCode ?? null },
+      }).run();
+    }
 
     if (input.snapshot.discoveryUrl) {
       tx.insert(sourceDiscoveries).values({

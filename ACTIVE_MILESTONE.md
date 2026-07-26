@@ -2,15 +2,53 @@
 
 Status: `complete`
 
-Active Packet: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md) (complete 2026-07-25; all eight slices done; one AC only structurally prepared, not exercised — see the packet's "Slice Outcomes"; M008 not yet scoped as a packet)
+Active Packet: [`docs/milestones/M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) (complete 2026-07-26; all five slices implemented and tested — see "Slice Outcomes")
 
-Latest Completed Packet: [`docs/milestones/M007-secondary-source-ingestion.md`](docs/milestones/M007-secondary-source-ingestion.md) (complete; AC-M007-01/02/03/05/06 fully met, AC-M007-04 structurally prepared but not exercised since Class C was deferred; R-010 → `Mitigated`, R-013 stays `Open` — see "Slice Outcomes")
+Latest Completed Packet: [`docs/milestones/M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) (complete; R-013 → `Mitigated` — mechanism proven structurally and by test; real-world coverage still zero because the Class A/B allowlists remain unconfigured, recorded honestly as residual risk, not silently assumed away)
 
-See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M008 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to a new M008 slot, not yet scoped.
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M008 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0.
 
 ## Current Phase
 
-M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), M006 (In-Pipeline Vision Extraction & Injection Hardening), and M007 (Secondary-Source/General-News Ingestion) are 100% completed and verified.
+M001 (Existing Thesis Loop, `local-only complete`), M002 (Portfolio Positions & Ingestion Alerts), M003 (Explore-To-Tracked Loop), M004 (Multi-Thesis Briefing), M005 (OCR/Vision Provider Eligibility), M006 (In-Pipeline Vision Extraction & Injection Hardening), M007 (Secondary-Source/General-News Ingestion), and M008 (Web Search Discovery, Class C) are 100% completed and verified.
+
+Milestone 8 closes the gap M007 deliberately left open: `discoveryCandidates`
+(schema-ready since M007, unpopulated until now) is wired to a real search
+provider. `TavilyDiscoveryProvider` (`lib/research/discovery/tavily.ts`) was
+chosen from real measured data, not vendor reputation — 12 live runs across
+5 tickers (3 Indonesian, 2 US control), with a load-bearing caveat honestly
+recorded rather than hidden: runs 3-12 returned byte-identical URLs
+(server-side caching), so the effective independent sample is closer to 2-3
+runs than 12. Google News RSS and Serper were evaluated and parked with
+documented technical reasons (RSS article links resolve via client-side JS,
+not an HTTP redirect chain; Serper's free tier is a one-time 2,500-query
+allocation, not recurring), not deleted — see the M008 packet's §0 and §8.
+
+`DiscoveryCandidateUrl` (`lib/research/discovery/types.ts`) has exactly one
+field, `url` — the R-013 structural gate at the type level, proven
+adversarially (a response dense with snippet text feeds `toDiscoveryCandidateUrls`
+and none of that text survives). A candidate can only become evidence
+through `promoteCandidate` (`lib/research/discovery-promotion.ts`), which
+enforces DEC-0015 §3.2's domain gate *before* any fetch — an unallowlisted
+origin never reaches `OfficialHttpClient`, proven by a test asserting zero
+network calls. A matched fetch lands on the **same** `secondary_issuer`/
+`secondary_news` evidence classes M007 built, inheriting R-010's structural
+ceiling with no new trust tier. Promotion runs automatically inside
+`processResearchJobs` (Slice 3's resolved design), with an explicit CLI
+counterpart, `npm run research:promote-discoveries`, for re-evaluating
+candidates after `.env` allowlists change — needed because nothing else
+re-checks a `rejected: domain_not_allowlisted` candidate once its domain is
+later trusted.
+
+A real review-time gap was found and fixed, not left as a known issue:
+`TavilyDiscoveryProvider` called `fetch` directly with zero outbound record,
+unlike every other external call in this codebase (an ADR-0006 transparency
+miss caught during the packet's second-opinion review). It now logs every
+attempted request to `logs/outbound.log`, proven by test. R-013 moved to
+`Mitigated` — the mechanism is proven; real-world coverage is still zero,
+since `ISSUER_PRESS_RELEASE_URLS`/`NEWS_WIRE_FEED_URLS` remain unconfigured
+in the live environment (the same bootstrapping gap M007 already flagged
+for Class A/B), recorded as residual risk rather than assumed away.
 
 Milestone 7 added two secondary evidence classes — `secondary_issuer`
 (company IR press releases) and `secondary_news` (curated financial news
@@ -31,14 +69,10 @@ explicit user acceptance — both transitions proven end-to-end through real
 isolation. Secondary-source failures are isolated: a throwing adapter never
 changes `research_jobs.status`. R-010 moved to `Mitigated`.
 
-**Deliberately not done — Class C (web search discovery):** no
-search-provider integration exists anywhere in this codebase; a
-`discoveryCandidates` table (schema-ready, structurally excludes snippet
-text) sits unpopulated. Recorded as a new, unscoped **M008** rather than
-silently left inside M007. R-013 (search snippets treated as evidence)
-**stays `Open`** — a milestone that ships none of the search-handling code
-cannot be credited with mitigating the risk that code would address. See
-the M007 packet's "Slice Outcomes" and `docs/milestones/ROADMAP.md`.
+**Deliberately not done in M007 — Class C (web search discovery):** recorded
+at the time as a new, unscoped **M008** rather than silently left inside
+M007. M008 has since shipped (2026-07-26) — see the paragraph above and the
+M008 packet's "Slice Outcomes".
 
 A real regression surfaced and was fixed mid-milestone: turning the
 assumption-status line from raw enum text into a proper badge broke two
@@ -143,7 +177,23 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-25 (M007 implementation, all eight slices).
+Latest full verification: 2026-07-26 (M008 implementation, all five slices).
+
+- `npm run typecheck`, `npm test`: pass on 2026-07-26 (191 passed, 3
+  skipped — up from 156 at M007's close; adds discovery-provider
+  outbound-logging, discovery-persistence, domain-gate/promotion, and
+  automatic-promotion integration coverage for M008 across
+  `tests/discovery-eval.test.ts`, `tests/discovery-promotion.test.ts`
+  (new), and `tests/research-service.test.ts`)
+- `npm run build`: pass on 2026-07-26
+- `npm run test:e2e` (Playwright): 3/3 pass on 2026-07-26 — confirms no
+  regression to the Research panel; does not exercise the new Discovery
+  Candidates section itself, since no e2e fixture seeds a
+  `discoveryCandidates` row (that path is covered by the unit/integration
+  tests instead, not visually verified in a browser)
+- `npm run status:check`, `npm run context:check`: pass on 2026-07-26
+
+Previous full verification: 2026-07-25 (M007 implementation, all eight slices).
 
 - `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-25 (156
   passed, 3 skipped — up from 130 at M006's addendum; adds schema,
@@ -297,16 +347,34 @@ Release evidence:
 - No production wiring selects a vision provider. `CitationPipeline` is
   constructed without one in `lib/research/service.ts`, so image sources
   still fail closed in the running app even after M006.
-- **M007 boundaries.** Class C (web search discovery) is entirely deferred —
-  no search-provider integration exists; the `discoveryCandidates` table
-  (`db/schema.ts`) is schema-ready but unpopulated. R-013 (search snippets
-  treated as evidence) **stays `Open`** pending that work, tracked as a new,
-  unscoped **M008** (`docs/milestones/ROADMAP.md`). DEC-0015 named the
-  Top-10 Queue and Portfolio Briefing as additional secondary-evidence badge
-  locations; only the Research drawer and alerts sidebar were built — those
-  two surfaces don't currently render any evidence-level trust badges at
-  all (confirmed by grep), so extending them would have meant inventing new
-  UI surface beyond this milestone's scope, not filling in an existing gap.
+- **M007 boundary, closed by M008.** Class C (web search discovery) is no
+  longer deferred — see "Current Phase" above and the M008 packet's "Slice
+  Outcomes". DEC-0015 named the Top-10 Queue and Portfolio Briefing as
+  additional secondary-evidence badge locations; only the Research drawer
+  and alerts sidebar were built — those two surfaces don't currently render
+  any evidence-level trust badges at all (confirmed by grep), so extending
+  them would have meant inventing new UI surface beyond M007's scope, not
+  filling in an existing gap. M008's Discovery Candidates section (Slice 4)
+  was likewise added only to the Research drawer, not those two surfaces,
+  for the same reason.
+- **M008 boundary, narrowed 2026-07-26.** `ISSUER_PRESS_RELEASE_URLS`/
+  `NEWS_WIRE_FEED_URLS` are now populated — TLKM issuer press release
+  (`telkom.co.id`) and CNBC Indonesia news wire, both verified live and
+  reachable before configuring (`.env` comments record the verification).
+  One real quality caveat found and kept deliberately, not silently shipped
+  (user decision): TLKM's page has repeated header/nav links that fill
+  `discoverIssuerPressReleases`'s 20-result cap before real `/news/...`
+  article links are reached in DOM order, so it mostly re-discovers its own
+  listing page — soft-fails to low/no yield, never to something wrong. CNBC
+  Indonesia's feed is clean but general-market, not ticker-specific, so it
+  yields evidence only on days a tracked ticker is actually in the news.
+  Still no live end-to-end promotion has been observed from a real
+  `processResearchJobs` run (only from these two adapters' `discover()`
+  called directly during verification) — see `docs/RISK_REGISTER.md` R-013's
+  next-review trigger. `npm run research:promote-discoveries` exists to
+  re-evaluate already-discovered candidates after a future allowlist change,
+  without waiting for a fresh discovery search to surface the same URL
+  again.
 - `npm audit --omit=dev` currently reports two moderate dependency findings
   (transitive `postcss` via `next`); no forced breaking upgrade was applied in
   this slice.
@@ -353,15 +421,16 @@ Milestones 4, 5, 6, and 7 are complete and verified (2026-07-25).
    accepted the same day. AC-M007-01/02/03/05/06 fully met; AC-M007-04
    (R-013 snippet exclusion) only structurally prepared, not exercised,
    since Class C was deferred in full. R-010 moved to `Mitigated`; R-013
-   stays `Open`. See the packet's "Slice Outcomes".
+   stayed `Open` pending M008. See the packet's "Slice Outcomes".
 
-7. **Milestone 8** — Web Search Discovery (Class C), per
-   [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md). Not yet
-   scoped as a packet. Deliberately deferred out of M007 per R-005 (Class
-   A/B already deliver full secondary-source functionality without a
-   search-API dependency); needs a search-provider integration decision and
-   a mandatory fetch-and-classify promotion workflow before scoping can
-   start. Addresses R-013.
+7. ~~**Milestone 8**~~ Complete: [`docs/milestones/M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md)
+   (accepted and complete 2026-07-26). All five acceptance criteria met; all
+   five implementation slices (plus Slice 0's groundwork) shipped and
+   tested. R-013 moved to `Mitigated` — mechanism proven structurally and by
+   test, real-world coverage still zero pending allowlist population,
+   recorded honestly as residual risk. See the packet's "Slice Outcomes".
+
+No milestone is currently active. The next one has not been scoped.
 
 Promoted lessons consulted: `LC-20260703-001`
 

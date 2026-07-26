@@ -8,6 +8,7 @@ import {
   assumptions,
   conversations,
   decisions,
+  discoveryCandidates,
   evidence,
   messages,
   researchJobs,
@@ -27,15 +28,20 @@ import {
 } from '@/lib/domain/contracts';
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
-import { CitationPipeline, type VerifiedEvidence } from './pipeline';
+import { CitationPipeline } from './pipeline';
 import { createDerivedCandidate, createOcrCandidate, type EvidenceCandidate } from './extractors/candidate';
 import { scanEmbeddedInstructions } from './extractors/safety';
-import { getSnapshotDirectory } from './config';
+import { getOutboundLogPath, getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
 import { persistSourceSnapshot } from './snapshot-store';
 import { createSecondarySourceAdapters, type SecondarySourceAdapters } from './adapters/factory';
 import type { ResearchMarket, SourceAdapter } from './adapters/types';
-import { deriveAssumptionStatus, type AssumptionStatus } from './assumption-status';
+import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
+import { createDiscoveryProvider } from './discovery/factory';
+import { persistDiscoveryCandidates } from './discovery/persist';
+import { buildDiscoveryQuery } from './discovery/query';
+import type { SearchDiscoveryProvider } from './discovery/types';
+import { buildPromotionClients, promotePendingForAssumption, type PromotionClients } from './discovery-promotion';
 
 type ServiceDependencies = {
   db?: AppDatabase;
@@ -44,13 +50,23 @@ type ServiceDependencies = {
   now?: () => Date;
   snapshotDirectory?: string;
   llmModelId?: string | null;
+  // M008 Slice 1/3. Both default from real config/env; tests override
+  // `discoveryProvider` the same way M007 tests override `secondaryAdapters`
+  // — `promotionClients` rarely needs overriding since an empty allowlist
+  // (the real default today, per the packet's §8 load-bearing assumption)
+  // already exercises the "everything gets rejected" path for free.
+  discoveryProvider?: SearchDiscoveryProvider;
+  promotionClients?: PromotionClients;
 };
 
 function dependencies(input: ServiceDependencies = {}) {
+  const logPath = getOutboundLogPath();
   return {
     db: input.db ?? getDatabase().db,
     pipeline: input.pipeline ?? new CitationPipeline(),
     secondaryAdapters: input.secondaryAdapters ?? createSecondarySourceAdapters(),
+    discoveryProvider: input.discoveryProvider ?? createDiscoveryProvider(),
+    promotionClients: input.promotionClients ?? buildPromotionClients(logPath),
     now: input.now ?? (() => new Date()),
     snapshotDirectory: input.snapshotDirectory ?? getSnapshotDirectory(),
   };
@@ -167,6 +183,16 @@ export async function getResearchPanel(
     .orderBy(asc(decisions.createdAt))
     .all();
 
+  // M008 Slice 4. Scoped to this thesis's own (market, ticker) — the same
+  // pair `discoveryCandidates` is keyed by — not a global list, so one
+  // thesis's panel never shows another ticker's discovered URLs.
+  const discoveryRows = await db
+    .select()
+    .from(discoveryCandidates)
+    .where(and(eq(discoveryCandidates.market, thesis.market), eq(discoveryCandidates.ticker, thesis.ticker)))
+    .orderBy(asc(discoveryCandidates.createdAt))
+    .all();
+
   let previousAction: DecisionAction | undefined;
   const mappedDecisions: DecisionDTO[] = decisionRows.map((row) => {
     const mapped: DecisionDTO = {
@@ -224,6 +250,17 @@ export async function getResearchPanel(
         })),
     })),
     decisions: mappedDecisions,
+    discoverySummary: discoveryRows.length
+      ? {
+        candidates: discoveryRows.map((row) => ({
+          id: row.id,
+          candidateUrl: row.candidateUrl,
+          status: row.status,
+          rejectionReason: row.rejectionReason,
+          updatedAt: row.updatedAt,
+        })),
+      }
+      : undefined,
   };
 }
 
@@ -231,7 +268,7 @@ export async function processResearchJobs(
   conversationId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db, pipeline, secondaryAdapters, now, snapshotDirectory } = dependencies(input);
+  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory } = dependencies(input);
   const currentTime = now();
   const nowIso = currentTime.toISOString();
 
@@ -293,6 +330,20 @@ export async function processResearchJobs(
       db, snapshotDirectory, now, market, ticker, knownDocumentIds,
       jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
       adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news',
+    });
+
+    // M008 Slices 1 & 3. Same independence and soft-failure posture as the
+    // two calls above: a Tavily failure or an empty/fully-rejected result
+    // never touches research_jobs.status. Promotion runs automatically,
+    // right after discovery, per the packet's §8 "Promotion trigger
+    // strategy (RESOLVED)" — the CLI counterpart (`promoteAllEligibleCandidates`,
+    // `scripts/promote-discoveries.ts`) exists for re-evaluating candidates
+    // after `.env` allowlists change, not for this automatic path.
+    await runDiscoveryAndPromotion({
+      db, snapshotDirectory, now, market, ticker,
+      companyName: row.thesis.companyName, jobId: row.job.id,
+      assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+      provider: discoveryProvider, promotionClients, sourceMode: pipeline.sourceMode,
     });
 
     try {
@@ -390,66 +441,6 @@ export async function processResearchJobs(
   return getResearchPanel(conversationId, input);
 }
 
-function hasOfficialEvidence(
-  tx: { select: AppDatabase['select'] },
-  assumptionId: string,
-): boolean {
-  const row = tx.select({ id: evidence.id }).from(evidence).where(and(
-    eq(evidence.assumptionId, assumptionId),
-    inArray(evidence.verificationStatus, ['exact_verified', 'ocr_matched']),
-  )).get();
-  return Boolean(row);
-}
-
-/**
- * M007 Slice 5. Applies the confirmation-gate decision inside the same
- * transaction as an evidence insert, given the just-inserted evidence's
- * verification statuses. No-op when `deriveAssumptionStatus` returns null
- * (nothing to change) or the same status (avoids a pointless write).
- */
-function applyAssumptionStatusGate(
-  tx: { select: AppDatabase['select']; update: AppDatabase['update'] },
-  assumptionId: string,
-  insertedVerificationStatuses: VerifiedEvidence['verificationStatus'][],
-  nowIso: string,
-): void {
-  const current = tx.select({ status: assumptions.status }).from(assumptions).where(eq(assumptions.id, assumptionId)).get();
-  if (!current) return;
-  const nextStatus = deriveAssumptionStatus({
-    currentStatus: current.status as AssumptionStatus,
-    insertedVerificationStatuses,
-    hasOfficialEvidence: hasOfficialEvidence(tx, assumptionId),
-  });
-  if (nextStatus && nextStatus !== current.status) {
-    tx.update(assumptions).set({ status: nextStatus, updatedAt: nowIso }).where(eq(assumptions.id, assumptionId)).run();
-  }
-}
-
-function evidenceInsertValues(assumptionId: string, result: VerifiedEvidence) {
-  return {
-    id: randomUUID(),
-    assumptionId,
-    sourceFormat: result.sourceFormat,
-    contentKind: result.contentKind,
-    sourceVariant: result.sourceVariant,
-    extractionMethod: result.extractionMethod,
-    verificationStatus: result.verificationStatus,
-    sourceTier: result.sourceTier,
-    sourceName: result.sourceName,
-    publishDate: result.publishDate,
-    documentHash: result.documentHash,
-    canonicalTextHash: result.canonicalTextHash,
-    boundingBox: result.boundingBox ? JSON.stringify(result.boundingBox) : null,
-    sourceUrl: result.sourceUrl,
-    retrievalTimestamp: result.retrievalTimestamp,
-    content: result.exactQuote,
-    impactSummary: result.impactSummary,
-    pageNumber: result.pageNumber,
-    interpretationStatus: 'pending' as const,
-    metadata: JSON.stringify(result.metadata),
-  };
-}
-
 /**
  * M007 Slice 4. Runs one secondary source class (Class A or B) for one
  * assumption, entirely independent of the official research call above.
@@ -508,6 +499,47 @@ async function runSecondaryResearchCall(params: {
       // assumption to 'pending_confirmation' (clearing path handled on the
       // official side above — this call only ever inserts secondary rows).
       applyAssumptionStatusGate(tx, params.assumptionId, execution.evidence.map((e) => e.verificationStatus), params.now().toISOString());
+    });
+  } catch {
+    // Soft failure, by design — see the function doc comment above.
+  }
+}
+
+/**
+ * M008. Runs one job's Class C discovery search plus automatic promotion,
+ * with the same soft-failure boundary as `runSecondaryResearchCall`: any
+ * error — no API key, a Tavily timeout, a promotion crash — is caught here
+ * and silently absorbed. `research_jobs.status` is never touched by this
+ * function.
+ */
+async function runDiscoveryAndPromotion(params: {
+  db: AppDatabase;
+  snapshotDirectory: string;
+  now: () => Date;
+  market: ResearchMarket;
+  ticker: string;
+  companyName: string | null;
+  jobId: string;
+  assumptionId: string;
+  assumptionStatement: string;
+  provider: SearchDiscoveryProvider;
+  promotionClients: PromotionClients;
+  sourceMode: 'mock' | 'live';
+}): Promise<void> {
+  try {
+    const query = buildDiscoveryQuery(params.market, params.ticker, params.companyName ?? '');
+    const outcome = await params.provider.search({ market: params.market, ticker: params.ticker, query });
+    if (outcome.kind === 'found') {
+      persistDiscoveryCandidates({
+        db: params.db, market: params.market, ticker: params.ticker,
+        searchQuery: query, candidates: outcome.value, now: params.now,
+      });
+    }
+    await promotePendingForAssumption({
+      db: params.db, market: params.market, ticker: params.ticker,
+      assumptionId: params.assumptionId, assumptionStatement: params.assumptionStatement,
+      jobId: params.jobId, snapshotDirectory: params.snapshotDirectory,
+      sourceMode: params.sourceMode, now: params.now, clients: params.promotionClients,
     });
   } catch {
     // Soft failure, by design — see the function doc comment above.

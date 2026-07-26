@@ -239,4 +239,17 @@ export type ResearchPanelDTO = {
       error: string | null;
     } | null;
   };
+  // M008 Slice 4. Undefined when this thesis's ticker has no discovered
+  // candidates yet (no Tavily key configured, or nothing found) — omitted
+  // rather than an empty array so the UI can distinguish "never ran" from
+  // "ran and found nothing" the same way `ingestion` already does.
+  discoverySummary?: {
+    candidates: Array<{
+      id: string;
+      candidateUrl: string;
+      status: 'pending' | 'fetched' | 'unreachable' | 'rejected';
+      rejectionReason: string | null;
+      updatedAt: string;
+    }>;
+  };
 };

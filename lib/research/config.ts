@@ -61,6 +61,14 @@ export function getIssuerPressReleaseUrls(): Record<string, string> {
   }
 }
 
+// M008 Class C: API key for the search-discovery provider under evaluation.
+// Kept as its own reader (rather than folded into a generic provider config)
+// so discovery access can be revoked independently of the DEC-0010 LLM
+// provider key — they are different vendors serving different roles.
+export function getSearchDiscoveryApiKey(): string {
+  return process.env.SEARCH_DISCOVERY_API_KEY?.trim() ?? '';
+}
+
 // M007 Class B: publisher name -> allowlisted RSS/Atom/JSON feed URL. Not
 // keyed by ticker (a news wire serves many tickers from one feed) — the
 // NewsWireAdapter filters items by ticker after fetching.

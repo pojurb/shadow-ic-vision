@@ -125,8 +125,47 @@ Deliberately independent of the official flow above: a missing feed config,
 HTTP failure, or empty discovery result is caught inside
 `runSecondaryResearchCall` and never touches `research_jobs.status` — a
 broken news feed can never make a healthy assumption look broken. Class C
-(web search discovery) is not part of this flow; it was scoped out of M007
-entirely (see "Critical Invariants").
+(web search discovery) was scoped out of M007 entirely; it is now M008 (see
+below).
+
+### Web Search Discovery + Fetch-and-Classify Promotion (M008, 2026-07-26)
+
+```text
+processResearchJobs (per claimed job, after the two Class A/B calls, before
+  the official try/catch — runDiscoveryAndPromotion)
+  -> TavilyDiscoveryProvider.search (query built by buildDiscoveryQuery,
+     the exact phrasing §0's 12 live evals measured)
+  -> persistDiscoveryCandidates: upsert into discoveryCandidates
+     (status='pending'), onConflictDoNothing — DiscoveryCandidateUrl has
+     only a `url` field, R-013's structural gate at the type level
+  -> promotePendingForAssumption: sweep this ticker's `pending` rows
+  -> promoteCandidate, per candidate:
+     -> resolvePromotionClient(url) against buildPromotionClients
+        (DEC-0015 §3.2 domain gate: origin -> client map built from the
+        SAME buildClientsByOrigin Class A/B already use, tagged issuer/news)
+     -> no match: status='rejected', rejectionReason='domain_not_allowlisted'
+        — OfficialHttpClient is never constructed or called
+     -> match: fetch via OfficialHttpClient -> content-address ->
+        extractDocument (safety-scanned) -> extractSecondaryCandidates
+        (the SAME function Class A/B use) -> Evidence(secondary_issuer |
+        secondary_news, sourceTier=secondary) -> applyAssumptionStatusGate
+     -> discoveryCandidates.status='fetched', resultingDocumentHash set
+```
+
+No new evidence trust class: promoted Class C evidence is indistinguishable
+in the schema from Class A/B evidence, because the domain gate means it can
+only ever land on an origin already trusted as Class A or B. Explicit
+re-evaluation path for candidates rejected before an allowlist update:
+`npm run research:promote-discoveries` (`scripts/promote-discoveries.ts`,
+`promoteAllEligibleCandidates`) — sweeps `pending` and
+`rejected: domain_not_allowlisted` rows against every active thesis
+assumption tracking that ticker, with no `jobId` (runs outside
+`processResearchJobs`, so `persistSourceSnapshot`'s `research_job_sources`
+audit insert is skipped for these fetches — `jobId` is optional there for
+exactly this caller). Deliberately independent of the official/Class A/B
+flow above, same soft-failure discipline: any failure — no Tavily key, a
+timeout, a promotion crash — is caught inside `runDiscoveryAndPromotion` and
+never touches `research_jobs.status`.
 
 ### Portfolio Briefing (Priority Queue & Status Index)
 
@@ -240,18 +279,41 @@ Windows Task Scheduler or protected local endpoint
   promoted. New adapters `IssuerPressReleaseAdapter`/`NewsWireAdapter`
   (`lib/research/adapters/`) always set `sourceTier: 'secondary'` — never
   reuse `IssuerAdapter`, which hardcodes `'official'` for its actual role as
-  `idx.ts`'s official-filing fallback. **Class C (web search discovery) is
-  entirely out of scope** — no search-provider integration, no code that
-  reads a search result, exists anywhere in this codebase. The
-  `discoveryCandidates` table (`db/schema.ts`) exists for that future work
-  but is not populated by anything today; it is unrelated to the
-  pre-existing `sourceDiscoveries` table, which requires an already-fetched,
-  hashed document and cannot represent a pre-fetch, possibly-never-resolved
-  candidate. R-013 (search snippets treated as evidence) therefore **stays
-  `Open`** — a milestone that ships none of the search-handling code cannot
-  be credited with mitigating the risk that code would address. Confirmation
-  gate (`lib/research/assumption-status.ts`) never produces `verified`; it
-  only ever narrows what's shown.
+  `idx.ts`'s official-filing fallback. Class C (web search discovery) was
+  out of scope for M007 specifically — see M008 below, which implements it.
+  Confirmation gate (`lib/research/assumption-status.ts`) never produces
+  `verified`; it only ever narrows what's shown.
+- **M008 (2026-07-26):** Class C (web search discovery) closes the gap M007
+  deliberately left. `DiscoveryCandidateUrl` (`lib/research/discovery/types.ts`)
+  has exactly one field, `url` — structurally incapable of carrying
+  snippet/title text, proven adversarially in `tests/discovery-eval.test.ts`.
+  Provider chosen from real measured data (§0 of the M008 packet: 12 live
+  Tavily runs against 5 tickers), not vendor reputation; Google News RSS and
+  Serper were evaluated and parked, not deleted (`lib/research/discovery/`).
+  `discoveryCandidates` (`db/schema.ts`) is now populated —
+  `persistDiscoveryCandidates` upserts discovery results, and
+  `promoteCandidate`/`promotePendingForAssumption`
+  (`lib/research/discovery-promotion.ts`) implement DEC-0015 §3.2's
+  mandatory fetch-and-classify domain gate: a candidate URL is checked
+  against Class A/B's already-configured origins (reusing
+  `buildClientsByOrigin`, exported from `adapters/factory.ts` for this) and
+  `OfficialHttpClient` is never constructed for an unallowlisted origin — a
+  promoted candidate lands on the **same** `secondary_issuer`/
+  `secondary_news` evidence classes M007 built, inheriting R-010's
+  structural ceiling with no new trust tier. Review gap fixed during
+  packet review, not left as a known issue: `TavilyDiscoveryProvider`
+  (`lib/research/discovery/tavily.ts`) previously called `fetch` directly
+  with no outbound record, unlike every other external call in this
+  codebase; it now writes to the same `logs/outbound.log` ADR-0006 requires,
+  proven by test. `persistSourceSnapshot`'s `jobId` is optional (widened
+  from required) specifically so the explicit re-evaluation path
+  (`npm run research:promote-discoveries`, no owning research job) can
+  still content-address and store a fetched document. R-013 moved to
+  `Mitigated` (`docs/RISK_REGISTER.md`) — the mechanism is proven; real-world
+  coverage is still zero because `ISSUER_PRESS_RELEASE_URLS`/
+  `NEWS_WIRE_FEED_URLS` remain unconfigured in the live environment (the
+  same bootstrapping gap M007 already flagged for Class A/B), recorded
+  honestly as residual risk rather than silently assumed away.
 
 ## Task Routing
 
