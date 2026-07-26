@@ -157,7 +157,15 @@ export class OllamaProvider implements LLMProvider {
     context: ProviderCallContext,
   ): Promise<StructuredExtractResult<T>> {
     void schemaName;
-    const jsonSchema = zodToJsonSchema(schema);
+    // Bug found and fixed 2026-07-26: this used to call a hand-rolled
+    // converter checking `_def.typeName`, which is Zod 3's internal shape.
+    // This project runs Zod 4 (`_def.type` instead), so that check always
+    // failed and every live structuredExtract call — across the whole app,
+    // not just one route — sent Ollama the fallback `{ type: 'string' }`,
+    // no real structural constraint at all. `z.toJSONSchema` is Zod 4's own
+    // native replacement; no reason to hand-maintain a converter Zod ships
+    // itself.
+    const jsonSchema = z.toJSONSchema(schema);
 
     try {
       const response = await providerFetch({
@@ -189,8 +197,7 @@ export class OllamaProvider implements LLMProvider {
       }
 
       const content = (body.message?.content ?? '').trim();
-      const cleaned = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
-      const parsedData = JSON.parse(cleaned);
+      const parsedData = extractJsonPayload(content);
       const validated = schema.safeParse(parsedData);
 
       if (validated.success) {
@@ -203,7 +210,7 @@ export class OllamaProvider implements LLMProvider {
 
       console.error('structuredExtract safeParse failed!', {
         model: this.model,
-        cleaned,
+        content,
         parsedData,
         error: validated.error,
       });
@@ -225,63 +232,43 @@ export class OllamaProvider implements LLMProvider {
   }
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function zodToJsonSchema(schema: any): any {
-  const typeName = schema?._def?.typeName;
-  if (!typeName) return { type: 'string' };
+/**
+ * Found during live testing (2026-07-26): even once `format` carries a
+ * correct JSON schema (see the `structuredExtract` fix above), this model
+ * still routinely wraps the JSON in a conversational reply — "Here's the
+ * draft: ```json\n{...}\n```\nA few things worth checking..." — rather than
+ * returning pure JSON. `format` shapes the JSON *if* the model produces it
+ * standalone; it does not force the whole response to be nothing else, at
+ * least for this provider/model combination. The previous parser assumed
+ * pure JSON (only stripped a *leading* fence) and threw on every prose-
+ * wrapped response — exported so this can be tested directly against real
+ * captured responses, not just inline in `structuredExtract`.
+ */
+export function extractJsonPayload(content: string): unknown {
+  const trimmed = content.trim();
 
-  switch (typeName) {
-    case 'ZodObject': {
-      const properties: Record<string, any> = {};
-      const required: string[] = [];
-      const shape = schema.shape;
-      for (const [key, value] of Object.entries(shape)) {
-        properties[key] = zodToJsonSchema(value);
-        const innerType = (value as any)?._def?.typeName;
-        if (innerType !== 'ZodOptional' && innerType !== 'ZodNullable') {
-          required.push(key);
-        }
-      }
-      return {
-        type: 'object',
-        properties,
-        required: required.length > 0 ? required : undefined,
-      };
-    }
-    case 'ZodArray': {
-      return {
-        type: 'array',
-        items: zodToJsonSchema(schema.element),
-      };
-    }
-    case 'ZodEnum': {
-      return {
-        type: 'string',
-        enum: schema.options,
-      };
-    }
-    case 'ZodString': {
-      return { type: 'string' };
-    }
-    case 'ZodNumber': {
-      return { type: 'integer' };
-    }
-    case 'ZodBoolean': {
-      return { type: 'boolean' };
-    }
-    case 'ZodEffects': {
-      return zodToJsonSchema(schema.innerType());
-    }
-    case 'ZodOptional':
-    case 'ZodNullable': {
-      return zodToJsonSchema(schema.unwrap());
-    }
-    case 'ZodDefault': {
-      return zodToJsonSchema(schema._def.innerType);
-    }
-    default: {
-      return { type: 'string' };
+  const attempts: string[] = [
+    trimmed,
+    trimmed.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, ''),
+  ];
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) attempts.push(fenced[1].trim());
+
+  const firstBrace = trimmed.search(/[{[]/);
+  const lastBrace = Math.max(trimmed.lastIndexOf('}'), trimmed.lastIndexOf(']'));
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    attempts.push(trimmed.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const candidate of attempts) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      continue;
     }
   }
+
+  throw new Error('No parseable JSON object found in the model response.');
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
+
