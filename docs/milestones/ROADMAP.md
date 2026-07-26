@@ -1,4 +1,4 @@
-# Milestone Roadmap: M005 → M006 → M007
+# Milestone Roadmap: M005 → M006 → M007 → M008 → M009
 
 This note sequences the deferred areas named in `ACTIVE_MILESTONE.md`'s
 "Remaining Boundaries" after Milestone 4. Per R-005 ("V1 becomes one
@@ -123,5 +123,33 @@ Load-bearing caveat recorded honestly in the packet and the risk register:
 live environment, so the domain gate promotes zero candidates today
 regardless of discovery quality — a bootstrapping gap, not a defect, and not
 yet exercised end-to-end outside test fixtures.
+
+**Update, 2026-07-26 (later same day):** the bootstrapping gap above is
+closed — the allowlists were populated and a real TLKM thesis was run
+end-to-end for the first time. Promotion worked exactly as designed (2 of 10
+Tavily candidates matched and were promoted). That run surfaced a new,
+previously-untested problem, scoped as M009 below.
+
+## M009: Secondary Evidence Boilerplate Filtering
+
+Status: `proposed` (2026-07-26) — packet at
+[`M009-secondary-evidence-boilerplate-filtering.md`](M009-secondary-evidence-boilerplate-filtering.md).
+No new decision record required; governed by the already-accepted
+[`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md).
+
+Found during M008's first live run (2026-07-26, real TLKM thesis): several
+of the 15 `secondary_issuer` evidence rows persisted were site-wide
+boilerplate — cookie/privacy policy text, an unrelated CSR press release,
+and a repeated nav-menu paragraph reused verbatim as "evidence" for three
+different assumptions. Root cause: `rankSentenceCandidates`'s token-overlap
+threshold (`lib/research/extractors/candidate.ts`) was tuned for dense,
+boilerplate-free official filings (M001–M006) and reused unchanged when
+M007/M008 opened raw web HTML into the same path; `extractHtml`
+(`lib/research/extractors/document.ts`) strips `script/style/noscript/
+template/svg` but not `nav/header/footer/aside`. R-010's structural
+trust-tier gate still holds — nothing was mislabeled `exact_verified`/
+`ocr_matched` — this is a precision problem within the correctly-tiered
+`secondary_issuer` class, not a classification failure. Addresses newly
+opened R-025. Not yet accepted or implemented — awaiting review.
 
 

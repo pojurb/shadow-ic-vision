@@ -430,7 +430,16 @@ Milestones 4, 5, 6, and 7 are complete and verified (2026-07-25).
    test, real-world coverage still zero pending allowlist population,
    recorded honestly as residual risk. See the packet's "Slice Outcomes".
 
-No milestone is currently active. The next one has not been scoped.
+8. **Milestone 9 (drafted, not yet accepted):** [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md)
+   — found during M008's first live end-to-end run (2026-07-26, real TLKM
+   thesis): several persisted `secondary_issuer` evidence rows were
+   site-wide boilerplate (cookie policy, an unrelated CSR press release, a
+   repeated nav-menu paragraph) rather than substantive text, despite
+   correct trust-tier labeling. Addresses newly opened R-025. Awaiting user
+   acceptance before implementation — see `SESSION_CHECKPOINT.md`'s
+   2026-07-26 entry for the full finding.
+
+No milestone is currently active. Milestone 9 is proposed, not accepted.
 
 Promoted lessons consulted: `LC-20260703-001`
 

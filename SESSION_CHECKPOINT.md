@@ -1,3 +1,100 @@
+# Session Checkpoint - 2026-07-26 (M008 first live run + M009 drafted)
+
+**Note:** M008 (web search discovery) shipped and was marked `complete` in
+`ACTIVE_MILESTONE.md` on 2026-07-26, but no session-checkpoint entry was
+written for it at the time — this entry starts from that gap; M008's own
+packet (`docs/milestones/M008-web-search-discovery.md`) remains the
+authoritative record of what M008 itself shipped.
+
+## M008 First Live End-to-End Run (2026-07-26)
+
+Ran the full M008 pipeline live for the first time (previously only tested
+via mocks/fixtures): confirmed a real TLKM thesis draft in conversation
+`f5f230f6-23ea-4e86-a73a-cb55b04630c3` (`thesis.id =
+2e10b4c2-c642-4f0b-9d35-7498292931f8`) through a headless-browser session
+against the running dev server, then inspected the live SQLite DB and
+`logs/outbound.log` directly rather than trusting the UI alone.
+
+- **Discovery → domain gate → promotion worked correctly, live, for the
+  first time.** Tavily returned 10 candidates; 8 correctly `rejected:
+  domain_not_allowlisted` (notably including `idx.id`'s own static-data PDF
+  URL and `telkomsel.com` — a TLKM subsidiary on a *different* domain — both
+  plausible-looking but correctly refused); 2 matched `telkom.co.id`,
+  fetched, and were promoted into `secondary_issuer` evidence. R-013's
+  residual-risk note updated with this real outcome (was previously an
+  estimate; the allowlist-population gap it was tracking is now closed).
+- **Official IDX path degraded** (`issuer_source_unavailable`) — traced to
+  `ISSUER_SOURCE_URLS` (a *different* env var from the M007/M008 secondary
+  allowlists) only having `BBRI`, not TLKM. `logs/outbound.log` confirms the
+  real IDX announcement API was actually called (200) but didn't yield a
+  document to use before falling back. Not an M008 bug — a pre-existing,
+  separate config gap. Quick fix identified, not yet applied: add TLKM to
+  `ISSUER_SOURCE_URLS` in `.env`.
+- **New finding — R-025 (evidence precision, not yield).** Several of the 15
+  persisted `secondary_issuer` evidence rows are semantically irrelevant
+  boilerplate: one assumption about competitive pricing was backed by the
+  issuer's cookie/privacy-policy text; one about macro conditions was backed
+  by an unrelated CSR coral-reef-restoration press release; the same
+  nav-menu paragraph was persisted verbatim as "evidence" for three
+  different assumptions. Root cause verified directly against the code (not
+  assumed): `rankSentenceCandidates` (`lib/research/extractors/candidate.ts`)
+  was tuned for dense, boilerplate-free official filings (M001–M006) and
+  reused unchanged when M007/M008 opened raw web HTML into the same path;
+  `extractHtml` (`lib/research/extractors/document.ts`) strips
+  `script/style/noscript/template/svg` but not `nav/header/footer/aside`. A
+  second AI collaborator (Gemini, same workspace) independently reached the
+  same root cause from the same two files and confirmed the prioritization —
+  used as a genuine second opinion, not a formality. R-010's structural
+  trust-tier gate still holds (nothing mislabeled `exact_verified`/
+  `ocr_matched`); this is a precision gap within the correctly-tiered
+  `secondary_issuer` class.
+- **Unrelated infra finding:** a second page load crashed Next's Turbopack
+  compiler-worker pool (`"Jest worker encountered 2 child process
+  exceptions, exceeding retry limit"` — Next's internal build-worker
+  library, unrelated to the Jest test framework despite the name). `/c/[id]`
+  routes 500'd afterward; `/` and `/portfolio` kept serving fine. The dev
+  server (port 3000) was already running before this session touched it and
+  was **not restarted** — flagged, not fixed, to avoid disrupting anything
+  left open in that terminal. Likely just needs a restart next session.
+
+## M009 Drafted (proposed, not yet accepted) — Secondary Evidence Boilerplate Filtering
+
+Governance-only so far — no code changed. Per this session's "full
+governance path" choice: risk entry first, then a full milestone packet,
+before any implementation.
+
+- `docs/RISK_REGISTER.md`: new **R-025** row (`Open`, Data Trust, High/High)
+  with the verified root cause and the three real TLKM examples as evidence.
+  Pending review trigger from the prior session (first live
+  `processResearchJobs` run against the newly-populated allowlists) closed
+  out with the real outcome.
+- `docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`
+  (`proposed`): full packet — DOM-level boilerplate stripping in
+  `extractHtml`, a phrase-level boilerplate denylist in
+  `rankSentenceCandidates`, and a secondary-path-specific threshold
+  re-tune, deliberately **not** a global threshold change (would risk
+  regressing official-filing recall M001–M006 already validated). 4
+  implementation slices scoped, not started. No new decision record needed
+  — governed under the already-accepted DEC-0015.
+- `docs/milestones/ROADMAP.md`: M009 entry added, sequenced after M008.
+- `npm run status:check` and `npm run context:check` both pass after these
+  doc changes.
+
+### Exact Resume Point
+
+**M009 is drafted but not yet accepted by the user.** Nothing implemented.
+Before writing code: get explicit acceptance of the M009 packet (or
+requested changes to it). Once accepted, implement in the 4 scoped slices
+(DOM stripping → phrase denylist → secondary-threshold re-tune → governance
+close-out/eval re-run), per
+`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`.
+
+Two small, independent, not-yet-applied fixes noted above but out of M009's
+scope, safe to do anytime: add TLKM to `ISSUER_SOURCE_URLS` in `.env`;
+restart the dev server on port 3000 (Turbopack worker crash).
+
+---
+
 # Session Checkpoint - 2026-07-25
 
 ## M007 Slice 1 — Schema (done 2026-07-25)
