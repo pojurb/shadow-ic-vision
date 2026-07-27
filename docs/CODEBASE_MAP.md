@@ -204,6 +204,13 @@ Windows Task Scheduler or protected local endpoint
 - Unit, build, and browser tests must not make live source or provider calls.
 - Official source URLs and redirects are allowlisted and fail closed.
 - Unverified candidates never become durable Evidence.
+- **`(page.blocks ?? [page.text]).join(' ') === page.text`** (M010). Block
+  segmentation must never change the text it segments. This identity is the
+  whole proof that a quote ranked out of a block is still a verbatim substring
+  of `canonicalText`, which `verifyExactMatch` (a plain `.includes()`)
+  requires; break it and candidates are silently swallowed by the catch in
+  `pipeline.ts`. `extractHtml` additionally keeps `canonicalText` byte-identical
+  to its pre-M010 output, verified against four retained real snapshots.
 - `exact_verified` Evidence keeps interpretation `pending` and the assumption
   unchanged until a separate governed interpretation or user action.
 - Portfolio positions and automated ingestion alerts are local-only under DEC-0009 and never routed to external providers.
@@ -336,6 +343,28 @@ Windows Task Scheduler or protected local endpoint
   `rankSentenceCandidates`) — recorded as an explicit residual-risk gap in
   `docs/RISK_REGISTER.md`'s R-025 entry, not silently covered. R-025 →
   `Mitigated`.
+- **M010 (2026-07-27):** fixes what M009 could not, and the distinction is the
+  reusable lesson: M009's three mechanisms all filter on **vocabulary**, while
+  the 2026-07-27 live failure was one of **shape**. A category-filter widget
+  cleared every M009 gate by matching the literal word "Enterprise" — a nav
+  category label colliding with a genuine assumption's word "enterprise".
+  Root causes, all structural: `extractHtml` joined block elements with a
+  space, which `normalizeText` collapses, so a nav widget reached
+  `splitSentences` as one punctuation-free run-on that `Intl.Segmenter` returns
+  as a single giant segment with maximal token surface;
+  `rankSentenceCandidates` had no upper length bound and no length penalty, so
+  length only ever helped; and `discoverIssuerPressReleases` accepted any
+  same-origin link whose *enclosing container* mentioned a press-release term,
+  so nav links won the `discovery.value[0]` slot and the pipeline was
+  systematically mining a listing page rather than an article (the official
+  path never had this defect only because `discoverIssuerDocuments` requires a
+  `.pdf` extension). `extractHtml` now marks block boundaries with a `U+FFFC`
+  sentinel and exposes `ExtractedPage.blocks`; two secondary-tier-only shape
+  guards (a 400-character cap and an 8–14 word band for unpunctuated text)
+  cover what segmentation cannot split; and five rejection rules plus dedupe
+  and month-name date parsing keep listing pages out of discovery. R-026 →
+  `Mitigated`; **R-025 deliberately returned to `Open`**, because its own
+  trigger fired and semantic relevance remains unsolved.
 
 ## Task Routing
 
@@ -348,7 +377,7 @@ Windows Task Scheduler or protected local endpoint
 | Portfolio briefing or priority queue | `lib/portfolio/priorityQueue.ts`, `db/queries.ts#getPortfolioBriefing`, schema | `tests/portfolio-briefing.test.ts` coverage, standard verify, link resolution (conversationId, not thesisId) |
 | Portfolio UI (queue/index) | `components/TopTenQueue.tsx`, `app/portfolio/page.tsx`, briefing route | `verify:full` with Playwright, sorting/filtering correctness, refresh-on-sync behavior |
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
-| Secondary-source evidence (M007/M009) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule and boilerplate-phrase denylist), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping), `lib/research/assumption-status.ts`, `lib/research/adapters/issuer-press.ts`/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), confirmation-gate test, standard verify. Class C is out of scope — do not add search-provider code without a new milestone packet. |
+| Secondary-source evidence (M007/M009/M010) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule, boilerplate-phrase denylist, and M010's block-segmentation + shape guards), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping and M010 block sentinel), `lib/research/assumption-status.ts` (both the insert-shaped and removal-shaped derivations), `lib/research/evidence-cleanup.ts`, `lib/research/adapters/issuer-press.ts` (M010 listing-page guard)/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), M010 shape fixtures (a punctuation-free run-on with no denylisted phrase is the case M009's fixtures could not catch), the `blocks.join(' ') === text` identity, confirmation-gate test, standard verify. **Before adding another denylist phrase, check whether the failure is one of shape rather than vocabulary — that mistake is what M010 exists to correct.** Class C is out of scope — do not add search-provider code without a new milestone packet. |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |
 | Release/checkpoint | `.agents/RELEASE.md`, verification summary, active/checkpoint docs | `verify:full`, retained evidence review |

@@ -1,4 +1,4 @@
-# Milestone Roadmap: M005 → M006 → M007 → M008 → M009
+# Milestone Roadmap: M005 → M006 → M007 → M008 → M009 → M010
 
 This note sequences the deferred areas named in `ACTIVE_MILESTONE.md`'s
 "Remaining Boundaries" after Milestone 4. Per R-005 ("V1 becomes one
@@ -170,3 +170,46 @@ hard-gate failures, proving the official path untouched. R-025 → `Mitigated`
 cross-page boilerplate detection not built).
 
 
+
+
+## M010: Structural Evidence Precision
+
+Status: `complete` (2026-07-27) — packet at [`M010-structural-evidence-precision.md`](M010-structural-evidence-precision.md).
+No new decision record required; governed by the already-accepted
+[`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md),
+on the same grounds M009 recorded — no product boundary, evidence class, or
+trust tier changes.
+
+Opened by R-025's own review trigger firing on 2026-07-27. A live run against
+the real TLKM newsroom page produced a category-filter widget as evidence-grade
+output for a genuine tracked assumption, clearing all three M009 mechanisms by
+matching the literal word "Enterprise" — a nav category label colliding with the
+assumption's word "enterprise".
+
+The diagnosis, and the reason this is a milestone rather than another denylist
+entry: **M009's three mechanisms all filter on vocabulary; this was a failure of
+shape.** `extractHtml` joined block elements with a space, which `normalizeText`
+collapsed, so a nav/filter widget reached `splitSentences` as one
+punctuation-free run-on that `Intl.Segmenter` returns as a single giant segment
+with maximal token surface — and `rankSentenceCandidates` had no upper length
+bound and no length penalty, so length only ever helped. Separately,
+`discoverIssuerPressReleases` accepted any same-origin link whose *enclosing
+container* mentioned a press-release term, so nav and category links won the
+`discovery.value[0]` slot the pipeline actually fetches, and the system was
+systematically mining a listing page.
+
+Four slices shipped: block-boundary segmentation via a `U+FFFC` sentinel
+exposing `ExtractedPage.blocks`; two secondary-tier-only shape guards; a
+five-rule listing-page guard with dedupe and month-name date parsing; and a
+re-deriving cleanup of the 15 already-persisted rows M009 had deferred.
+`canonicalText` is proven byte-identical on all four retained real snapshots,
+and segmentation plus both guards are gated on `sourceTier === 'secondary'`, so
+the official path reduces to literally the pre-M010 expression. Suite grew
+206 → 237. Verified live end-to-end: the post-fix refresh fetched a genuine
+`/news/...` article instead of the listing page.
+
+**R-026** → `Mitigated`. **R-025 deliberately returned to `Open`** — its trigger
+fired, so M009's mitigation is recorded as necessary but insufficient rather
+than quietly amended, and semantic relevance remains unsolved. M009 §8's
+pre-authorized readability-library question was raised at review as instructed
+and declined by user decision.

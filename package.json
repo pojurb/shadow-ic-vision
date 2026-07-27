@@ -22,6 +22,7 @@
     "eval:m008:discovery:aggregate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/eval-m008-discovery-aggregate.ts",
     "research:refresh": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-refresh.ts",
     "research:promote-discoveries": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/promote-discoveries.ts",
+    "research:cleanup-evidence": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/cleanup-boilerplate-evidence.ts",
     "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1",
     "fixtures:vision:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/generate-vision-fixtures.ts"
   },

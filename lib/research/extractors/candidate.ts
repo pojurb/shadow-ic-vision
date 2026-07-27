@@ -1,4 +1,4 @@
-import type { ExtractedDocument } from './document';
+import type { ExtractedDocument, ExtractedPage } from './document';
 
 export type EvidenceVerificationStatus = 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news';
 export type EvidenceContentKind = 'text' | 'table' | 'chart' | 'screenshot' | 'structured_fact';
@@ -111,6 +111,72 @@ function isBoilerplatePhrase(quote: string): boolean {
   return BOILERPLATE_PHRASES.some((phrase) => lower.includes(phrase));
 }
 
+/**
+ * M010 (R-025). Shape-level backstops for the secondary tier, sitting behind
+ * block segmentation rather than replacing it.
+ *
+ * M009's three mechanisms all filter on *vocabulary*; the 2026-07-27 live
+ * failure was a *shape* — a category-filter widget that reached the ranker as
+ * one punctuation-free run-on and outscored real prose purely on token surface
+ * area. Segmentation splits most of those apart; these two catch what it can't.
+ *
+ * `MAX_SECONDARY_QUOTE_LENGTH`: widgets built entirely from `<span>`/`<option>`
+ * inside a single block element cannot be split by segmentation. Calibrated on
+ * the four retained TLKM snapshots: the largest genuine article block measured
+ * 298 chars, while everything above ~310 was legal boilerplate (privacy policy
+ * and T&C prose, including a 908-char intellectual-property clause that M009's
+ * phrase denylist does NOT catch — it reads "dilindungi oleh hak cipta", not
+ * the denylisted "hak cipta dilindungi").
+ *
+ * `MIN_FRAGMENT_WORDS`/`MAX_UNPUNCTUATED_WORDS`: text carrying no
+ * sentence-terminal punctuation is only plausible as a *headline*, and a
+ * headline is bounded on both sides — long enough to assert something, short
+ * enough to still be a headline. Outside that band, unpunctuated text is a
+ * label or a list of labels rather than a claim. Anything ending in terminal
+ * punctuation skips this rule entirely, so ordinary prose is never affected.
+ *
+ * Both bounds come from measured real examples rather than intuition:
+ *   - below: the chart label "Group Revenue 1Q 2026" (4 words) on snapshot
+ *     `7768e9c4`, which scores 18 and clears every M009 gate;
+ *   - above: the nav run-on "Solusi Overview Business Enterprise Wholesale …
+ *     ESG Karir" (18 words, zero punctuation, zero digits);
+ *   - and the genuine headline that must survive between them, "Telkom
+ *     Tuntaskan Streamlining 10 Entitas, Percepat Transformasi Menuju
+ *     Strategic Holding" (10 words), which the live 2026-07-27 run confirmed
+ *     is real, on-topic secondary evidence.
+ *
+ * The band is therefore calibrated on a small number of real observations, not
+ * a corpus — recorded as residual risk rather than presented as general.
+ */
+const MAX_SECONDARY_QUOTE_LENGTH = 400;
+const MIN_FRAGMENT_WORDS = 8;
+const MAX_UNPUNCTUATED_WORDS = 14;
+const TERMINAL_PUNCTUATION = /[.!?][")'\]]?$/;
+
+function isNonProseFragment(quote: string): boolean {
+  if (TERMINAL_PUNCTUATION.test(quote)) return false;
+  const words = quote.split(/\s+/).filter(Boolean).length;
+  return words < MIN_FRAGMENT_WORDS || words > MAX_UNPUNCTUATED_WORDS;
+}
+
+/**
+ * M010 (R-025). Tier-gated, mirroring M009 Slice 3's precedent exactly.
+ *
+ * For `'official'` this reduces to `[page.text]` — literally the pre-M010
+ * expression — so the official path's segmentation, filtering, ordering, and
+ * output are unchanged *structurally*, not merely observed-to-be-unchanged.
+ * `extractDeterministicCandidates` always passes `'official'`, which is what
+ * makes that airtight.
+ *
+ * Consequence recorded honestly rather than glossed: official-tier HTML (the
+ * `adapters/sec.ts` HTML branch and `adapters/issuer.ts`'s non-PDF fallback)
+ * keeps the pre-M010 run-on shape. See the M010 packet's deferrals.
+ */
+function segmentationUnits(page: ExtractedPage, sourceTier: 'official' | 'secondary'): string[] {
+  if (sourceTier === 'official') return [page.text];
+  return page.blocks ?? [page.text];
+}
+
 function rankSentenceCandidates(
   document: ExtractedDocument,
   assumption: string,
@@ -121,7 +187,8 @@ function rankSentenceCandidates(
   const assumptionTokens = significantTokens(`${ticker} ${assumption}`);
   const assumptionNumbers = numbers(assumption);
   const lowerTicker = ticker.toLowerCase();
-  const ranked = document.pages.flatMap((page) => splitSentences(page.text)
+  const ranked = document.pages.flatMap((page) => segmentationUnits(page, sourceTier)
+    .flatMap(splitSentences)
     .filter((quote) => !isBoilerplatePhrase(quote))
     .map((quote) => {
       const quoteTokens = significantTokens(quote);
@@ -157,6 +224,10 @@ function rankSentenceCandidates(
       // current year) is rejected. The official path never applies this —
       // its output is byte-for-byte unchanged from before M009.
       if (sourceTier === 'secondary' && candidate.qualifyingTokenMatches < 1) return false;
+      // M010 (R-025). Shape guards, secondary tier only — see the constants'
+      // doc comment for the calibration data behind each threshold.
+      if (sourceTier === 'secondary' && candidate.quote.length > MAX_SECONDARY_QUOTE_LENGTH) return false;
+      if (sourceTier === 'secondary' && isNonProseFragment(candidate.quote)) return false;
       return true;
     })
     .sort((left, right) => right.score - left.score || left.quote.length - right.quote.length)

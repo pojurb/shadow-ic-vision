@@ -1,3 +1,129 @@
+# Session Checkpoint - 2026-07-27 (M010 structural evidence precision)
+
+Opened by verifying M009 live, per `docs/RISK_REGISTER.md`'s own stated review
+trigger for R-025 — and the trigger fired. The verification found a new failure,
+which became M010, implemented and governance-closed the same session.
+
+## R-025's Trigger Fired (2026-07-27)
+
+A live `npm run research:refresh` ran clean but produced no new evidence, so it
+proved nothing on its own — document-level dedup on `(market, ticker)`
+short-circuited before extraction. To get a real test, the live TLKM newsroom
+page was fetched directly and run through the actual production `extractHtml` +
+`extractSecondaryCandidates`, bypassing that unrelated dedup. Two of M009's
+three known boilerplate fragments were gone (DOM stripping confirmed working
+live), and a genuine positive control passed. But a real tracked assumption
+("Indonesian enterprise demand for data center capacity remains strong through
+2026") produced a category-filter widget as evidence-grade output.
+
+It cleared all three M009 mechanisms by matching the literal word "Enterprise" —
+a nav category label colliding with the assumption's genuine word "enterprise" —
+so the ticker/bare-year rule did not apply and no denylisted phrase was present.
+
+**The diagnosis, which is the reusable part:** M009's three mechanisms all
+filter on *vocabulary*. This was a failure of *shape*. That is why it kept
+feeling like "the same problem again" — the fixes were addressing words while
+the defect was structural.
+
+## M010 Implemented (2026-07-27)
+
+Planned via plan mode (2 Explore agents for governance conventions and the
+extraction pipeline, 1 Plan agent for the design; the Plan agent empirically
+reproduced the defect against the four retained snapshots on disk and corrected
+the brief — it found a fifth `ExtractedPage` construction site,
+`scripts/eval-m001-multimodal.ts:243`, which is hard-gated). Three user
+decisions taken before planning: hand-rolled fix over a Readability dependency;
+fix discovery as well as extraction; clean up the already-persisted rows.
+
+Three structural holes were confirmed and fixed:
+
+- **Slice 1 — segmentation.** `extractHtml` joined block elements with a space,
+  which `normalizeText` collapses, so a nav widget reached `splitSentences` as
+  one punctuation-free run-on that `Intl.Segmenter` returns as a single giant
+  segment. Now marked with a `U+FFFC` sentinel exposing `ExtractedPage.blocks`.
+  The sentinel was chosen empirically, not assumed: `U+0000` does **not**
+  survive cheerio's `.append()` (parse5 drops it) and `U+E000` is PUA, which
+  icon-font sites legitimately emit. Includes a collision guard that falls back
+  to the legacy path.
+- **Slice 2 — shape guards.** A 400-character cap and an 8-14 word band for
+  unpunctuated text, both secondary-tier only. `segmentationUnits` reduces to
+  literally the pre-M010 expression for `'official'`.
+- **Slice 3 — listing-page guard.** `discoverIssuerPressReleases` accepted any
+  link whose *enclosing container* mentioned a press-release term, so nav links
+  won the `discovery.value[0]` slot and the pipeline was mining the listing
+  page. Five rejection rules + dedupe + month-name date parsing (`publishDate`
+  had been `null` in practice because the regex only matched `2026-07-21`
+  shapes while real anchors read "21 Juli 2026").
+- **Slice 4 — cleanup.** A sweep that re-derives rather than pattern-matches:
+  stale iff the fixed extractor no longer produces the quote from the retained
+  snapshot. Self-validating — under-fixing would visibly under-delete.
+
+**Two findings worth keeping.** First, a test written during the milestone
+caught a real gap rather than passing decoratively: the punctuation-free nav
+run-on survived the initial 8-word floor (18 words, under the 400 cap). Rather
+than weaken the assertion, the guard became a bounded *band* — unpunctuated text
+must be headline-shaped. Second, `npm run typecheck` caught a wrong enum value
+in a test (`interpretationStatus: 'accepted'`; the real values are
+`'pending' | 'deterministic' | 'model'`) that vitest had accepted at runtime,
+because SQLite does not enforce the enum.
+
+## Verified
+
+`typecheck`/`lint`/`build` clean; suite **237 passed / 3 skipped** (up from
+206); M001 multimodal + provider evals unchanged at `additionalCaseCount: 23`
+with 0 hard-gate failures (load-bearing: MM-021/022/023 hard-gate an empty
+result, so over-filtering would have failed loudly); `context:check` and
+`status:check` pass; `test:e2e` 4/4.
+
+Beyond fixtures: `canonicalText` byte-identical to a faithful re-implementation
+of the pre-M010 derivation on **all four** retained real snapshots, with
+`blocks.join(' ') === text` holding on each; discovery on the retained newsroom
+snapshot goes 29 refs (first 13 junk, `[0]` the discovery page itself) → exactly
+the 9 genuine articles, correctly dated, newest first.
+
+Live end-to-end: an explicit DB backup was taken
+(`db-before-m010-cleanup-2026-07-27T21-30-52.sqlite`) before `--apply`, since
+the automatic backup only fires on migrations. Cleanup reported 15 scanned / 15
+stale / 0 kept / 0 unresolvable; after applying, 0 evidence rows remained, 7
+assumptions reverted to `untested`, all 4 snapshots retained, second run a clean
+no-op. `research:refresh` then fetched a genuine `/news/...` article instead of
+the listing page, persisting 2 rows of real press-release prose.
+
+## Honest Limits Recorded, Not Smoothed Over
+
+- **R-025 was deliberately returned to `Open`**, not amended. Its own trigger
+  fired, so M009's mitigation is recorded as necessary but insufficient.
+- The post-fix live run's 2 rows come from a *culture-festival* press release,
+  one matched partly on division names ("Enterprise Business Strategy",
+  "Wholesale Service"). Genuine article prose rather than site chrome — which is
+  what M010 claims — but not obviously material to a data-centre thesis. M010
+  fixes shape, not semantic relevance.
+- Both shape thresholds are calibrated on a handful of real examples from one
+  site. The 14-word ceiling sits between one genuine 10-word headline and one
+  18-word nav run-on.
+- `extractPdf` and the vision path deliberately emit no blocks, so a
+  secondary-tier PDF still reaches the ranker in the pre-M010 run-on shape.
+- `promoteCandidate` still fetches whatever URL the search provider returns with
+  no shape check. A link-density classifier was measured (0.030 / 0.101 / 0.328
+  / 0.031) and **not** built — no article-page counter-example exists to
+  calibrate against, and guessing could silently zero out a legitimate page.
+
+### Exact Resume Point
+
+Nothing is committed — all M010 code, test, and governance-doc changes are
+unstaged working-tree changes as of this entry. The M009 learning-promotion
+reviewer-independence question from the prior session remains open and still
+needs the user's own confirmation.
+
+Suggested next: commit M010, then either run a live secondary-source job against
+a **different** issuer (R-025/R-026's stated next review trigger — every M010
+rule is validated against one site) or pick up R-018, still the highest-impact
+open item (embedded-instruction injection mitigation is regex-only in
+production; the multilingual `InstructionClassifier` exists but nothing wires it
+in by default).
+
+---
+
 # Session Checkpoint - 2026-07-26 (M009 implemented + learning-promotions reviewed)
 
 Continues directly from the "M008 first live run + M009 drafted" entry

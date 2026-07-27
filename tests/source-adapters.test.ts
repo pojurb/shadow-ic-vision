@@ -110,6 +110,89 @@ describe('official source adapters', () => {
     expect(found.every((item) => item.sourceTier === 'secondary')).toBe(true);
   });
 
+  // M010 (R-026). The listing-page guard. Before this, the only constraint was
+  // "same-origin link whose ENCLOSING CONTAINER's 2 KB of text mentions a
+  // press-release term" — near-vacuous on any page whose sidebar says "Berita".
+  // On the real TLKM newsroom that returned 29 refs whose first 13 were junk,
+  // with [0] being the discovery page itself; since the pipeline fetches only
+  // discovery.value[0], the system fetched a listing page and mined it for
+  // evidence. The official path never had this defect only because
+  // discoverIssuerDocuments requires a .pdf extension.
+  describe('listing-page guard (M010)', () => {
+    const listing = 'https://issuer.test/sites/berita/id_ID/page/news-122';
+    const query = { market: 'ID' as const, ticker: 'TLKM', documentTypes: [] };
+
+    it('rejects a self-link back to the discovery page, including bare-hash variants', () => {
+      const html = `<a href="/sites/berita/id_ID/page/news-122">Berita</a>
+        <a href="/sites/berita/id_ID/page/news-122#search">Berita</a>
+        <a href="#">Berita</a>
+        <a href="/sites/berita/id_ID/news/telkom-siaran-pers-real-article-3827">Siaran Pers Telkom</a>`;
+      const found = discoverIssuerPressReleases(html, listing, query);
+      expect(found.map((item) => item.sourceUrl)).toEqual([
+        'https://issuer.test/sites/berita/id_ID/news/telkom-siaran-pers-real-article-3827',
+      ]);
+    });
+
+    it('rejects pagination and category query-variants of the listing page', () => {
+      const html = `<a href="/sites/berita/id_ID/page/news-122?page=2">Berita 2</a>
+        <a href="/sites/berita/id_ID/page/news-122?kategori=csr">Berita CSR</a>
+        <a href="/sites/berita/id_ID/news/siaran-pers-genuine-3827">Siaran Pers Genuine</a>`;
+      expect(discoverIssuerPressReleases(html, listing, query).map((item) => item.sourceUrl)).toEqual([
+        'https://issuer.test/sites/berita/id_ID/news/siaran-pers-genuine-3827',
+      ]);
+    });
+
+    it('rejects an ancestor of the listing path without rejecting shallower real articles', () => {
+      // Deliberately not a path-DEPTH rule: the real articles here are
+      // shallower than the listing page, so depth filtering would delete them.
+      const html = `<a href="/sites/berita/id_ID">Berita</a>
+        <a href="/sites/berita/id_ID/news/siaran-pers-genuine-3827">Siaran Pers Genuine</a>`;
+      expect(discoverIssuerPressReleases(html, listing, query).map((item) => item.sourceUrl)).toEqual([
+        'https://issuer.test/sites/berita/id_ID/news/siaran-pers-genuine-3827',
+      ]);
+    });
+
+    it('treats a link repeated across the document as site chrome', () => {
+      // On the real page every nav link appeared 2-5x (desktop + mobile menus)
+      // and all 9 genuine article links appeared exactly once. This is the only
+      // rule reaching chrome whose URL shape is article-like.
+      const html = `<a href="/sites/berita/id_ID/news/berita-chrome-link-1">Berita</a>
+        <a href="/sites/berita/id_ID/news/berita-chrome-link-1">Berita</a>
+        <a href="/sites/berita/id_ID/news/siaran-pers-genuine-3827">Siaran Pers Genuine</a>`;
+      expect(discoverIssuerPressReleases(html, listing, query).map((item) => item.sourceUrl)).toEqual([
+        'https://issuer.test/sites/berita/id_ID/news/siaran-pers-genuine-3827',
+      ]);
+    });
+
+    it('requires the press-release term on the link itself, not merely in its container', () => {
+      const html = `<section class="news"><h2>Siaran Pers</h2>
+        <a href="/sites/profil/id_ID/page/tentang-kami">Tentang Kami</a>
+        <a href="/sites/berita/id_ID/news/siaran-pers-genuine-3827">Siaran Pers Genuine</a>
+      </section>`;
+      expect(discoverIssuerPressReleases(html, listing, query).map((item) => item.sourceUrl)).toEqual([
+        'https://issuer.test/sites/berita/id_ID/news/siaran-pers-genuine-3827',
+      ]);
+    });
+
+    it('parses Indonesian and English month-name dates and orders newest first', () => {
+      // publishDate was always null in practice: the previous regex matched
+      // only 2026-07-21-shaped dates while real anchors read "21 Juli 2026",
+      // so there was no recency signal to order by.
+      const html = `<li><a href="/berita/siaran-pers-older-1">Siaran Pers Older</a> 6 Juli 2026</li>
+        <li><a href="/berita/siaran-pers-newest-2">Siaran Pers Newest</a> 21 Juli 2026</li>
+        <li><a href="/berita/siaran-pers-middle-3">Siaran Pers Middle</a> 17 July 2026</li>`;
+      const found = discoverIssuerPressReleases(html, listing, query);
+      expect(found.map((item) => item.publishDate)).toEqual(['2026-07-21', '2026-07-17', '2026-07-06']);
+    });
+
+    it('dedupes identical URLs so the caller\'s 20-result cap is not filled with repeats', () => {
+      const html = `<a href="/berita/siaran-pers-a">Siaran Pers A</a>
+        <a href="/berita/siaran-pers-a?utm_source=x">Siaran Pers A</a>`;
+      const found = discoverIssuerPressReleases(html, listing, query);
+      expect(new Set(found.map((item) => item.sourceUrl)).size).toBe(found.length);
+    });
+  });
+
   // M007 Class B.
   describe('news wire feed parsing and discovery', () => {
     it('parses RSS items', () => {

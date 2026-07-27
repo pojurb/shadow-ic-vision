@@ -2,13 +2,42 @@
 
 Status: `complete`
 
-Active Packet: [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md) (complete 2026-07-26; all four slices implemented and tested — see "Slice Outcomes")
+Active Packet: [`docs/milestones/M010-structural-evidence-precision.md`](docs/milestones/M010-structural-evidence-precision.md) (complete 2026-07-27; all four slices plus governance close-out implemented, tested, and proven live end-to-end — see "Slice Outcomes")
 
-Latest Completed Packet: [`docs/milestones/M009-secondary-evidence-boilerplate-filtering.md`](docs/milestones/M009-secondary-evidence-boilerplate-filtering.md) (complete; R-025 → `Mitigated` — DOM stripping + phrase denylist + secondary-tier-only qualifying-token rule, proven by 7 new adversarial tests and unregressed M001 evals; company-name-token exclusion and cross-page detection recorded honestly as residual risk, not silently assumed away)
+Latest Completed Packet: [`docs/milestones/M010-structural-evidence-precision.md`](docs/milestones/M010-structural-evidence-precision.md) (complete; R-026 → `Mitigated`, R-025 deliberately **returned to `Open`** — block-boundary segmentation + secondary-tier shape guards + a five-rule listing-page guard + a re-deriving cleanup of the 15 already-persisted rows, proven by 31 new tests, byte-identical `canonicalText` on four real snapshots, unregressed M001 evals, and a live refresh that fetched a genuine article instead of the listing page)
 
-See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M009 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0. M008's first live run then surfaced the precision defect M009 fixes; see the paragraph below.
+See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M010 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0. M008's first live run then surfaced the precision defect M009 fixes; see the paragraph below.
 
 ## Current Phase
+
+M010 closed a gap M009 could not, and the distinction is the point. M009's three
+mechanisms all filter on **vocabulary**; the 2026-07-27 live run produced a
+failure of **shape** — a category-filter widget that cleared every M009 gate by
+matching the literal word "Enterprise", a nav category label colliding with a
+genuine assumption's word "enterprise". Three structural holes were confirmed
+and fixed: `extractHtml` joined block elements with a space, so a nav widget
+reached `splitSentences` as one punctuation-free run-on that `Intl.Segmenter`
+returns as a single giant segment with maximal token surface (now marked with a
+`U+FFFC` sentinel and exposed as `ExtractedPage.blocks`); `rankSentenceCandidates`
+had no upper length bound and no length penalty (now a 400-character cap and an
+8–14 word band for unpunctuated text, both secondary-tier only); and
+`discoverIssuerPressReleases` accepted any link whose *container* mentioned a
+press-release term, so the pipeline systematically fetched the newsroom listing
+page and mined it (now five rejection rules taking the real snapshot from 29
+refs to exactly 9 genuine articles). `canonicalText` is proven byte-identical on
+all four retained real snapshots, and the tested identity `blocks.join(' ') ===
+text` is what guarantees every quote is still a verbatim substring for
+`verifyExactMatch`. Segmentation and both guards are gated on
+`sourceTier === 'secondary'`, so the official path reduces to literally the
+pre-M010 expression. The 15 already-persisted low-quality rows were removed by a
+sweep that re-derives rather than pattern-matches — stale iff the fixed
+extractor no longer produces the quote — which makes it self-validating.
+**R-026** → `Mitigated`; **R-025 deliberately returned to `Open`**, because its
+own trigger fired and M009's mitigation was necessary but not sufficient.
+Verified live: the post-fix refresh fetched a genuine `/news/...` article and
+persisted 2 rows of real press-release prose where the prior run persisted 15
+rows of chrome — though one of those two matched partly on division names, so
+*semantic* relevance remains unsolved and R-025 says so.
 
 M009 closed the gap M008's first live run opened: several `secondary_issuer` evidence rows persisted as site-wide web boilerplate despite correct trust-tier labeling. Three layered mechanisms now guard `rankSentenceCandidates`
 (`lib/research/extractors/candidate.ts`) and `extractHtml` (`lib/research/extractors/document.ts`) — DOM-level chrome stripping, a phrase-level denylist, and a `sourceTier`-gated qualifying-token rule that excludes the ticker and bare years from the secondary-path match minimum, the only mechanism able to catch a genuine but topically irrelevant article (the real CSR/coral-reef case) that no denylist or DOM rule can reach. The official path is proven byte-for-byte unchanged: `extractDeterministicCandidates` always calls with `sourceTier: 'official'`, so the new gate never fires for it, confirmed by a new official-tier HTML-chrome regression fixture plus the unchanged M001 eval case count (23, 0 hard-gate failures). Reviewed independently twice before implementation — a second AI collaborator (Gemini) and a separate reconciliation pass both converged on the same root cause and the same qualifying-token mechanism as the fix for the CSR-class failure. Company-name-token exclusion was explicitly scoped out (no such field exists in the call chain) and recorded as residual risk rather than silently covered. R-025 → `Mitigated`.
@@ -180,7 +209,44 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-26 (M009 implementation, all four slices).
+Latest full verification: 2026-07-27 (M010 implementation, all four slices plus
+governance close-out).
+
+- `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-27 (**237
+  passed, 3 skipped** — up from 206 at M009's close; adds 12 M010 shape/
+  segmentation cases to `tests/document-extraction.test.ts`, 7 listing-page
+  guard cases to `tests/source-adapters.test.ts`, and the new
+  `tests/evidence-cleanup.test.ts` with 12 cases covering deletion, retention,
+  the official-tier hard filter, missing snapshots, dry-run inertness,
+  idempotence, and `user_confirmed_secondary` protection)
+- `npm run build`: pass on 2026-07-27
+- `npm run context:generate` / `npm run context:check`: pass on 2026-07-27
+- `npm run status:check`: pass on 2026-07-27
+- `npm run eval:m001:multimodal -- --output test-results/m010-multimodal-report.json`:
+  pass on 2026-07-27; `additionalCaseCount: 23` unchanged, 0 hard-gate failures.
+  Load-bearing here, not routine: `scripts/eval-m001-multimodal.ts` hard-gates
+  `candidates.length === 0` on MM-021/022/023, so over-filtering the eval
+  fixtures would have failed loudly rather than degrading silently.
+- `npm run eval:m001:provider -- --mode deterministic --model minimax-m3:cloud --output test-results/m010-provider-report.json`:
+  pass on 2026-07-27; 0 hard-gate failures
+- `npm run test:e2e` (Playwright): 4/4 pass on 2026-07-27 — M010 touches no UI
+  code, so this is a confirmation, not an expected-change check
+- **Real-data verification, beyond fixtures:** `canonicalText` byte-identical to
+  a faithful re-implementation of the pre-M010 derivation on all four retained
+  TLKM snapshots, with `blocks.join(' ') === text` holding on each;
+  `discoverIssuerPressReleases` on the retained newsroom snapshot goes from 29
+  refs (first 13 junk, `[0]` the discovery page itself) to exactly the 9 genuine
+  `/news/...` articles, correctly dated, newest first
+- **Live end-to-end:** `npm run research:cleanup-evidence` dry run reported 15
+  scanned / 15 stale / 0 kept / 0 unresolvable; an explicit database backup was
+  taken (`db-before-m010-cleanup-2026-07-27T21-30-52.sqlite`) before `--apply`;
+  after applying, 0 evidence rows remained, 7 assumptions reverted to
+  `untested`, all 4 `source_snapshots` rows and `.bin` files retained, and a
+  second run was a clean no-op. `npm run research:refresh` then fetched
+  `.../news/perkuat-peran-penggiat-budaya-...-3849` — a genuine article —
+  instead of the listing page, persisting 2 rows of real press-release prose.
+
+Previous full verification: 2026-07-26 (M009 implementation, all four slices).
 
 - `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-26 (206
   passed, 3 skipped — up from 199 at M008's close; adds 7 adversarial
@@ -425,7 +491,7 @@ Release evidence:
 
 ## Next Steps
 
-Milestones 4 through 9 are complete and verified.
+Milestones 4 through 10 are complete and verified.
 
 1. ~~**DEC-0009 Amendment**~~ Accepted: [`DEC-0011`](docs/decisions/DEC-0011-decision-record-classification-amendment.md)
    clarifies that recorded Buy/Hold/Reduce/Exit decisions are governed
@@ -484,7 +550,24 @@ Milestones 4 through 9 are complete and verified.
    M001 evals; company-name-token exclusion and cross-page detection
    recorded honestly as residual risk. See the packet's "Slice Outcomes".
 
-No milestone is currently active. Milestone 9 is complete.
+9. ~~**Milestone 10**~~ Complete: [`docs/milestones/M010-structural-evidence-precision.md`](docs/milestones/M010-structural-evidence-precision.md)
+   (accepted and complete 2026-07-27). All four acceptance criteria met. R-026
+   → `Mitigated`; **R-025 deliberately returned to `Open`** — its own trigger
+   fired on 2026-07-27, so M009's mitigation is recorded as necessary but
+   insufficient rather than quietly amended. M009 §8's pre-authorized question
+   ("adopt a readability library if the hand-rolled denylist proves too
+   narrow") was raised at review as instructed and declined by user decision:
+   jsdom is a heavy dependency for a module holding only `cheerio` and
+   `pdfjs-dist`, and the structural fix had not yet been shown insufficient.
+   See the packet's "Slice Outcomes".
+
+No milestone is currently active. Milestone 10 is complete.
+
+**Open, not this milestone's problem:** semantic relevance of secondary
+evidence (R-025, `Open`) — M010 fixes evidence *shape*, and the live run that
+proved it also persisted two quotes from a genuine culture-festival press
+release matched partly on division names. Real article prose, not site chrome,
+but still not obviously material to a data-centre thesis.
 
 Promoted lessons consulted: `LC-20260703-001`
 

@@ -7,6 +7,24 @@ import { detectEmbeddedInstructions, type InstructionClassifier } from './safety
 export type ExtractedPage = {
   pageNumber: number | null;
   text: string;
+  /**
+   * M010 (R-025/R-026). Block-level segmentation of `text`, in document order.
+   *
+   * INVARIANT, asserted by test rather than argued:
+   *   (blocks ?? [text]).join(' ') === text
+   *
+   * That identity is the entire proof that a sentence ranked out of a block is
+   * still a verbatim substring of `canonicalText` — which `verifyExactMatch`
+   * (a plain `.includes()`) requires, and without which candidates would be
+   * silently swallowed by the catch in `pipeline.ts`.
+   *
+   * Deliberately OPTIONAL. `undefined` means "no block structure known" (PDF,
+   * vision transcription, hand-built fixtures) and every consumer falls back to
+   * `[text]`, i.e. exactly the pre-M010 behavior. A required field would make a
+   * site that forgot to populate it fail silently to zero candidates; optional
+   * makes that failure mode unrepresentable.
+   */
+  blocks?: string[];
 };
 
 export type ExtractedDocument = {
@@ -72,6 +90,19 @@ export async function extractDocument(
   throw new ResearchSourceError('unsupported_document', `Unsupported source format: ${snapshot.sourceFormat}.`);
 }
 
+/**
+ * M010 (R-025). The marker appended after every block-level element so block
+ * boundaries survive `normalizeText`'s whitespace collapse.
+ *
+ * U+FFFC OBJECT REPLACEMENT CHARACTER, chosen empirically over two rejected
+ * alternatives: U+0000 does NOT survive cheerio's `.append()` (parse5 drops
+ * it), and U+E000 is Private Use Area, which icon-font sites legitimately
+ * emit. U+FFFC survives and does not appear in real prose.
+ */
+const BLOCK_SEPARATOR = '￼';
+
+const BLOCK_ELEMENT_SELECTOR = 'p, div, section, article, tr, li, h1, h2, h3, h4, h5, h6';
+
 export async function extractHtml(
   rawBytes: Uint8Array,
   options: Pick<ExtractDocumentOptions, 'instructionClassifier'> = {},
@@ -95,13 +126,26 @@ export async function extractHtml(
     '[class*="legal-notice" i], [id*="legal-notice" i]',
   ].join(', ')).remove();
   $('br').replaceWith(' ');
-  $('p, div, section, article, tr, li, h1, h2, h3, h4, h5, h6').append(' ');
-  const canonicalText = normalizeText($('body').text() || $.root().text());
+  // M010 (R-025). Fails safe on sentinel collision: if the source document
+  // already contains U+FFFC, splitting on it would corrupt `canonicalText`, so
+  // that document takes the pre-M010 path — it merely loses block structure and
+  // the ranker falls back to whole-page segmentation.
+  const sentinelCollision = html.includes(BLOCK_SEPARATOR);
+  $(BLOCK_ELEMENT_SELECTOR).append(sentinelCollision ? ' ' : BLOCK_SEPARATOR);
+  const raw = $('body').text() || $.root().text();
+  // `raw.split(SEP).join(' ')` is byte-identical to the pre-M010
+  // `$('body').text()`, because the node appended then WAS ' '. This is what
+  // keeps `canonicalText` — and therefore every `exact_verified` hash and every
+  // `verifyExactMatch` call — unchanged for both tiers.
+  const canonicalText = normalizeText(sentinelCollision ? raw : raw.split(BLOCK_SEPARATOR).join(' '));
   if (!canonicalText) throw new ResearchSourceError('unsupported_document', 'Official HTML document contained no extractable text.');
+  const blocks = sentinelCollision
+    ? undefined
+    : raw.split(BLOCK_SEPARATOR).map(normalizeText).filter(Boolean);
   const scan = await detectEmbeddedInstructions(canonicalText, options.instructionClassifier);
   return {
     canonicalText,
-    pages: [{ pageNumber: null, text: canonicalText }],
+    pages: [{ pageNumber: null, text: canonicalText, blocks }],
     parserVersion: 'cheerio-1.1',
     extractionMethod: 'html_parser',
     sourceVariant: 'text_layer',
@@ -122,6 +166,10 @@ export async function extractPdf(
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
       const text = normalizeText(content.items.map((item) => ('str' in item ? item.str : '')).join(' '));
+      // M010: `blocks` deliberately left undefined. pdfjs text items carry no
+      // reliable block structure (`hasEOL` is a line marker, not a block
+      // marker), so official PDFs keep the pre-M010 whole-page segmentation.
+      // Recorded as an explicit deferral in the M010 packet, not as fixed.
       pages.push({ pageNumber, text });
     }
     const canonicalText = normalizeText(pages.map((page) => page.text).join(' '));

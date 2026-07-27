@@ -37,3 +37,37 @@ export function deriveAssumptionStatus(input: {
 
   return null;
 }
+
+/**
+ * M010 Slice 4. The removal-shaped sibling of `deriveAssumptionStatus`, which
+ * is insert-shaped and has no transition for evidence going away.
+ *
+ * Needed because the M010 cleanup deletes secondary evidence rows that the
+ * fixed extractor would no longer produce. An assumption left at
+ * `pending_confirmation` after its only supporting evidence is removed would
+ * be asserting a confirmation gate over nothing.
+ *
+ * Lives here rather than as inline SQL in the cleanup script so the transition
+ * is unit-testable and discoverable next to the rule it mirrors.
+ *
+ * Returns `'needs_manual_review'` rather than a status for
+ * `user_confirmed_secondary`: that value records an explicit human decision to
+ * accept secondary evidence, so no automated sweep may silently undo it.
+ */
+export function deriveAssumptionStatusAfterEvidenceRemoval(input: {
+  currentStatus: AssumptionStatus;
+  hasRemainingSecondaryEvidence: boolean;
+  hasOfficialEvidence: boolean;
+}): AssumptionStatus | 'needs_manual_review' | null {
+  if (input.currentStatus === 'user_confirmed_secondary') return 'needs_manual_review';
+
+  if (
+    input.currentStatus === 'pending_confirmation'
+    && !input.hasRemainingSecondaryEvidence
+    && !input.hasOfficialEvidence
+  ) {
+    return 'untested';
+  }
+
+  return null;
+}

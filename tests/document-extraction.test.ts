@@ -337,6 +337,178 @@ describe('deterministic document extraction', () => {
     });
   });
 
+  // M010 (R-025/R-026). M009's three mechanisms all filter on VOCABULARY; the
+  // 2026-07-27 live run produced a failure of SHAPE — a category-filter widget
+  // that reached the ranker as one punctuation-free run-on (block elements are
+  // joined with a space, which normalizeText then collapses, so Intl.Segmenter
+  // sees a single giant "sentence") and outscored real prose purely on token
+  // surface area. Every M009 fixture is a well-punctuated sentence, so none of
+  // them could have caught this.
+  describe('structural (shape-based) evidence precision (M010)', () => {
+    function toDocument(text: string, blocks?: string[]) {
+      return {
+        canonicalText: text,
+        pages: [{ pageNumber: null, text, blocks }],
+        parserVersion: 'test',
+        extractionMethod: 'html_parser' as const,
+        sourceVariant: 'text_layer' as const,
+        untrustedInstructionFlagged: false,
+      };
+    }
+
+    // Verbatim from the real 2026-07-27 live run against telkom.co.id. It
+    // passed every M009 gate by matching the literal word "Enterprise" — a nav
+    // category label colliding with the assumption's genuine word "enterprise".
+    const realCategoryWidget = 'Category : All All Siaran Pers Enterprise Wholesale CSR Years Semua Tahun 2026 2025 2024 2023 2022 2021 2020 2019 2018 2017 2016 2015 2014 2013 Months Semua Bulan Januari Februari Maret April Mei Juni Juli Agustus September Oktober November Desember 21 Juli 2026 Siaran Pers Perkuat Peran Penggiat Budaya di Masa Transformasi, Telkom Kembali Gelar Culture Festival TelkomGroup 2026 Peserta Culture Agent/Culture Booster Meet & Greet (CAMG) 2026menyampaikan pandangan dalam sesi Sharing Session yang menjadi ruang bagi para peserta untuk saling bertukar pengalaman dan pembelajaran mengenai implementasi budaya perusahaan secara konsisten serta memberikan dampak positif terhada...';
+    const realLiveAssumption = 'Indonesian enterprise demand for data center capacity remains strong through 2026.';
+
+    it('rejects the real 2026-07-27 TLKM category-filter widget that passed every M009 gate', () => {
+      const document = toDocument(realCategoryWidget);
+      expect(extractSecondaryCandidates(document, realLiveAssumption, 'TLKM', 'issuer')).toHaveLength(0);
+    });
+
+    it('rejects a punctuation-free nav run-on containing no denylisted phrase', () => {
+      // Deliberately omits 'skip to content' — M009's nav fixture only passes
+      // because it contains that literal denylisted string. Strip those words
+      // and the identical structure sailed through every M009 mechanism.
+      const document = toDocument(
+        'Solusi Overview Business Enterprise Wholesale Data Center Solutions Personal Investor Relations Berita Artikel Panduan Logo Sustainability ESG Karir',
+      );
+      expect(extractSecondaryCandidates(document, realLiveAssumption, 'TLKM', 'issuer')).toHaveLength(0);
+    });
+
+    it('rejects a short label fragment with no terminal punctuation', () => {
+      // The real survivor found on snapshot 7768e9c4: block segmentation alone
+      // reduces a 513-char nav run-on to this chart label, which still scores
+      // 18 and clears every M009 gate.
+      const document = toDocument('Group Revenue 1Q 2026');
+      expect(extractSecondaryCandidates(document, 'TLKM group revenue grows through 2026.', 'TLKM', 'issuer')).toHaveLength(0);
+    });
+
+    it('segments a real listing widget into blocks so no mega-candidate survives, via extractHtml', async () => {
+      const html = `<html><body><main><div class="filter"><ul>
+        <li>Enterprise</li><li>Wholesale</li><li>CSR</li><li>2026</li><li>2025</li><li>2024</li>
+      </ul></div><div class="teaser">21 Juli 2026 Siaran Pers Perkuat Peran Penggiat Budaya di Masa Transformasi</div></main></body></html>`;
+      const extracted = await extractHtml(new TextEncoder().encode(html));
+      expect((extracted.pages[0].blocks ?? []).length).toBeGreaterThan(3);
+      expect(extractSecondaryCandidates(extracted, realLiveAssumption, 'TLKM', 'issuer')).toHaveLength(0);
+    });
+
+    it('keeps the block-join identity that guarantees quotes stay substrings of canonicalText', async () => {
+      const html = `<html><body><main>
+        <div><p>Telkom reported data center revenue of 12.5 trillion rupiah in 2026.</p>
+        <p>Enterprise&nbsp;demand<br>remained strong.</p></div>
+        <table><tr><td>Segment</td><td>Growth</td></tr></table>
+        <ul><li>Item one</li><li>Item two</li></ul>
+      </main></body></html>`;
+      const extracted = await extractHtml(new TextEncoder().encode(html));
+      const page = extracted.pages[0];
+      expect(page.blocks).toBeDefined();
+      expect((page.blocks ?? []).join(' ')).toBe(page.text);
+      expect(page.text).toBe(extracted.canonicalText);
+    });
+
+    it('emits only quotes that verifyExactMatch accepts against canonicalText, on both extractors', async () => {
+      const html = `<html><body><main>
+        <div><p>Telkom reported data center revenue of 12.5 trillion rupiah in 2026, up 40% year-over-year.</p></div>
+        <div><span>Enterprise</span>&nbsp;<span>Wholesale</span><br><b>CSR</b></div>
+        <ul><li>Investor Relations</li><li>Berita</li></ul>
+      </main></body></html>`;
+      const extracted = await extractHtml(new TextEncoder().encode(html));
+      const assumption = 'Telkom data center revenue grows materially in 2026.';
+      const all = [
+        ...extractSecondaryCandidates(extracted, assumption, 'TLKM', 'issuer'),
+        ...extractDeterministicCandidates(extracted, assumption, 'TLKM'),
+      ];
+      expect(all.length).toBeGreaterThan(0);
+      for (const candidate of all) {
+        expect(() => verifyExactMatch(candidate.quote, extracted.canonicalText)).not.toThrow();
+      }
+    });
+
+    it('falls back safely when the source document already contains the block sentinel', async () => {
+      const sentence = 'Telkom reported data center revenue of 12.5 trillion rupiah in 2026.';
+      const extracted = await extractHtml(new TextEncoder().encode(`<html><body><p>￼${sentence}</p></body></html>`));
+      // canonicalText must stay correct; the document merely loses block
+      // structure rather than being split on its own content.
+      expect(extracted.canonicalText).toContain(sentence);
+      expect(extracted.pages[0].blocks).toBeUndefined();
+    });
+
+    it('still admits a genuine secondary fact reached through extractHtml with full page chrome', async () => {
+      const fact = 'Telkom reported data center revenue of 12.5 trillion rupiah in 2026, up 40% year-over-year.';
+      const chromeFree = await extractHtml(new TextEncoder().encode(`<html><body><p>${fact}</p></body></html>`));
+      const chromeWrapped = await extractHtml(new TextEncoder().encode(`<html><body>
+        <nav><a href="/">Beranda</a><a href="/berita">Berita</a></nav>
+        <div class="Cookie-Banner">Manage your cookie preferences here.</div>
+        <main><article><p>${fact}</p></article></main>
+        <footer>&copy; 2026 Telkom Indonesia. All rights reserved.</footer>
+      </body></html>`));
+      const assumption = 'Telkom data center revenue grows materially in 2026.';
+      const wrapped = extractSecondaryCandidates(chromeWrapped, assumption, 'TLKM', 'issuer');
+      expect(wrapped).toEqual(extractSecondaryCandidates(chromeFree, assumption, 'TLKM', 'issuer'));
+      expect(wrapped[0]?.quote).toBe(fact);
+    });
+
+    it('pins the secondary quote-length cap at 400 characters', () => {
+      const build = (length: number) => {
+        const head = 'Telkom data center revenue in 2026 rose 40% year-over-year across enterprise segments';
+        return `${head}${' padding'.repeat(Math.ceil((length - head.length - 1) / 8))}`.slice(0, length - 1) + '.';
+      };
+      const assumption = 'Telkom data center revenue grows across enterprise segments in 2026.';
+      const under = build(399);
+      const over = build(401);
+      expect(under).toHaveLength(399);
+      expect(over).toHaveLength(401);
+      expect(extractSecondaryCandidates(toDocument(under), assumption, 'TLKM', 'issuer')).toHaveLength(1);
+      expect(extractSecondaryCandidates(toDocument(over), assumption, 'TLKM', 'issuer')).toHaveLength(0);
+    });
+
+    it('pins the unpunctuated-text word band at 8..14, and lets terminal punctuation override it', () => {
+      const assumption = 'Telkom data center revenue grows materially in 2026.';
+      // 7 words, no terminal punctuation -> below the band, rejected as a label.
+      const label = 'Telkom Data Center Revenue Growth 2026 Report';
+      expect(label.split(/\s+/)).toHaveLength(7);
+      expect(extractSecondaryCandidates(toDocument(label), assumption, 'TLKM', 'issuer')).toHaveLength(0);
+      // 8 words, no terminal punctuation -> a headline-shaped fact survives.
+      const headline = 'Telkom Data Center Revenue Growth Accelerated During 2026';
+      expect(headline.split(/\s+/)).toHaveLength(8);
+      expect(extractSecondaryCandidates(toDocument(headline), assumption, 'TLKM', 'issuer')).toHaveLength(1);
+      // 15 words, no terminal punctuation -> above the band, a label list.
+      const labelList = 'Telkom Data Center Revenue Enterprise Wholesale Personal Investor Relations Berita Artikel Panduan Logo Karir 2026';
+      expect(labelList.split(/\s+/)).toHaveLength(15);
+      expect(extractSecondaryCandidates(toDocument(labelList), assumption, 'TLKM', 'issuer')).toHaveLength(0);
+      // Short, but terminal punctuation proves it is a sentence.
+      const shortSentence = 'Telkom data center revenue rose 40% in 2026.';
+      expect(extractSecondaryCandidates(toDocument(shortSentence), assumption, 'TLKM', 'issuer')).toHaveLength(1);
+    });
+
+    it('preserves the real genuine headline that sits inside the unpunctuated band', () => {
+      // Confirmed real, on-topic secondary evidence in the 2026-07-27 live run.
+      // It has no terminal punctuation, so it is exactly the case the band must
+      // NOT over-filter — the concrete upper bound on how far the guard may go.
+      const genuine = 'Telkom Tuntaskan Streamlining 10 Entitas, Percepat Transformasi Menuju Strategic Holding';
+      const candidates = extractSecondaryCandidates(
+        toDocument(genuine),
+        'TLKM is completing entity streamlining as part of its Strategic Holding transformation strategy.',
+        'TLKM',
+        'issuer',
+      );
+      expect(candidates.map((c) => c.quote)).toContain(genuine);
+    });
+
+    it('leaves the official path structurally unchanged by every M010 guard', () => {
+      // The same widget, the same over-length text, and the same label
+      // fragment that the secondary tier now rejects must still reach the
+      // official path untouched — segmentation and both shape guards are
+      // gated on sourceTier === 'secondary'.
+      const widget = toDocument(realCategoryWidget);
+      expect(extractDeterministicCandidates(widget, realLiveAssumption, 'TLKM').length).toBeGreaterThan(0);
+      const label = toDocument('Group Revenue 1Q 2026');
+      expect(extractDeterministicCandidates(label, 'TLKM group revenue grows through 2026.', 'TLKM').length).toBeGreaterThan(0);
+    });
+  });
+
   // R-018. Before M006 these scans ran only in tests and the eval script; the
   // real extraction path did none.
   it('flags embedded instructions in parsed source text without destroying it', async () => {

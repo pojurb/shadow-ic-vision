@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "092d239d03c18c9ed1f572910cb2fe8d0fc5d010df7864924eaafb453811d287",
+  "sourceDigest": "03774a958a52e3d2095e7c34f6dc78673ad73e3bccc9442d25610fdb7e62fcd5",
   "roots": [
     "app",
     "components",
@@ -1266,7 +1266,8 @@
       ],
       "exports": [
         "AssumptionStatus",
-        "deriveAssumptionStatus"
+        "deriveAssumptionStatus",
+        "deriveAssumptionStatusAfterEvidenceRemoval"
       ]
     },
     {
@@ -1513,6 +1514,55 @@
       "exports": [
         "ResearchSourceError",
         "isDegradedSourceError"
+      ]
+    },
+    {
+      "path": "lib/research/evidence-cleanup.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./assumption-status",
+          "resolved": "lib/research/assumption-status.ts"
+        },
+        {
+          "specifier": "./evidence-persistence",
+          "resolved": "lib/research/evidence-persistence.ts"
+        },
+        {
+          "specifier": "./extractors/candidate",
+          "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "./extractors/document",
+          "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "CleanupAssumptionReport",
+        "CleanupReport",
+        "CleanupRowOutcome",
+        "CleanupRowReport",
+        "cleanupBoilerplateEvidence"
       ]
     },
     {
@@ -2306,6 +2356,57 @@
         },
         {
           "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/evidence-cleanup.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/assumption-status",
+          "resolved": "lib/research/assumption-status.ts"
+        },
+        {
+          "specifier": "@/lib/research/evidence-cleanup",
+          "resolved": "lib/research/evidence-cleanup.ts"
+        },
+        {
+          "specifier": "@/lib/research/service",
+          "resolved": "lib/research/service.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
           "resolved": null
         }
       ],
@@ -3145,6 +3246,17 @@
     {
       "path": "tests/e2e/vertical-slice.spec.ts",
       "productionModules": []
+    },
+    {
+      "path": "tests/evidence-cleanup.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/domain/contracts.ts",
+        "lib/research/assumption-status.ts",
+        "lib/research/evidence-cleanup.ts",
+        "lib/research/service.ts"
+      ]
     },
     {
       "path": "tests/live-sources.test.ts",
