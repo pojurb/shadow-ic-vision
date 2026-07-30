@@ -30,11 +30,11 @@ import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
 import { CitationPipeline } from './pipeline';
 import { createDerivedCandidate, createOcrCandidate, type EvidenceCandidate } from './extractors/candidate';
-import { scanEmbeddedInstructions, createInstructionClassifier, type InstructionClassifier } from './extractors/safety';
+import { scanEmbeddedInstructions } from './extractors/safety';
 import { getOutboundLogPath, getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
 import { persistSourceSnapshot } from './snapshot-store';
-import { createSourceAdapters, createSecondarySourceAdapters, type SecondarySourceAdapters } from './adapters/factory';
+import { createSecondarySourceAdapters, type SecondarySourceAdapters } from './adapters/factory';
 import type { ResearchMarket, SourceAdapter } from './adapters/types';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
 import { createDiscoveryProvider } from './discovery/factory';
@@ -57,29 +57,18 @@ type ServiceDependencies = {
   // already exercises the "everything gets rejected" path for free.
   discoveryProvider?: SearchDiscoveryProvider;
   promotionClients?: PromotionClients;
-  instructionClassifier?: InstructionClassifier;
 };
 
 function dependencies(input: ServiceDependencies = {}) {
   const logPath = getOutboundLogPath();
-  const instructionClassifier = input.instructionClassifier ?? createInstructionClassifier({
-    provider: getLLMProvider({ modelId: input.llmModelId }),
-    context: {
-      route: 'lib.research.extractDocument.safety',
-      dataClass: 'poc_workflow_confidential',
-      runtime: { deployment: 'local' },
-    },
-  });
-
   return {
     db: input.db ?? getDatabase().db,
-    pipeline: input.pipeline ?? new CitationPipeline(createSourceAdapters(), undefined, instructionClassifier),
+    pipeline: input.pipeline ?? new CitationPipeline(),
     secondaryAdapters: input.secondaryAdapters ?? createSecondarySourceAdapters(),
     discoveryProvider: input.discoveryProvider ?? createDiscoveryProvider(),
     promotionClients: input.promotionClients ?? buildPromotionClients(logPath),
     now: input.now ?? (() => new Date()),
     snapshotDirectory: input.snapshotDirectory ?? getSnapshotDirectory(),
-    instructionClassifier,
   };
 }
 
@@ -279,7 +268,7 @@ export async function processResearchJobs(
   conversationId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory, instructionClassifier } = dependencies(input);
+  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory } = dependencies(input);
   const currentTime = now();
   const nowIso = currentTime.toISOString();
 
@@ -336,13 +325,11 @@ export async function processResearchJobs(
       db, snapshotDirectory, now, market, ticker, knownDocumentIds,
       jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
       adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer',
-      instructionClassifier,
     });
     await runSecondaryResearchCall({
       db, snapshotDirectory, now, market, ticker, knownDocumentIds,
       jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
       adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news',
-      instructionClassifier,
     });
 
     // M008 Slices 1 & 3. Same independence and soft-failure posture as the
@@ -475,11 +462,10 @@ async function runSecondaryResearchCall(params: {
   knownDocumentIds: ReadonlySet<string> | undefined;
   adapter: SourceAdapter | undefined;
   evidenceClass: 'secondary_issuer' | 'secondary_news';
-  instructionClassifier?: InstructionClassifier;
 }): Promise<void> {
   if (!params.adapter) return;
   try {
-    const pipeline = new CitationPipeline({ US: params.adapter, ID: params.adapter }, undefined, params.instructionClassifier);
+    const pipeline = new CitationPipeline({ US: params.adapter, ID: params.adapter });
     const execution = await pipeline.executeResearchJob(
       params.market,
       params.ticker,

@@ -432,12 +432,13 @@ Release evidence:
 - The deterministic multimodal evaluator proves first-slice application and
   provider-boundary gates; it does not approve a model, provider, cloud
   processor, or native browsing capability.
-- `scanEmbeddedInstructions` (R-018 mitigation, wired into the real
+- `scanEmbeddedInstructions` (R-018 mitigation, now wired into the real
   extraction path and prompt boundary by M006) is a single hardcoded English
-  phrase list. The gap for non-English instructions was addressed by an optional
-  `InstructionClassifier`. As of 2026-07-29, this `InstructionClassifier` is now
-  wired in by default to the `CitationPipeline` for all production document extraction,
-  effectively closing the language-coverage gap. R-018 is now `Mitigated`.
+  phrase list. It cannot match the same instruction in Indonesian — material
+  because IDX filings are a first-class product input. Confirmed by direct
+  unit test; the live Indonesian probe did not exercise this path (see the
+  M006 evidence manifest). R-018 stays `Open`; broadening scanner coverage was
+  explicitly deferred by user decision during M006 scoping.
 - No production wiring selects a vision provider. `CitationPipeline` is
   constructed without one in `lib/research/service.ts`, so image sources
   still fail closed in the running app even after M006.
