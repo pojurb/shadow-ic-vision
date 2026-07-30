@@ -439,6 +439,15 @@ Release evidence:
   unit test; the live Indonesian probe did not exercise this path (see the
   M006 evidence manifest). R-018 stays `Open`; broadening scanner coverage was
   explicitly deferred by user decision during M006 scoping.
+- **2026-07-29/30 addendum.** A same-day change briefly wired the optional
+  `InstructionClassifier` in by default and marked R-018 `Mitigated`.
+  Independent review found it did not gate on `getResearchSourceMode()`, so
+  deterministic mock research would still trigger real live provider calls
+  wherever `LLM_PROVIDER_TYPE=ollama` is configured — violating the mock
+  research stays fully offline invariant — with zero test coverage of the
+  default-wiring path and no scoped decision behind it. Reverted
+  (`git revert d420a33`) rather than patched in place; see
+  `docs/RISK_REGISTER.md`'s R-018 row for the full account.
 - No production wiring selects a vision provider. `CitationPipeline` is
   constructed without one in `lib/research/service.ts`, so image sources
   still fail closed in the running app even after M006.
