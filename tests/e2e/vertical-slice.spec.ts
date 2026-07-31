@@ -291,3 +291,48 @@ test('shows the Discovery Candidates section with pending, fetched, and rejected
   await expect(researchPanel.getByRole('link', { name: 'https://ir.bri.co.id/press/nim-update-2026' })).toBeVisible();
   await researchPanel.screenshot({ path: path.join(evidenceDirectory, 'discovery-candidates-section.png') });
 });
+
+// Found during live testing (2026-07-30): chat message text rendered with no
+// `white-space: pre-wrap`, so real newlines in a reply (or a leaked JSON
+// fence — see the `chat`/`structuredExtract` prompt split in
+// `app/api/chat/route.ts`) collapsed onto one squashed line. This is the
+// only layer in this repo that can verify the CSS fix actually renders
+// correctly in a browser — there's no React component-testing capability
+// (no `@testing-library/react`), so no unit test can assert on rendering.
+test('renders chat message text with preserved whitespace, not collapsed onto one line', async ({ page }) => {
+  await gotoHome(page);
+  await createNewConversation(page);
+
+  await page.getByPlaceholder('State your thesis or assumption...').fill(
+    'I believe PLTR gross margin will remain above 80%.',
+  );
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('Confirmation required')).toBeVisible();
+
+  const assistantMessageText = page.locator('[class*="messageText"]').last();
+  await expect(assistantMessageText).toBeVisible();
+  await expect(assistantMessageText).toHaveCSS('white-space', 'pre-wrap');
+});
+
+// Found during live testing (2026-07-30): the sidebar showed the literal
+// string "New Thesis" for every conversation, forever — conversations.title
+// was set once at creation and never updated. This is the only layer that
+// can verify the fix actually reaches the visible sidebar, since it depends
+// on client-side CustomEvent wiring (no React component-testing capability
+// exists in this repo) and must NOT require a page reload to take effect.
+test('sidebar title updates from "New Thesis" after first message, without reload', async ({ page }) => {
+  await gotoHome(page);
+  await createNewConversation(page);
+
+  await expect(page.getByRole('link', { name: 'New Thesis' })).toBeVisible();
+
+  await page.getByPlaceholder('State your thesis or assumption...').fill(
+    'I believe PLTR gross margin will remain above 80%.',
+  );
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('Confirmation required')).toBeVisible();
+
+  // Must patch in place via the CustomEvent — no page.reload() here.
+  await expect(page.getByRole('link', { name: /I believe PLTR gross margin/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'New Thesis' })).not.toBeVisible();
+});

@@ -26,6 +26,11 @@ export async function getConversation(id: string) {
   return result[0] || null;
 }
 
+export async function updateConversationTitle(id: string, title: string) {
+  const { db } = getDatabase();
+  await db.update(conversations).set({ title, updatedAt: new Date().toISOString() }).where(eq(conversations.id, id));
+}
+
 export async function getMessages(conversationId: string) {
   const { db } = getDatabase();
   return await db.select()

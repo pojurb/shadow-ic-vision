@@ -3,8 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { z } from 'zod';
-import { extractJsonPayload, OllamaProvider } from '@/lib/ai/adapters/ollama';
+import { extractJsonPayload, OllamaProvider, stripLeakedJsonFence } from '@/lib/ai/adapters/ollama';
 import type { ProviderCallContext } from '@/lib/ai/provider';
+import { chatResponsePayloadSchema } from '@/lib/domain/contracts';
 
 const context: ProviderCallContext = {
   route: 'tests.ollama-provider',
@@ -168,6 +169,100 @@ describe('OllamaProvider', () => {
 
       expect(result.success).toBe(false);
       expect(result.data).toBeNull();
+    });
+
+    // Found during live testing (2026-07-30): this describe block's fixtures
+    // only ever covered `thesis_draft`. The real live failure that triggered
+    // the chat prompt-split fix (`app/api/chat/route.ts`) was an
+    // `exploration_draft`-shaped payload ("i think it's a good time to
+    // invest in Meta or Microsoft" — no single ticker named), which had
+    // never been exercised through this exact prose-stripping path before.
+    it('extracts and validates an exploration_draft payload wrapped in conversational prose', async () => {
+      const proseWrapped = 'Meta and Microsoft both look interesting depending on what you want exposure to. Here\'s a short list to consider:\n\n```json\n{"type":"exploration_draft","explorationDraft":{"sectorName":"Big Tech AI Infrastructure","candidates":[{"ticker":"META","companyName":"Meta Platforms, Inc.","market":"US","rationale":"Heavy AI capex and ad-business cash flow."},{"ticker":"MSFT","companyName":"Microsoft Corporation","market":"US","rationale":"Azure AI infrastructure leadership."},{"ticker":"GOOGL","companyName":"Alphabet Inc.","market":"US","rationale":"Custom TPU silicon and DeepMind research depth."}]}}\n```\n\nWant me to dig into any of these?';
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ message: { role: 'assistant', content: proseWrapped } }),
+      });
+      const provider = new OllamaProvider({ fetchImpl: mockFetch });
+      const result = await provider.structuredExtract(
+        [{ role: 'user', content: 'i think it\'s a good time to invest in Meta or Microsoft' }],
+        chatResponsePayloadSchema,
+        'chat-payload-v1',
+        context,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        type: 'exploration_draft',
+        explorationDraft: {
+          sectorName: 'Big Tech AI Infrastructure',
+          candidates: [
+            expect.objectContaining({ ticker: 'META' }),
+            expect.objectContaining({ ticker: 'MSFT' }),
+            expect.objectContaining({ ticker: 'GOOGL' }),
+          ],
+        },
+      });
+    });
+  });
+
+  // Found during live testing (2026-07-30): the model wrapped a leaked
+  // `exploration_draft` JSON fence into its free-text `chat()` reply, which
+  // `ChatUI.tsx` then rendered raw. Splitting the system prompts (see
+  // `app/api/chat/route.ts`) removes the JSON shape from what `chat()`'s
+  // completion is shown at all; this is the second, defensive layer, applied
+  // inside the adapter so it protects every caller/model uniformly.
+  describe('stripLeakedJsonFence', () => {
+    it('strips a leaked fence while leaving surrounding multi-paragraph prose intact', () => {
+      const input = 'Here\'s my take on Meta and Microsoft.\n\nBoth show strong fundamentals.\n\n```json\n{"type":"exploration_draft","explorationDraft":{"sectorName":"Big Tech"}}\n```\n\nWant me to dig into either?';
+      expect(stripLeakedJsonFence(input)).toBe(
+        'Here\'s my take on Meta and Microsoft.\n\nBoth show strong fundamentals.\n\nWant me to dig into either?',
+      );
+    });
+
+    it('returns ordinary prose with no fences completely unchanged, including its newlines', () => {
+      const input = 'I think that\'s a reasonable thesis.\n\nWhat makes you confident the margin holds?';
+      expect(stripLeakedJsonFence(input)).toBe(input);
+    });
+
+    it('leaves prose that merely mentions "json" with no fence untouched', () => {
+      const input = 'I can export this as json if you\'d like.';
+      expect(stripLeakedJsonFence(input)).toBe(input);
+    });
+
+    it('leaves a fenced block alone when its content is not JSON-shaped', () => {
+      const input = 'Here is a note:\n\n```\nnot json at all, just a code note\n```\n\nEnd.';
+      expect(stripLeakedJsonFence(input)).toBe(input);
+    });
+
+    // Found live 2026-07-30 with `kimi-k2.7-code:cloud`: a code-tuned model
+    // returned a pretty-printed thesis_draft with NO fence and NO prose at
+    // all, which the fence-only version of this function did not touch. The
+    // fixture below is the real stored shape from that message.
+    it('reduces a whole-response bare JSON object (no fence, no prose) to empty', () => {
+      const bareJson = '{\n  "type": "thesis_draft",\n  "thesisDraft": {\n    "ticker": "TSLA",\n    "companyName": "Tesla, Inc.",\n    "market": "US"\n  }\n}';
+      expect(stripLeakedJsonFence(bareJson)).toBe('');
+    });
+
+    it('leaves prose that merely starts with a brace but is not valid JSON alone', () => {
+      const input = '{not json} — just an odd way to start a sentence.';
+      expect(stripLeakedJsonFence(input)).toBe(input);
+    });
+
+    it('chat() returns text with no leaked fence or JSON, given a prose+JSON blend from the model', async () => {
+      const blended = 'I understand you\'re considering Meta or Microsoft. Here\'s a structured record:\n\n```json\n{"type":"exploration_draft","explorationDraft":{"sectorName":"Big Tech"}}\n```';
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ message: { role: 'assistant', content: blended } }),
+      });
+      const provider = new OllamaProvider({ fetchImpl: mockFetch });
+      const result = await provider.chat([{ role: 'user', content: 'i think it\'s a good time to invest in Meta or Microsoft' }], context);
+
+      expect(result.text).not.toContain('```');
+      expect(result.text).not.toContain('"type":');
+      expect(result.text).toContain('Meta or Microsoft');
     });
   });
 

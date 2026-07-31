@@ -120,6 +120,24 @@ export function Sidebar() {
     };
   }, []);
 
+  // Found during live testing (2026-07-30): this component fetches its
+  // conversation list once on mount and never refetches — it lives in the
+  // root layout and never remounts on /c/[id] navigation. A server-side
+  // title update (first message, or thesis confirmation) would otherwise
+  // never reach the visible sidebar without a manual page reload.
+  useEffect(() => {
+    const handleTitleChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setConversations(prev => prev.map(c => c.id === detail.conversationId ? { ...c, title: detail.title } : c));
+      }
+    };
+    window.addEventListener('jp-invest:conversation-title-changed', handleTitleChanged);
+    return () => {
+      window.removeEventListener('jp-invest:conversation-title-changed', handleTitleChanged);
+    };
+  }, []);
+
 
   const createNew = async () => {
     try {

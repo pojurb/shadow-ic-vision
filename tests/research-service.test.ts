@@ -69,6 +69,31 @@ describe('local vertical slice persistence', () => {
     expect(handle.db.select({ count: sql<number>`count(*)` }).from(researchJobs).get()?.count).toBe(1);
   });
 
+  // Found during live testing (2026-07-30): conversations.title never
+  // synced with the thesis it belongs to, so the sidebar stayed on
+  // whatever it showed before confirmation forever.
+  it('syncs conversations.title to the same canonical title theses.title gets', () => {
+    const result = confirmDraft(conversationId, messageId, { db: handle.db });
+    const expectedTitle = 'PLTR — Palantir Technologies Inc.';
+    expect(result.title).toBe(expectedTitle);
+    const thesisTitle = handle.db.select({ title: theses.title }).from(theses).get()?.title;
+    const conversationTitle = handle.db.select({ title: conversations.title }).from(conversations).where(eq(conversations.id, conversationId)).get()?.title;
+    // Assert they're equal to each other, not just independently correct —
+    // guards against the two literals drifting apart in the future.
+    expect(conversationTitle).toBe(thesisTitle);
+    expect(conversationTitle).toBe(expectedTitle);
+  });
+
+  it('does not further mutate the title on an already-confirmed re-confirmation', () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const titleAfterFirst = handle.db.select({ title: conversations.title }).from(conversations).where(eq(conversations.id, conversationId)).get()?.title;
+    const second = confirmDraft(conversationId, messageId, { db: handle.db });
+    expect(second.alreadyConfirmed).toBe(true);
+    expect('title' in second).toBe(false);
+    const titleAfterSecond = handle.db.select({ title: conversations.title }).from(conversations).where(eq(conversations.id, conversationId)).get()?.title;
+    expect(titleAfterSecond).toBe(titleAfterFirst);
+  });
+
   it('rolls back an invalid confirmation', () => {
     handle.db.update(messages).set({ structuredPayload: '{bad json' }).where(eq(messages.id, messageId)).run();
     expect(() => confirmDraft(conversationId, messageId, { db: handle.db })).toThrow();

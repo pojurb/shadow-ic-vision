@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { addMessage, getConversation, getMessages, getThesisForConversation, toMessageDTO } from '@/db/queries';
+import { addMessage, getConversation, getMessages, getThesisForConversation, toMessageDTO, updateConversationTitle } from '@/db/queries';
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage, ProviderCallContext } from '@/lib/ai/provider';
 import { chatRequestSchema, chatResponsePayloadSchema, type ChatResponsePayload } from '@/lib/domain/contracts';
@@ -19,8 +19,28 @@ import { chatRequestSchema, chatResponsePayloadSchema, type ChatResponsePayload 
  * (`scripts/eval-m001-provider.ts`'s `buildIntakePrompt`), not this route's
  * actual `chatResponsePayloadSchema`/`thesisDraftSchema` — so nothing had
  * actually exercised this exact path with a real model before now.
+ *
+ * Found during live testing (2026-07-30): the fix above introduced a
+ * SECOND bug. `chat()` (free text, becomes `message.content`) and
+ * `structuredExtract()` (JSON, becomes `structuredPayload`) are separate
+ * model completions, but both reused this one prompt — which spelled out
+ * the exact JSON shape and said "in addition to giving the user a normal
+ * conversational reply." Nothing told the model the JSON belonged only to
+ * the constrained `structuredExtract` call, so the free-text `chat()`
+ * reply routinely blended prose with a literal ` ```json {...}``` ` fence,
+ * which `ChatUI.tsx` then rendered raw (see also the `chat()` fix in
+ * `lib/ai/adapters/ollama.ts`). Split into two prompts so the model can't
+ * leak a schema it's never shown in the free-text call, rather than asking
+ * one completion to hold "here is the shape" and "never produce it" at
+ * once.
  */
-const SYSTEM_PROMPT = `You are JP Invest's research-intake assistant. Users state an investment thesis or describe a sector they're exploring; your job is to draft that into a structured record the app can act on, in addition to giving the user a normal conversational reply.
+export const CHAT_SYSTEM_PROMPT = `You are JP Invest's research-intake assistant. Users state an investment thesis or describe a sector they're exploring.
+
+Reply with a short, clear, conversational answer only — plain prose. Never include JSON, a code fence (\`\`\`), or any structured data block in your reply; a separate process handles turning the user's message into a structured record, so you don't need to produce or describe that structure yourself.
+
+Never recommend buying, selling, holding, reducing, or exiting a position. You may discuss risks, uncertainties, and what to monitor, but the investment decision always belongs to the user.`;
+
+export const STRUCTURED_SYSTEM_PROMPT = `You are JP Invest's research-intake assistant. Draft the user's most recent message into a structured record the app can act on.
 
 When producing the structured JSON output, use this shape:
 {
@@ -45,7 +65,22 @@ Use "exploration_draft" when the user describes a sector or theme without naming
 
 Use "none" only when there is genuinely nothing new to draft (a greeting, an off-topic question, or a follow-up about a draft already established earlier in this conversation).
 
-In both the structured output and your conversational reply: never recommend buying, selling, holding, reducing, or exiting a position. You may discuss risks, uncertainties, and what to monitor, but the investment decision always belongs to the user.`;
+Never recommend buying, selling, holding, reducing, or exiting a position. You may discuss risks, uncertainties, and what to monitor, but the investment decision always belongs to the user.`;
+
+/**
+ * Found during live testing (2026-07-30): the sidebar showed the literal
+ * string "New Thesis" for every conversation, forever — `conversations.title`
+ * is set once at creation (`app/api/conversations/route.ts`) and was never
+ * updated again anywhere in the codebase. This snippet replaces that
+ * placeholder with the user's own words the moment they say something, so
+ * the sidebar is never stuck on the generic string once a real conversation
+ * exists. `confirmDraft` (`lib/research/service.ts`) later upgrades it again
+ * to the canonical ticker/company title once a thesis is confirmed.
+ */
+export function titleFromMessage(content: string): string {
+  const trimmed = content.trim();
+  return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed;
+}
 
 export async function POST(request: Request) {
   try {
@@ -54,24 +89,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter a message between 1 and 4,000 characters.' }, { status: 400 });
     }
     const { conversationId, content } = parsedRequest.data;
-    if (!await getConversation(conversationId)) {
+    // Found missing during live testing (2026-07-30): this used to check
+    // `getConversation`'s truthiness and discard the row. The row's `title`
+    // is needed below to detect the first-message case, so it's captured
+    // instead of thrown away.
+    const conversation = await getConversation(conversationId);
+    if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found.' }, { status: 404 });
     }
 
     // Save user message
     await addMessage(conversationId, 'user', content);
 
+    // First user message in this conversation: replace the 'New Thesis'
+    // placeholder — see `titleFromMessage`'s doc comment. This sentinel check
+    // depends on `app/api/conversations/route.ts` continuing to seed new
+    // conversations with the literal string 'New Thesis'.
+    let updatedTitle: string | undefined;
+    if (conversation.title === 'New Thesis') {
+      updatedTitle = titleFromMessage(content);
+      await updateConversationTitle(conversationId, updatedTitle);
+    }
+
     // Fetch conversation history to send to LLM
     const history = await getMessages(conversationId);
+    const historyMessages: ProjectMessage[] = history.map((msg) => ({
+      role: msg.role as ProjectMessage['role'],
+      content: msg.content,
+    }));
 
-    // Map db messages to ProjectMessage format
-    const projectMessages: ProjectMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history.map((msg) => ({
-        role: msg.role as ProjectMessage['role'],
-        content: msg.content,
-      })),
-    ];
+    // Two separate model completions, each with the prompt appropriate to
+    // its own job — see the doc comment above the prompts for why a shared
+    // prompt caused the free-text reply to leak JSON.
+    const chatMessages: ProjectMessage[] = [{ role: 'system', content: CHAT_SYSTEM_PROMPT }, ...historyMessages];
+    const structuredMessages: ProjectMessage[] = [{ role: 'system', content: STRUCTURED_SYSTEM_PROMPT }, ...historyMessages];
 
     const providerContext: ProviderCallContext = {
       route: 'app.api.chat',
@@ -83,11 +134,11 @@ export async function POST(request: Request) {
     };
 
     const llmProvider = getLLMProvider({ modelId: parsedRequest.data.modelId });
-    const response = await llmProvider.chat(projectMessages, providerContext);
+    const response = await llmProvider.chat(chatMessages, providerContext);
     const existingThesis = await getThesisForConversation(conversationId);
     const extraction = existingThesis
       ? null
-      : await llmProvider.structuredExtract(projectMessages, chatResponsePayloadSchema, 'chat-payload-v1', providerContext);
+      : await llmProvider.structuredExtract(structuredMessages, chatResponsePayloadSchema, 'chat-payload-v1', providerContext);
     const structuredPayload: ChatResponsePayload | undefined = extraction?.success ? extraction.data ?? undefined : undefined;
 
     // Save assistant message
@@ -107,9 +158,12 @@ export async function POST(request: Request) {
     const saved = (await getMessages(conversationId)).find((message) => message.id === savedMsgId);
     if (!saved) throw new Error('Assistant message was not persisted.');
 
-    // Return the new assistant message to the client
+    // Return the new assistant message to the client, plus the updated
+    // title (only present when this was the first user message) so the
+    // client can patch the sidebar without a second round-trip.
     return NextResponse.json({
       message: toMessageDTO(saved),
+      ...(updatedTitle ? { conversationTitle: updatedTitle } : {}),
     });
   } catch (err) {
     console.error(err);

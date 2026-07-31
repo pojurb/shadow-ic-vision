@@ -193,6 +193,21 @@
   line-height: 1.5;
 }
 
+/*
+ * Found during live testing (2026-07-30): applying `white-space: pre-wrap`
+ * to .userBubble/.assistantBubble directly would inherit into .draftCard/
+ * .explorationCard, which render as children of the same bubble element
+ * right after the message text — neither card class sets its own
+ * `white-space`, so it would leak into every card's heading/paragraph/list
+ * text. Scoping it to this wrapper keeps the fix to exactly the message
+ * text, which is the only place real `\n` characters from the model's raw
+ * reply (or a pasted/shift-newline user message) need to survive.
+ */
+.messageText {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
 .draftCard {
   margin-top: 14px;
   padding: 14px;

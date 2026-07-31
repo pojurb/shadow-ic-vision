@@ -70,6 +70,11 @@ export function ChatUI({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Unable to send message.');
       setMessages(prev => [...prev, data.message]);
+      if (data.conversationTitle) {
+        window.dispatchEvent(new CustomEvent('jp-invest:conversation-title-changed', {
+          detail: { conversationId, title: data.conversationTitle },
+        }));
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to send message.');
     } finally {
@@ -90,6 +95,11 @@ export function ChatUI({
       return;
     }
     setConfirmedIds((current) => new Set(current).add(messageId));
+    if (body.title) {
+      window.dispatchEvent(new CustomEvent('jp-invest:conversation-title-changed', {
+        detail: { conversationId, title: body.title },
+      }));
+    }
     onResearchQueued();
   };
 
@@ -138,8 +148,20 @@ export function ChatUI({
           return (
             <div key={m.id} className={m.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow}>
               <div className={m.role === 'user' ? styles.userBubble : styles.assistantBubble}>
-                {m.content}
-                
+                {/*
+                  * Content can legitimately be empty: when a model returns
+                  * nothing but a raw JSON payload, `stripLeakedJsonFence`
+                  * reduces it to '' rather than showing the user a wall of
+                  * JSON (found live 2026-07-30 with kimi-k2.7-code). The
+                  * draft below carries the real content in that case; the
+                  * fallback line only appears if there is no card either.
+                  */}
+                {m.content.trim() ? (
+                  <p className={styles.messageText}>{m.content}</p>
+                ) : !thesisDraft && !explorationDraft ? (
+                  <p className={styles.messageText}><em>No reply text was returned for this message.</em></p>
+                ) : null}
+
                 {thesisDraft && (
                   <div className={styles.draftCard}>
                     <span>Confirmation required</span>

@@ -83,7 +83,7 @@ export class OllamaProvider implements LLMProvider {
     }
 
     return {
-      text: body.message?.content ?? '',
+      text: stripLeakedJsonFence(body.message?.content ?? ''),
       metadata: this.getMetadata(),
     };
   }
@@ -270,5 +270,53 @@ export function extractJsonPayload(content: string): unknown {
   }
 
   throw new Error('No parseable JSON object found in the model response.');
+}
+
+/**
+ * Found during live testing (2026-07-30, same session as the `chat`/
+ * `structuredExtract` prompt split in `app/api/chat/route.ts`). Splitting
+ * the prompts removes the JSON shape from what the free-text `chat()` call
+ * is shown, but stays a second, defensive layer — applied uniformly inside
+ * the adapter so it protects every caller and every selectable model
+ * (`lib/ai/ollama-models.ts`), not just this one route, and is the only
+ * protection at all on any conversation turn after the first (`route.ts`
+ * skips `structuredExtract` once a thesis already exists for the
+ * conversation).
+ *
+ * Deliberately narrower than `extractJsonPayload` above: that function's
+ * job is to find JSON *somewhere* in a response that is expected to
+ * contain it, so it's right to fall back to a bare-brace scan. This
+ * function's job is the opposite — leave ordinary prose completely alone —
+ * so it never scans for bare braces mid-prose and never triggers on prose
+ * that merely mentions the word "json". It handles exactly two shapes:
+ *
+ *  1. A FENCED block whose content looks like the leaked payload.
+ *  2. A response that is ENTIRELY one JSON value and nothing else.
+ *
+ * Shape 2 was found the hard way (2026-07-30, live, `kimi-k2.7-code:cloud`):
+ * a code-tuned model returned a pretty-printed `thesis_draft` object with no
+ * fence and no prose whatsoever, which the fence-only version of this
+ * function did not touch. Returning '' for that case is deliberate — the
+ * model produced no conversational reply at all, so there is no prose to
+ * preserve, and the draft it *did* produce reaches the UI through
+ * `structuredPayload` (which validated fine in that same live case). The
+ * caller renders the structured card instead; see `ChatUI.tsx`.
+ */
+export function stripLeakedJsonFence(text: string): string {
+  const stripped = text
+    .replace(/```(?:json)?\s*([\s\S]*?)```/gi, (match, inner: string) => (/^[[{]/.test(inner.trim()) ? '' : match))
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (/^[[{]/.test(stripped)) {
+    try {
+      JSON.parse(stripped);
+      return '';
+    } catch {
+      // Not actually a whole-response JSON value — keep it as prose.
+    }
+  }
+
+  return stripped;
 }
 

@@ -118,6 +118,7 @@ export function confirmDraft(
 
     if (!draft) throw new Error('The stored thesis draft is invalid.');
     const thesisId = randomUUID();
+    const title = `${draft.ticker} — ${draft.companyName}`;
     tx.insert(theses).values({
       id: thesisId,
       conversationId,
@@ -126,10 +127,17 @@ export function confirmDraft(
       companyName: draft.companyName,
       market: draft.market,
       coreBelief: draft.coreBelief,
-      title: `${draft.ticker} — ${draft.companyName}`,
+      title,
       description: draft.coreBelief,
       status: 'active',
     }).run();
+
+    // Found during live testing (2026-07-30): `conversations.title` had no
+    // sync with the thesis it belongs to, so the sidebar kept showing
+    // whatever placeholder/snippet it had before confirmation. Upgrade it to
+    // the same canonical title `theses.title` just got, in the same
+    // transaction, from the same local — the two can never drift apart.
+    tx.update(conversations).set({ title, updatedAt: new Date().toISOString() }).where(eq(conversations.id, conversationId)).run();
 
     const jobIds: string[] = [];
     for (const draftAssumption of draft.assumptions) {
@@ -150,7 +158,7 @@ export function confirmDraft(
       jobIds.push(jobId);
     }
 
-    return { thesisId, jobIds, alreadyConfirmed: false };
+    return { thesisId, jobIds, alreadyConfirmed: false, title };
   });
 }
 
