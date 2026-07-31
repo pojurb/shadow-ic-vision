@@ -31,6 +31,7 @@ async function createNewConversation(page: Page) {
   const data = await response.json() as { id?: string };
   expect(data.id).toMatch(/^[0-9a-f-]+$/);
   await expect(page).toHaveURL(new RegExp(`/c/${data.id}$`), { timeout: 15_000 });
+  return data.id as string;
 }
 
 test('captures the verified desktop slice and narrow Research drawer', async ({ page }) => {
@@ -322,9 +323,13 @@ test('renders chat message text with preserved whitespace, not collapsed onto on
 // exists in this repo) and must NOT require a page reload to take effect.
 test('sidebar title updates from "New Thesis" after first message, without reload', async ({ page }) => {
   await gotoHome(page);
-  await createNewConversation(page);
+  const conversationId = await createNewConversation(page);
+  // Scoped by href, not by visible text: earlier tests in this file also
+  // create conversations that never receive a message, so they keep the
+  // literal "New Thesis" title and would otherwise collide in strict mode.
+  const sidebarLink = page.locator(`a[href="/c/${conversationId}"]`);
 
-  await expect(page.getByRole('link', { name: 'New Thesis' })).toBeVisible();
+  await expect(sidebarLink).toHaveText('New Thesis');
 
   await page.getByPlaceholder('State your thesis or assumption...').fill(
     'I believe PLTR gross margin will remain above 80%.',
@@ -333,6 +338,5 @@ test('sidebar title updates from "New Thesis" after first message, without reloa
   await expect(page.getByText('Confirmation required')).toBeVisible();
 
   // Must patch in place via the CustomEvent — no page.reload() here.
-  await expect(page.getByRole('link', { name: /I believe PLTR gross margin/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New Thesis' })).not.toBeVisible();
+  await expect(sidebarLink).toHaveText(/I believe PLTR gross margin/);
 });

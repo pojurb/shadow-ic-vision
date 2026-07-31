@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "03774a958a52e3d2095e7c34f6dc78673ad73e3bccc9442d25610fdb7e62fcd5",
+  "sourceDigest": "c591dd7a69c6ccdd30d0e9689aff7a7b93d2d9517f0aea51a82fb0fb90441017",
   "roots": [
     "app",
     "components",
@@ -52,7 +52,10 @@
         }
       ],
       "exports": [
-        "POST"
+        "CHAT_SYSTEM_PROMPT",
+        "POST",
+        "STRUCTURED_SYSTEM_PROMPT",
+        "titleFromMessage"
       ]
     },
     {
@@ -725,6 +728,7 @@
         "markAlertAsRead",
         "markAllAlertsAsReadForPosition",
         "toMessageDTO",
+        "updateConversationTitle",
         "updatePortfolioPosition"
       ]
     },
@@ -800,7 +804,8 @@
       ],
       "exports": [
         "OllamaProvider",
-        "extractJsonPayload"
+        "extractJsonPayload",
+        "stripLeakedJsonFence"
       ]
     },
     {
@@ -2090,6 +2095,21 @@
       "exports": []
     },
     {
+      "path": "tests/chat-route-prompts.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/app/api/chat/route",
+          "resolved": "app/api/chat/route.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/context-index.test.ts",
       "kind": "test",
       "imports": [
@@ -2573,6 +2593,10 @@
         {
           "specifier": "@/lib/ai/provider",
           "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
         },
         {
           "specifier": "node:fs",
@@ -3186,6 +3210,12 @@
       ]
     },
     {
+      "path": "tests/chat-route-prompts.test.ts",
+      "productionModules": [
+        "app/api/chat/route.ts"
+      ]
+    },
+    {
       "path": "tests/context-index.test.ts",
       "productionModules": []
     },
@@ -3306,7 +3336,8 @@
       "path": "tests/ollama-provider.test.ts",
       "productionModules": [
         "lib/ai/adapters/ollama.ts",
-        "lib/ai/provider.ts"
+        "lib/ai/provider.ts",
+        "lib/domain/contracts.ts"
       ]
     },
     {
