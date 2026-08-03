@@ -21,6 +21,7 @@ import {
   importThesisData,
   getResearchPanel,
   generateDecisionRecommendation,
+  processResearchJobs,
 } from '@/lib/research/service';
 
 const draft = thesisDraftSchema.parse({
@@ -28,7 +29,20 @@ const draft = thesisDraftSchema.parse({
   companyName: 'Palantir Technologies Inc.',
   market: 'US',
   coreBelief: 'I believe PLTR gross margin will remain above 80%.',
-  assumptions: [{ statement: 'PLTR gross margin remains above 80%.', status: 'untested' }],
+  // M011. `confirmDraft` refuses a draft with no resolved measurement
+  // contract, so this fixture carries one; the refusal itself is covered in
+  // tests/research-service.test.ts.
+  assumptions: [{
+    statement: 'PLTR gross margin remains above 80%.',
+    status: 'untested',
+    measurement: {
+      resolution: 'resolved', metric: 'gross margin',
+      definitionVariant: 'total company GAAP gross margin',
+      operator: 'gte', threshold: 80, unit: 'percent',
+      timeBasis: 'duration_quarter', sourceTags: ['GrossProfit'],
+      clarifyingQuestion: null, ambiguityReason: 'none',
+    },
+  }],
   requiresChallenge: false,
 });
 
@@ -170,10 +184,32 @@ describe('Decision Library & Import/Export persistence', () => {
 
   it('generates decision recommendations from the LLM evaluator', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    // Research has run, so the ledger has something to report and the
+    // confidence gate is open — the provider's own recommendation stands.
+    await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     const rec = await generateDecisionRecommendation(thesisId, { db: handle.db });
     expect(rec.recommendedOutcome).toBe('Investigate Further');
     expect(rec.recommendedAction).toBe('Buy');
     expect(rec.rationale).toContain('Palantir gross margin');
+  });
+
+  /**
+   * M011. The structural half of the confidence gate. This thesis is confirmed
+   * but never researched, so nothing in it is evidenced — and a recommendation
+   * carrying a position action ('Buy') would be exactly the overconfidence the
+   * audit found. The narrowing is enforced by `safeParse` inside
+   * `structuredExtract`, and propagated into a real model's own output grammar
+   * by `z.toJSONSchema`, so this is not prompt wording that a model may ignore.
+   */
+  it('cannot return a position action while the confidence gate is suppressed', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const panel = await getResearchPanel(conversationId, { db: handle.db });
+    expect(panel.coverage?.confidenceGate).toBe('suppressed');
+    expect(panel.coverage).toMatchObject({ totalAssumptions: 1, evidenced: 0, unevidenced: 1 });
+
+    const rec = await generateDecisionRecommendation(thesisId, { db: handle.db });
+    expect(rec.recommendedOutcome).toBe('Investigate Further');
+    expect(rec.recommendedAction).toBeNull();
   });
 
   it('returns the decision timeline in chronological order with a previousAction delta', async () => {

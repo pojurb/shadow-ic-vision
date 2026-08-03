@@ -1,11 +1,42 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ResearchPanelDTO, DecisionOutcome, DecisionAction } from '@/lib/domain/contracts';
+import type { ResearchPanelDTO, DecisionOutcome, DecisionAction, MeasurementOperator, MeasurementUnit } from '@/lib/domain/contracts';
 import type { OllamaModelId } from '@/lib/ai/ollama-models';
 import styles from './Workspace.module.css';
 
 const EMPTY_PANEL: ResearchPanelDTO = { thesis: null, items: [], decisions: [] };
+
+// M011. Rendering helpers for the verdict block. Kept alongside the other pure
+// label functions in this file rather than imported from `lib/research/verdict`,
+// which is server-only.
+const OPERATOR_WORD: Record<MeasurementOperator, string> = {
+  gte: 'at least', gt: 'above', lte: 'at most', lt: 'below', eq: 'exactly',
+  increases: 'an increase in', decreases: 'a decrease in', none: '',
+};
+
+const UNEVIDENCED_REASON_LABEL: Record<'job_pending' | 'job_failed' | 'no_candidate_passed_gate' | 'no_source_for_market', string> = {
+  job_pending: 'research still running',
+  job_failed: 'research failed',
+  no_candidate_passed_gate: 'nothing retrieved cleared the verification gate',
+  // A permanent property of the market, not a malfunction — worth saying
+  // plainly so it is not mistaken for one.
+  no_source_for_market: 'no structured filing data is published for this market',
+};
+
+function formatValue(value: number, unit: MeasurementUnit): string {
+  const rounded = Number(value.toFixed(2));
+  if (unit === 'percent') return `${rounded}%`;
+  if (unit === 'usd') return `$${rounded.toLocaleString('en-US')}`;
+  if (unit === 'idr') return `Rp${rounded.toLocaleString('en-US')}`;
+  return String(rounded);
+}
+
+// Percentage gaps read as basis points, because that is how they are discussed.
+function formatDelta(delta: number, unit: MeasurementUnit): string {
+  if (unit === 'percent') return `${Math.round(Math.abs(delta) * 100)}bps ${delta < 0 ? 'below' : 'above'}`;
+  return `${formatValue(Math.abs(delta), unit)} ${delta < 0 ? 'below' : 'above'}`;
+}
 
 function evidenceBadge(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
   if (status === 'ocr_matched') return 'OCR matched';
@@ -21,6 +52,25 @@ function evidenceWarning(status: ResearchPanelDTO['items'][number]['evidence'][n
   if (status === 'secondary_issuer') return 'Secondary evidence from a company press release. Not an official filing; interpretation and official confirmation remain pending.';
   if (status === 'secondary_news') return 'Secondary evidence from a curated news wire. Not an official filing; interpretation and official confirmation remain pending.';
   return null;
+}
+
+/**
+ * M011. Direction, alongside the existing trust-class badge.
+ *
+ * `inconclusive` renders nothing rather than a neutral chip: it is the default
+ * for every text-derived row, so badging it would put a meaningless label on
+ * most of the panel and dilute the two labels that carry real information.
+ */
+function polarityBadge(record: ResearchPanelDTO['items'][number]['evidence'][number]): string | null {
+  // Absent — not merely null — is a real case: an API response predating M011,
+  // or a partial payload. Reading it defensively is what keeps a missing field
+  // from white-screening the entire panel, which is how this was found (the
+  // Playwright suite caught it against a pre-M011 route mock).
+  if (!record.polarity || record.polarity === 'inconclusive') return null;
+  const direction = record.polarity === 'contradicts' ? 'Contradicts' : 'Supports';
+  const delta = record.deltaVsThreshold;
+  if (typeof delta !== 'number' || !Number.isFinite(delta)) return direction;
+  return `${direction} (${delta >= 0 ? '+' : ''}${Number(delta.toFixed(2))} vs threshold)`;
 }
 
 // M007. Assumption-level status badge, mirroring evidenceBadge's shape —
@@ -274,6 +324,65 @@ export function ResearchPanel({
         <button className={styles.closePanel} onClick={onClose} aria-label="Close research panel">×</button>
       </header>
 
+      {/*
+        * M011. The thesis verdict and coverage ledger, rendered here —
+        * immediately after the header and lexically OUTSIDE the
+        * `.panelContent` wrapper below that holds the thesis summary and every
+        * assumption card. Nothing inside that subtree can push these down,
+        * which is the structural property: this block cannot be buried,
+        * because burying it would require moving JSX, not writing text.
+        *
+        * Both objects are computed by pure functions server-side
+        * (`lib/research/verdict.ts`, `lib/research/coverage.ts`) over persisted
+        * polarity. No model produces them.
+        */}
+      {data.verdict && (
+        <section
+          className={`${styles.thesisVerdict} ${styles[`verdict_${data.verdict.level}`]}`}
+          data-testid="thesis-verdict"
+          aria-label="Thesis status"
+        >
+          <strong>{data.verdict.headline}</strong>
+          {data.verdict.contradictions.map((contradiction) => (
+            <p key={contradiction.evidenceId}>
+              {contradiction.metric}: observed {formatValue(contradiction.observedValue, contradiction.unit)}
+              {' '}versus the {OPERATOR_WORD[contradiction.operator]}{' '}
+              {formatValue(contradiction.threshold, contradiction.unit)} this thesis requires
+              {' '}({formatDelta(contradiction.deltaVsThreshold, contradiction.unit)}) —{' '}
+              <a href={contradiction.sourceUrl} target="_blank" rel="noreferrer">{contradiction.sourceName}</a>
+            </p>
+          ))}
+        </section>
+      )}
+
+      {data.coverage && data.coverage.totalAssumptions > 0 && (
+        <section className={styles.coverageLedger} data-testid="coverage-ledger" aria-label="Evidence coverage">
+          <strong>
+            Evidence coverage: {data.coverage.evidenced} of {data.coverage.totalAssumptions} assumptions
+            {data.coverage.contradicted > 0 ? ` · ${data.coverage.contradicted} contradicted` : ''}
+          </strong>
+          {/* Absence of evidence is stated by name, not left to be inferred
+              from which cards happen to be empty. */}
+          {data.coverage.unevidencedAssumptions.length > 0 && (
+            <ul>
+              {data.coverage.unevidencedAssumptions.map((gap) => (
+                <li key={gap.assumptionId}>
+                  {gap.statement} — <em>{UNEVIDENCED_REASON_LABEL[gap.reason]}</em>
+                </li>
+              ))}
+            </ul>
+          )}
+          {data.coverage.unresolvedContracts > 0 && (
+            <p>
+              {data.coverage.unresolvedContracts} assumption
+              {data.coverage.unresolvedContracts === 1 ? '' : 's'} cannot be measured as stated. A thesis
+              created before measurement contracts existed has no basis to check evidence against —
+              re-confirm it to record one.
+            </p>
+          )}
+        </section>
+      )}
+
       {loading && <p className={styles.panelMessage}>Loading research…</p>}
       {error && <div className={styles.errorBanner}>{error}</div>}
       {!loading && !data.thesis && (
@@ -360,6 +469,14 @@ export function ResearchPanel({
                   <span className={`${styles.verifiedBadge} ${styles[`verified_${record.verificationStatus}`]}`}>
                     {evidenceBadge(record.verificationStatus)}
                   </span>
+                  {polarityBadge(record) && (
+                    <span
+                      className={`${styles.verifiedBadge} ${styles[`polarity_${record.polarity}`]}`}
+                      data-testid="polarity-badge"
+                    >
+                      {polarityBadge(record)}
+                    </span>
+                  )}
                   <blockquote>“{record.exactQuote}”</blockquote>
                   {evidenceWarning(record.verificationStatus) && (
                     <p className={styles.evidenceWarning}>{evidenceWarning(record.verificationStatus)}</p>
@@ -461,12 +578,23 @@ export function ResearchPanel({
                 <button
                   type="button"
                   onClick={getSystemRecommendation}
-                  disabled={analyzing}
+                  // M011. Under a suppressed confidence gate the confident
+                  // artifact cannot even be requested. The schema narrowing in
+                  // `generateDecisionRecommendation` is the real control; this
+                  // just avoids offering the user something the system has
+                  // already established it cannot answer honestly.
+                  disabled={analyzing || data.coverage?.confidenceGate === 'suppressed'}
                   className={styles.aiAnalystButton}
                 >
                   {analyzing ? 'Analyzing…' : '🪄 Ask AI Analyst'}
                 </button>
               </div>
+              {data.coverage?.confidenceGate === 'suppressed' && (
+                <p className={styles.coverageSuppressionNote}>
+                  A recommendation is unavailable while the evidence base is this thin — too many
+                  assumptions are unevidenced or cannot be measured as stated.
+                </p>
+              )}
 
               {recommendation && (
                 <div className={styles.recommendationBox}>

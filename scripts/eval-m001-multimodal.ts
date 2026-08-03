@@ -9,6 +9,15 @@ import { scanEmbeddedInstructions } from '@/lib/research/extractors/safety';
 import { calculateChartGrowthCandidate, extractScreenshotOcrCandidate } from '@/lib/research/extractors/visual';
 import { evaluateProviderGate } from '@/lib/ai/provider-gate';
 import type { ProviderCallContext, ProviderMetadata } from '@/lib/ai/provider';
+import { contextKindOf, selectFact } from '@/lib/research/adapters/sec-xbrl';
+import { createXbrlFactCandidate } from '@/lib/research/extractors/xbrl';
+import { classifyPolarity, readObservedMeasurement } from '@/lib/research/polarity';
+import type {
+  MeasurementContract,
+  MeasurementOperator,
+  MeasurementTimeBasis,
+  MeasurementUnit,
+} from '@/lib/domain/contracts';
 
 type MultimodalCase = {
   id: string;
@@ -29,6 +38,19 @@ type MultimodalCase = {
     assumption?: string;
     ticker?: string;
     source_class?: 'issuer' | 'news';
+    // M011: inputs for the structured-fact cases (MM-024/025).
+    xbrl_facts?: {
+      tag: string;
+      unit: string;
+      facts: Array<{ start?: string; end: string; val: number; form?: string; filed?: string; accn?: string }>;
+    };
+    time_basis?: MeasurementTimeBasis;
+    measurement?: {
+      metric: string;
+      operator: MeasurementOperator;
+      threshold: number;
+      unit: MeasurementUnit;
+    };
   };
   expected?: {
     outcome?: string;
@@ -42,6 +64,8 @@ type MultimodalCase = {
     document_hash_required?: boolean;
     canonical_text_hash_required?: boolean;
     must_not_be_exact_verified?: boolean;
+    // M011.
+    delta_vs_threshold?: number;
   };
 };
 
@@ -270,6 +294,80 @@ function deterministicNotes(testCase: MultimodalCase): { notes: string[]; hardGa
       }
     }
   }
+
+  /*
+   * M011 (MM-024). The balance-versus-flow refusal, exercised against the real
+   * `selectFact`/`factSatisfiesTimeBasis` implementation rather than described.
+   * A `DeferredRevenue*` fact carries `end` only — an instant. Selecting it for
+   * a duration claim is the exact defect this case exists to catch, so any
+   * selection at all is a hard gate failure.
+   */
+  if (testCase.id === 'MM-024') {
+    const spec = testCase.input?.xbrl_facts;
+    const timeBasis = testCase.input?.time_basis ?? 'duration_quarter';
+    const response = {
+      cik: 0, taxonomy: 'us-gaap', tag: spec?.tag ?? '',
+      units: { [spec?.unit ?? 'USD']: spec?.facts ?? [] },
+    };
+    const kinds = (spec?.facts ?? []).map((fact) => contextKindOf(fact));
+    notes.push(`context_kinds=${kinds.join(',')}`);
+    const selected = selectFact(response, timeBasis);
+    notes.push(`selected_fact=${selected ? `${selected.unit}:${selected.fact.val}` : 'none'}`);
+    if (selected) {
+      hardGateFailures.push(`${testCase.id}:balance_offered_for_flow_claim:${selected.fact.end}`);
+    }
+  }
+
+  /*
+   * M011 (MM-025). The audit's headline case: a retrieved fact that breaches
+   * the claim it was retrieved for must be reported as contradicting it, with
+   * the signed gap — not presented neutrally.
+   */
+  if (testCase.id === 'MM-025') {
+    const spec = testCase.input?.xbrl_facts;
+    const measurement = testCase.input?.measurement;
+    const timeBasis = testCase.input?.time_basis ?? 'duration_quarter';
+    const response = {
+      cik: 0, taxonomy: 'us-gaap', tag: spec?.tag ?? '',
+      units: { [spec?.unit ?? 'pure']: spec?.facts ?? [] },
+    };
+    const selected = selectFact(response, timeBasis);
+    if (!selected || !measurement) {
+      hardGateFailures.push(`${testCase.id}:no_fact_selected`);
+    } else {
+      const contract: MeasurementContract = {
+        resolution: 'resolved',
+        metric: measurement.metric,
+        definitionVariant: 'eval fixture',
+        operator: measurement.operator,
+        threshold: measurement.threshold,
+        unit: measurement.unit,
+        timeBasis,
+        sourceTags: [spec?.tag ?? ''],
+        clarifyingQuestion: null,
+        ambiguityReason: 'none',
+      };
+      const candidate = createXbrlFactCandidate({
+        tag: spec?.tag ?? '', unit: selected.unit, fact: selected.fact, contract,
+      });
+      notes.push(`verification_status=${candidate.verificationStatus}`);
+      if (candidate.verificationStatus === 'exact_verified' || candidate.verificationStatus === 'ocr_matched') {
+        hardGateFailures.push(`${testCase.id}:verification_class_promotion:${candidate.verificationStatus}`);
+      }
+      const result = classifyPolarity({ contract, observed: readObservedMeasurement(candidate.metadata) });
+      notes.push(`polarity=${result.polarity}`);
+      notes.push(`delta_vs_threshold=${result.deltaVsThreshold}`);
+      if (result.polarity !== (testCase.expected?.outcome ?? 'contradicts')) {
+        hardGateFailures.push(`${testCase.id}:contradiction_reported_as_support:${result.polarity}`);
+      }
+      const expectedDelta = testCase.expected?.delta_vs_threshold;
+      if (typeof expectedDelta === 'number'
+        && (result.deltaVsThreshold === null || Math.abs(result.deltaVsThreshold - expectedDelta) > 0.01)) {
+        hardGateFailures.push(`${testCase.id}:unexpected_delta:${result.deltaVsThreshold}`);
+      }
+    }
+  }
+
   return { notes, hardGateFailures };
 }
 

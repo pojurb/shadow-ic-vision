@@ -2,13 +2,67 @@
 
 Status: `complete`
 
-Active Packet: [`docs/milestones/M010-structural-evidence-precision.md`](docs/milestones/M010-structural-evidence-precision.md) (complete 2026-07-27; all four slices plus governance close-out implemented, tested, and proven live end-to-end — see "Slice Outcomes")
+Active Packet: [`docs/milestones/M011-evidence-polarity-and-measurement-contracts.md`](docs/milestones/M011-evidence-polarity-and-measurement-contracts.md) (complete 2026-08-03; all six slices plus governance close-out implemented and tested — see "Slice Outcomes")
 
-Latest Completed Packet: [`docs/milestones/M010-structural-evidence-precision.md`](docs/milestones/M010-structural-evidence-precision.md) (complete; R-026 → `Mitigated`, R-025 deliberately **returned to `Open`** — block-boundary segmentation + secondary-tier shape guards + a five-rule listing-page guard + a re-deriving cleanup of the 15 already-persisted rows, proven by 31 new tests, byte-identical `canonicalText` on four real snapshots, unregressed M001 evals, and a live refresh that fetched a genuine article instead of the listing page)
+Latest Completed Packet: [`docs/milestones/M011-evidence-polarity-and-measurement-contracts.md`](docs/milestones/M011-evidence-polarity-and-measurement-contracts.md) (complete; R-027 → `Mitigated`, R-025 deliberately left `Open` — measurement contracts, a clarification hard block, evidence polarity, SEC XBRL structured-fact retrieval with an instant-versus-duration gate, and a deterministic verdict + coverage ledger the model does not write, proven by 99 new tests, 2 new hard-gating eval cases confirmed capable of failing, and 7/7 Playwright)
 
 See [`docs/milestones/ROADMAP.md`](docs/milestones/ROADMAP.md) for the M005→M010 sequence. The M006 slot was re-planned on 2026-07-25: its original subject (production confidential-data provider approval) was withdrawn by [`DEC-0014`](docs/decisions/DEC-0014-local-only-scope-reaffirmation.md). M007's Class C (web search discovery) was deliberately deferred to M008, which shipped 2026-07-26 as [`M008-web-search-discovery.md`](docs/milestones/M008-web-search-discovery.md) — provider chosen (Tavily) with live-evaluated evidence, not by reputation; see the packet's §0. M008's first live run then surfaced the precision defect M009 fixes; see the paragraph below.
 
 ## Current Phase
+
+M011 closes a gap M009 and M010 could not reach, and the progression is the
+point: M009 fixed evidence **vocabulary** (which words appear), M010 fixed
+evidence **shape** (what a passage looks like), and both left a system that
+could retrieve without being able to *judge*. M011 adds **meaning**.
+
+It was opened by an external finding rather than a fired review trigger. A
+multi-model QA audit of a Tesla thesis — "automotive gross margin will remain
+above 20% through 2026" — found that the system retrieved an automotive gross
+margin of **16.9%**, a breach at the thesis's own baseline, and presented it as
+the fourth of five neutral bullets. Two related defects came with it: FSD
+*deferred revenue* (a balance-sheet stock) offered as support for a claim about
+recognized revenue *growth* (an income-statement flow), and four of ten
+assumptions with zero evidence and no report of that gap anywhere.
+
+Four mechanisms, of which the first three are structural. **Measurement
+contracts** (`assumption_measurements`, migration `0008`) normalize each
+assumption to a metric, operator, threshold, unit, and time basis; a claim that
+cannot be settled blocks confirmation until the user answers one clarifying
+question — enforced both by a disabled button and by `confirmDraft` refusing
+outright, because a disabled button is not a control. **Evidence polarity**
+(three real columns on `evidence`, migration `0009`) records whether each row
+supports, contradicts, or is inconclusive about its assumption, computed in
+`evidenceInsertValues` — the single choke point every evidence row passes
+through. **SEC XBRL structured-fact retrieval** (US only) supplies the machine-
+comparable numbers polarity needs, with `factSatisfiesTimeBasis` mechanically
+refusing an instant fact for any duration claim — the structural fix for the
+deferred-revenue conflation. And a **deterministic verdict plus coverage
+ledger** render above everything else, computed by pure functions rather than
+written by a model; `generateDecisionRecommendation`'s output schema is narrowed
+under a breach or thin coverage, so a breached thesis literally cannot return
+`'No Change'`.
+
+Two things are deliberately *not* done. `assumptions.status` still has no
+auto-transition — `deriveAssumptionStatus`'s documented invariant is preserved,
+so a breach does not surface in the Top-10 Queue, recorded as a deferral rather
+than an oversight. And the optional `PolarityClassifier` seam ships
+**unexercised**: nothing constructs one, and `resolvePolarityClassifier` drops
+it unless research is live, which is the specific gate whose absence caused the
+2026-07-29 revert. [`DEC-0016`](docs/decisions/DEC-0016-evidence-polarity-classifier-boundary.md)
+governs it — the one place M011 could not hide under DEC-0015 as M009 and M010
+did.
+
+**Live verification, and the limit that remains.** A read-only probe against
+real `data.sec.gov` data confirmed the retrieval and classification path end to
+end: TSLA's `GrossProfit` returns 282 facts, all `duration`, correctly narrowed
+to the latest 10-Q quarter and classified; `DeferredRevenueCurrent` returns 58
+facts, **all `instant`**, and a duration claim pointed at it selects nothing —
+the deferred-revenue defect refused against genuinely filed data. What that
+probe did **not** do is persist anything: the live database holds only an
+ID-market thesis, so no evidence row has been written from a live XBRL response.
+Polarity is also only ever non-`inconclusive` for structured-fact evidence,
+which is US-only — so the live tracked Indonesian tickers get a named
+`no_source_for_market` gap and no polarity at all today.
 
 M010 closed a gap M009 could not, and the distinction is the point. M009's three
 mechanisms all filter on **vocabulary**; the 2026-07-27 live run produced a
@@ -209,7 +263,68 @@ Vercel.
 
 ## Fresh Verification
 
-Latest full verification: 2026-07-27 (M010 implementation, all four slices plus
+Latest full verification: 2026-08-03 (M011 implementation, all six slices plus
+governance close-out).
+
+- `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-08-03 (**354
+  passed, 3 skipped** — up from a confirmed 255 baseline measured at session
+  start rather than assumed from a stale count). Adds
+  `tests/measurement-contract.test.ts` (15), `tests/polarity.test.ts` (28),
+  `tests/xbrl-facts.test.ts` (19), `tests/coverage-verdict.test.ts` (19), plus
+  new cases in `tests/migrations.test.ts`, `tests/research-service.test.ts`,
+  `tests/decisions.test.ts`, and `tests/chat-route-prompts.test.ts`.
+- `npm run build`: pass on 2026-08-03
+- `npm run context:generate` / `npm run context:check`: pass on 2026-08-03
+- `npm run status:check`: pass on 2026-08-03
+- `npm run eval:m001:multimodal -- --output test-results/m011-multimodal-report.json`:
+  pass on 2026-08-03; `additionalCaseCount` 23 → **25**, 0 hard-gate failures.
+  Load-bearing, not routine: `MM-024` and `MM-025` were **proven capable of
+  failing** by tampering with their expectations (flipping `MM-025`'s expected
+  outcome to `supports`, relaxing `MM-024`'s time basis to `instant`) and
+  confirming the report emitted `MM-024:balance_offered_for_flow_claim` and
+  `MM-025:contradiction_reported_as_support` with both cases `unsupported`. The
+  tamper was reverted and the clean result re-verified. This follows M010's
+  lesson that a case absent from `deterministicNotes`' dispatch can never fail.
+- `npm run eval:m001:provider -- --mode deterministic --model minimax-m3:cloud --output test-results/m011-provider-report.json`:
+  pass on 2026-08-03; 0 hard-gate failures, `additionalCaseCount: 25` confirmed
+  to propagate
+- `npm run test:e2e` (Playwright): **7/7** pass on 2026-08-03, up from 5. Two
+  new cases (the clarification hard block, and the rendered verdict + coverage
+  ledger + polarity badge). **The browser layer caught the real regression
+  again:** `polarityBadge` read `deltaVsThreshold.toFixed()` without checking
+  the field was present, which white-screened the entire Research panel against
+  a route-mocked payload predating M011 — a crash any older client cache would
+  also have hit. Separately, a **pre-existing** e2e fragility was fixed
+  incidentally and confirmed pre-existing by re-running with M011's new case
+  excluded: the sidebar-title test matched "New Thesis" globally while the
+  suite shares one SQLite file, so accumulated conversations tripped strict
+  mode.
+- **Live read-only probe against real `data.sec.gov` data (2026-08-03).** Run
+  through the real `SecCompanyConceptSource` → `selectFact` →
+  `createXbrlFactCandidate` → `classifyPolarity` chain, touching no database:
+  - `TSLA` / `GrossProfit`: **282 real facts, every one `duration`**. Selected
+    the most recent 10-Q quarter (2026-04-01→2026-06-30, $4.751B) and
+    classified it `supports` against a $3B threshold, delta +$1.751B.
+  - `TSLA` / `DeferredRevenueCurrent`: **58 real facts, every one `instant`** —
+    and a `duration_quarter` claim pointed at it selected **nothing**. This is
+    the deferred-revenue defect refused against genuinely filed data rather
+    than a fixture, which is what R-027's trigger actually asked for.
+  - The same tag restated as an `instant` claim was accepted and classified —
+    and surfaced a real-world detail no fixture would have: its newest fact
+    ends **2018-03-31**, because Tesla migrated off that tag at ASC 606
+    adoption. Tag drift over time is real, and only a live probe shows it.
+  - A USD fact against a `percent` claim → `inconclusive`/`no_observed_value`;
+    an unreported tag → `not_found`, soft.
+  - `logs/outbound.log` recorded every request (ADR-0006), and the ticker map
+    was fetched **once** — confirming the shared-`OfficialHttpClient` cache
+    claim rather than assuming it.
+- **Still not done, and load-bearing:** no evidence row has been *persisted*
+  from a live XBRL response. The live database holds only an ID-market thesis
+  (ISAT), and creating a US one would mean writing to real user data. The
+  retrieval and classification path is live-verified; the write path is proven
+  by tests only.
+
+Previous full verification: 2026-07-27 (M010 implementation, all four slices plus
 governance close-out).
 
 - `npm run typecheck`, `npm run lint`, `npm test`: pass on 2026-07-27 (**237
@@ -570,16 +685,30 @@ Milestones 4 through 10 are complete and verified.
    `pdfjs-dist`, and the structural fix had not yet been shown insufficient.
    See the packet's "Slice Outcomes".
 
-No milestone is currently active. Milestone 10 is complete.
+10. ~~**Milestone 11**~~ Complete: [`docs/milestones/M011-evidence-polarity-and-measurement-contracts.md`](docs/milestones/M011-evidence-polarity-and-measurement-contracts.md)
+    (accepted and complete 2026-08-03). All five acceptance criteria met; all
+    six implementation slices shipped and tested. R-027 → `Mitigated`;
+    **R-025 stays `Open`** — polarity is only ever non-`inconclusive` for
+    structured-fact evidence, so semantic relevance of text-derived secondary
+    evidence is exactly where M010 left it. [`DEC-0016`](docs/decisions/DEC-0016-evidence-polarity-classifier-boundary.md)
+    accepted the same day, scoped narrowly to the optional classifier seam.
+
+No milestone is currently active. Milestone 11 is complete.
 
 **Open, not this milestone's problem:** semantic relevance of secondary
 evidence (R-025, `Open`) — M010 fixes evidence *shape*, and the live run that
 proved it also persisted two quotes from a genuine culture-festival press
 release matched partly on division names. Real article prose, not site chrome,
-but still not obviously material to a data-centre thesis.
+but still not obviously material to a data-centre thesis. M011 narrows this for
+*structured-fact* evidence only; text-derived secondary evidence is untouched.
+
+**Highest-value next step, per R-027's own review trigger:** a live
+`processResearchJobs` run against a **US** thesis whose measurement contract
+names real `us-gaap` tags. Every M011 mechanism is fixture-proven; nothing has
+been validated against a real `data.sec.gov` company-concept response.
 
 Promoted lessons consulted: `LC-20260703-001`
 
 Learning candidates created: `LC-20260708-001` (2026-07-05, separate session);
-`LC-20260725-001` through `LC-20260725-003` (2026-07-25, earlier this
-session — not yet reviewed)
+`LC-20260725-001` through `LC-20260725-003` (2026-07-25, earlier session — not
+yet reviewed); none new this session

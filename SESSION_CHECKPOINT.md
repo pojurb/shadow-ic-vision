@@ -1,3 +1,167 @@
+# Session Checkpoint - 2026-08-03 (M011 evidence polarity + measurement contracts)
+
+Opened from an **external** finding rather than a fired review trigger: a
+multi-model QA audit of a Tesla thesis, reviewed at the start of this session.
+Three defects, all structural rather than prompting problems.
+
+## What The Audit Found
+
+1. **The system retrieved the right evidence and buried it.** Automotive gross
+   margin of **16.9%** was retrieved against a thesis requiring above 20% — a
+   breach at the baseline — and appeared as the fourth of five neutral bullets.
+   An energy-storage margin *contraction* (30.3% → 20.4%) that falsifies an
+   assumption outright was presented as context. Evidence carried topical
+   relevance and no notion of direction.
+2. **The claim was never made measurable.** "Automotive gross margin" has four
+   defensible definitions and "through 2026" three time bases, so the claim was
+   not actually falsifiable. The same gap produced the subtler error: FSD
+   *deferred revenue* ($4.05B, a balance-sheet stock) offered as support for a
+   claim about recognized revenue *growth* (an income-statement flow).
+3. **Absence of evidence read as absence of concern.** Ten assumptions, five
+   evidence items, four with zero evidence, no report of the gap.
+
+The through-line, and the reusable framing: M009 fixed evidence **vocabulary**,
+M010 fixed evidence **shape**, and both left a system that could retrieve
+without being able to *judge*. M011 adds **meaning**.
+
+## M011 Implemented (2026-08-03)
+
+Planned via plan mode (3 Explore agents for the intake path, the evidence
+pipeline, and governance conventions; 1 Plan agent for the design, which
+corrected three things in the brief — `candidateFor` has *three* inline
+`exact_verified` literals rather than one; `evidenceInsertValues` is a genuine
+single choke point one layer down; and the chat route's re-extraction gate needs
+**no** change, because a blocked draft never creates a thesis, so a
+`hasPendingClarification` branch would be unreachable by construction).
+
+Four user decisions taken before planning: include real SEC XBRL retrieval
+(US-only); ship the polarity classifier as an off-by-default seam; make
+clarification a **hard block** on confirmation; and take **no** auto-transition
+on `assumptions.status`.
+
+Six slices, all shipped:
+
+- **Slice 1 — measurement contract.** `assumption_measurements` (migration
+  `0008`, 1:1 via `assumption_id` as primary key, with a hand-appended
+  idempotent backfill). A separate table over nullable columns or a JSON blob:
+  eight nullable columns represent "unresolved" in 2^8 indistinguishable ways,
+  and unparseable JSON degrades silently to "no contract" then to "no breach
+  detected", which is the exact failure class this milestone exists to fix.
+- **Slice 2 — clarification hard block.** The prompt was **amended, not
+  reversed** — the anti-withholding sentence exists because the model once
+  withheld drafts entirely (2026-07-30), so ambiguity routes into the
+  measurement block and only *confirmation* is blocked. `draftClarificationBlock`
+  is one pure predicate shared by `ChatUI` (disables the button) and
+  `confirmDraft` (refuses outright). Both ship: a disabled button is not a
+  control.
+- **Slice 3 — evidence polarity.** Three real columns (migration `0009`), not
+  `evidence.metadata` JSON as R-018's flag uses: that flag failing to parse
+  costs a visible banner, whereas polarity failing to parse costs "no
+  contradiction found" — silently, in the direction of reassurance. Computed in
+  `evidenceInsertValues`, **not** in `CitationPipeline`, whose per-candidate
+  `catch {}` would turn a polarity bug into silent evidence *deletion*. The
+  `contract` argument was made required rather than optional specifically to
+  force a compile error at all three call sites.
+- **Slice 4 — SEC XBRL.** `SecCompanyConceptSource` is deliberately **not** a
+  `SourceAdapter` — a keyed numeric fact series has no prose for
+  `verifyExactMatch` to check — so it emits `derived` evidence and inherits that
+  trust ceiling for free. `factSatisfiesTimeBasis` is the structural fix for the
+  deferred-revenue conflation. `resolveSecCik` was lifted out of `SecAdapter`,
+  proven behaviour-neutral by `tests/source-adapters.test.ts` passing
+  **unmodified**.
+- **Slice 5 — coverage and verdict.** Both pure, both server-side, both computed
+  once and shared between the panel and the model prompt (computing them twice
+  is how the two drift). The verdict renders lexically **outside**
+  `.panelContent`, so the anti-burial property is a JSX fact rather than a
+  convention. `generateDecisionRecommendation` narrows its own output schema
+  under a breach or suppression, enforced by `safeParse` and propagated into the
+  model's grammar by `z.toJSONSchema`.
+- **Slice 6 — evals and governance.** `MM-024`/`MM-025` with real dispatch arms,
+  DEC-0016, R-027, and the doc set.
+
+## Three Findings Worth Keeping
+
+**The browser layer caught the real regression again — second milestone
+running.** `polarityBadge` read `record.deltaVsThreshold.toFixed()` without
+checking the field was present. A route-mocked `/api/research` payload predating
+M011 omits it, which white-screened the *entire* Research panel with
+`Cannot read properties of undefined`. Any older client cache or partial
+response would have hit the same crash in production. vitest could not have
+found it; nothing unit-tests that component.
+
+**The eval cases were proven capable of failing, not assumed to be.** Following
+M010's lesson that a case absent from `deterministicNotes`' dispatch can never
+fail, both new cases were deliberately tampered with — `MM-025`'s expected
+outcome flipped to `supports`, `MM-024`'s time basis relaxed to `instant` — and
+the report was confirmed to emit `MM-024:balance_offered_for_flow_claim` and
+`MM-025:contradiction_reported_as_support` with both marked `unsupported`. The
+tamper was reverted and the clean result re-verified.
+
+**A pre-existing e2e fragility surfaced and was confirmed pre-existing rather
+than assumed.** The `sidebar title updates` test matched "New Thesis" globally
+while the suite shares one SQLite file, so accumulated conversations tripped
+Playwright strict mode. Confirmed by re-running the suite with M011's new case
+excluded — it still failed. Fixed by scoping the assertion to the conversation
+under test via its own `href`.
+
+## Verified
+
+`typecheck`/`lint`/`build` clean. Suite **354 passed / 3 skipped**, up from a
+confirmed **255** baseline measured at session start rather than assumed from a
+stale count. `test:e2e` **7/7** (up from 5). `eval:m001:multimodal` and
+`eval:m001:provider --mode deterministic`: `additionalCaseCount` 23 to **25**,
+0 hard-gate failures in both. `context:check` and `status:check` pass.
+
+## Honest Limits Recorded, Not Smoothed Over
+
+- **Live read-only probe done; the write path is still unproven.** A probe
+  against real `data.sec.gov` data drove the real retrieval → selection →
+  candidate → polarity chain: TSLA `GrossProfit` returned 282 facts (all
+  `duration`; latest 10-Q quarter selected, $4.751B, classified `supports`), and
+  `DeferredRevenueCurrent` returned 58 facts (**all `instant`**) which a
+  `duration_quarter` claim correctly refused — the deferred-revenue defect
+  refused against genuinely filed data rather than a fixture. Outbound logging
+  captured every request and the ticker map was fetched once, confirming the
+  shared-client cache. **But no evidence row has been persisted from a live
+  XBRL response**, because the live database holds only an ID-market thesis and
+  creating a US one would mean writing to real user data. That is what R-027's
+  trigger now names.
+- **A live-only finding worth carrying:** `DeferredRevenueCurrent`'s newest fact
+  ends **2018-03-31** — Tesla migrated off that tag at ASC 606 adoption. Real
+  tag drift over time argues for measurement contracts naming several candidate
+  tags rather than one, which the schema already allows (up to 8) but nothing
+  currently exploits.
+- **Polarity is only ever non-`inconclusive` for structured-fact evidence**,
+  because `classifyPolarity` deliberately refuses to scrape numbers out of quote
+  text. Structured facts are US-only, so the app's live tracked ticker (TLKM,
+  Indonesian) gets a named `no_source_for_market` gap and no polarity at all.
+- **`MIN_COVERAGE_RATIO = 0.7` is a product judgment**, not a calibrated number.
+- **Suppression constrains the structured decision, not the register of the free
+  text.** A model can still write reassuring `rationale` prose beneath a breach;
+  the headline-prepending backstop is a mitigation and is labelled as one.
+- **Every pre-M011 thesis now reports `insufficient_evidence`**, because the
+  `0008` backfill gives it a `legacy_unspecified` contract. That is true — those
+  theses have no basis against which any claim could be checked — and the
+  backfill exists so the UI can say the accurate thing rather than the ambiguous
+  thing. Accepted deliberately at planning time.
+- **R-025 stays `Open`.** M011 narrows semantic relevance for structured-fact
+  evidence only; text-derived secondary evidence is exactly where M010 left it.
+
+### Exact Resume Point
+
+Nothing is committed — all M011 code, test, migration, eval, and governance-doc
+changes are unstaged working-tree changes as of this entry, alongside the
+pre-existing uncommitted M010-era changes that were already in the tree at
+session start.
+
+Suggested next, in priority order: (1) commit M011; (2) run a live
+`processResearchJobs` against a **US** thesis with real `us-gaap` tags — R-027's
+own stated trigger, and the only thing that would move XBRL retrieval from
+fixture-proven to real; (3) R-018, still the highest-impact open item
+(embedded-instruction injection mitigation is regex-only in production).
+
+---
+
 # Session Checkpoint - 2026-07-27 (M010 structural evidence precision)
 
 Opened by verifying M009 live, per `docs/RISK_REGISTER.md`'s own stated review

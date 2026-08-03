@@ -31,6 +31,57 @@
    secondary" would otherwise collide with existing OCR/degraded badges. */
 .verified_secondary_issuer { background: #581c87; color: #e9d5ff; }
 .verified_secondary_news { background: #164e63; color: #a5f3fc; }
+/* M011. The thesis verdict and coverage ledger. Rendered outside .panelContent
+   so nothing below can push them down; these rules only style what that
+   placement already guarantees. */
+.thesisVerdict {
+  margin: 0 2rem 12px;
+  padding: 12px 14px;
+  border-left: 4px solid #6b7280;
+  border-radius: 8px;
+  background: #202020;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.thesisVerdict strong { display: block; margin-bottom: 6px; font-size: 14px; }
+.thesisVerdict p { margin: 6px 0 0; color: #d4d4d8; }
+.thesisVerdict a { color: #93c5fd; }
+/* Severity reads from the border and background, not from shouting. */
+.verdict_breached { border-left-color: #dc2626; background: #2b1515; color: #fecaca; }
+.verdict_at_risk { border-left-color: #d97706; background: #2a1f0d; color: #fde68a; }
+.verdict_insufficient_evidence { border-left-color: #6b7280; background: #1f2937; color: #d1d5db; }
+.verdict_holding { border-left-color: #16a34a; background: #14251b; color: #bbf7d0; }
+
+.coverageLedger {
+  margin: 0 2rem 14px;
+  padding: 10px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #1a1a1a;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d4d4d8;
+}
+.coverageLedger strong { display: block; margin-bottom: 6px; color: #e4e4e7; }
+.coverageLedger ul { margin: 6px 0 0; padding-left: 18px; }
+.coverageLedger li { margin-bottom: 4px; }
+.coverageLedger em { color: #a1a1aa; font-style: normal; }
+.coverageLedger p { margin: 8px 0 0; color: #a1a1aa; }
+
+.coverageSuppressionNote {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a1a1aa;
+}
+
+/* Polarity badges (M011). Red/green rather than the trust-class palette above:
+   these answer a different question — which way the evidence points, not how
+   much the source can be trusted — and the two badges sit side by side, so
+   they must not read as variations of one another. `inconclusive` has no class
+   because it is never rendered (see polarityBadge). */
+.polarity_contradicts { background: #7f1d1d; color: #fecaca; }
+.polarity_supports { background: #14532d; color: #bbf7d0; }
 /* Assumption-status badges (M007): the first CSS-backed badge for this
    field — previously rendered as plain text. */
 .status_untested { background: #3f3f46; color: #d4d4d8; }

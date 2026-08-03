@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { MessageDTO } from '@/lib/domain/contracts';
+import { draftClarificationBlock, type MessageDTO } from '@/lib/domain/contracts';
 import { OLLAMA_MODEL_OPTIONS, type OllamaModelId } from '@/lib/ai/ollama-models';
 import styles from './ChatUI.module.css';
 
@@ -162,25 +162,48 @@ export function ChatUI({
                   <p className={styles.messageText}><em>No reply text was returned for this message.</em></p>
                 ) : null}
 
-                {thesisDraft && (
-                  <div className={styles.draftCard}>
-                    <span>Confirmation required</span>
-                    <h3>{thesisDraft.ticker} · {thesisDraft.companyName}</h3>
-                    <p>{thesisDraft.coreBelief}</p>
-                    <ul>
-                      {thesisDraft.assumptions.map((assumption) => (
-                        <li key={assumption.statement}>{assumption.statement}</li>
-                      ))}
-                    </ul>
-                    {confirmedIds.has(m.id) ? (
-                      <button className={styles.secondaryButton} onClick={onOpenResearch}>View research</button>
-                    ) : (
-                      <button className={styles.confirmButton} onClick={() => confirmDraft(m.id)}>
-                        Confirm &amp; Research
-                      </button>
-                    )}
-                  </div>
-                )}
+                {thesisDraft && (() => {
+                  // M011. The same pure predicate the server uses in
+                  // `confirmDraft`, imported from `lib/domain/contracts` so the
+                  // two can never disagree about what counts as blocked.
+                  const clarification = draftClarificationBlock(thesisDraft);
+                  return (
+                    <div className={styles.draftCard}>
+                      <span>Confirmation required</span>
+                      <h3>{thesisDraft.ticker} · {thesisDraft.companyName}</h3>
+                      <p>{thesisDraft.coreBelief}</p>
+                      <ul>
+                        {thesisDraft.assumptions.map((assumption) => (
+                          <li key={assumption.statement}>{assumption.statement}</li>
+                        ))}
+                      </ul>
+                      {clarification.blocked && (
+                        <div className={styles.clarificationBlock} data-testid="draft-clarification">
+                          <strong>Answer this before research can start</strong>
+                          {clarification.questions.map((question) => (
+                            <p key={question.statement}>{question.question}</p>
+                          ))}
+                        </div>
+                      )}
+                      {confirmedIds.has(m.id) ? (
+                        <button className={styles.secondaryButton} onClick={onOpenResearch}>View research</button>
+                      ) : (
+                        // Present but disabled, never hidden: the e2e suite
+                        // locates this button by role+name, so a future
+                        // regression surfaces as an assertion failure rather
+                        // than a confusing timeout.
+                        <button
+                          className={styles.confirmButton}
+                          disabled={clarification.blocked}
+                          title={clarification.blocked ? 'Answer the question above to enable research.' : undefined}
+                          onClick={() => confirmDraft(m.id)}
+                        >
+                          Confirm &amp; Research
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {explorationDraft && (
                   <div className={styles.explorationCard}>

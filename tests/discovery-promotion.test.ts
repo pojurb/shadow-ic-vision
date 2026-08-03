@@ -21,7 +21,19 @@ const draft = thesisDraftSchema.parse({
   companyName: 'Bank Rakyat Indonesia',
   market: 'ID',
   coreBelief: 'I believe BBRI net interest margin remains above 6.0%.',
-  assumptions: [{ statement: 'BBRI net interest margin (NIM) remains above 6.0%.', status: 'untested' }],
+  // M011. Resolved, but with no `sourceTags` — IDX publishes no XBRL company
+  // facts, which is the market fail-closed path.
+  assumptions: [{
+    statement: 'BBRI net interest margin (NIM) remains above 6.0%.',
+    status: 'untested',
+    measurement: {
+      resolution: 'resolved', metric: 'net interest margin',
+      definitionVariant: 'consolidated NIM as reported',
+      operator: 'gte', threshold: 6, unit: 'percent',
+      timeBasis: 'duration_quarter', sourceTags: [],
+      clarifyingQuestion: null, ambiguityReason: 'none',
+    },
+  }],
   requiresChallenge: false,
 });
 

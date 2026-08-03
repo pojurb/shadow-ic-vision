@@ -4,6 +4,8 @@ import { IdxAdapter } from './idx';
 import { IssuerAdapter } from './issuer';
 import { IssuerPressReleaseAdapter } from './issuer-press';
 import { MockIdxAdapter } from './mock-idx';
+import { MockSecXbrlFactSource } from './mock-sec-xbrl';
+import { SecCompanyConceptSource, type XbrlFactSource } from './sec-xbrl';
 import { MockIssuerPressReleaseAdapter } from './mock-issuer-press';
 import { MockNewsWireAdapter } from './mock-news-wire';
 import { MockSecAdapter } from './mock-sec';
@@ -94,5 +96,37 @@ export function createSecondarySourceAdapters(): Record<ResearchMarket, Secondar
   return {
     US: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
     ID: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
+  };
+}
+
+/**
+ * M011 Slice 4. Structured XBRL fact sources, per market.
+ *
+ * Mirrors `createSecondarySourceAdapters`' optional-per-market shape: a market
+ * with no source is `undefined`, and callers skip it. Deliberately not a
+ * throwing stub — the absence of structured facts for the ID market is a real,
+ * permanent property of that market (IDX publishes no company-concept API), not
+ * an error condition, and the coverage ledger reports it as a named gap rather
+ * than as a failure.
+ *
+ * `data.sec.gov` is already in the SEC client's allowed hosts above, so this
+ * adds no newly trusted domain.
+ */
+export function createXbrlFactSources(): Record<ResearchMarket, XbrlFactSource | undefined> {
+  if (getResearchSourceMode() === 'mock') {
+    return { US: new MockSecXbrlFactSource(), ID: undefined };
+  }
+
+  const secUserAgent = process.env.SEC_USER_AGENT ?? '';
+  if (!secUserAgent.includes('@')) return { US: undefined, ID: undefined };
+
+  return {
+    US: new SecCompanyConceptSource(new OfficialHttpClient({
+      allowedHosts: ['www.sec.gov', 'data.sec.gov'],
+      userAgent: secUserAgent,
+      logPath: getOutboundLogPath(),
+      requestsPerSecond: 8,
+    }), secUserAgent),
+    ID: undefined,
   };
 }

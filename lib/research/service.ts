@@ -1,10 +1,12 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { and, asc, eq, inArray, lt } from 'drizzle-orm';
 import type { AppDatabase } from '@/db/client';
 import { getDatabase } from '@/db/client';
 import {
+  assumptionMeasurements,
   assumptions,
   conversations,
   decisions,
@@ -16,6 +18,9 @@ import {
   theses,
 } from '@/db/schema';
 import {
+  draftClarificationBlock,
+  LEGACY_MEASUREMENT_CONTRACT,
+  type MeasurementContract,
   thesisDraftSchema,
   type ThesisDraft,
   type ResearchPanelDTO,
@@ -28,15 +33,23 @@ import {
 } from '@/lib/domain/contracts';
 import { getLLMProvider } from '@/lib/ai/factory';
 import type { ProjectMessage } from '@/lib/ai/provider';
-import { CitationPipeline } from './pipeline';
+import { CitationPipeline, type VerifiedEvidence } from './pipeline';
 import { createDerivedCandidate, createOcrCandidate, type EvidenceCandidate } from './extractors/candidate';
 import { scanEmbeddedInstructions } from './extractors/safety';
 import { getOutboundLogPath, getSnapshotDirectory } from './config';
 import { isDegradedSourceError, ResearchSourceError } from './errors';
 import { persistSourceSnapshot } from './snapshot-store';
-import { createSecondarySourceAdapters, type SecondarySourceAdapters } from './adapters/factory';
+import { createSecondarySourceAdapters, createXbrlFactSources, type SecondarySourceAdapters } from './adapters/factory';
 import type { ResearchMarket, SourceAdapter } from './adapters/types';
+import { selectFact, type XbrlFactSource } from './adapters/sec-xbrl';
+import { createXbrlFactCandidate } from './extractors/xbrl';
+import { createHash } from './verifier';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
+import { loadMeasurementContract, measurementInsertValues, toMeasurementContract } from './measurement';
+import { readObservedMeasurement, type PolarityResult } from './polarity';
+import { resolvePolarity, type PolarityClassifier } from './polarity-classifier';
+import { deriveCoverageLedger } from './coverage';
+import { deriveThesisVerdict } from './verdict';
 import { createDiscoveryProvider } from './discovery/factory';
 import { persistDiscoveryCandidates } from './discovery/persist';
 import { buildDiscoveryQuery } from './discovery/query';
@@ -57,6 +70,14 @@ type ServiceDependencies = {
   // already exercises the "everything gets rejected" path for free.
   discoveryProvider?: SearchDiscoveryProvider;
   promotionClients?: PromotionClients;
+  xbrlFactSources?: Record<ResearchMarket, XbrlFactSource | undefined>;
+  /**
+   * M011. Off by default and constructed by nothing in this repository — a
+   * caller must build one explicitly with `createPolarityClassifier`, and
+   * `resolvePolarityClassifier` additionally drops it unless research is in
+   * live mode, so mock research can never reach a provider through this path.
+   */
+  polarityClassifier?: PolarityClassifier;
 };
 
 function dependencies(input: ServiceDependencies = {}) {
@@ -67,9 +88,39 @@ function dependencies(input: ServiceDependencies = {}) {
     secondaryAdapters: input.secondaryAdapters ?? createSecondarySourceAdapters(),
     discoveryProvider: input.discoveryProvider ?? createDiscoveryProvider(),
     promotionClients: input.promotionClients ?? buildPromotionClients(logPath),
+    xbrlFactSources: input.xbrlFactSources ?? createXbrlFactSources(),
     now: input.now ?? (() => new Date()),
     snapshotDirectory: input.snapshotDirectory ?? getSnapshotDirectory(),
+    polarityClassifier: input.polarityClassifier,
   };
+}
+
+/**
+ * M011. Resolves the contract and one polarity per evidence row *before* the
+ * insert transaction opens.
+ *
+ * Deliberately outside the transaction: `resolvePolarity` is async because the
+ * optional classifier makes a provider call, and awaiting inside a
+ * better-sqlite3 transaction would hold the write lock across a network round
+ * trip. With no classifier configured — the default — this resolves
+ * synchronously in practice and costs nothing.
+ */
+async function resolveEvidencePolarities(params: {
+  db: AppDatabase;
+  assumptionId: string;
+  assumptionStatement: string;
+  evidence: readonly VerifiedEvidence[];
+  classifier?: PolarityClassifier;
+}): Promise<{ contract: MeasurementContract | null; polarities: PolarityResult[] }> {
+  const contract = loadMeasurementContract(params.db, params.assumptionId);
+  const polarities = await Promise.all(params.evidence.map((result) => resolvePolarity({
+    contract,
+    observed: readObservedMeasurement(result.metadata),
+    assumption: params.assumptionStatement,
+    quote: result.exactQuote,
+    classifier: params.classifier,
+  })));
+  return { contract, polarities };
 }
 
 export function confirmDraft(
@@ -117,6 +168,19 @@ export function confirmDraft(
     }
 
     if (!draft) throw new Error('The stored thesis draft is invalid.');
+
+    // M011. The server half of the clarification hard block. `ChatUI` also
+    // disables the button, but a disabled button is not a control — a client
+    // that POSTs anyway must still be refused, and the refusal has to carry the
+    // question so the user learns what to answer. Placed before every insert,
+    // so there is nothing to roll back.
+    const clarification = draftClarificationBlock(draft);
+    if (clarification.blocked) {
+      throw new Error(
+        `This draft needs one clarification before research can start: ${clarification.questions[0].question}`,
+      );
+    }
+
     const thesisId = randomUUID();
     const title = `${draft.ticker} — ${draft.companyName}`;
     tx.insert(theses).values({
@@ -149,6 +213,12 @@ export function confirmDraft(
         statement: draftAssumption.statement,
         status: draftAssumption.status,
       }).run();
+      // M011. The contract makes the same draft-to-row transition every other
+      // field of `thesisDraft` already makes, in the same transaction — so an
+      // assumption can never exist without one.
+      tx.insert(assumptionMeasurements).values(
+        measurementInsertValues(assumptionId, draftAssumption.measurement),
+      ).run();
       tx.insert(researchJobs).values({
         id: jobId,
         assumptionId,
@@ -160,6 +230,23 @@ export function confirmDraft(
 
     return { thesisId, jobIds, alreadyConfirmed: false, title };
   });
+}
+
+/**
+ * Pulls the structured magnitude out of a persisted evidence row's metadata so
+ * the verdict can quote it. Total: unparseable metadata yields `null`, which
+ * downgrades that row from a quantified breach to a counted one rather than
+ * throwing while rendering a panel.
+ */
+function readObservedValue(metadata: string | null): number | null {
+  if (!metadata) return null;
+  try {
+    const parsed: unknown = JSON.parse(metadata);
+    const value = (parsed as { observedValue?: unknown } | null)?.observedValue;
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getResearchPanel(
@@ -177,12 +264,22 @@ export async function getResearchPanel(
     .from(assumptions)
     .innerJoin(researchJobs, eq(researchJobs.assumptionId, assumptions.id))
     .where(eq(assumptions.thesisId, thesis.id))
+    // M011. There was no ordering here at all before, so the panel's row order
+    // was whatever SQLite happened to return. The coverage ledger lists
+    // unevidenced assumptions by name, and that list has to be stable between
+    // reloads to be readable.
+    .orderBy(asc(assumptions.createdAt), asc(assumptions.id))
     .all();
 
   const assumptionIds = rows.map((row) => row.assumption.id);
   const evidenceRows = assumptionIds.length
     ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
     : [];
+
+  const measurementRows = assumptionIds.length
+    ? await db.select().from(assumptionMeasurements).where(inArray(assumptionMeasurements.assumptionId, assumptionIds)).all()
+    : [];
+  const contractsByAssumption = new Map(measurementRows.map((row) => [row.assumptionId, toMeasurementContract(row)]));
 
   const decisionRows = await db
     .select()
@@ -213,6 +310,44 @@ export async function getResearchPanel(
     };
     previousAction = row.action as DecisionAction;
     return mapped;
+  });
+
+  /*
+   * M011. Both computed server-side, from the same rows, in one place.
+   *
+   * Not client-side: `generateDecisionRecommendation` must receive the
+   * *identical* objects, and it runs on the server with no HTTP client — so
+   * computing them twice is exactly how the panel and the model prompt would
+   * drift apart. Server-side they are also covered by vitest against real
+   * SQLite, whereas the panel component's only coverage is a route-mocked
+   * Playwright spec.
+   */
+  const coverage = deriveCoverageLedger(rows.map(({ assumption, job }) => ({
+    assumptionId: assumption.id,
+    statement: assumption.statement,
+    market: thesis.market as 'US' | 'ID',
+    contract: contractsByAssumption.get(assumption.id) ?? null,
+    jobStatus: job.status,
+    polarities: evidenceRows.filter((record) => record.assumptionId === assumption.id).map((record) => record.polarity),
+  })));
+
+  const verdict = deriveThesisVerdict({
+    coverage,
+    assumptions: rows.map(({ assumption }) => ({
+      assumptionId: assumption.id,
+      statement: assumption.statement,
+      contract: contractsByAssumption.get(assumption.id) ?? null,
+      evidence: evidenceRows
+        .filter((record) => record.assumptionId === assumption.id)
+        .map((record) => ({
+          id: record.id,
+          polarity: record.polarity,
+          deltaVsThreshold: record.deltaVsThreshold,
+          observedValue: readObservedValue(record.metadata),
+          sourceName: record.sourceName,
+          sourceUrl: record.sourceUrl,
+        })),
+    })),
   });
 
   return {
@@ -255,9 +390,14 @@ export async function getResearchPanel(
           boundingBox: record.boundingBox,
           interpretationStatus: record.interpretationStatus,
           metadata: record.metadata,
+          polarity: record.polarity,
+          deltaVsThreshold: record.deltaVsThreshold,
+          polarityMethod: record.polarityMethod,
         })),
     })),
     decisions: mappedDecisions,
+    verdict,
+    coverage,
     discoverySummary: discoveryRows.length
       ? {
         candidates: discoveryRows.map((row) => ({
@@ -276,7 +416,7 @@ export async function processResearchJobs(
   conversationId: string,
   input: ServiceDependencies = {},
 ) {
-  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory } = dependencies(input);
+  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory, polarityClassifier, xbrlFactSources } = dependencies(input);
   const currentTime = now();
   const nowIso = currentTime.toISOString();
 
@@ -332,12 +472,21 @@ export async function processResearchJobs(
     await runSecondaryResearchCall({
       db, snapshotDirectory, now, market, ticker, knownDocumentIds,
       jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
-      adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer',
+      adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer', polarityClassifier,
     });
     await runSecondaryResearchCall({
       db, snapshotDirectory, now, market, ticker, knownDocumentIds,
       jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
-      adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news',
+      adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news', polarityClassifier,
+    });
+
+    // M011 Slice 4. Same placement rationale as the two calls above: before the
+    // official try/catch, so the official path's early `continue`s cannot skip
+    // it, and with the same soft-failure boundary.
+    await runXbrlFactCall({
+      db, snapshotDirectory, now, sourceMode: pipeline.sourceMode, ticker,
+      jobId: row.job.id, assumptionId: row.assumption.id,
+      source: xbrlFactSources[market],
     });
 
     // M008 Slices 1 & 3. Same independence and soft-failure posture as the
@@ -401,16 +550,23 @@ export async function processResearchJobs(
         snapshotDirectory,
         outcome: 'verified',
       });
+      const { contract, polarities } = await resolveEvidencePolarities({
+        db,
+        assumptionId: row.assumption.id,
+        assumptionStatement: row.assumption.statement,
+        evidence: execution.evidence,
+        classifier: polarityClassifier,
+      });
       await db.transaction((tx) => {
-        for (const result of execution.evidence) {
+        execution.evidence.forEach((result, index) => {
           const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
             eq(evidence.assumptionId, row.assumption.id),
             eq(evidence.documentHash, result.documentHash),
             eq(evidence.content, result.exactQuote),
           )).get();
-          if (duplicate) continue;
-          tx.insert(evidence).values(evidenceInsertValues(row.assumption.id, result)).run();
-        }
+          if (duplicate) return;
+          tx.insert(evidence).values(evidenceInsertValues(row.assumption.id, result, contract, polarities[index])).run();
+        });
         // M007 Slice 5: official evidence arriving reverts a pending
         // secondary-only assumption back to untested (clearing path 1).
         applyAssumptionStatusGate(tx, row.assumption.id, execution.evidence.map((e) => e.verificationStatus), now().toISOString());
@@ -458,6 +614,126 @@ export async function processResearchJobs(
  * never touched by this function; the official outcome fully owns them, so
  * a broken news feed can never make a healthy assumption look broken.
  */
+/**
+ * M011 Slice 4. Structured XBRL fact retrieval, per assumption.
+ *
+ * Same soft-failure boundary as `runSecondaryResearchCall` and
+ * `runDiscoveryAndPromotion`: it never touches `research_jobs.status`, so an
+ * unreachable SEC endpoint or a tag a company simply does not report can never
+ * make a healthy assumption look broken. A market with no fact source (ID) and
+ * a contract with no `sourceTags` (any non-US issuer) both return immediately.
+ *
+ * This is the only path in the app that produces evidence carrying a machine-
+ * comparable value, so it is the only path whose evidence can ever be anything
+ * other than `inconclusive`.
+ */
+async function runXbrlFactCall(params: {
+  db: AppDatabase;
+  snapshotDirectory: string;
+  now: () => Date;
+  sourceMode: 'mock' | 'live';
+  ticker: string;
+  jobId: string;
+  assumptionId: string;
+  source: XbrlFactSource | undefined;
+}): Promise<void> {
+  if (!params.source) return;
+  try {
+    const contract = loadMeasurementContract(params.db, params.assumptionId);
+    // Only a resolved contract names what to fetch and what period it must
+    // cover. An ambiguous one should never have reached research at all.
+    if (!contract || contract.resolution !== 'resolved' || contract.sourceTags.length === 0) return;
+
+    for (const tag of contract.sourceTags) {
+      const outcome = await params.source.fetchConcept({ ticker: params.ticker, tag });
+      if (outcome.kind !== 'found') continue;
+
+      const selected = selectFact(outcome.value.response, contract.timeBasis);
+      // The refusal, in the place it matters: a tag whose only facts are
+      // balances yields nothing for a flow claim, rather than a plausible
+      // number of the wrong kind.
+      if (!selected) continue;
+
+      const documentHash = createHash(outcome.value.rawBytes);
+      const retrievalTimestamp = params.now().toISOString();
+      const snapshot = {
+        documentId: `${tag}:${selected.fact.accn ?? selected.fact.end}`,
+        market: 'US' as const,
+        ticker: params.ticker,
+        sourceUrl: outcome.value.sourceUrl,
+        sourceName: `${outcome.value.response.entityName ?? params.ticker} SEC XBRL us-gaap:${tag}`,
+        sourceTier: 'official' as const,
+        publishDate: selected.fact.filed ?? null,
+        sourceFormat: 'xbrl' as const,
+        rawBytes: outcome.value.rawBytes,
+        retrievalTimestamp,
+        contentType: 'application/json',
+        httpStatus: 200,
+      };
+      persistSourceSnapshot({
+        db: params.db,
+        jobId: params.jobId,
+        snapshot,
+        documentHash,
+        sourceMode: params.sourceMode,
+        snapshotDirectory: params.snapshotDirectory,
+        outcome: 'verified',
+      });
+
+      const candidate = createXbrlFactCandidate({
+        tag,
+        unit: selected.unit,
+        fact: selected.fact,
+        contract,
+        entityName: outcome.value.response.entityName,
+      });
+      const result: VerifiedEvidence = {
+        sourceUrl: snapshot.sourceUrl,
+        documentHash,
+        // Reserved for `exact_verified` prose. A structured fact has no
+        // canonical text to hash.
+        canonicalTextHash: null,
+        exactQuote: candidate.quote,
+        impactSummary: candidate.impactSummary,
+        sourceName: snapshot.sourceName,
+        sourceTier: 'official',
+        sourceFormat: 'xbrl',
+        sourceVariant: null,
+        contentKind: candidate.contentKind ?? 'structured_fact',
+        publishDate: snapshot.publishDate,
+        retrievalTimestamp,
+        extractionMethod: 'xbrl_parser',
+        verificationStatus: candidate.verificationStatus,
+        pageNumber: null,
+        boundingBox: null,
+        metadata: { ...(candidate.metadata ?? {}), untrustedInstructionFlagged: false },
+      };
+
+      const { polarities } = await resolveEvidencePolarities({
+        db: params.db,
+        assumptionId: params.assumptionId,
+        assumptionStatement: '',
+        evidence: [result],
+        // Never classified by a model: a structured fact either compares or it
+        // does not, and a model opinion could only blur that.
+        classifier: undefined,
+      });
+
+      params.db.transaction((tx) => {
+        const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
+          eq(evidence.assumptionId, params.assumptionId),
+          eq(evidence.documentHash, documentHash),
+          eq(evidence.content, result.exactQuote),
+        )).get();
+        if (duplicate) return;
+        tx.insert(evidence).values(evidenceInsertValues(params.assumptionId, result, contract, polarities[0])).run();
+      });
+    }
+  } catch {
+    // Soft failure, by design — see the doc comment above.
+  }
+}
+
 async function runSecondaryResearchCall(params: {
   db: AppDatabase;
   snapshotDirectory: string;
@@ -470,6 +746,7 @@ async function runSecondaryResearchCall(params: {
   knownDocumentIds: ReadonlySet<string> | undefined;
   adapter: SourceAdapter | undefined;
   evidenceClass: 'secondary_issuer' | 'secondary_news';
+  polarityClassifier?: PolarityClassifier;
 }): Promise<void> {
   if (!params.adapter) return;
   try {
@@ -493,16 +770,23 @@ async function runSecondaryResearchCall(params: {
       snapshotDirectory: params.snapshotDirectory,
       outcome: 'verified',
     });
+    const { contract, polarities } = await resolveEvidencePolarities({
+      db: params.db,
+      assumptionId: params.assumptionId,
+      assumptionStatement: params.assumptionStatement,
+      evidence: execution.evidence,
+      classifier: params.polarityClassifier,
+    });
     params.db.transaction((tx) => {
-      for (const result of execution.evidence) {
+      execution.evidence.forEach((result, index) => {
         const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
           eq(evidence.assumptionId, params.assumptionId),
           eq(evidence.documentHash, result.documentHash),
           eq(evidence.content, result.exactQuote),
         )).get();
-        if (duplicate) continue;
-        tx.insert(evidence).values(evidenceInsertValues(params.assumptionId, result)).run();
-      }
+        if (duplicate) return;
+        tx.insert(evidence).values(evidenceInsertValues(params.assumptionId, result, contract, polarities[index])).run();
+      });
       // M007 Slice 5: secondary evidence may move an untouched 'untested'
       // assumption to 'pending_confirmation' (clearing path handled on the
       // official side above — this call only ever inserts secondary rows).
@@ -692,6 +976,13 @@ export async function exportThesisData(
     .orderBy(asc(decisions.createdAt))
     .all();
 
+  // M011. Exported so a thesis round-trips with the contract its evidence was
+  // judged against — without it, a re-imported thesis would silently lose the
+  // basis for every polarity verdict in the package.
+  const measurementRows = assumptionIds.length
+    ? await db.select().from(assumptionMeasurements).where(inArray(assumptionMeasurements.assumptionId, assumptionIds)).all()
+    : [];
+
   const exportedAssumptions = assumptionRows.map((a) => {
     const aEvidence = evidenceRows
       .filter((e) => e.assumptionId === a.id)
@@ -714,12 +1005,18 @@ export async function exportThesisData(
         metadata: e.metadata,
         documentHash: e.documentHash,
         canonicalTextHash: e.canonicalTextHash,
+        polarity: e.polarity,
+        deltaVsThreshold: e.deltaVsThreshold,
+        polarityMethod: e.polarityMethod,
       }));
+
+    const measurementRow = measurementRows.find((row) => row.assumptionId === a.id);
 
     return {
       statement: a.statement,
       status: a.status,
       createdAt: a.createdAt,
+      measurement: measurementRow ? toMeasurementContract(measurementRow) : undefined,
       evidence: aEvidence,
     };
   });
@@ -772,7 +1069,15 @@ export async function importThesisData(
       companyName: importedThesis.companyName,
       market: importedThesis.market,
       coreBelief: importedThesis.coreBelief,
-      assumptions: importedAssumptions.map(a => ({ statement: a.statement, status: a.status })),
+      assumptions: importedAssumptions.map(a => ({
+        statement: a.statement,
+        status: a.status,
+        // M011. Synthesized explicitly rather than relying on
+        // `thesisDraftSchema`'s `.default()`: an export written before M011
+        // carries no contract, and leaving the field absent would make the
+        // intent look accidental to the next reader.
+        measurement: a.measurement ?? LEGACY_MEASUREMENT_CONTRACT,
+      })),
       requiresChallenge: false
     };
 
@@ -812,6 +1117,13 @@ export async function importThesisData(
         updatedAt: now().toISOString(),
       }).run();
 
+      // M011. An export predating M011 has no `measurement`, so the imported
+      // assumption gets the legacy sentinel — which reports honestly as
+      // "cannot be checked" rather than silently as "measured".
+      tx.insert(assumptionMeasurements).values(
+        measurementInsertValues(assumptionId, a.measurement ?? LEGACY_MEASUREMENT_CONTRACT),
+      ).run();
+
       tx.insert(researchJobs).values({
         id: randomUUID(),
         assumptionId,
@@ -842,6 +1154,13 @@ export async function importThesisData(
           pageNumber: e.pageNumber,
           interpretationStatus: e.interpretationStatus,
           metadata: e.metadata,
+          // M011. Carried through rather than recomputed: the export records
+          // the verdict this evidence was actually given, and re-deriving it
+          // against a contract that may have been re-drafted since would
+          // silently rewrite history.
+          polarity: e.polarity,
+          deltaVsThreshold: e.deltaVsThreshold ?? null,
+          polarityMethod: e.polarityMethod ?? 'no_contract',
         }).run();
       }
     }
@@ -877,9 +1196,42 @@ export async function generateDecisionRecommendation(
     ? await db.select().from(evidence).where(inArray(evidence.assumptionId, assumptionIds)).all()
     : [];
 
+  // M011. The same panel objects the user sees, derived from the same rows, so
+  // the model is never shown a rosier picture than the interface is.
+  const panel = await getResearchPanel(thesis.conversationId ?? '', input);
+  const coverage = panel.coverage;
+  const verdict = panel.verdict;
+
   let contextPrompt = `You are evaluating an investment thesis for ${thesis.companyName} (${thesis.ticker}).\n`;
   contextPrompt += `Core Belief: "${thesis.coreBelief}"\n\n`;
-  contextPrompt += `Please review the following underlying assumptions and the verified evidence retrieved for them:\n\n`;
+
+  /*
+   * M011. The verdict and the coverage gap go FIRST, before the per-assumption
+   * loop — replacing the buried "No verified evidence found." line that used to
+   * be the only signal, and which a reader had to reconstruct by counting.
+   * These lines are app-generated arithmetic, not document text, so the R-018
+   * boundary below does not apply to them; evidence quotes are still scanned.
+   */
+  if (verdict) {
+    contextPrompt += `EVIDENCE LEDGER VERDICT (computed deterministically, not by you): ${verdict.headline}\n`;
+    for (const contradiction of verdict.contradictions) {
+      contextPrompt += `- BREACH: "${contradiction.statement}" requires ${contradiction.metric} `
+        + `${contradiction.operator} ${contradiction.threshold}; the retrieved fact is ${contradiction.observedValue}.\n`;
+    }
+  }
+  if (coverage) {
+    contextPrompt += `COVERAGE: ${coverage.evidenced} of ${coverage.totalAssumptions} assumptions have evidence; `
+      + `${coverage.contradicted} contradicted; ${coverage.unevidenced} with no evidence at all; `
+      + `${coverage.unresolvedContracts} that cannot be measured as stated.\n`;
+    for (const gap of coverage.unevidencedAssumptions) {
+      contextPrompt += `- NO EVIDENCE (${gap.reason}): "${gap.statement}"\n`;
+    }
+    if (coverage.confidenceGate === 'suppressed') {
+      contextPrompt += `The evidence base is too thin to support a confident conclusion. `
+        + `Do not describe this thesis as intact, supported, or unchanged.\n`;
+    }
+  }
+  contextPrompt += `\nPlease review the following underlying assumptions and the verified evidence retrieved for them:\n\n`;
 
   for (const a of assumptionRows) {
     contextPrompt += `Assumption: "${a.statement}" (Current Status: ${a.status})\n`;
@@ -927,9 +1279,31 @@ export async function generateDecisionRecommendation(
     },
   ];
 
+  /*
+   * M011. The structural half of the suppression, and the reason this is not
+   * merely prompt wording: `structuredExtract` `safeParse`s against this schema
+   * *and* `lib/ai/adapters/ollama.ts` feeds it through `z.toJSONSchema` to
+   * constrain the model's own output grammar. A breached thesis therefore
+   * cannot come back as 'No Change' — a compliant model never generates it, and
+   * a non-compliant one is rejected rather than displayed.
+   *
+   * Both narrowed shapes stay assignable to `DecisionRecommendation`, so
+   * nothing downstream changes.
+   */
+  const recommendationSchema = coverage?.confidenceGate === 'suppressed'
+    ? decisionRecommendationSchema.extend({
+      recommendedOutcome: z.literal('Investigate Further'),
+      recommendedAction: z.null(),
+    })
+    : verdict?.level === 'breached'
+      ? decisionRecommendationSchema.extend({
+        recommendedOutcome: z.enum(['Investigate Further', 'Update Thesis', 'Archive']),
+      })
+      : decisionRecommendationSchema;
+
   const result = await provider.structuredExtract(
     messages,
-    decisionRecommendationSchema,
+    recommendationSchema,
     'decision-recommendation-v1',
     {
       route: 'lib.research.generateDecisionRecommendation',
@@ -942,5 +1316,32 @@ export async function generateDecisionRecommendation(
     throw new Error(result.error ?? 'Failed to generate recommendation from LLM.');
   }
 
+  /*
+   * M011. The rationale backstop — explicitly a mitigation, not a guarantee,
+   * and recorded as such in R-027. Schema narrowing constrains the structured
+   * decision but not the register of the free text, so a model can still write
+   * reassuring prose beneath a breach. Prepending the deterministic headline at
+   * least makes the breach the first thing read.
+   */
+  if (verdict?.level === 'breached' && !mentionsBreach(result.data.rationale, verdict.contradictions[0]?.metric)) {
+    return { ...result.data, rationale: `${verdict.headline} ${result.data.rationale}` };
+  }
+
   return result.data;
+}
+
+/**
+ * Loose containment: any significant token of the breached metric appearing in
+ * the rationale counts as having addressed it. Deliberately generous — the
+ * backstop exists to catch a rationale that ignores the breach entirely, not to
+ * police wording.
+ */
+function mentionsBreach(rationale: string, metric: string | undefined): boolean {
+  if (!metric) return true;
+  const haystack = rationale.toLowerCase();
+  return metric
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length > 3)
+    .some((token) => haystack.includes(token));
 }

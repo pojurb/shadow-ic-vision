@@ -7,7 +7,7 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report).toMatchObject({
       suite: 'M001-multimodal-first-slice',
       baseCaseCount: 16,
-      additionalCaseCount: 23,
+      additionalCaseCount: 25,
       modelEligibility: 'not_evaluated',
       hardGateFailures: [],
     });
@@ -36,6 +36,20 @@ describe('M001 multimodal evaluator scaffold', () => {
     expect(report.cases.find((item) => item.id === 'MM-023')).toMatchObject({
       status: 'passed',
       notes: expect.arrayContaining(['verification_status=secondary_issuer']),
+    });
+    // M011: two more genuinely assertive cases. MM-024 runs the real
+    // `selectFact`/`factSatisfiesTimeBasis` and fails if a balance-sheet
+    // instant is ever selected for a duration claim; MM-025 runs the real
+    // polarity classifier and fails if a breached threshold is reported as
+    // anything but a contradiction. Both were confirmed capable of failing by
+    // tampering with their expectations and observing the hard gates fire.
+    expect(report.cases.find((item) => item.id === 'MM-024')).toMatchObject({
+      status: 'passed',
+      notes: expect.arrayContaining(['context_kinds=instant', 'selected_fact=none']),
+    });
+    expect(report.cases.find((item) => item.id === 'MM-025')).toMatchObject({
+      status: 'passed',
+      notes: expect.arrayContaining(['verification_status=derived', 'polarity=contradicts']),
     });
     expect(report.cases.every((item) => item.status === 'passed')).toBe(true);
   });

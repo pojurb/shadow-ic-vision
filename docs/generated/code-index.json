@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "c591dd7a69c6ccdd30d0e9689aff7a7b93d2d9517f0aea51a82fb0fb90441017",
+  "sourceDigest": "d00a22e9c4217a7ea0313b4e33dfda927b721878c87cc6881ed38e1b530f8b9c",
   "roots": [
     "app",
     "components",
@@ -746,6 +746,7 @@
         }
       ],
       "exports": [
+        "assumptionMeasurements",
         "assumptions",
         "conversations",
         "decisions",
@@ -948,17 +949,28 @@
       ],
       "exports": [
         "ChatResponsePayload",
+        "CoverageLedgerDTO",
         "DecisionAction",
         "DecisionDTO",
         "DecisionOutcome",
         "DecisionRecommendation",
         "EvidenceDTO",
+        "EvidencePolarity",
         "ExplorationDraft",
+        "LEGACY_MEASUREMENT_CONTRACT",
+        "MeasurementAmbiguityReason",
+        "MeasurementContract",
+        "MeasurementOperator",
+        "MeasurementResolution",
+        "MeasurementTimeBasis",
+        "MeasurementUnit",
         "MessageDTO",
         "ResearchItemDTO",
         "ResearchPanelDTO",
+        "THRESHOLD_OPERATORS",
         "ThesisDraft",
         "ThesisExport",
+        "ThesisVerdictDTO",
         "assumptionStatusSchema",
         "chatRequestSchema",
         "chatResponsePayloadSchema",
@@ -967,8 +979,16 @@
         "decisionOutcomeSchema",
         "decisionRecommendationSchema",
         "decisionRecordSchema",
+        "draftClarificationBlock",
+        "evidencePolaritySchema",
         "explorationDraftSchema",
         "marketSchema",
+        "measurementAmbiguityReasonSchema",
+        "measurementContractSchema",
+        "measurementOperatorSchema",
+        "measurementResolutionSchema",
+        "measurementTimeBasisSchema",
+        "measurementUnitSchema",
         "recordDecisionRequestSchema",
         "researchJobStatusSchema",
         "researchRetryRequestSchema",
@@ -1028,12 +1048,20 @@
           "resolved": "lib/research/adapters/mock-sec.ts"
         },
         {
+          "specifier": "./mock-sec-xbrl",
+          "resolved": "lib/research/adapters/mock-sec-xbrl.ts"
+        },
+        {
           "specifier": "./news-wire",
           "resolved": "lib/research/adapters/news-wire.ts"
         },
         {
           "specifier": "./sec",
           "resolved": "lib/research/adapters/sec.ts"
+        },
+        {
+          "specifier": "./sec-xbrl",
+          "resolved": "lib/research/adapters/sec-xbrl.ts"
         },
         {
           "specifier": "./types",
@@ -1044,7 +1072,8 @@
         "SecondarySourceAdapters",
         "buildClientsByOrigin",
         "createSecondarySourceAdapters",
-        "createSourceAdapters"
+        "createSourceAdapters",
+        "createXbrlFactSources"
       ]
     },
     {
@@ -1180,6 +1209,23 @@
       ]
     },
     {
+      "path": "lib/research/adapters/mock-sec-xbrl.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./sec-xbrl",
+          "resolved": "lib/research/adapters/sec-xbrl.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockSecXbrlFactSource"
+      ]
+    },
+    {
       "path": "lib/research/adapters/mock-sec.ts",
       "kind": "module",
       "imports": [
@@ -1219,6 +1265,43 @@
       ]
     },
     {
+      "path": "lib/research/adapters/sec-xbrl.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./sec",
+          "resolved": "lib/research/adapters/sec.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        }
+      ],
+      "exports": [
+        "SecCompanyConceptSource",
+        "XbrlConceptFetch",
+        "XbrlConceptResponse",
+        "XbrlContextKind",
+        "XbrlFactSource",
+        "XbrlUnitFact",
+        "contextKindOf",
+        "factSatisfiesTimeBasis",
+        "selectFact"
+      ]
+    },
+    {
       "path": "lib/research/adapters/sec.ts",
       "kind": "module",
       "imports": [
@@ -1241,6 +1324,7 @@
       ],
       "exports": [
         "SecAdapter",
+        "resolveSecCik",
         "selectLatestFiling"
       ]
     },
@@ -1301,6 +1385,24 @@
       ]
     },
     {
+      "path": "lib/research/coverage.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        }
+      ],
+      "exports": [
+        "CoverageAssumptionInput",
+        "CoverageLedger",
+        "MIN_COVERAGE_RATIO",
+        "UnevidencedReason",
+        "deriveCoverageLedger",
+        "isThresholdContract"
+      ]
+    },
+    {
       "path": "lib/research/discovery-promotion.ts",
       "kind": "module",
       "imports": [
@@ -1331,6 +1433,10 @@
         {
           "specifier": "./http",
           "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./measurement",
+          "resolved": "lib/research/measurement.ts"
         },
         {
           "specifier": "./pipeline",
@@ -1583,12 +1689,20 @@
           "resolved": "lib/research/pipeline.ts"
         },
         {
+          "specifier": "./polarity",
+          "resolved": "lib/research/polarity.ts"
+        },
+        {
           "specifier": "@/db/client",
           "resolved": "db/client.ts"
         },
         {
           "specifier": "@/db/schema",
           "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
         },
         {
           "specifier": "drizzle-orm",
@@ -1616,6 +1730,10 @@
         {
           "specifier": "./document",
           "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
         }
       ],
       "exports": [
@@ -1771,17 +1889,27 @@
       "kind": "module",
       "imports": [
         {
+          "specifier": "../adapters/sec-xbrl",
+          "resolved": "lib/research/adapters/sec-xbrl.ts"
+        },
+        {
           "specifier": "../errors",
           "resolved": "lib/research/errors.ts"
         },
         {
           "specifier": "./candidate",
           "resolved": "lib/research/extractors/candidate.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
         }
       ],
       "exports": [
         "XbrlFact",
-        "calculateGrossMarginFromFacts"
+        "calculateGrossMarginFromFacts",
+        "createXbrlFactCandidate",
+        "normalizeToContractUnit"
       ]
     },
     {
@@ -1860,6 +1988,37 @@
       ]
     },
     {
+      "path": "lib/research/measurement.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "loadMeasurementContract",
+        "measurementInsertValues",
+        "toMeasurementContract"
+      ]
+    },
+    {
       "path": "lib/research/pipeline.ts",
       "kind": "module",
       "imports": [
@@ -1899,6 +2058,56 @@
       ]
     },
     {
+      "path": "lib/research/polarity-classifier.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "./polarity",
+          "resolved": "lib/research/polarity.ts"
+        },
+        {
+          "specifier": "@/lib/ai/provider",
+          "resolved": "lib/ai/provider.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "PolarityClassifier",
+        "createPolarityClassifier",
+        "resolvePolarity",
+        "resolvePolarityClassifier"
+      ]
+    },
+    {
+      "path": "lib/research/polarity.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        }
+      ],
+      "exports": [
+        "EvidencePolarity",
+        "ObservedMeasurement",
+        "PolarityMethod",
+        "PolarityResult",
+        "classifyPolarity",
+        "readObservedMeasurement"
+      ]
+    },
+    {
       "path": "lib/research/service.ts",
       "kind": "module",
       "imports": [
@@ -1907,12 +2116,20 @@
           "resolved": "lib/research/adapters/factory.ts"
         },
         {
+          "specifier": "./adapters/sec-xbrl",
+          "resolved": "lib/research/adapters/sec-xbrl.ts"
+        },
+        {
           "specifier": "./adapters/types",
           "resolved": "lib/research/adapters/types.ts"
         },
         {
           "specifier": "./config",
           "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "./coverage",
+          "resolved": "lib/research/coverage.ts"
         },
         {
           "specifier": "./discovery-promotion",
@@ -1951,12 +2168,36 @@
           "resolved": "lib/research/extractors/safety.ts"
         },
         {
+          "specifier": "./extractors/xbrl",
+          "resolved": "lib/research/extractors/xbrl.ts"
+        },
+        {
+          "specifier": "./measurement",
+          "resolved": "lib/research/measurement.ts"
+        },
+        {
           "specifier": "./pipeline",
           "resolved": "lib/research/pipeline.ts"
         },
         {
+          "specifier": "./polarity",
+          "resolved": "lib/research/polarity.ts"
+        },
+        {
+          "specifier": "./polarity-classifier",
+          "resolved": "lib/research/polarity-classifier.ts"
+        },
+        {
           "specifier": "./snapshot-store",
           "resolved": "lib/research/snapshot-store.ts"
+        },
+        {
+          "specifier": "./verdict",
+          "resolved": "lib/research/verdict.ts"
+        },
+        {
+          "specifier": "./verifier",
+          "resolved": "lib/research/verifier.ts"
         },
         {
           "specifier": "@/db/client",
@@ -1992,6 +2233,10 @@
         },
         {
           "specifier": "server-only",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
           "resolved": null
         }
       ],
@@ -2046,6 +2291,29 @@
       ],
       "exports": [
         "persistSourceSnapshot"
+      ]
+    },
+    {
+      "path": "lib/research/verdict.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./coverage",
+          "resolved": "lib/research/coverage.ts"
+        },
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        }
+      ],
+      "exports": [
+        "ThesisVerdict",
+        "ThesisVerdictLevel",
+        "VerdictAssumptionInput",
+        "VerdictContradiction",
+        "deriveThesisVerdict",
+        "formatDelta",
+        "formatValue"
       ]
     },
     {
@@ -2128,6 +2396,29 @@
         {
           "specifier": "node:path",
           "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/coverage-verdict.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/coverage",
+          "resolved": "lib/research/coverage.ts"
+        },
+        {
+          "specifier": "@/lib/research/verdict",
+          "resolved": "lib/research/verdict.ts"
         },
         {
           "specifier": "vitest",
@@ -2464,6 +2755,25 @@
       "exports": []
     },
     {
+      "path": "tests/measurement-contract.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/migrations.test.ts",
       "kind": "test",
       "imports": [
@@ -2616,6 +2926,33 @@
         },
         {
           "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/polarity.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/config",
+          "resolved": "lib/research/config.ts"
+        },
+        {
+          "specifier": "@/lib/research/polarity",
+          "resolved": "lib/research/polarity.ts"
+        },
+        {
+          "specifier": "@/lib/research/polarity-classifier",
+          "resolved": "lib/research/polarity-classifier.ts"
+        },
+        {
+          "specifier": "vitest",
           "resolved": null
         }
       ],
@@ -2935,6 +3272,33 @@
         }
       ],
       "exports": []
+    },
+    {
+      "path": "tests/xbrl-facts.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/domain/contracts",
+          "resolved": "lib/domain/contracts.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/sec-xbrl",
+          "resolved": "lib/research/adapters/sec-xbrl.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/xbrl",
+          "resolved": "lib/research/extractors/xbrl.ts"
+        },
+        {
+          "specifier": "@/lib/research/polarity",
+          "resolved": "lib/research/polarity.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
     }
   ],
   "routes": [
@@ -3116,6 +3480,11 @@
   ],
   "tables": [
     {
+      "name": "assumption_measurements",
+      "symbol": "assumptionMeasurements",
+      "module": "db/schema.ts"
+    },
+    {
       "name": "assumptions",
       "symbol": "assumptions",
       "module": "db/schema.ts"
@@ -3220,6 +3589,14 @@
       "productionModules": []
     },
     {
+      "path": "tests/coverage-verdict.test.ts",
+      "productionModules": [
+        "lib/domain/contracts.ts",
+        "lib/research/coverage.ts",
+        "lib/research/verdict.ts"
+      ]
+    },
+    {
       "path": "tests/cron-auth.test.ts",
       "productionModules": [
         "app/api/internal/research/cron/route.ts"
@@ -3299,6 +3676,12 @@
       ]
     },
     {
+      "path": "tests/measurement-contract.test.ts",
+      "productionModules": [
+        "lib/domain/contracts.ts"
+      ]
+    },
+    {
       "path": "tests/migrations.test.ts",
       "productionModules": [
         "db/client.ts",
@@ -3338,6 +3721,15 @@
         "lib/ai/adapters/ollama.ts",
         "lib/ai/provider.ts",
         "lib/domain/contracts.ts"
+      ]
+    },
+    {
+      "path": "tests/polarity.test.ts",
+      "productionModules": [
+        "lib/domain/contracts.ts",
+        "lib/research/config.ts",
+        "lib/research/polarity-classifier.ts",
+        "lib/research/polarity.ts"
       ]
     },
     {
@@ -3407,6 +3799,15 @@
       "path": "tests/verifier.test.ts",
       "productionModules": [
         "lib/research/verifier.ts"
+      ]
+    },
+    {
+      "path": "tests/xbrl-facts.test.ts",
+      "productionModules": [
+        "lib/domain/contracts.ts",
+        "lib/research/adapters/sec-xbrl.ts",
+        "lib/research/extractors/xbrl.ts",
+        "lib/research/polarity.ts"
       ]
     }
   ]

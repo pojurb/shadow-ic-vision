@@ -59,6 +59,52 @@ export const assumptions = sqliteTable('assumptions', {
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+/**
+ * M011 — the measurement contract for one assumption (1:1, `assumption_id` is
+ * the primary key, so the cardinality is enforced by the schema rather than a
+ * separate unique index).
+ *
+ * A separate table rather than columns on `assumptions` for two reasons. First,
+ * row presence *is* the state machine: no row means never extracted,
+ * `resolution='ambiguous'` means confirmation is blocked, `'resolved'` means
+ * usable, `'legacy_unspecified'` means it predates M011 — whereas eight
+ * nullable columns would represent "unresolved" in 2^8 indistinguishable ways.
+ * Second, `assumptions.status` carries a documented never-auto-mark invariant
+ * (`lib/research/assumption-status.ts`); leaving that table untouched keeps the
+ * invariant easy to read.
+ *
+ * A single JSON column was also rejected: unparseable JSON would degrade
+ * silently to "no contract", which degrades to "no breach detected" — the exact
+ * failure class M011 exists to fix, failing in the direction of reassurance.
+ */
+export const assumptionMeasurements = sqliteTable('assumption_measurements', {
+  assumptionId: text('assumption_id').primaryKey().references(() => assumptions.id, { onDelete: 'cascade' }),
+  resolution: text('resolution', {
+    enum: ['resolved', 'ambiguous', 'not_measurable', 'legacy_unspecified'],
+  }).notNull().default('legacy_unspecified'),
+  metric: text('metric').notNull().default(''),
+  definitionVariant: text('definition_variant').notNull().default(''),
+  operator: text('operator', {
+    enum: ['gte', 'gt', 'lte', 'lt', 'eq', 'increases', 'decreases', 'none'],
+  }).notNull().default('none'),
+  threshold: real('threshold'),
+  unit: text('unit', {
+    enum: ['percent', 'ratio', 'usd', 'idr', 'count', 'unspecified'],
+  }).notNull().default('unspecified'),
+  timeBasis: text('time_basis', {
+    enum: ['instant', 'duration_quarter', 'duration_ytd', 'duration_annual', 'duration_ttm', 'unspecified'],
+  }).notNull().default('unspecified'),
+  // JSON `string[]`. The one JSON field here, and only because this list is
+  // always read whole and never filtered on in SQL.
+  sourceTags: text('source_tags').notNull().default('[]'),
+  clarifyingQuestion: text('clarifying_question'),
+  ambiguityReason: text('ambiguity_reason', {
+    enum: ['none', 'metric_undefined', 'definition_variant_ambiguous', 'threshold_missing', 'time_basis_ambiguous', 'unit_ambiguous'],
+  }).notNull().default('none'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Multimodal Evidence linked to an Assumption
 export const evidence = sqliteTable('evidence', {
   id: text('id').primaryKey(),
@@ -89,7 +135,29 @@ export const evidence = sqliteTable('evidence', {
   }).notNull().default('pending'),
   
   metadata: text('metadata'), // JSON string for parser/ocr/vision model versions
-  
+
+  /*
+   * M011 — evidence polarity.
+   *
+   * Real columns rather than fields inside `metadata`, unlike R-018's
+   * `untrustedInstructionFlagged` flag. That flag failing to parse costs a
+   * warning banner — bad, but visible. Polarity failing to parse costs "no
+   * contradiction found", which is the exact defect M011 exists to fix and
+   * which fails silently in the direction of reassurance. The verdict and
+   * coverage ledger also need `WHERE polarity = 'contradicts'`, which a JSON
+   * blob cannot serve.
+   *
+   * Defaults are semantically correct rather than placeholder: an evidence row
+   * with no contract to judge against genuinely is inconclusive for the reason
+   * `no_contract`, so every pre-M011 row is already accurate with no backfill.
+   */
+  polarity: text('polarity', {
+    enum: ['supports', 'contradicts', 'inconclusive'],
+  }).notNull().default('inconclusive'),
+  // Always `observed - threshold`; null whenever no comparison was made.
+  deltaVsThreshold: real('delta_vs_threshold'),
+  polarityMethod: text('polarity_method').notNull().default('no_contract'),
+
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

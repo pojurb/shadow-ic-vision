@@ -1,4 +1,4 @@
-# Milestone Roadmap: M005 → M006 → M007 → M008 → M009 → M010
+# Milestone Roadmap: M005 → M006 → M007 → M008 → M009 → M010 → M011
 
 This note sequences the deferred areas named in `ACTIVE_MILESTONE.md`'s
 "Remaining Boundaries" after Milestone 4. Per R-005 ("V1 becomes one
@@ -213,3 +213,29 @@ fired, so M009's mitigation is recorded as necessary but insufficient rather
 than quietly amended, and semantic relevance remains unsolved. M009 §8's
 pre-authorized readability-library question was raised at review as instructed
 and declined by user decision.
+
+## M011: Evidence Polarity, Measurement Contracts, and Coverage
+
+Status: `complete` (2026-08-03) — packet at [`M011-evidence-polarity-and-measurement-contracts.md`](M011-evidence-polarity-and-measurement-contracts.md).
+A new decision record **is** required here, unlike M009 and M010:
+[`DEC-0016`](../decisions/DEC-0016-evidence-polarity-classifier-boundary.md)
+governs the optional `PolarityClassifier` seam, which is a new provider call
+over document-derived text. Everything else hardens behaviour inside scope
+[`DEC-0015`](../decisions/DEC-0015-secondary-source-ingestion-boundaries.md)
+and [`DEC-0009`](../decisions/DEC-0009-provider-security-gate.md) already govern.
+
+Opened by an external finding rather than a fired review trigger: a multi-model
+QA audit of a Tesla thesis found that the system retrieved an automotive gross
+margin of 16.9% against a thesis requiring above 20% — a breach at its own
+baseline — and presented it as the fourth of five neutral bullets. Two related
+defects came with it: a deferred-revenue *balance* offered as support for a
+claim about recognized revenue *flow*, and four of ten assumptions with zero
+evidence and no report of the gap.
+
+The sequencing lesson is the reusable part. M009 fixed evidence **vocabulary**
+(which words appear), M010 fixed evidence **shape** (what a passage looks
+like), and both left a system that could retrieve without being able to judge.
+M011 adds **meaning**: what the number is, and which way it points. R-027 moves
+to `Mitigated`; **R-025 stays `Open`**, deliberately — polarity is only ever
+non-`inconclusive` for structured-fact evidence, so semantic relevance of
+text-derived secondary evidence remains exactly where M010 left it.

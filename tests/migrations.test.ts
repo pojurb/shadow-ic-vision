@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { assumptions, decisions, discoveryCandidates, theses } from '@/db/schema';
+import { assumptionMeasurements, assumptions, decisions, discoveryCandidates, theses } from '@/db/schema';
 
 type ColumnInfo = { name: string; notnull: number; pk: number };
 type IndexInfo = { name: string };
@@ -111,6 +111,97 @@ describe('migration round trip (ADR-0006)', () => {
       candidateUrl: 'https://example.invalid/pltr-news',
       searchQuery: 'duplicate url, different id',
     }).run()).toThrow();
+  });
+
+  // M011 Slice 1. `assumption_measurements` is 1:1 with `assumptions` by way of
+  // `assumption_id` being the primary key — the cardinality is a schema fact,
+  // not a convention, and this pins it.
+  it('applies migration 0008 and round-trips assumption_measurements', () => {
+    handle = createDatabase(path.join(directory, 'test-0008.sqlite'));
+
+    const columns = handle.sqlite.prepare("PRAGMA table_info('assumption_measurements')").all() as ColumnInfo[];
+    const byName = new Map(columns.map((column) => [column.name, column]));
+    expect(byName.get('assumption_id')?.pk).toBe(1);
+    expect(byName.get('resolution')?.notnull).toBe(1);
+    // `threshold` is the first nullable numeric column in this schema: a
+    // directional or qualitative contract genuinely has no threshold, and
+    // 0 is a legal threshold, so null is the only honest absent value.
+    expect(byName.get('threshold')?.notnull).toBe(0);
+    expect(byName.get('clarifying_question')?.notnull).toBe(0);
+
+    handle.db.insert(theses).values({ id: 'thesis-m011', title: 'M011 schema smoke test', description: 'd' }).run();
+    handle.db.insert(assumptions).values({
+      id: 'assumption-m011',
+      thesisId: 'thesis-m011',
+      statement: 'Automotive gross margin remains above 20%.',
+    }).run();
+
+    // Defaults alone must produce the legacy sentinel, because that is exactly
+    // what the 0008 backfill inserts for every pre-M011 row.
+    handle.db.insert(assumptionMeasurements).values({ assumptionId: 'assumption-m011' }).run();
+    const [defaulted] = handle.db.select().from(assumptionMeasurements).all();
+    expect(defaulted).toMatchObject({
+      resolution: 'legacy_unspecified',
+      operator: 'none',
+      threshold: null,
+      unit: 'unspecified',
+      timeBasis: 'unspecified',
+      sourceTags: '[]',
+      ambiguityReason: 'none',
+    });
+
+    handle.db.update(assumptionMeasurements).set({
+      resolution: 'resolved',
+      metric: 'automotive gross margin',
+      operator: 'gte',
+      threshold: 20,
+      unit: 'percent',
+      timeBasis: 'duration_quarter',
+      sourceTags: JSON.stringify(['GrossProfit']),
+    }).where(eq(assumptionMeasurements.assumptionId, 'assumption-m011')).run();
+    const [resolved] = handle.db.select().from(assumptionMeasurements).all();
+    expect(resolved).toMatchObject({ resolution: 'resolved', threshold: 20, timeBasis: 'duration_quarter' });
+
+    // A second row for the same assumption is impossible — the 1:1 constraint.
+    expect(() => handle!.db.insert(assumptionMeasurements).values({ assumptionId: 'assumption-m011' }).run()).toThrow();
+
+    // Cascade: deleting the assumption takes its contract with it, so a
+    // contract can never outlive the claim it measures.
+    handle.sqlite.pragma('foreign_keys = ON');
+    handle.db.delete(assumptions).where(eq(assumptions.id, 'assumption-m011')).run();
+    expect(handle.db.select().from(assumptionMeasurements).all()).toHaveLength(0);
+  });
+
+  // M011 Slice 1. The backfill is the reason a pre-M011 thesis reports
+  // "cannot be checked" rather than reading as an extraction failure.
+  it('backfills every pre-existing assumption with a legacy_unspecified contract', () => {
+    const dbPath = path.join(directory, 'legacy-measurements.sqlite');
+    const sqlite = new Database(dbPath);
+    sqlite.pragma('foreign_keys = OFF');
+    sqlite.exec(`
+      CREATE TABLE assumptions (id TEXT PRIMARY KEY);
+      INSERT INTO assumptions (id) VALUES ('a1'), ('a2'), ('a3');
+    `);
+
+    const migrationSql = fs.readFileSync(
+      path.join(process.cwd(), 'db', 'migrations', '0008_add_assumption_measurements.sql'),
+      'utf-8',
+    );
+    const statements = migrationSql.split('--> statement-breakpoint').map((s) => s.trim()).filter(Boolean);
+    for (const statement of statements) sqlite.exec(statement);
+
+    const rows = sqlite
+      .prepare('SELECT assumption_id, resolution FROM assumption_measurements ORDER BY assumption_id')
+      .all() as Array<{ assumption_id: string; resolution: string }>;
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => row.resolution === 'legacy_unspecified')).toBe(true);
+
+    // Idempotent: re-running the backfill statement is a no-op, so a partially
+    // applied migration can be safely retried.
+    sqlite.exec(statements[statements.length - 1]);
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM assumption_measurements').get()).toMatchObject({ n: 3 });
+
+    sqlite.close();
   });
 
   it('backfills legacy packed decision rows and normalizes timestamps', () => {

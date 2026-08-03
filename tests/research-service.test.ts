@@ -4,19 +4,61 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { assumptions, conversations, discoveryCandidates, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
-import { thesisDraftSchema } from '@/lib/domain/contracts';
+import { assumptionMeasurements, assumptions, conversations, discoveryCandidates, evidence, ingestionLeases, ingestionRuns, messages, researchJobSources, researchJobs, sourceCursors, sourceSnapshots, theses } from '@/db/schema';
+import { thesisDraftSchema, type MeasurementContract } from '@/lib/domain/contracts';
 import { acceptSecondaryEvidence, confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
 import { OfficialHttpClient } from '@/lib/research/http';
+
+// M011. A resolved contract, deliberately: without one `confirmDraft` refuses
+// the draft (that refusal has its own test below), so every existing case in
+// this file would otherwise fail on a blocked confirmation rather than on
+// whatever it actually asserts.
+const RESOLVED_MEASUREMENT = {
+  resolution: 'resolved' as const,
+  metric: 'gross margin',
+  definitionVariant: 'total company GAAP gross margin',
+  operator: 'gte' as const,
+  threshold: 80,
+  unit: 'percent' as const,
+  timeBasis: 'duration_quarter' as const,
+  // Empty by default so `runXbrlFactCall` returns immediately: every case in
+  // this file except the XBRL section below is about something else (evidence
+  // class, dedup, the confirmation gate), and a second evidence row appearing
+  // in all of them would make each test assert two things at once. The XBRL
+  // cases opt in with `XBRL_MEASUREMENT`.
+  sourceTags: [] as string[],
+  clarifyingQuestion: null,
+  ambiguityReason: 'none' as const,
+};
+
+// M011 Slice 4. `GrossMarginRatio` is the tag the deterministic fixture in
+// `adapters/mock-sec-xbrl.ts` reports as a `pure` decimal (0.813), which the
+// contract-unit conversion turns into 81.3 percent.
+const XBRL_MEASUREMENT = { ...RESOLVED_MEASUREMENT, sourceTags: ['GrossMarginRatio'] };
 
 const draft = thesisDraftSchema.parse({
   ticker: 'PLTR',
   companyName: 'Palantir Technologies Inc.',
   market: 'US',
   coreBelief: 'I believe PLTR gross margin will remain above 80%.',
-  assumptions: [{ statement: 'PLTR gross margin remains above 80%.', status: 'untested' }],
+  assumptions: [{ statement: 'PLTR gross margin remains above 80%.', status: 'untested', measurement: RESOLVED_MEASUREMENT }],
   requiresChallenge: false,
+});
+
+/**
+ * M011. Attaches a resolved contract to statements written for a test that is
+ * about something else entirely (evidence class, dedup, the confirmation gate).
+ * Explicit rather than a default, so it stays obvious that confirmation is
+ * gated on a contract — the blocked path has its own dedicated tests.
+ */
+const withMeasurement = (...statements: string[]) => ({
+  ...draft,
+  assumptions: statements.map((statement) => ({
+    statement,
+    status: 'untested' as const,
+    measurement: RESOLVED_MEASUREMENT,
+  })),
 });
 
 describe('local vertical slice persistence', () => {
@@ -101,6 +143,232 @@ describe('local vertical slice persistence', () => {
     expect(handle.db.select().from(assumptions).all()).toHaveLength(0);
   });
 
+  // M011 Slice 2. The server half of the hard block. The UI disables the
+  // button, but a client that POSTs anyway must still be refused — and nothing
+  // may be written, since a half-created thesis with no contract is exactly the
+  // state the ledger cannot describe honestly.
+  it('refuses a draft whose measurement contract is unresolved, and writes nothing', () => {
+    const blockedDraft = thesisDraftSchema.parse({
+      ...draft,
+      assumptions: [{
+        statement: 'PLTR gross margin remains strong.',
+        status: 'untested',
+        measurement: {
+          resolution: 'ambiguous',
+          metric: 'gross margin',
+          definitionVariant: '',
+          operator: 'none',
+          threshold: null,
+          unit: 'unspecified',
+          timeBasis: 'unspecified',
+          sourceTags: [],
+          clarifyingQuestion: 'Total-company gross margin, or segment gross margin excluding one-time items?',
+          ambiguityReason: 'definition_variant_ambiguous',
+        },
+      }],
+    });
+    handle.db.update(messages).set({ structuredPayload: JSON.stringify(blockedDraft) }).where(eq(messages.id, messageId)).run();
+
+    // The thrown message carries the question, so a client that bypassed the
+    // disabled button still learns what to answer.
+    expect(() => confirmDraft(conversationId, messageId, { db: handle.db }))
+      .toThrow(/Total-company gross margin, or segment gross margin/);
+
+    expect(handle.db.select().from(theses).all()).toHaveLength(0);
+    expect(handle.db.select().from(assumptions).all()).toHaveLength(0);
+    expect(handle.db.select().from(researchJobs).all()).toHaveLength(0);
+    expect(handle.db.select().from(assumptionMeasurements).all()).toHaveLength(0);
+  });
+
+  // A draft persisted before M011 has no measurement block at all. It must
+  // block too — omission cannot read as "measured".
+  it('refuses a legacy draft that carries no measurement block', () => {
+    handle.db.update(messages).set({
+      structuredPayload: JSON.stringify({
+        ticker: 'PLTR',
+        companyName: 'Palantir Technologies Inc.',
+        market: 'US',
+        coreBelief: 'I believe PLTR gross margin will remain above 80%.',
+        assumptions: [{ statement: 'PLTR gross margin remains above 80%.', status: 'untested' }],
+      }),
+    }).where(eq(messages.id, messageId)).run();
+
+    expect(() => confirmDraft(conversationId, messageId, { db: handle.db })).toThrow(/needs one clarification/);
+    expect(handle.db.select().from(theses).all()).toHaveLength(0);
+  });
+
+  // M011 Slice 3. The mock PLTR fixture's evidence quote is "gross margin of
+  // 81.3%", but it arrives through the *text* path and therefore carries no
+  // structured `observedValue`. It must persist as inconclusive rather than
+  // being scraped for a number — this is the anti-regex-scrape guard proven
+  // end to end, not just as a unit test of the pure function.
+  it('persists text-derived evidence as inconclusive, never scraping the quote for a number', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    expect(panel.items[0].evidence[0]).toMatchObject({
+      exactQuote: 'gross margin of 81.3%',
+      polarity: 'inconclusive',
+      deltaVsThreshold: null,
+      polarityMethod: 'no_observed_value',
+    });
+  });
+
+  // M011 Slice 1. An assumption must never exist without a contract, because
+  // the coverage ledger counts contracts and a missing one is indistinguishable
+  // from an unmeasurable claim.
+  it('writes one measurement contract per assumption in the same transaction', () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumptionRows = handle.db.select().from(assumptions).all();
+    const measurementRows = handle.db.select().from(assumptionMeasurements).all();
+    expect(measurementRows).toHaveLength(assumptionRows.length);
+    expect(measurementRows[0]).toMatchObject({
+      assumptionId: assumptionRows[0].id,
+      resolution: 'resolved',
+      metric: 'gross margin',
+      operator: 'gte',
+      threshold: 80,
+      unit: 'percent',
+      timeBasis: 'duration_quarter',
+      sourceTags: '[]',
+    });
+  });
+
+  // M011 Slice 4. Structured XBRL retrieval is the only path that produces
+  // evidence carrying a machine-comparable value, and therefore the only path
+  // whose evidence can be anything other than inconclusive.
+  describe('SEC XBRL fact retrieval', () => {
+    const xbrlDraft = (measurement: MeasurementContract, statement = 'PLTR gross margin remains above 80%.') => ({
+      ...draft,
+      assumptions: [{ statement, status: 'untested' as const, measurement }],
+    });
+
+    const runWith = async (measurement: MeasurementContract) => {
+      handle.db.update(messages).set({ structuredPayload: JSON.stringify(xbrlDraft(measurement)) }).where(eq(messages.id, messageId)).run();
+      confirmDraft(conversationId, messageId, { db: handle.db });
+      return processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    };
+
+    it('retrieves a structured fact and persists a real polarity with a signed delta', async () => {
+      const panel = await runWith(XBRL_MEASUREMENT);
+      const fact = panel.items[0].evidence.find((row) => row.extractionMethod === 'xbrl_parser');
+      expect(fact).toBeDefined();
+      // 0.813 pure -> 81.3 percent, against a `gte 80` claim.
+      expect(fact).toMatchObject({
+        verificationStatus: 'derived',
+        contentKind: 'structured_fact',
+        sourceFormat: 'xbrl',
+        polarity: 'supports',
+        polarityMethod: 'numeric_threshold',
+      });
+      expect(fact!.deltaVsThreshold).toBeCloseTo(1.3, 6);
+    });
+
+    it('reports a breach when the same fact falls below the claimed threshold', async () => {
+      const panel = await runWith({ ...XBRL_MEASUREMENT, threshold: 90 });
+      const fact = panel.items[0].evidence.find((row) => row.extractionMethod === 'xbrl_parser');
+      expect(fact).toMatchObject({ polarity: 'contradicts', polarityMethod: 'numeric_threshold' });
+      expect(fact!.deltaVsThreshold).toBeCloseTo(-8.7, 6);
+    });
+
+    /**
+     * The deferred-revenue defect, end to end. `DeferredRevenueCurrent` in the
+     * fixture carries only instants — balances. A duration claim pointed at it
+     * must produce no evidence at all, rather than a plausible number that
+     * measures a different kind of thing.
+     */
+    it('refuses a balance-sheet instant offered against a duration claim', async () => {
+      const panel = await runWith({ ...XBRL_MEASUREMENT, sourceTags: ['DeferredRevenueCurrent'], unit: 'usd', threshold: 1_000_000 });
+      expect(panel.items[0].evidence.filter((row) => row.extractionMethod === 'xbrl_parser')).toHaveLength(0);
+      // And the refusal is silent to the job: this is a coverage gap, not a failure.
+      expect(panel.items[0].job.status).toBe('succeeded');
+      expect(panel.items[0].job.error).toBeNull();
+    });
+
+    it('accepts that same instant fact when the claim is genuinely a balance', async () => {
+      const panel = await runWith({
+        ...XBRL_MEASUREMENT,
+        sourceTags: ['DeferredRevenueCurrent'],
+        unit: 'usd',
+        timeBasis: 'instant',
+        operator: 'gte',
+        threshold: 1_000_000_000,
+      });
+      const fact = panel.items[0].evidence.find((row) => row.extractionMethod === 'xbrl_parser');
+      expect(fact).toMatchObject({ polarity: 'supports', polarityMethod: 'numeric_threshold' });
+    });
+
+    it('stays inconclusive when the reported unit cannot be converted to the claim unit', async () => {
+      // GrossProfit is reported in USD; the claim is in percent. Retrieval
+      // still happens and the fact is retained with full provenance, but it
+      // asserts no comparable magnitude.
+      const panel = await runWith({ ...XBRL_MEASUREMENT, sourceTags: ['GrossProfit'] });
+      const fact = panel.items[0].evidence.find((row) => row.extractionMethod === 'xbrl_parser');
+      expect(fact).toMatchObject({ polarity: 'inconclusive', polarityMethod: 'no_observed_value' });
+      expect(fact!.impactSummary).toContain('not commensurable');
+    });
+
+    it('makes no XBRL call at all for a market with no structured fact source', async () => {
+      // The ID market has no company-concept equivalent. The correct outcome is
+      // a named coverage gap, not an error — `research_jobs.status` is untouched.
+      const idDraft = {
+        ...draft,
+        ticker: 'BBRI',
+        companyName: 'PT Bank Rakyat Indonesia (Persero) Tbk',
+        market: 'ID' as const,
+        assumptions: [{ statement: 'BBRI net interest margin (NIM) remains above 6.0%.', status: 'untested' as const, measurement: XBRL_MEASUREMENT }],
+      };
+      handle.db.update(messages).set({ structuredPayload: JSON.stringify(idDraft) }).where(eq(messages.id, messageId)).run();
+      confirmDraft(conversationId, messageId, { db: handle.db });
+      const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+      expect(panel.items[0].evidence.filter((row) => row.extractionMethod === 'xbrl_parser')).toHaveLength(0);
+      expect(panel.items[0].job.status).toBe('succeeded');
+    });
+
+    it('makes no XBRL call when the contract names no source tags', async () => {
+      const panel = await runWith({ ...XBRL_MEASUREMENT, sourceTags: [] });
+      expect(panel.items[0].evidence.filter((row) => row.extractionMethod === 'xbrl_parser')).toHaveLength(0);
+    });
+
+    /**
+     * M011 Slice 5, end to end. This is the whole milestone in one assertion:
+     * a real filing fact is retrieved, compared against the claim it was
+     * retrieved for, found to breach it, and reported as a breach on the panel
+     * — rather than retrieved, presented neutrally, and left for the reader to
+     * notice.
+     */
+    it('surfaces a breach on the panel verdict, not merely on the evidence row', async () => {
+      const panel = await runWith({ ...XBRL_MEASUREMENT, threshold: 90 });
+      expect(panel.verdict?.level).toBe('breached');
+      expect(panel.verdict?.headline).toContain('THESIS BREACHED');
+      expect(panel.verdict?.headline).toContain('81.3%');
+      expect(panel.verdict?.headline).toContain('at least 90%');
+      expect(panel.verdict?.contradictions[0]).toMatchObject({ observedValue: 81.3, threshold: 90 });
+      expect(panel.coverage).toMatchObject({ totalAssumptions: 1, evidenced: 1, contradicted: 1, confidenceGate: 'open' });
+    });
+
+    it('reports the thesis as holding when the same fact clears the claim', async () => {
+      const panel = await runWith(XBRL_MEASUREMENT);
+      expect(panel.verdict?.level).toBe('holding');
+      expect(panel.coverage).toMatchObject({ contradicted: 0, confidenceGate: 'open' });
+    });
+  });
+
+  // M011 Slice 5. The 0008 backfill gives every pre-M011 assumption a
+  // `legacy_unspecified` contract, so an existing thesis reports honestly that
+  // it cannot be checked rather than implying it has been.
+  it('reports a thesis with no measurement contract as insufficient evidence', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+    // Simulate the pre-M011 state the backfill produces.
+    handle.db.update(assumptionMeasurements).set({ resolution: 'legacy_unspecified' }).run();
+
+    const panel = await getResearchPanel(conversationId, { db: handle.db });
+    expect(panel.coverage).toMatchObject({ unresolvedContracts: 1, confidenceGate: 'suppressed' });
+    expect(panel.coverage?.suppressionReasons).toContain('unresolved_contracts');
+    expect(panel.verdict?.level).toBe('insufficient_evidence');
+    expect(panel.verdict?.headline).toContain('cannot be measured as stated');
+  });
+
   it('moves a job to succeeded and stores only exact evidence', async () => {
     confirmDraft(conversationId, messageId, { db: handle.db });
     const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
@@ -116,7 +384,7 @@ describe('local vertical slice persistence', () => {
   });
 
   it('persists OCR-matched evidence without promoting it to exact evidence', async () => {
-    const ocrDraft = { ...draft, assumptions: [{ statement: 'BBRI simulate ocr evidence.', status: 'untested' as const }] };
+    const ocrDraft = withMeasurement('BBRI simulate ocr evidence.');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(ocrDraft) }).where(eq(messages.id, messageId)).run();
     confirmDraft(conversationId, messageId, { db: handle.db });
     const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
@@ -134,7 +402,7 @@ describe('local vertical slice persistence', () => {
   });
 
   it('persists derived evidence with method metadata and bounding box', async () => {
-    const derivedDraft = { ...draft, assumptions: [{ statement: 'BBRI simulate derived evidence.', status: 'untested' as const }] };
+    const derivedDraft = withMeasurement('BBRI simulate derived evidence.');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(derivedDraft) }).where(eq(messages.id, messageId)).run();
     confirmDraft(conversationId, messageId, { db: handle.db });
     const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
@@ -153,7 +421,7 @@ describe('local vertical slice persistence', () => {
   });
 
   it('degrades a citation mismatch, stores no evidence, and permits retry', async () => {
-    const mismatch = { ...draft, assumptions: [{ statement: 'PLTR gross margin remains above 90% (simulate citation mismatch).', status: 'untested' as const }] };
+    const mismatch = withMeasurement('PLTR gross margin remains above 90% (simulate citation mismatch).');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(mismatch) }).where(eq(messages.id, messageId)).run();
     const confirmed = confirmDraft(conversationId, messageId, { db: handle.db });
     const panel = await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
@@ -174,13 +442,7 @@ describe('local vertical slice persistence', () => {
   });
 
   it('deduplicates immutable snapshots across jobs', async () => {
-    const twoAssumptions = {
-      ...draft,
-      assumptions: [
-        { statement: 'PLTR gross margin remains above 80%.', status: 'untested' as const },
-        { statement: 'PLTR commercial scale supports gross margin.', status: 'untested' as const },
-      ],
-    };
+    const twoAssumptions = withMeasurement('PLTR gross margin remains above 80%.', 'PLTR commercial scale supports gross margin.');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(twoAssumptions) }).where(eq(messages.id, messageId)).run();
     confirmDraft(conversationId, messageId, { db: handle.db });
     await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
@@ -276,7 +538,7 @@ describe('local vertical slice persistence', () => {
   // this assumption ends up with zero official evidence — exactly the
   // "secondary-only" scenario the confirmation gate exists for.
   it('moves an assumption to pending_confirmation when only secondary evidence is found', async () => {
-    const mismatchDraft = { ...draft, assumptions: [{ statement: 'simulate citation mismatch for gross margin.', status: 'untested' as const }] };
+    const mismatchDraft = withMeasurement('simulate citation mismatch for gross margin.');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(mismatchDraft) }).where(eq(messages.id, messageId)).run();
     confirmDraft(conversationId, messageId, { db: handle.db });
 

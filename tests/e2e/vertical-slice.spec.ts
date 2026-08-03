@@ -31,6 +31,10 @@ async function createNewConversation(page: Page) {
   const data = await response.json() as { id?: string };
   expect(data.id).toMatch(/^[0-9a-f-]+$/);
   await expect(page).toHaveURL(new RegExp(`/c/${data.id}$`), { timeout: 15_000 });
+  // Returned so a caller can scope sidebar assertions to the conversation it
+  // just created. The whole suite shares one SQLite file, so several tests
+  // leave behind conversations still titled "New Thesis" — matching that text
+  // globally is a strict-mode violation waiting to happen.
   return data.id as string;
 }
 
@@ -52,12 +56,32 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
   const researchPanel = page.getByRole('complementary', { name: 'Research panel' });
   await expect(researchPanel.getByText('succeeded', { exact: true })).toBeVisible();
   await expect(researchPanel.getByText('Exact source match', { exact: true })).toBeVisible();
-  await expect(researchPanel.getByText('pending', { exact: true })).toBeVisible();
+  // M011: this assumption now carries two evidence rows — the exact-match text
+  // passage and a structured XBRL fact — so both of these locators resolve to
+  // more than one element and must be scoped with `.first()` rather than
+  // relying on there being exactly one.
+  await expect(researchPanel.getByText('pending', { exact: true }).first()).toBeVisible();
   // M007: assumption status now renders via assumptionStatusBadge (a proper
   // badge, e.g. "Untested"), not the raw enum value ("untested").
   await expect(researchPanel.getByText('Assumption: Untested', { exact: true })).toBeVisible();
-  await expect(researchPanel.locator('blockquote')).toContainText('gross margin of 81.3%');
+  // Located by content rather than by position: this assumption now carries
+  // both an exact-match text passage and a structured XBRL fact, and which of
+  // the two is rendered first is not a property worth pinning.
+  await expect(researchPanel.locator('blockquote').filter({ hasText: 'gross margin of 81.3%' })).toBeVisible();
+  await expect(researchPanel.locator('blockquote').filter({ hasText: 'us-gaap:GrossMarginRatio' })).toBeVisible();
   await expect(researchPanel.getByRole('link', { name: 'SEC Form 10-Q Q1 2026 (PLTR)' })).toBeVisible();
+
+  // M011. The deterministic verdict and coverage ledger. These are the only
+  // surfaces that report *direction* rather than retrieval, and they are
+  // rendered outside `.panelContent`, so this also confirms the structural
+  // placement holds in a real browser.
+  await expect(researchPanel.getByTestId('thesis-verdict')).toBeVisible();
+  await expect(researchPanel.getByTestId('thesis-verdict')).toContainText('THESIS HOLDING');
+  await expect(researchPanel.getByTestId('coverage-ledger')).toContainText('1 of 1 assumptions');
+  // The XBRL fact cleared the claim's threshold, so it is badged as supporting
+  // with the signed gap. Only structured-fact evidence gets a polarity badge at
+  // all — the text passage stays honestly unbadged.
+  await expect(researchPanel.getByTestId('polarity-badge')).toHaveText('Supports (+1.3 vs threshold)');
 
   const sidebarBox = await page.locator('body > aside').boundingBox();
   const inputBox = await page.getByPlaceholder('State your thesis or assumption...').boundingBox();
@@ -324,11 +348,12 @@ test('renders chat message text with preserved whitespace, not collapsed onto on
 test('sidebar title updates from "New Thesis" after first message, without reload', async ({ page }) => {
   await gotoHome(page);
   const conversationId = await createNewConversation(page);
-  // Scoped by href, not by visible text: earlier tests in this file also
-  // create conversations that never receive a message, so they keep the
-  // literal "New Thesis" title and would otherwise collide in strict mode.
+  // Scoped to this conversation's own sidebar link. Earlier tests in this file
+  // leave behind conversations still titled "New Thesis" in the shared e2e
+  // database, so an unscoped match resolves to several elements and fails on
+  // strict mode rather than on the behaviour under test. (Latent before M011;
+  // fixed independently here and by a collaborator's ce8d7bc — same root cause.)
   const sidebarLink = page.locator(`a[href="/c/${conversationId}"]`);
-
   await expect(sidebarLink).toHaveText('New Thesis');
 
   await page.getByPlaceholder('State your thesis or assumption...').fill(
@@ -339,4 +364,26 @@ test('sidebar title updates from "New Thesis" after first message, without reloa
 
   // Must patch in place via the CustomEvent — no page.reload() here.
   await expect(sidebarLink).toHaveText(/I believe PLTR gross margin/);
+});
+
+// M011. The clarification hard block is the only gate in this app that stops a
+// user before research starts, and it is the half that cannot be verified
+// anywhere but here: `draftClarificationBlock` is unit-tested, but that the
+// button is genuinely un-clickable is a rendered-DOM fact. The button stays
+// present-but-disabled rather than hidden, so this locator resolves either way
+// and a regression is an assertion failure rather than a timeout.
+test('blocks confirmation and shows the clarifying question when a measurement is ambiguous', async ({ page }) => {
+  await gotoHome(page);
+  await createNewConversation(page);
+
+  await page.getByPlaceholder('State your thesis or assumption...').fill(
+    'I believe PLTR gross margin will stay strong (simulate ambiguous measurement).',
+  );
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('Confirmation required')).toBeVisible();
+
+  const clarification = page.getByTestId('draft-clarification');
+  await expect(clarification).toBeVisible();
+  await expect(clarification).toContainText('Do you mean total-company gross margin, or segment gross margin excluding one-time items?');
+  await expect(page.getByRole('button', { name: 'Confirm & Research' })).toBeDisabled();
 });

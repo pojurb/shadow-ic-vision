@@ -21,12 +21,10 @@ export class SecAdapter implements SourceAdapter {
     }
 
     try {
-      const tickerResult = await this.http.get('https://www.sec.gov/files/company_tickers_exchange.json', 'application/json');
-      const tickerPayload = JSON.parse(new TextDecoder().decode(tickerResult.bytes)) as TickerPayload;
-      const row = tickerPayload.data?.find((candidate) => String(candidate[2]).toUpperCase() === query.ticker.toUpperCase());
-      if (!row) return { kind: 'not_found', code: 'source_not_found', message: `SEC ticker mapping did not contain ${query.ticker}.` };
+      const resolved = await resolveSecCik(this.http, query.ticker);
+      if (!resolved) return { kind: 'not_found', code: 'source_not_found', message: `SEC ticker mapping did not contain ${query.ticker}.` };
+      const { cik, companyName } = resolved;
 
-      const cik = String(row[0]).padStart(10, '0');
       const submissionsResult = await this.http.get(`https://data.sec.gov/submissions/CIK${cik}.json`, 'application/json');
       const payload = JSON.parse(new TextDecoder().decode(submissionsResult.bytes)) as SubmissionPayload;
       const filing = selectLatestFiling(payload.filings?.recent ?? {}, query.documentTypes);
@@ -39,7 +37,7 @@ export class SecAdapter implements SourceAdapter {
         market: 'US',
         ticker: query.ticker.toUpperCase(),
         sourceUrl,
-        sourceName: `${payload.name ?? row[1]} SEC ${filing.form} filed ${filing.filingDate}`,
+        sourceName: `${payload.name ?? companyName} SEC ${filing.form} filed ${filing.filingDate}`,
         sourceTier: 'official',
         publishDate: filing.filingDate,
         sourceFormat: filing.primaryDocument.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html',
@@ -65,6 +63,27 @@ export class SecAdapter implements SourceAdapter {
       return unavailableOutcome(error, 'SEC document fetch failed.');
     }
   }
+}
+
+/**
+ * Ticker -> CIK, lifted out of `SecAdapter.discover` in M011 so the XBRL
+ * company-concept source (`sec-xbrl.ts`) can reuse it rather than carry a
+ * second copy of the same lookup — two implementations of "which company is
+ * this" would be two places to drift.
+ *
+ * Callers are expected to share one `OfficialHttpClient` instance, which caches
+ * responses by URL for five minutes: the ticker map is a large file, and the
+ * second caller in a job then pays nothing for it.
+ */
+export async function resolveSecCik(
+  http: OfficialHttpClient,
+  ticker: string,
+): Promise<{ cik: string; companyName: string } | null> {
+  const tickerResult = await http.get('https://www.sec.gov/files/company_tickers_exchange.json', 'application/json');
+  const payload = JSON.parse(new TextDecoder().decode(tickerResult.bytes)) as TickerPayload;
+  const row = payload.data?.find((candidate) => String(candidate[2]).toUpperCase() === ticker.toUpperCase());
+  if (!row) return null;
+  return { cik: String(row[0]).padStart(10, '0'), companyName: String(row[1]) };
 }
 
 export function selectLatestFiling(recent: Record<string, unknown[]>, requestedForms: string[]) {

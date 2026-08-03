@@ -9,6 +9,7 @@ import { getIssuerPressReleaseUrls, getNewsWireFeedUrls } from './config';
 import { extractSecondaryCandidates } from './extractors/candidate';
 import { extractDocument } from './extractors/document';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
+import { loadMeasurementContract } from './measurement';
 import type { OfficialHttpClient } from './http';
 import { persistSourceSnapshot } from './snapshot-store';
 import { createHash, verifyExactMatch } from './verifier';
@@ -155,6 +156,7 @@ export async function promoteCandidate(params: {
     const insertedStatuses: VerifiedEvidence['verificationStatus'][] = [];
 
     db.transaction((tx) => {
+      const contract = loadMeasurementContract(tx, assumptionId);
       for (const candidate of candidates) {
         try {
           verifyExactMatch(candidate.quote, extracted.canonicalText);
@@ -186,7 +188,7 @@ export async function promoteCandidate(params: {
           pageNumber: candidate.pageNumber,
           boundingBox: candidate.boundingBox ?? null,
           metadata: { ...(candidate.metadata ?? {}), untrustedInstructionFlagged: extracted.untrustedInstructionFlagged },
-        })).run();
+        }, contract)).run();
         insertedStatuses.push(verificationStatus);
       }
       if (insertedStatuses.length > 0) {

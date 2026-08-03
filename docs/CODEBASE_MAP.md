@@ -32,6 +32,10 @@ Conversation 0..1 -> Thesis
 Thesis 1 -> many Assumptions
 Thesis 1 -> many Decisions
 Assumption 1 -> 1 ResearchJob
+Assumption 1 -> 1 AssumptionMeasurement
+  (M011: 1:1 by `assumption_id` being the primary key. Row presence *is* the
+  state machine — no row means never extracted, `resolution='ambiguous'` means
+  confirmation is blocked, `'legacy_unspecified'` means it predates M011)
 Assumption 1 -> many Evidence
 ResearchJob many <-> many SourceSnapshots via ResearchJobSources
   (M007: one job now typically accumulates up to three snapshots — official,
@@ -195,6 +199,33 @@ Windows Task Scheduler or protected local endpoint
   -> fetch only new document bytes
   -> snapshot/evidence deduplication
   -> IngestionRun result + next scheduled state
+```
+
+### Measurement contract, polarity, and the deterministic verdict (M011, 2026-08-03)
+
+```text
+Chat intake
+  -> STRUCTURED_SYSTEM_PROMPT asks for a `measurement` block per assumption
+  -> draftClarificationBlock (lib/domain/contracts.ts) — ONE pure predicate,
+     imported by BOTH components/ChatUI.tsx (disables the button) and
+     confirmDraft (refuses outright, before any insert)
+  -> confirmDraft writes assumption_measurements in the same transaction
+
+processResearchJobs (per claimed job, alongside the Class A/B/C calls)
+  -> runXbrlFactCall -> XbrlFactSource (US only; ID is `undefined`)
+     -> selectFact + factSatisfiesTimeBasis  <- the instant-vs-duration REFUSAL
+     -> createXbrlFactCandidate -> `derived` evidence carrying observedValue
+
+evidenceInsertValues (lib/research/evidence-persistence.ts)  <- THE choke point
+  -> classifyPolarity(contract, observed)   [pure, total, no throw path]
+  -> evidence.polarity / delta_vs_threshold / polarity_method
+
+getResearchPanel
+  -> deriveCoverageLedger + deriveThesisVerdict   [pure, server-side, one place]
+  -> ResearchPanelDTO.verdict / .coverage
+  -> rendered OUTSIDE .panelContent in ResearchPanel.tsx
+  -> the SAME objects prepended to generateDecisionRecommendation's prompt,
+     which additionally NARROWS its output schema under a breach/suppression
 ```
 
 ## Critical Invariants
@@ -365,6 +396,44 @@ Windows Task Scheduler or protected local endpoint
   and month-name date parsing keep listing pages out of discovery. R-026 →
   `Mitigated`; **R-025 deliberately returned to `Open`**, because its own
   trigger fired and semantic relevance remains unsolved.
+- **M011 (2026-08-03):** three mechanisms, and which layer each lives in is the
+  reusable part. **(1) Falsifiability at intake.** `assumption_measurements`
+  (migration `0008`) is 1:1 with `assumptions`; `draftClarificationBlock`
+  (`lib/domain/contracts.ts`) is a single pure predicate imported by both
+  `ChatUI` and `confirmDraft`, so a disabled button and a server refusal can
+  never disagree — and both ship, because a disabled button is not a control.
+  **(2) Direction, at the persistence choke point.** `classifyPolarity`
+  (`lib/research/polarity.ts`) is pure and *total* — every branch returns, so a
+  failure degrades to `inconclusive` and never to a missing row. It is called
+  from `evidenceInsertValues` (`lib/research/evidence-persistence.ts`), not from
+  the extractors (no access to a DB-derived contract) and **not** from
+  `CitationPipeline`, whose per-candidate `catch {}` would turn a polarity bug
+  into silent evidence deletion. It deliberately **refuses to parse a number out
+  of quote text**: only a value that arrived through a structured path carries
+  `metadata.observedValue`, so text-derived evidence is honestly `inconclusive`
+  rather than dishonestly supportive. **(3) A verdict the model does not write.**
+  `deriveThesisVerdict`/`deriveCoverageLedger` are pure functions over persisted
+  polarity, rendered by a JSX node lexically *outside* `.panelContent` — the
+  anti-burial property is a placement fact, not a convention. The same objects
+  reach `generateDecisionRecommendation`, which narrows its own output schema
+  (`z.literal`/`z.enum`) under a breach or suppressed coverage; `z.toJSONSchema`
+  propagates that into the model's grammar, so a breached thesis cannot return
+  `'No Change'`. The balance-versus-flow refusal lives in
+  `factSatisfiesTimeBasis` (`lib/research/adapters/sec-xbrl.ts`) — a
+  `DeferredRevenue*` fact carries `end` only, making it an instant, and no
+  duration claim may ever be answered by one. `SecCompanyConceptSource` is
+  deliberately **not** a `SourceAdapter` (a keyed fact series has no prose to
+  quote); it produces `derived` evidence and inherits that trust ceiling for
+  free. US market only — `createXbrlFactSources()` returns `ID: undefined`, and
+  the coverage ledger reports `no_source_for_market` as a named gap rather than
+  an error. The optional `PolarityClassifier`
+  (`lib/research/polarity-classifier.ts`) is **off by default, constructed by
+  nothing**, and gated on `getResearchSourceMode()` — the specific gate whose
+  absence caused the 2026-07-29 revert; governed by
+  [`DEC-0016`](decisions/DEC-0016-evidence-polarity-classifier-boundary.md).
+  `assumptions.status` gets **no** auto-transition: `deriveAssumptionStatus`'s
+  never-auto-mark invariant is preserved, so a breach does not reach the Top-10
+  Queue — an explicit deferral, not an oversight.
 
 ## Task Routing
 
@@ -379,6 +448,7 @@ Windows Task Scheduler or protected local endpoint
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
 | Secondary-source evidence (M007/M009/M010) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule, boilerplate-phrase denylist, and M010's block-segmentation + shape guards), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping and M010 block sentinel), `lib/research/assumption-status.ts` (both the insert-shaped and removal-shaped derivations), `lib/research/evidence-cleanup.ts`, `lib/research/adapters/issuer-press.ts` (M010 listing-page guard)/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), M010 shape fixtures (a punctuation-free run-on with no denylisted phrase is the case M009's fixtures could not catch), the `blocks.join(' ') === text` identity, confirmation-gate test, standard verify. **Before adding another denylist phrase, check whether the failure is one of shape rather than vocabulary — that mistake is what M010 exists to correct.** Class C is out of scope — do not add search-provider code without a new milestone packet. |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
+| Measurement contracts, polarity, verdict (M011) | `lib/domain/contracts.ts` (`measurementContractSchema`, `draftClarificationBlock`), `lib/research/polarity.ts`, `lib/research/evidence-persistence.ts` (the choke point), `lib/research/coverage.ts`, `lib/research/verdict.ts`, `lib/research/adapters/sec-xbrl.ts` (the instant-vs-duration gate), the M011 packet's "Options Considered" | `tests/measurement-contract.test.ts`, `tests/polarity.test.ts`, `tests/xbrl-facts.test.ts`, `tests/coverage-verdict.test.ts`, standard verify, `test:e2e` (the verdict's placement outside `.panelContent` is only observable in a browser). **Before adding a new polarity path, check whether it can assert a magnitude at all — if it cannot supply `observedValue`, the honest answer is `inconclusive`, not a guess.** Do not wire a `PolarityClassifier` by default without a new packet and a DEC-0016 amendment. |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |
 | Release/checkpoint | `.agents/RELEASE.md`, verification summary, active/checkpoint docs | `verify:full`, retained evidence review |
 

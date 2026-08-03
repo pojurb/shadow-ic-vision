@@ -1,3 +1,4 @@
+import type { MeasurementTimeBasis, MeasurementUnit } from '@/lib/domain/contracts';
 import type { ExtractedDocument, ExtractedPage } from './document';
 
 export type EvidenceVerificationStatus = 'exact_verified' | 'ocr_matched' | 'derived' | 'secondary_issuer' | 'secondary_news';
@@ -47,6 +48,21 @@ export type EvidenceCandidate = {
     units?: string;
     formula?: string;
     parserVersion?: string;
+    /*
+     * M011. The single scalar this candidate asserts, when it asserts one.
+     *
+     * Only structured-fact producers set these — XBRL retrieval and
+     * deterministic calculation. Absent means "no machine-comparable value",
+     * and `classifyPolarity` then answers `inconclusive` rather than falling
+     * back to scraping a number out of the quote text. Carried in metadata
+     * because `VerifiedEvidence.metadata` already flows to the database
+     * unchanged, so no pipeline change is needed to move it.
+     */
+    observedValue?: number;
+    observedUnit?: MeasurementUnit;
+    observedTimeBasis?: MeasurementTimeBasis;
+    /** Prior-period comparand, for directional (increases/decreases) claims. */
+    priorValue?: number;
   };
 } | {
   // M007. Publisher/wire-service identity is already carried by
@@ -336,6 +352,12 @@ export function createDerivedCandidate(input: {
   formula?: string;
   parserVersion?: string;
   boundingBox?: [number, number, number, number] | null;
+  // M011. Optional, so every existing caller is unaffected; a caller that can
+  // assert a machine-comparable magnitude opts in by supplying them.
+  observedValue?: number;
+  observedUnit?: MeasurementUnit;
+  observedTimeBasis?: MeasurementTimeBasis;
+  priorValue?: number;
 }): EvidenceCandidate {
   return {
     quote: input.content,
@@ -351,6 +373,10 @@ export function createDerivedCandidate(input: {
       units: input.units,
       formula: input.formula,
       parserVersion: input.parserVersion ?? 'synthetic-derived-1.0',
+      observedValue: input.observedValue,
+      observedUnit: input.observedUnit,
+      observedTimeBasis: input.observedTimeBasis,
+      priorValue: input.priorValue,
     },
   };
 }

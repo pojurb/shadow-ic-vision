@@ -24,7 +24,20 @@ const draft = thesisDraftSchema.parse({
   companyName: 'Telkom Indonesia',
   market: 'ID',
   coreBelief: 'I believe TLKM data center revenue grows materially through 2026.',
-  assumptions: [{ statement: 'Telkom data center revenue grows materially in 2026.', status: 'untested' }],
+  // M011. A directional contract: "grows materially" states a direction with
+  // no absolute threshold, so `threshold` is null and the operator is
+  // `increases` rather than a comparison.
+  assumptions: [{
+    statement: 'Telkom data center revenue grows materially in 2026.',
+    status: 'untested',
+    measurement: {
+      resolution: 'resolved', metric: 'data center revenue',
+      definitionVariant: 'data center segment revenue as reported',
+      operator: 'increases', threshold: null, unit: 'idr',
+      timeBasis: 'duration_annual', sourceTags: [],
+      clarifyingQuestion: null, ambiguityReason: 'none',
+    },
+  }],
   requiresChallenge: false,
 });
 

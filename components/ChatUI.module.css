@@ -239,6 +239,32 @@
   padding-left: 20px;
 }
 
+/* M011. The clarification the user must answer before research can start.
+   Amber rather than red — this is an unanswered question, not a failure. */
+.clarificationBlock {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #92400e;
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: #2a1f0d;
+  color: #fde68a;
+}
+
+.clarificationBlock strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.clarificationBlock p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .confirmButton, .secondaryButton {
   border: 0;
   border-radius: 7px;
@@ -250,6 +276,12 @@
 .confirmButton {
   background: #10b981;
   color: #062e24;
+}
+
+.confirmButton:disabled {
+  background: #1f2937;
+  color: #6b7280;
+  cursor: not-allowed;
 }
 
 .secondaryButton {

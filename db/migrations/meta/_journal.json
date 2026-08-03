@@ -57,6 +57,20 @@
       "when": 1784976843335,
       "tag": "0007_add_discovery_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785482473975,
+      "tag": "0008_add_assumption_measurements",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785483150577,
+      "tag": "0009_add_evidence_polarity",
+      "breakpoints": true
     }
   ]
 }

@@ -32,6 +32,29 @@ describe('chat route system prompts', () => {
     expect(CHAT_SYSTEM_PROMPT).toContain(neverRecommend);
     expect(STRUCTURED_SYSTEM_PROMPT).toContain(neverRecommend);
   });
+
+  /**
+   * M011. The clarification hard block is a *confirmation* gate, not a drafting
+   * gate. The removed sentence existed because the model once withheld drafts
+   * entirely (2026-07-30); these three assertions keep that property pinned
+   * while the new instruction routes ambiguity into the measurement block
+   * instead. If a future edit reintroduces withholding, the second assertion
+   * fails rather than the behavior silently regressing in production.
+   */
+  it('STRUCTURED_SYSTEM_PROMPT instructs the model to always draft, never withhold', () => {
+    expect(STRUCTURED_SYSTEM_PROMPT).not.toMatch(/do not withhold a draft/i);
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/always produce the draft, never withhold one/i);
+  });
+
+  it('STRUCTURED_SYSTEM_PROMPT describes the measurement contract the app enforces', () => {
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/clarifyingQuestion/);
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/ambiguityReason/);
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/not_measurable/);
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/timeBasis/);
+    // The balance-versus-flow distinction is the one instruction that prevents
+    // a deferred-revenue balance being offered as evidence for a flow claim.
+    expect(STRUCTURED_SYSTEM_PROMPT).toMatch(/point-in-time balance versus a flow/i);
+  });
 });
 
 // Found during live testing (2026-07-30): the sidebar showed "New Thesis"
