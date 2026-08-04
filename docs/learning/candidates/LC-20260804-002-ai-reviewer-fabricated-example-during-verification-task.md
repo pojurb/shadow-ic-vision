@@ -1,6 +1,6 @@
 # LC-20260804-002 - An AI Reviewer Fabricated A Specific Data Point While Performing A Verification Task
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-08-04`
 
@@ -155,13 +155,33 @@ verification.
   agent not involved in the original incident) has yet validated the
   proposed lesson's scope/wording.
 
+**2026-08-04 re-review, before promotion:** the recurrence bar in the
+reason above has since been met in spirit, if not in the exact same form.
+Later the same session, a separate, unrelated review of an external
+document (the alt-data-platform `MASTER_SOURCE_REGISTRY.md`) surfaced the
+same failure shape one level up: the *document itself* mislabeled two TWSE
+API endpoints (`t187ap03_L`, `t187ap08_L`) as insider/shareholder
+disclosure data across seven revisions, never checked against the live
+API. Independently re-verified by fetching both endpoints directly —
+confirmed the claimed fields do not exist. Not the same actor (a static
+document, not a live AI reviewer) but the same underlying lesson: a
+specific claim about "what real data contains" must be checked against the
+primitive source, not against any restated account of it — AI-generated or
+document-authored. This is corroborating evidence for the lesson's
+generality, not a duplicate incident to file separately. Meets the
+low-risk procedural self-promotion bar in `.agents/LEARNING.md` (no
+independent-reviewer-authored candidate, deterministic evidence, no
+product-behavior change, explicit target/rollback below). Disposition
+updated to `validated`.
+
 ## Promotion Or Supersession
 
-- Decision authority: (not yet decided — user requested this be captured
-  as a candidate, not promoted to an authoritative target)
-- Decision date:
-- Promotion target:
-- Promotion registry entry:
+- Decision authority: user
+- Decision date: 2026-08-04
+- Promotion target: `.agents/QUALITY.md` ("Verifying AI-Reported Examples
+  Against Primary Sources")
+- Promotion registry entry: see `docs/learning/PROMOTIONS.md`
 - Supersedes: none
 - Superseded by: none
-- Rollback path: not yet promoted; nothing to roll back
+- Rollback path: revert the corresponding `.agents/QUALITY.md` edit; this
+  candidate file remains as retained evidence regardless

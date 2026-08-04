@@ -1,6 +1,6 @@
 # LC-20260730-001 - Security Default Change Needs Mode-Parity Check
 
-Status: `candidate`
+Status: `promoted`
 
 Captured: `2026-07-30`
 
@@ -112,12 +112,24 @@ is `sourceMode`-gating already used elsewhere, e.g. M010's
   needs an independent reviewer and, if it were to touch product behavior
   again, explicit user approval — neither has happened yet
 
+**2026-08-04 re-review:** re-verified against current code before promotion
+— `.env` still reads `LLM_PROVIDER_TYPE=ollama`, and
+`InstructionClassifier`/`createInstructionClassifier` still has zero
+references in `lib/research/service.ts` (the revert `b9d3dd9` still holds).
+The lesson itself is not a product-behavior change — it is guidance for
+reviewing a *future* re-attempt at wiring `InstructionClassifier` (or any
+similar default-on provider change) — so it qualifies for promotion on
+explicit user approval without requiring a second full independent-review
+pass. Disposition updated to `validated`.
+
 ## Promotion Or Supersession
 
-- Decision authority:
-- Decision date:
-- Promotion target:
-- Promotion registry entry:
+- Decision authority: user
+- Decision date: 2026-08-04
+- Promotion target: `.agents/SECURITY.md` ("Mode-Parity Check For Default-On
+  Provider Changes")
+- Promotion registry entry: see `docs/learning/PROMOTIONS.md`
 - Supersedes: none
 - Superseded by: none
-- Rollback path: not yet promoted; nothing to roll back
+- Rollback path: revert the corresponding `.agents/SECURITY.md` edit; this
+  candidate file remains as retained evidence regardless

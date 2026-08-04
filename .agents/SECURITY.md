@@ -55,3 +55,7 @@ incident response. Material security failures block verification and release.
 
 Safety scanners, prompt injection filters, and input sanitizers must be wired directly into production data flow pipelines (`lib/research/`) before claims of risk mitigation (e.g. Risk Register entries) are recorded. Evaluator-only checks measure safety but do not enforce it in production.
 
+## Mode-Parity Check For Default-On Provider Changes
+
+Before wiring a previously-optional provider/model call to run by default, verify it respects every mode axis this codebase uses to distinguish deterministic/local from live/external behavior, not just the one axis the change is nominally about. `RESEARCH_SOURCE_MODE` (mock vs. live) and `LLM_PROVIDER_TYPE` (mock vs. ollama) are independent switches read in unrelated modules; a change that only reasons about one can silently reintroduce a live provider call through the other, even inside a run meant to stay fully offline. Confirm the new default is unreachable when the deterministic-mode flag is set — with a test asserting that specifically, not just that the feature works when explicitly enabled — before marking a related Risk Register entry `Mitigated`.
+

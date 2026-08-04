@@ -19,6 +19,8 @@ evidence-bearing candidate.
 | LC-20260725-003 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | roadmap planning | [LC-20260725-003](candidates/LC-20260725-003-deployment-contract-prerequisites.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
 | LC-20260726-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | document extraction tuning | [LC-20260726-001](candidates/LC-20260726-001-document-extractor-threshold-isolation.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
 | LC-20260804-001 | [AGENTS.md](../../AGENTS.md) | CLI agent product-constitution rule (propose methodology, not final thresholds) | [LC-20260804-001](candidates/LC-20260804-001-ai-proposes-methodology-not-final-thresholds.md) | user (direct session review) | user | 2026-08-04 | 2026-08-04 |
+| LC-20260730-001 | [.agents/SECURITY.md](../../.agents/SECURITY.md) | mode-parity check for default-on provider changes | [LC-20260730-001](candidates/LC-20260730-001-security-default-change-needs-mode-parity-check.md) | user (direct session re-review, 2026-08-04) | user | 2026-08-04 | 2026-08-04 |
+| LC-20260804-002 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | verifying AI-reported examples against primary sources | [LC-20260804-002](candidates/LC-20260804-002-ai-reviewer-fabricated-example-during-verification-task.md) | user (direct session review) | user | 2026-08-04 | 2026-08-04 |
 
 ## Rejected Candidates
 
