@@ -5,41 +5,40 @@
  * Output: JSON to stdout (verdict, coverage, evidence list)
  */
 
-import { program } from 'commander';
-import path from 'node:path';
 import { getDatabase } from '../db/client';
 import { getResearchPanel } from '../lib/research/service';
 
-const args = process.argv.slice(2);
-program
-  .option('--thesis-id <id>', 'Thesis ID')
-  .parse(args);
-
-const opts = program.opts() as { thesisId?: string };
-
-if (!opts.thesisId) {
-  console.error('Error: --thesis-id is required');
-  process.exit(1);
+function parseArgs(args: string[]): { thesisId: string } {
+  let thesisId: string | null = null;
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === '--thesis-id') {
+      thesisId = args[index + 1] ?? null;
+      index += 1;
+    }
+  }
+  if (!thesisId) throw new Error('Missing required argument: --thesis-id');
+  return { thesisId };
 }
 
-(async () => {
-  try {
-    const { db } = getDatabase();
-    const thesis = await db.query.theses.findFirst({
-      where: (theses, { eq }) => eq(theses.id, opts.thesisId!),
-    });
+async function main() {
+  const { thesisId } = parseArgs(process.argv.slice(2));
+  const { db } = getDatabase();
 
-    if (!thesis) {
-      console.error(`No thesis found with ID: ${opts.thesisId}`);
-      process.exit(1);
-    }
+  const thesis = await db.query.theses.findFirst({
+    where: (theses, { eq }) => eq(theses.id, thesisId),
+  });
 
-    const conversationId = thesis.conversationId ?? '';
-    const panel = await getResearchPanel(conversationId, { db });
-
-    console.log(JSON.stringify(panel, null, 2));
-  } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
+  if (!thesis) {
+    throw new Error(`No thesis found with ID: ${thesisId}`);
   }
-})();
+
+  const conversationId = thesis.conversationId ?? '';
+  const panel = await getResearchPanel(conversationId, { db });
+
+  process.stdout.write(`${JSON.stringify(panel, null, 2)}\n`);
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exitCode = 1;
+});
