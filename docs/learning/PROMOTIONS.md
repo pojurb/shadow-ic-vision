@@ -18,6 +18,7 @@ evidence-bearing candidate.
 | LC-20260725-002 | [.agents/SECURITY.md](../../.agents/SECURITY.md) | production safety wiring | [LC-20260725-002](candidates/LC-20260725-002-production-wiring-of-evaluator-safeguards.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
 | LC-20260725-003 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | roadmap planning | [LC-20260725-003](candidates/LC-20260725-003-deployment-contract-prerequisites.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
 | LC-20260726-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | document extraction tuning | [LC-20260726-001](candidates/LC-20260726-001-document-extractor-threshold-isolation.md) | Antigravity (Gemini 3.6 Flash) | user | 2026-07-26 | 2026-07-26 |
+| LC-20260804-001 | [AGENTS.md](../../AGENTS.md) | CLI agent product-constitution rule (propose methodology, not final thresholds) | [LC-20260804-001](candidates/LC-20260804-001-ai-proposes-methodology-not-final-thresholds.md) | user (direct session review) | user | 2026-08-04 | 2026-08-04 |
 
 ## Rejected Candidates
 

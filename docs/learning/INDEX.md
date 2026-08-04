@@ -20,6 +20,7 @@ with a current authoritative target may guide future work.
 | LC-20260725-003 | `promoted` | `process` | M006 | Milestone scoping must verify baseline architecture deployment contracts before scheduling production provider sign-offs | [LC-20260725-003](candidates/LC-20260725-003-deployment-contract-prerequisites.md) | 2026-07-26 |
 | LC-20260726-001 | `promoted` | `quality` | M008 | Document extraction thresholds and HTML DOM cleaning must be isolated across source tiers to prevent raw web HTML boilerplate from clearing low filing-oriented sentence overlap thresholds | [LC-20260726-001](candidates/LC-20260726-001-document-extractor-threshold-isolation.md) | 2026-07-26 |
 | LC-20260730-001 | `candidate` | `security` | cross-cutting | A default-on provider-calling change must be checked against every mode axis the codebase uses to distinguish deterministic/local from live/external behavior, not just the one the change is about | [LC-20260730-001](candidates/LC-20260730-001-security-default-change-needs-mode-parity-check.md) | 2026-07-30 |
+| LC-20260804-001 | `promoted` | `process` | cross-cutting | When resolving a user-owned calibration value (e.g. a measurement contract), an assisting agent should propose methodology/conventions with reasoning but never the final calibrated number | [LC-20260804-001](candidates/LC-20260804-001-ai-proposes-methodology-not-final-thresholds.md) | 2026-08-04 |
 
 ## Current Promoted Knowledge
 
@@ -36,6 +37,7 @@ The authoritative promotion history is maintained in
 | LC-20260725-002 | [.agents/SECURITY.md](../../.agents/SECURITY.md) | production safety wiring | user | 2026-07-26 |
 | LC-20260725-003 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | roadmap planning | user | 2026-07-26 |
 | LC-20260726-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | document extraction tuning | user | 2026-07-26 |
+| LC-20260804-001 | [AGENTS.md](../../AGENTS.md) | CLI agent product-constitution rule | user | 2026-08-04 |
 
 ## Retrieval Rules
 
