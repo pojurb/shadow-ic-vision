@@ -640,6 +640,37 @@ async function processOneResearchJob(params: {
     );
 
     if (execution.unchanged) {
+      /*
+       * `unchanged` means every discovered document has already been
+       * retrieved. That is a legitimate success only when this assumption
+       * actually holds evidence — otherwise the job has produced nothing and
+       * reporting `succeeded` erases whatever real terminal reason it had.
+       *
+       * Found on the real TLKM thesis, 2026-08-05: a job that had honestly
+       * failed with `source_too_large` was retried, short-circuited here
+       * because the oversized document was by then a known snapshot, and was
+       * written back as `succeeded` with `errorCode: null` — no work done, the
+       * diagnostic destroyed. Five sibling jobs took the same path in the same
+       * run, one of them holding zero evidence rows.
+       */
+      const evidenceCount = db
+        .select({ id: evidence.id })
+        .from(evidence)
+        .where(eq(evidence.assumptionId, row.assumption.id))
+        .all().length;
+
+      if (evidenceCount === 0) {
+        await db.update(researchJobs).set({
+          status: 'degraded',
+          error: 'Every discovered document was already retrieved, and none of them yielded evidence for this assumption.',
+          errorCode: 'no_new_documents',
+          leaseExpiresAt: null,
+          leaseOwner: null,
+          updatedAt: now().toISOString(),
+        }).where(ownLease).run();
+        return;
+      }
+
       await db.update(researchJobs).set({ status: 'succeeded', error: null, errorCode: null, leaseExpiresAt: null, leaseOwner: null, updatedAt: now().toISOString() }).where(ownLease).run();
       return;
     }

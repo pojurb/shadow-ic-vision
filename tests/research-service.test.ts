@@ -477,6 +477,37 @@ describe('local vertical slice persistence', () => {
     expect(jobAfter?.status).toBe('running');
   });
 
+  /*
+   * Found on the real TLKM thesis, 2026-08-05. A job that had honestly failed
+   * with `source_too_large` was retried, hit the `unchanged` short-circuit
+   * because the oversized document was by then a known snapshot, and was
+   * written back as `succeeded` with `errorCode: null` — no work done and the
+   * diagnostic destroyed. Because `knownDocumentIds` is scoped by
+   * market/ticker rather than by assumption, five sibling jobs took the same
+   * path in the same run, one of them holding zero evidence rows.
+   */
+  it('does not report success when an unchanged sweep produced no evidence', async () => {
+    const confirmed = confirmDraft(conversationId, messageId, { db: handle.db });
+
+    const exhaustedPipeline = {
+      sourceMode: 'mock' as const,
+      executeResearchJob: async () => ({ unchanged: true as const, documentId: 'doc-already-seen' }),
+    } as unknown as CitationPipeline;
+
+    await processResearchJobs(conversationId, {
+      db: handle.db,
+      pipeline: exhaustedPipeline,
+      snapshotDirectory: path.join(directory, 'snapshots'),
+    });
+
+    const jobAfter = handle.db.select().from(researchJobs).where(eq(researchJobs.id, confirmed.jobIds[0])).get();
+    const evidenceCount = handle.db.select().from(evidence).all().length;
+
+    expect(evidenceCount).toBe(0);
+    expect(jobAfter?.status).toBe('degraded');
+    expect(jobAfter?.errorCode).toBe('no_new_documents');
+  });
+
   it('deduplicates immutable snapshots across jobs', async () => {
     const twoAssumptions = withMeasurement('PLTR gross margin remains above 80%.', 'PLTR commercial scale supports gross margin.');
     handle.db.update(messages).set({ structuredPayload: JSON.stringify(twoAssumptions) }).where(eq(messages.id, messageId)).run();

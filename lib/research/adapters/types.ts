@@ -21,7 +21,15 @@ export type SourceErrorCode =
   | 'unsupported_visual'
   | 'encrypted_document'
   | 'corrupt_document'
-  | 'scanned_document';
+  | 'scanned_document'
+  /*
+   * Every discovered document had already been retrieved, and none of them
+   * produced evidence for this assumption. Distinct from `citation_not_found`
+   * (documents were processed this run and nothing cleared verification) and
+   * from `source_not_found` (discovery returned nothing at all): here the
+   * sweep had nowhere left to advance to.
+   */
+  | 'no_new_documents';
 
 export type SourceQuery = {
   market: ResearchMarket;

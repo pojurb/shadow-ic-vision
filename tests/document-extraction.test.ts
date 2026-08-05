@@ -730,6 +730,56 @@ describe('vision extraction through the citation pipeline', () => {
     };
   }
 
+  /*
+   * Regression for the 2026-08-05 TLKM finding. The pipeline used to read and
+   * fetch `discovery.value[0]` only, so a known leading document ended the job
+   * with `unchanged` and the remaining discovered documents — up to 19 of
+   * them, including the issuer's annual report — were never reached.
+   */
+  it('advances past known documents instead of stopping at the first one', async () => {
+    const seen = { ...imageSnapshot(), documentId: 'already-retrieved' };
+    const fresh = { ...imageSnapshot(), documentId: 'not-yet-retrieved' };
+    const fetchedIds: string[] = [];
+
+    const adapter: SourceAdapter = {
+      mode: 'mock',
+      async discover() {
+        return { kind: 'found', value: [seen, fresh] };
+      },
+      async fetchSnapshot(document) {
+        fetchedIds.push(document.documentId);
+        return { kind: 'found', value: fresh };
+      },
+    };
+
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+    await pipeline
+      .executeResearchJob('ID', 'BBRI', 'Some assumption.', undefined, new Set(['already-retrieved']))
+      .catch(() => undefined); // extraction outcome is irrelevant; document choice is the subject
+
+    expect(fetchedIds).toEqual(['not-yet-retrieved']);
+  });
+
+  it('reports unchanged only when every discovered document is already known', async () => {
+    const seen = { ...imageSnapshot(), documentId: 'already-retrieved' };
+    const adapter: SourceAdapter = {
+      mode: 'mock',
+      async discover() {
+        return { kind: 'found', value: [seen] };
+      },
+      async fetchSnapshot() {
+        throw new Error('must not fetch when nothing is new');
+      },
+    };
+
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+    const result = await pipeline.executeResearchJob(
+      'ID', 'BBRI', 'Some assumption.', undefined, new Set(['already-retrieved']),
+    );
+
+    expect(result.unchanged).toBe(true);
+  });
+
   it('fails closed on image sources when no vision transcriber is configured', async () => {
     const adapter = imageAdapter();
     const pipeline = new CitationPipeline({ US: adapter, ID: adapter });

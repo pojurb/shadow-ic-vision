@@ -82,11 +82,29 @@ export class CitationPipeline {
     if (discovery.value.length === 0) {
       throw new ResearchSourceError('source_not_found', `${evidenceClass === 'official' ? 'Official' : 'Secondary'} source returned no eligible documents.`);
     }
-    if (knownDocumentIds.has(discovery.value[0].documentId)) {
+    /*
+     * Was `discovery.value[0]` alone, both for the change check and the fetch.
+     * Adapters return up to 20 discovered documents, so 19 were discarded
+     * unconditionally — and because `knownDocumentIds` is scoped by
+     * market/ticker rather than by assumption (see `processResearchJobs`), one
+     * sibling job snapshotting a document made every other assumption's job
+     * short-circuit to `unchanged` within the same run. Verified against the
+     * real TLKM thesis on 2026-08-05: five of six jobs flipped from `degraded`
+     * to `succeeded` in under four seconds while adding no evidence at all,
+     * and the issuer's annual report sat unfetched behind a quarterly filing
+     * that happened to appear first in DOM order.
+     *
+     * Now the sweep advances to the first document not already seen, so a
+     * known leading document no longer ends the job. `unchanged` is reserved
+     * for its true meaning: every discovered document has already been
+     * retrieved, so there is nothing new to process.
+     */
+    const nextDocument = discovery.value.find((document) => !knownDocumentIds.has(document.documentId));
+    if (!nextDocument) {
       return { unchanged: true, documentId: discovery.value[0].documentId };
     }
 
-    const fetched = await adapter.fetchSnapshot(discovery.value[0]);
+    const fetched = await adapter.fetchSnapshot(nextDocument);
     if (fetched.kind !== 'found') throw new ResearchSourceError(fetched.code, fetched.message);
 
     const snapshot = fetched.value;
