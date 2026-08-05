@@ -1,3 +1,198 @@
+# Session Checkpoint - 2026-08-05b (commit of prior work, CLI usability, honest verdict copy, independent review, retrieval sweep)
+
+Continuation of the session below, which had ended with 27 files uncommitted.
+Everything from both sessions is now committed: `e8eaaa3`, `b3941e2`,
+`2efb1d0`, `d6cf84e`, `efe2e4c`, `747396f`, `153c998` on top of `6ffb085`. No
+milestone is active; this remains governance/hardening outside M001-M011.
+
+## The Prior Session's Work, Committed As Two Commits (2026-08-05)
+
+User chose a two-commit split over one large commit. Splitting cleanly was not
+possible along the originally proposed lines: `lib/research/service.ts` carried
+one 505-line diff mixing the lease-owner fix and the
+`createThesisFromValidatedDraft` refactor, so the boundary was drawn where the
+code actually separates, not where the narrative did.
+
+- `e8eaaa3` — the two gap-fix items that never touch `service.ts`
+  (exploration-candidate citations, portfolio Owned/Watchlist).
+- `b3941e2` — lease-owner concurrency, shared draft-creation path, decisions
+  evidence/alternatives, `recommendedAction` removal, `DEC-0017` + doc sync.
+
+**Each commit was verified in isolation before landing**: staged, the remainder
+stashed, then `tsc --noEmit` and the full suite run against that exact tree.
+This caught a real ordering bug — `lib/ai/adapters/mock.ts` mixed the
+`recommendedAction` removal with the citation fixtures, so commit A alone
+failed four tests until the fixture was split correctly.
+
+## TLKM Degraded Evidence: Root Cause Found And Fixed (2026-08-05)
+
+The 6 `issuer_source_unavailable` jobs left open by the prior session.
+`ISSUER_SOURCE_URLS.TLKM` pointed at Telkom's IR **landing** page, which has
+zero direct PDF links. `IssuerAdapter.discover()` scans only the one configured
+URL for terminal `.pdf` hrefs and never crawls deeper, so discovery always
+returned empty — a deterministic failure, not a flaky network.
+
+Retargeted to the real reports index
+(`.../sites/hubungan-investor/id_ID/page/laporan-1025`), verified by WebFetch to
+carry actual filings. `.env` is git-ignored, so this is a local config change
+with nothing to commit.
+
+**The 2026-07-26 fix for this same symptom was itself wrong the same way** — it
+verified the page was reachable and had report-related *navigation*, not that
+any link was a terminal PDF. Recorded in the user's memory file so the
+verification standard survives: for `ISSUER_SOURCE_URLS`, confirm the exact
+configured URL yields `.pdf` hrefs directly.
+
+## CLI Usability (`2efb1d0`)
+
+Driven by friction hit firsthand, not from the roadmap:
+
+- `research:panel` printed ~780 lines of raw JSON for a six-assumption thesis.
+  Now prints a readable summary by default; `--json` restores the raw DTO,
+  `--full` expands every evidence item.
+- `npm run research:retry` added. `retryResearchJob` existed in the service and
+  behind an API route but had no terminal entry point — retrying TLKM required
+  hand-writing a throwaway script.
+- **Latent bug fixed:** `research-panel.ts` never imported dotenv, unlike
+  `research-queue.ts` and `thesis-stage.ts`, so it silently ignored `DB_PATH`.
+  It only worked because the default happened to match.
+- `docs/CLI_WORKFLOW.md` written — the scripts previously appeared only in
+  governance records, never as a how-to. Linked from `README.md`.
+
+## The Verdict Read As A Confirmation When Nothing Was Checked (`d6cf84e`, `efe2e4c`, `747396f`)
+
+Reviewing `--full` output surfaced that the headline
+"5 of 6 assumptions are evidenced and none is contradicted" was true and badly
+misleading at once. All 23 TLKM evidence rows were `inconclusive` with
+`polarityMethod = no_observed_value` (21) or `not_measurable` (2): the
+contracts state thresholds but the evidence is prose with no extractable
+figure, so **no row could ever be marked contradicting**. `evidenced` counts
+any polarity, so the headline reported reassurance derived from the system's
+own inability to measure. `supported` was 0 — and was computed but read by
+nothing anywhere in `lib/`, `components/`, `app/`.
+
+Three commits, each wording-only by explicit user choice; verdict **level**
+semantics are deliberately unchanged:
+
+1. `d6cf84e` — report `supported`/`inconclusiveOnly` instead of a vacuous
+   "none is contradicted".
+2. `efe2e4c` — after the user asked what the right copy was, four options were
+   drafted and the user chose stating **what the pipeline guarantees**
+   (verbatim provenance) versus what it does not (relevance). The code cannot
+   honestly claim the quotes are irrelevant either: `no_observed_value` cannot
+   distinguish off-topic from on-topic-but-unquantified, so a regression test
+   now forbids `/irrelevant|unrelated|off-topic/` in the copy.
+3. `747396f` — the coverage line on both surfaces led with `evidenced`,
+   reproducing the same overstatement one line lower. Both now lead with
+   `supported`; the retrieval ratio is kept because `confidenceGate` derives
+   from it, but labelled with what it measures.
+
+Current headline on the real thesis: *"THESIS HOLDING — 0 of 6 assumptions are
+supported. 6 have quotes verified verbatim from their source but never checked
+for relevance to the claim. Nothing is contradicted, but nothing is confirmed
+either."*
+
+## Independent Review By "Terra", And A Claim Of Mine It Refuted
+
+An architecture review was commissioned from an external agent with repo +
+database access. The prompt deliberately invited disconfirmation, flagged which
+claims were judgment rather than code fact, and withheld a conclusion to
+approve.
+
+It confirmed most claims and **corrected three**: `createDerivedCandidate`
+exposes `observedValue` generically so the XBRL path is not a structural
+one-way guarantee; an enabled classifier could produce `at_risk` (not just
+`inconclusive`); and "no XBRL tag in *any* market" is not established by this
+codebase, which only implements US SEC XBRL.
+
+**It also refuted a claim this session had reported to the user as fact.** The
+earlier statement that a retry "worked — the pipeline picked a different,
+smaller document" was wrong. Verified against the live database: five jobs
+flipped `degraded` → `succeeded` within four seconds carrying no evidence newer
+than the previous day, one of them with zero evidence rows at all.
+
+## Retrieval Sweep And False Success (`153c998`)
+
+Two defects, both confirmed against the live database.
+
+1. **Only `discovery.value[0]` was ever considered.** Adapters return up to 20
+   documents; 19 were discarded, and a known leading document ended the job.
+   Telkom's annual report sat unfetched behind a quarterly filing that merely
+   appeared first in DOM order.
+2. **`unchanged` was written back as `succeeded`** with `error`/`errorCode`
+   nulled regardless of evidence. A job that had honestly failed
+   `source_too_large` was retried, short-circuited because the oversized
+   document was by then a known snapshot, and recorded as a success that did no
+   work and destroyed its own diagnostic.
+
+**A cascade this session found beyond Terra's report:** `source_snapshots` has
+no `job_id` — it is scoped by market/ticker — so `knownDocumentIds` is shared
+across sibling jobs. One job snapshotting a document made every other
+assumption's job short-circuit in the same run. That is why all six flipped
+together.
+
+Fixed: the pipeline advances to the first not-yet-retrieved document, and
+`unchanged` with no evidence is now `degraded` with a new `no_new_documents`
+code. Three regression tests, each confirmed to fail before and pass after.
+
+The six falsely-succeeded jobs were reset to `queued` at the user's explicit
+instruction (no evidence deleted) and re-run. Result: **three official
+documents newly fetched** (2023 annual report, climate-risk report,
+sustainability report), evidence 23 → 33 rows, the zero-evidence assumption now
+has some, and five jobs now report `source_too_large` honestly. The reported
+state is worse-looking and true — it surfaces the next real problem instead of
+hiding it.
+
+## Verified
+
+Full suite **360 passed, 3 skipped** (from 354 at the start of the prior
+session). `tsc --noEmit`, `npm run lint`, `context:check`, `status:check` all
+clean. Copy changes verified against both the CLI and the `/api/research`
+response the browser actually consumes.
+
+### Exact Resume Point
+
+Agreed next steps, in order (from Terra's recommended sequence):
+
+1. **Repair Class-C promotion labelling before expanding discovery.**
+   `lib/research/discovery-promotion.ts` checks only URL origin, then labels
+   whatever it fetched a "Web-discovered issuer release". The live database
+   contains `https://www.telkom.co.id/` and generic IR overview pages stored
+   under that label, which conflicts with `DEC-0015`'s definition of Class A as
+   direct issuer releases. It does not reuse the press-release adapter's page
+   eligibility rules.
+2. **Add a relevance gate before enabling the polarity classifier.** Relevance
+   is logically prior to direction. `rankSentenceCandidates` scores lexical
+   token overlap, substring number matches, and the mere presence of a digit —
+   `30` can match a sentence containing `130`, and generic Indonesian terms
+   satisfy the two-token floor. Any secondary row also moves an assumption to
+   `pending_confirmation` and offers "Accept secondary evidence" in the UI,
+   with no relevance predicate in between.
+
+Also open, not started:
+
+- **`source_too_large` on issuer PDFs** — five TLKM jobs now fail here
+  honestly. This is the remaining barrier to the annual report, the document
+  most likely to answer the ownership assumption.
+- **`knownDocumentIds` is ticker-scoped, not per-assumption** — sibling
+  assumptions still block each other from extracting from the same document.
+  Correcting it needs per-(assumption, document) processing records: a
+  migration plus a design decision.
+- **Verdict level semantics** — TLKM is still `holding` with an open gate at
+  `supported = 0`, because suppression uses `evidenced / total`. Whether an
+  all-inconclusive thesis should qualify as `holding` is a user-owned product
+  calibration, deliberately not chosen by an engineer.
+- **Polarity classifier** — `DEC-0016` line 85 requires its own milestone
+  packet, live eval, and an amendment to that record before anything constructs
+  one by default. Verified directly.
+- **Agent-assisted URL discovery** — judged conditionally sound (the agent may
+  propose opaque URL pointers only; fetch, content-addressing and verbatim
+  verification stay in the pipeline), but only after the two steps above.
+- Roadmap §5 steps 4/5/6 (Dashboard conversion, concurrency tests, hiding Chat
+  UI), `decisions:record`, and the Ollama question (§7.2) all remain untouched.
+
+---
+
 # Session Checkpoint - 2026-08-05 (CLI-workflow resume: TLKM verification, 5 gap fixes, lease-owner concurrency, shared draft-creation refactor, DEC-0017)
 
 Resumed from a prior session's draft plan
