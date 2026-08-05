@@ -27,6 +27,7 @@
     "research:cleanup-evidence": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/cleanup-boilerplate-evidence.ts",
     "research:panel": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-panel.ts",
     "research:queue": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-queue.ts",
+    "research:retry": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/research-retry.ts",
     "thesis:stage": "node --conditions=react-server --import ./node_modules/tsx/dist/loader.mjs scripts/thesis-stage.ts",
     "research:install-task": "powershell -ExecutionPolicy Bypass -File scripts/install-research-task.ps1",
     "fixtures:vision:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/generate-vision-fixtures.ts"

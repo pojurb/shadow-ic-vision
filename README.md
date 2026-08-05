@@ -31,6 +31,14 @@ actions, and [`SESSION_CHECKPOINT.md`](SESSION_CHECKPOINT.md) for the detailed
 handoff and latest verification. Codebase orientation lives in
 [`docs/CODEBASE_MAP.md`](docs/CODEBASE_MAP.md).
 
+## Using It
+
+The day-to-day workflow — staging a thesis from a terminal, running the
+evidence pipeline, reading results, and recording a decision in the browser —
+is in [`docs/CLI_WORKFLOW.md`](docs/CLI_WORKFLOW.md). The architecture behind
+that split is
+[`DEC-0017`](docs/decisions/DEC-0017-cli-terminal-workflow-and-concurrency-model.md).
+
 ## Local Verification
 
 Run `npm run verify` for deterministic context, status, type, lint, test, and
