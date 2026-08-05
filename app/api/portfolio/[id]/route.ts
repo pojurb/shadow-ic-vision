@@ -3,8 +3,7 @@ import { updatePortfolioPosition, deletePortfolioPosition } from '@/db/queries';
 import { z } from 'zod';
 
 const updatePositionSchema = z.object({
-  shares: z.number().positive(),
-  averageBuyPrice: z.number().positive(),
+  status: z.enum(['owned', 'watchlist']),
   thesisId: z.string().nullable().optional(),
 });
 
@@ -24,8 +23,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     await updatePortfolioPosition(id, {
-      shares: parsed.data.shares,
-      averageBuyPrice: parsed.data.averageBuyPrice,
+      status: parsed.data.status,
       thesisId: parsed.data.thesisId || null,
     });
 

@@ -63,7 +63,7 @@ describe('MockProvider', () => {
     expect(result.success).toBe(true);
     expect(result.data?.type).toBe('exploration_draft');
     expect(result.data?.explorationDraft?.sectorName).toBe('Defense Tech US');
-    expect(result.data?.explorationDraft?.candidates).toHaveLength(2);
+    expect(result.data?.explorationDraft?.candidates).toHaveLength(3);
     expect(result.data?.explorationDraft?.candidates[0].ticker).toBe('PLTR');
   });
 

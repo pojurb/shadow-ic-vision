@@ -55,7 +55,7 @@ When producing the structured JSON output, use this shape:
   },
   "explorationDraft"?: {
     "sectorName": string,
-    "candidates": [{ "ticker": string, "companyName": string, "market": "US" | "ID", "rationale": string }] (exactly 3-5 unranked candidates)
+    "candidates": [{ "ticker": string, "companyName": string, "market": "US" | "ID", "rationale": string, "citation": string (the specific source the rationale is grounded in, e.g. a named filing or disclosure) }] (exactly 3-5 unranked candidates)
   }
 }
 

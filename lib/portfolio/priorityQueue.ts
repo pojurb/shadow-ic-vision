@@ -2,8 +2,7 @@ export type PortfolioHoldingQueueItem = {
   id: string;
   ticker: string;
   market: 'US' | 'ID';
-  shares: number;
-  averageBuyPrice: number;
+  status: 'owned' | 'watchlist';
   thesisId: string | null;
   thesisTitle: string | null;
   conversationId: string | null;

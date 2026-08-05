@@ -224,6 +224,7 @@ export function ChatUI({
                           </div>
                           <div className={styles.candidateName}>{candidate.companyName}</div>
                           <p className={styles.candidateRationale}>{candidate.rationale}</p>
+                          <p className={styles.candidateCitation}>Source: {candidate.citation}</p>
                         </div>
                       ))}
                     </div>

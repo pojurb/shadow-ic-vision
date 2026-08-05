@@ -226,8 +226,14 @@ export const explorationDraftSchema = z.object({
       companyName: z.string().trim().min(1).max(160),
       market: marketSchema,
       rationale: z.string().trim().min(1).max(1_000),
+      // PRODUCT_STRATEGY.md Workflow B step 3: each candidate needs a "cited
+      // inclusion rationale" — the source the rationale is grounded in, not
+      // the rationale text itself.
+      citation: z.string().trim().min(1).max(500),
     })
-  ).min(1).max(5),
+  // PRODUCT_STRATEGY.md Workflow B step 3: sector-theme exploration returns
+  // 3-5 unranked candidates.
+  ).min(3).max(5),
 });
 
 export type ExplorationDraft = z.infer<typeof explorationDraftSchema>;

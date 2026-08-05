@@ -115,8 +115,7 @@ export async function getPortfolioPositions() {
       id: portfolioPositions.id,
       ticker: portfolioPositions.ticker,
       market: portfolioPositions.market,
-      shares: portfolioPositions.shares,
-      averageBuyPrice: portfolioPositions.averageBuyPrice,
+      status: portfolioPositions.status,
       thesisId: portfolioPositions.thesisId,
       thesisTitle: theses.title,
       createdAt: portfolioPositions.createdAt,
@@ -130,8 +129,7 @@ export async function getPortfolioPositions() {
 export async function createPortfolioPosition(data: {
   ticker: string;
   market: 'US' | 'ID';
-  shares: number;
-  averageBuyPrice: number;
+  status: 'owned' | 'watchlist';
   thesisId: string | null;
 }) {
   const { db } = getDatabase();
@@ -140,8 +138,7 @@ export async function createPortfolioPosition(data: {
     id,
     ticker: data.ticker,
     market: data.market,
-    shares: data.shares,
-    averageBuyPrice: data.averageBuyPrice,
+    status: data.status,
     thesisId: data.thesisId,
   });
   return id;
@@ -150,8 +147,7 @@ export async function createPortfolioPosition(data: {
 export async function updatePortfolioPosition(
   id: string,
   data: {
-    shares: number;
-    averageBuyPrice: number;
+    status: 'owned' | 'watchlist';
     thesisId: string | null;
   },
 ) {
@@ -159,8 +155,7 @@ export async function updatePortfolioPosition(
   await db
     .update(portfolioPositions)
     .set({
-      shares: data.shares,
-      averageBuyPrice: data.averageBuyPrice,
+      status: data.status,
       thesisId: data.thesisId,
       updatedAt: new Date().toISOString(),
     })
@@ -221,8 +216,7 @@ export async function getPortfolioBriefing() {
       id: portfolioPositions.id,
       ticker: portfolioPositions.ticker,
       market: portfolioPositions.market,
-      shares: portfolioPositions.shares,
-      averageBuyPrice: portfolioPositions.averageBuyPrice,
+      status: portfolioPositions.status,
       thesisId: portfolioPositions.thesisId,
       thesisTitle: theses.title,
       conversationId: theses.conversationId,

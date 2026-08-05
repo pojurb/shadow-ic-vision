@@ -84,8 +84,7 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
     const id = await createPortfolioPosition({
       ticker: 'PLTR',
       market: 'US',
-      shares: 150,
-      averageBuyPrice: 42.5,
+      status: 'owned',
       thesisId,
     });
     expect(id).toBeDefined();
@@ -97,16 +96,14 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
       id,
       ticker: 'PLTR',
       market: 'US',
-      shares: 150,
-      averageBuyPrice: 42.5,
+      status: 'owned',
       thesisId,
       thesisTitle: 'PLTR Thesis',
     });
 
     // 3. Update
     await updatePortfolioPosition(id, {
-      shares: 200,
-      averageBuyPrice: 40.0,
+      status: 'watchlist',
       thesisId: null, // Unlink
     });
 
@@ -114,8 +111,7 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
     expect(updated).toHaveLength(1);
     expect(updated[0]).toMatchObject({
       id,
-      shares: 200,
-      averageBuyPrice: 40.0,
+      status: 'watchlist',
       thesisId: null,
       thesisTitle: null,
     });
@@ -130,8 +126,7 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
     const id = await createPortfolioPosition({
       ticker: 'PLTR',
       market: 'US',
-      shares: 150,
-      averageBuyPrice: 42.5,
+      status: 'owned',
       thesisId,
     });
 
@@ -151,8 +146,7 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
     const posId = await createPortfolioPosition({
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 42.0,
+      status: 'owned',
       thesisId,
     });
 
@@ -233,8 +227,7 @@ describe('Portfolio Position CRUD & Thesis Cascade', () => {
     const posId = await createPortfolioPosition({
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 42.0,
+      status: 'owned',
       thesisId,
     });
 

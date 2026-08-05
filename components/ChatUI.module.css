@@ -846,4 +846,11 @@
   line-height: 1.4;
 }
 
+.candidateCitation {
+  font-size: 0.75rem;
+  color: #9a9a9a;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
 

@@ -5,8 +5,7 @@ import { z } from 'zod';
 const createPositionSchema = z.object({
   ticker: z.string().min(1),
   market: z.enum(['US', 'ID']),
-  shares: z.number().positive(),
-  averageBuyPrice: z.number().positive(),
+  status: z.enum(['owned', 'watchlist']),
   thesisId: z.string().nullable().optional(),
 });
 
@@ -31,8 +30,7 @@ export async function POST(request: Request) {
     const id = await createPortfolioPosition({
       ticker: parsed.data.ticker.toUpperCase(),
       market: parsed.data.market,
-      shares: parsed.data.shares,
-      averageBuyPrice: parsed.data.averageBuyPrice,
+      status: parsed.data.status,
       thesisId: parsed.data.thesisId || null,
     });
 

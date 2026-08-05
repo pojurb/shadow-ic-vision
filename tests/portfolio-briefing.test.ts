@@ -101,8 +101,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 40,
       thesisId,
     }).run();
 
@@ -121,8 +119,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'GOTO',
       market: 'ID',
-      shares: 1000,
-      averageBuyPrice: 60,
       thesisId: null,
     }).run();
 
@@ -139,8 +135,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 40,
       thesisId,
     }).run();
 
@@ -190,8 +184,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'MSFT',
       market: 'US',
-      shares: 5,
-      averageBuyPrice: 400,
       thesisId: secondThesisId,
     }).run();
 
@@ -223,8 +215,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'AAPL',
       market: 'US',
-      shares: 10,
-      averageBuyPrice: 190,
       thesisId: secondThesisId,
     }).run();
 
@@ -240,8 +230,6 @@ describe('getPortfolioBriefing', () => {
       id: posChallenged,
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 40,
       thesisId,
     }).run();
     handle.db.insert(assumptions).values({
@@ -276,8 +264,6 @@ describe('getPortfolioBriefing', () => {
       id: posClean,
       ticker: 'AAPL',
       market: 'US',
-      shares: 10,
-      averageBuyPrice: 190,
       thesisId: secondThesisId,
     }).run();
 
@@ -292,8 +278,6 @@ describe('getPortfolioBriefing', () => {
       id: posId,
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 40,
       thesisId,
     }).run();
 
@@ -346,8 +330,6 @@ describe('getPortfolioBriefing', () => {
       id: posHigh,
       ticker: 'PLTR',
       market: 'US',
-      shares: 100,
-      averageBuyPrice: 40,
       thesisId,
       createdAt: daysAgoTimestamp(30),
     }).run();
@@ -363,8 +345,6 @@ describe('getPortfolioBriefing', () => {
       id: posLow,
       ticker: 'GOTO',
       market: 'ID',
-      shares: 1000,
-      averageBuyPrice: 60,
       thesisId: null,
     }).run();
 

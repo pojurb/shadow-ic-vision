@@ -211,6 +211,15 @@ export const decisions = sqliteTable('decisions', {
   }).notNull(),
   action: text('action', { enum: ['Buy', 'Hold', 'Reduce', 'Exit'] }),
   rationale: text('rationale').notNull(),
+  // VISION.md §7: "every record retains the user's reasoning, relevant
+  // evidence, known alternatives, and timestamp." Both stored as JSON-encoded
+  // arrays, mirroring the `sourceTags` convention elsewhere in this schema.
+  // `evidenceIds` references `evidence.id` rows informally (not a foreign
+  // key) because it is a point-in-time snapshot of what was relevant when the
+  // decision was made — it must survive that evidence later being superseded
+  // or deleted, not cascade with it.
+  evidenceIds: text('evidence_ids').notNull().default('[]'),
+  alternatives: text('alternatives').notNull().default('[]'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   index('decisions_thesis_created_idx').on(table.thesisId, table.createdAt),
@@ -273,12 +282,15 @@ export const discoveryCandidates = sqliteTable('discovery_candidates', {
 ]);
 
 // Portfolio Positions (Holdings)
+// PRODUCT_STRATEGY.md §3: "Each company may be tagged Owned or Watchlist.
+// V1 does not collect quantity, cost basis, position value, target
+// allocation, or brokerage-account data" — so this table tracks the tag, not
+// a brokerage position.
 export const portfolioPositions = sqliteTable('portfolio_positions', {
   id: text('id').primaryKey(),
   ticker: text('ticker').notNull(),
   market: text('market', { enum: ['US', 'ID'] }).notNull(),
-  shares: real('shares').notNull(),
-  averageBuyPrice: real('average_buy_price').notNull(),
+  status: text('status', { enum: ['owned', 'watchlist'] }).notNull().default('watchlist'),
   thesisId: text('thesis_id').references(() => theses.id, { onDelete: 'set null' }),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),

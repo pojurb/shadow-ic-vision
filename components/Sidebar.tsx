@@ -15,8 +15,7 @@ interface PortfolioPosition {
   id: string;
   ticker: string;
   market: 'US' | 'ID';
-  shares: number;
-  averageBuyPrice: number;
+  status: 'owned' | 'watchlist';
   thesisId: string | null;
   thesisTitle: string | null;
 }
@@ -56,8 +55,7 @@ export function Sidebar() {
   const [editingPosition, setEditingPosition] = useState<PortfolioPosition | null>(null);
   const [formTicker, setFormTicker] = useState('');
   const [formMarket, setFormMarket] = useState<'US' | 'ID'>('US');
-  const [formShares, setFormShares] = useState('');
-  const [formPrice, setFormPrice] = useState('');
+  const [formStatus, setFormStatus] = useState<'owned' | 'watchlist'>('watchlist');
   const [formThesisId, setFormThesisId] = useState<string>('');
 
   // Sync & Alerts states
@@ -108,8 +106,7 @@ export function Sidebar() {
         setEditingPosition(null);
         setFormTicker(detail.ticker);
         setFormMarket(detail.market);
-        setFormShares('');
-        setFormPrice('');
+        setFormStatus('watchlist');
         setFormThesisId('');
         setModalOpen(true);
       }
@@ -192,11 +189,9 @@ export function Sidebar() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const sharesNum = parseFloat(formShares);
-    const priceNum = parseFloat(formPrice);
 
-    if (!formTicker || isNaN(sharesNum) || isNaN(priceNum) || sharesNum <= 0 || priceNum <= 0) {
-      setError('Please provide a valid ticker, quantity, and buy price.');
+    if (!formTicker) {
+      setError('Please provide a valid ticker.');
       return;
     }
 
@@ -206,8 +201,7 @@ export function Sidebar() {
       const body = {
         ticker: formTicker,
         market: formMarket,
-        shares: sharesNum,
-        averageBuyPrice: priceNum,
+        status: formStatus,
         thesisId: formThesisId || null,
       };
 
@@ -332,15 +326,13 @@ export function Sidebar() {
             id: holding.id,
             ticker: holding.ticker,
             market: holding.market,
-            shares: holding.shares,
-            averageBuyPrice: holding.averageBuyPrice,
+            status: holding.status,
             thesisId: holding.thesisId,
             thesisTitle: holding.thesisTitle,
           });
           setFormTicker(holding.ticker);
           setFormMarket(holding.market);
-          setFormShares(String(holding.shares));
-          setFormPrice(String(holding.averageBuyPrice));
+          setFormStatus(holding.status);
           setFormThesisId(holding.thesisId || '');
           setModalOpen(true);
         }
@@ -360,8 +352,7 @@ export function Sidebar() {
               setEditingPosition(null);
               setFormTicker('');
               setFormMarket('US');
-              setFormShares('');
-              setFormPrice('');
+              setFormStatus('watchlist');
               setFormThesisId('');
               setModalOpen(true);
             }} className={styles.addHoldingButton}>
@@ -380,6 +371,7 @@ export function Sidebar() {
                 <div className={styles.portfolioItemRow}>
                   <span className={styles.portfolioTicker}>
                     {p.ticker} <span className={styles.marketBadge}>{p.market}</span>
+                    {' '}<span className={styles.marketBadge}>{p.status === 'owned' ? 'Owned' : 'Watchlist'}</span>
                     {positionAlerts.length > 0 && (
                       <span
                         onClick={(e) => {
@@ -399,19 +391,12 @@ export function Sidebar() {
                       setEditingPosition(p);
                       setFormTicker(p.ticker);
                       setFormMarket(p.market);
-                      setFormShares(String(p.shares));
-                      setFormPrice(String(p.averageBuyPrice));
+                      setFormStatus(p.status);
                       setFormThesisId(p.thesisId || '');
                       setModalOpen(true);
                     }} title="Edit position" className={styles.iconButton}>✎</button>
                     <button onClick={() => handleDelete(p.id)} title="Delete position" className={styles.iconButtonDel}>🗑</button>
                   </div>
-                </div>
-                <div className={styles.portfolioDetails}>
-                  <span>{p.shares.toLocaleString()} shares @ {p.market === 'US' ? '$' : 'Rp '}{p.averageBuyPrice.toLocaleString()}</span>
-                  <span className={styles.portfolioValue}>
-                    Total: {p.market === 'US' ? '$' : 'Rp '}{(p.shares * p.averageBuyPrice).toLocaleString()}
-                  </span>
                 </div>
                 {p.thesisId ? (
                   <div className={styles.linkedThesis}>
@@ -462,29 +447,16 @@ export function Sidebar() {
                   </select>
                 </div>
                 <div className={styles.formGroup} style={{ flex: 2 }}>
-                  <label className={styles.formLabel}>Shares</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    placeholder="e.g. 100"
-                    value={formShares}
-                    onChange={e => setFormShares(e.target.value)}
-                    className={styles.modalInput}
-                  />
+                  <label className={styles.formLabel}>Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={e => setFormStatus(e.target.value as 'owned' | 'watchlist')}
+                    className={styles.modalSelect}
+                  >
+                    <option value="watchlist">Watchlist</option>
+                    <option value="owned">Owned</option>
+                  </select>
                 </div>
-              </div>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Average Buy Price</label>
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  placeholder="e.g. 42.50"
-                  value={formPrice}
-                  onChange={e => setFormPrice(e.target.value)}
-                  className={styles.modalInput}
-                />
               </div>
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>Link to Thesis</label>
