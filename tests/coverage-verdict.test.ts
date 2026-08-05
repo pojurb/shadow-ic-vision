@@ -232,7 +232,7 @@ describe('deriveThesisVerdict', () => {
     });
     expect(verdict.level).toBe('holding');
     expect(verdict.headline).toContain('THESIS HOLDING');
-    expect(verdict.headline).toContain('1 of 1 assumption has supporting evidence');
+    expect(verdict.headline).toContain('1 of 1 assumption is supported');
     expect(verdict.headline).toContain('No assumption is contradicted');
   });
 
@@ -260,11 +260,17 @@ describe('deriveThesisVerdict', () => {
     });
 
     expect(verdict.level).toBe('holding');
-    expect(verdict.headline).toContain('0 of 2 assumptions have supporting evidence');
-    expect(verdict.headline).toContain('2 have evidence whose direction could not be determined');
+    expect(verdict.headline).toContain('0 of 2 assumptions are supported');
+    expect(verdict.headline).toContain('2 have quotes verified verbatim from their source but never checked for relevance to the claim');
     expect(verdict.headline).toContain('nothing is confirmed either');
     // The phrase that made the old wording misleading must not stand alone.
     expect(verdict.headline).not.toContain('are evidenced');
+    /*
+     * The copy must not swing to the opposite overclaim either: the pipeline
+     * cannot tell an off-topic quote from an on-topic one with no extractable
+     * figure, so it may not assert the material is irrelevant.
+     */
+    expect(verdict.headline).not.toMatch(/irrelevant|unrelated|off-topic/i);
   });
 
   it('names its own rule so a rendered verdict is traceable to the version that produced it', () => {

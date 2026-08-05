@@ -208,26 +208,46 @@ function buildHeadline(
  * deliberately changes **wording only**: whether an all-inconclusive thesis
  * should still qualify as `holding` at all is a product calibration for the
  * user to decide, not a threshold to slip in here.
+ *
+ * Wording chosen by the user (2026-08-05) from four drafted options: state
+ * what the pipeline *does* guarantee and what it does not, rather than
+ * characterising the material itself. That choice is forced by what the code
+ * can actually know. `rankSentenceCandidates` selects secondary candidates on
+ * lexical overlap — two significant shared tokens, a score floor, one
+ * qualifying token outside the ticker and bare years — so a market-wrap
+ * sentence that merely mentions the issuer and carries any figure can qualify.
+ * Nothing downstream ever checks topical relevance, and `no_observed_value`
+ * cannot distinguish "off-topic" from "on-topic but unquantified". Copy
+ * asserting the quotes are irrelevant would therefore overclaim exactly as
+ * badly as the old copy did, in the opposite direction. What *is* guaranteed
+ * is provenance: `CitationPipeline` verified the quote appears verbatim in the
+ * cited document.
  */
 function buildHoldingHeadline(coverage: CoverageLedger): string {
-  const plural = (count: number) => (count === 1 ? 'has' : 'have');
-  const parts = [
-    `${coverage.supported} of ${coverage.totalAssumptions} assumption${coverage.totalAssumptions === 1 ? '' : 's'} `
-      + `${plural(coverage.supported)} supporting evidence`,
-  ];
-  if (coverage.inconclusiveOnly > 0) {
-    parts.push(`${coverage.inconclusiveOnly} ${plural(coverage.inconclusiveOnly)} evidence whose direction could not be determined`);
+  const { supported, totalAssumptions, inconclusiveOnly, unevidenced } = coverage;
+  const lead = `${supported} of ${totalAssumptions} assumption${totalAssumptions === 1 ? '' : 's'} `
+    + `${supported === 1 ? 'is' : 'are'} supported`;
+
+  const clauses: string[] = [];
+  if (inconclusiveOnly > 0) {
+    clauses.push(inconclusiveOnly === 1
+      ? '1 has a quote verified verbatim from its source but never checked for relevance to the claim'
+      : `${inconclusiveOnly} have quotes verified verbatim from their source but never checked for relevance to the claim`);
   }
-  if (coverage.unevidenced > 0) {
-    parts.push(`${coverage.unevidenced} ${plural(coverage.unevidenced)} no evidence`);
+  if (unevidenced > 0) {
+    clauses.push(`${unevidenced} ${unevidenced === 1 ? 'has' : 'have'} nothing`);
   }
+
   /*
    * With nothing positively supported, "nothing is contradicted" is a
    * statement about what the system could not check, not about the thesis.
    * Say so in the same breath rather than letting it read as confirmation.
    */
-  const tail = coverage.supported === 0
+  const tail = supported === 0
     ? 'Nothing is contradicted, but nothing is confirmed either.'
     : 'No assumption is contradicted by the evidence retrieved so far.';
-  return `THESIS HOLDING — ${parts.join('; ')}. ${tail}`;
+
+  return clauses.length > 0
+    ? `THESIS HOLDING — ${lead}. ${clauses.join('; ')}. ${tail}`
+    : `THESIS HOLDING — ${lead}. ${tail}`;
 }
