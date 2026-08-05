@@ -182,6 +182,52 @@ function buildHeadline(
     }
     return `INSUFFICIENT EVIDENCE — ${parts.join(', and ')}. No conclusion about this thesis is supported yet.`;
   }
-  return `THESIS HOLDING — ${coverage.evidenced} of ${coverage.totalAssumptions} assumptions are evidenced `
-    + 'and none is contradicted by the evidence retrieved so far.';
+  return buildHoldingHeadline(coverage);
+}
+
+/**
+ * Found 2026-08-05 against the real TLKM thesis. The previous wording —
+ * "N of M assumptions are evidenced and none is contradicted" — was true and
+ * badly misleading at the same time.
+ *
+ * All 23 of that thesis's evidence rows were `inconclusive` with
+ * `polarityMethod = no_observed_value`: the contracts stated thresholds
+ * (`gte 30 percent`, `gte 1200 count`) but the retrieved evidence was prose
+ * with no extractable figure, so no row *could* be marked as contradicting.
+ * "None is contradicted" was therefore vacuously true, and `evidenced` counted
+ * those rows because it counts evidence of any polarity — so the headline
+ * reported reassurance derived from the system's own inability to measure.
+ *
+ * That is the same failure shape M011 exists to prevent, one level subtler
+ * than the one `coverage.ts` documents: not "absence of evidence read as
+ * absence of concern", but *inability to evaluate* read as absence of concern.
+ *
+ * This reports `supported` and `inconclusiveOnly` — both already computed by
+ * `deriveCoverageLedger`, and until now never read by anything — so the
+ * distinction is visible in the one line that is hardest to skip. It
+ * deliberately changes **wording only**: whether an all-inconclusive thesis
+ * should still qualify as `holding` at all is a product calibration for the
+ * user to decide, not a threshold to slip in here.
+ */
+function buildHoldingHeadline(coverage: CoverageLedger): string {
+  const plural = (count: number) => (count === 1 ? 'has' : 'have');
+  const parts = [
+    `${coverage.supported} of ${coverage.totalAssumptions} assumption${coverage.totalAssumptions === 1 ? '' : 's'} `
+      + `${plural(coverage.supported)} supporting evidence`,
+  ];
+  if (coverage.inconclusiveOnly > 0) {
+    parts.push(`${coverage.inconclusiveOnly} ${plural(coverage.inconclusiveOnly)} evidence whose direction could not be determined`);
+  }
+  if (coverage.unevidenced > 0) {
+    parts.push(`${coverage.unevidenced} ${plural(coverage.unevidenced)} no evidence`);
+  }
+  /*
+   * With nothing positively supported, "nothing is contradicted" is a
+   * statement about what the system could not check, not about the thesis.
+   * Say so in the same breath rather than letting it read as confirmation.
+   */
+  const tail = coverage.supported === 0
+    ? 'Nothing is contradicted, but nothing is confirmed either.'
+    : 'No assumption is contradicted by the evidence retrieved so far.';
+  return `THESIS HOLDING — ${parts.join('; ')}. ${tail}`;
 }

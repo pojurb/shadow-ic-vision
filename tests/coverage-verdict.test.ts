@@ -232,6 +232,39 @@ describe('deriveThesisVerdict', () => {
     });
     expect(verdict.level).toBe('holding');
     expect(verdict.headline).toContain('THESIS HOLDING');
+    expect(verdict.headline).toContain('1 of 1 assumption has supporting evidence');
+    expect(verdict.headline).toContain('No assumption is contradicted');
+  });
+
+  /*
+   * Regression for the real TLKM thesis (2026-08-05): every evidence row was
+   * `inconclusive` with `polarityMethod = no_observed_value`, so nothing could
+   * be marked contradicting and the old headline read as a confirmation
+   * ("5 of 6 assumptions are evidenced and none is contradicted") when in fact
+   * zero assumptions were supported and the system had simply been unable to
+   * evaluate any of them.
+   */
+  it('does not let an all-inconclusive thesis read as a confirmation', () => {
+    const allInconclusive = deriveCoverageLedger([
+      assumption({ polarities: ['inconclusive'] }),
+      assumption({ assumptionId: 'a2', polarities: ['inconclusive'] }),
+    ]);
+    expect(allInconclusive.supported).toBe(0);
+    expect(allInconclusive.confidenceGate).toBe('open');
+
+    const verdict = deriveThesisVerdict({
+      coverage: allInconclusive,
+      assumptions: [verdictInput({
+        evidence: [{ id: 'e1', polarity: 'inconclusive', deltaVsThreshold: null, observedValue: null, sourceName: 's', sourceUrl: 'u' }],
+      })],
+    });
+
+    expect(verdict.level).toBe('holding');
+    expect(verdict.headline).toContain('0 of 2 assumptions have supporting evidence');
+    expect(verdict.headline).toContain('2 have evidence whose direction could not be determined');
+    expect(verdict.headline).toContain('nothing is confirmed either');
+    // The phrase that made the old wording misleading must not stand alone.
+    expect(verdict.headline).not.toContain('are evidenced');
   });
 
   it('names its own rule so a rendered verdict is traceable to the version that produced it', () => {
