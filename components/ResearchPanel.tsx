@@ -366,10 +366,24 @@ export function ResearchPanel({
 
       {data.coverage && data.coverage.totalAssumptions > 0 && (
         <section className={styles.coverageLedger} data-testid="coverage-ledger" aria-label="Evidence coverage">
+          {/*
+            * Leads with `supported`, not `evidenced`. `evidenced` counts an
+            * assumption carrying any quote at all, of any polarity, so leading
+            * with it reproduced here the same overstatement the verdict
+            * headline was corrected for (2026-08-05): the ratio reads as
+            * confirmation while `supported` may be zero.
+            */}
           <strong>
-            Evidence coverage: {data.coverage.evidenced} of {data.coverage.totalAssumptions} assumptions
+            Evidence coverage: {data.coverage.supported} of {data.coverage.totalAssumptions} assumptions supported
             {data.coverage.contradicted > 0 ? ` · ${data.coverage.contradicted} contradicted` : ''}
           </strong>
+          {data.coverage.inconclusiveOnly > 0 && (
+            <p>
+              {data.coverage.inconclusiveOnly} assumption
+              {data.coverage.inconclusiveOnly === 1 ? ' has a quote' : 's have quotes'} verified verbatim
+              from their source but never checked for relevance to the claim.
+            </p>
+          )}
           {/* Absence of evidence is stated by name, not left to be inferred
               from which cards happen to be empty. */}
           {data.coverage.unevidencedAssumptions.length > 0 && (

@@ -131,8 +131,19 @@ function render(panel: ResearchPanelDTO, full: boolean): string {
     const gate = coverage.confidenceGate === 'suppressed'
       ? yellow(`suppressed (${coverage.suppressionReasons.join(', ') || 'unspecified'})`)
       : green('open');
-    lines.push(`${bold('COVERAGE')}  ${coverage.evidenced}/${coverage.totalAssumptions} assumptions evidenced ${dim(`(${percent}%)`)}  ·  confidence gate: ${gate}`);
-    lines.push(dim(`  supported ${coverage.supported} · contradicted ${coverage.contradicted} · inconclusive-only ${coverage.inconclusiveOnly} · unevidenced ${coverage.unevidenced}`));
+    /*
+     * Leads with `supported`, not `evidenced`. `evidenced` counts an
+     * assumption that has any quote at all, of any polarity — so leading with
+     * it reproduced in the coverage line exactly the overstatement the verdict
+     * headline was corrected for: a high ratio reads as confirmation while
+     * `supported` may be zero. The ratio is still shown, because
+     * `confidenceGate` is derived from it and a gate reading `open` at 83%
+     * with nothing supported is otherwise inexplicable — but it is labelled
+     * with what it actually measures.
+     */
+    lines.push(`${bold('COVERAGE')}  ${coverage.supported} of ${coverage.totalAssumptions} assumptions supported  ·  confidence gate: ${gate}`);
+    lines.push(dim(`  contradicted ${coverage.contradicted} · quotes not checked for relevance ${coverage.inconclusiveOnly} · nothing retrieved ${coverage.unevidenced}`));
+    lines.push(dim(`  retrieval reached ${coverage.evidenced} of ${coverage.totalAssumptions} (${percent}%) — this ratio counts any quote, not support`));
     if (coverage.unresolvedContracts > 0) {
       lines.push(yellow(`  ${coverage.unresolvedContracts} assumption(s) have an unresolved measurement contract — these cannot be checked for breach`));
     }

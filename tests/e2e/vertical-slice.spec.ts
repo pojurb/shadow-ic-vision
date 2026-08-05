@@ -77,7 +77,10 @@ test('captures the verified desktop slice and narrow Research drawer', async ({ 
   // placement holds in a real browser.
   await expect(researchPanel.getByTestId('thesis-verdict')).toBeVisible();
   await expect(researchPanel.getByTestId('thesis-verdict')).toContainText('THESIS HOLDING');
-  await expect(researchPanel.getByTestId('coverage-ledger')).toContainText('1 of 1 assumptions');
+  // Leads with `supported`, not `evidenced` — see the coverage block's own
+  // comment in `ResearchPanel.tsx`. Here they coincide at 1, so this asserts
+  // the corrected wording rather than merely the count.
+  await expect(researchPanel.getByTestId('coverage-ledger')).toContainText('1 of 1 assumptions supported');
   // The XBRL fact cleared the claim's threshold, so it is badged as supporting
   // with the signed gap. Only structured-fact evidence gets a polarity badge at
   // all — the text passage stays honestly unbadged.
