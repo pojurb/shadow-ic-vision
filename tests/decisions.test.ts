@@ -6,6 +6,7 @@ import { MockProvider } from '@/lib/ai/adapters/mock';
 import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
 import {
+  assumptionMeasurements,
   assumptions,
   conversations,
   decisions,
@@ -13,7 +14,7 @@ import {
   messages,
   theses,
 } from '@/db/schema';
-import { thesisDraftSchema, thesisExportSchema } from '@/lib/domain/contracts';
+import { thesisDraftSchema, thesisExportSchema, type ThesisExport } from '@/lib/domain/contracts';
 import {
   confirmDraft,
   recordDecision,
@@ -74,10 +75,16 @@ describe('Decision Library & Import/Export persistence', () => {
   it('records decisions and displays them in getResearchPanel', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
 
-    const dec1 = await recordDecision(thesisId, 'Investigate Further', 'Buy', 'Needs more 10-Q checks', { db: handle.db });
+    const dec1 = await recordDecision(
+      thesisId, 'Investigate Further', 'Buy', 'Needs more 10-Q checks',
+      ['evidence-1'], ['Wait for next quarter before deciding'],
+      { db: handle.db },
+    );
     expect(dec1.outcome).toBe('Investigate Further');
     expect(dec1.optionalAction).toBe('Buy');
     expect(dec1.userReasoning).toBe('Needs more 10-Q checks');
+    expect(dec1.evidenceIds).toEqual(['evidence-1']);
+    expect(dec1.alternatives).toEqual(['Wait for next quarter before deciding']);
 
     const panel = await getResearchPanel(conversationId, { db: handle.db });
     expect(panel.decisions).toHaveLength(1);
@@ -85,15 +92,19 @@ describe('Decision Library & Import/Export persistence', () => {
       outcome: 'Investigate Further',
       optionalAction: 'Buy',
       userReasoning: 'Needs more 10-Q checks',
+      evidenceIds: ['evidence-1'],
+      alternatives: ['Wait for next quarter before deciding'],
     });
 
-    await recordDecision(thesisId, 'Archive', null, 'Closing thesis loop', { db: handle.db });
+    await recordDecision(thesisId, 'Archive', null, 'Closing thesis loop', [], [], { db: handle.db });
     const panel2 = await getResearchPanel(conversationId, { db: handle.db });
     expect(panel2.decisions).toHaveLength(2);
     expect(panel2.decisions[1]).toMatchObject({
       outcome: 'Archive',
       optionalAction: null,
       userReasoning: 'Closing thesis loop',
+      evidenceIds: [],
+      alternatives: [],
     });
   });
 
@@ -125,7 +136,11 @@ describe('Decision Library & Import/Export persistence', () => {
       metadata: JSON.stringify({ parserVersion: 'test-parser' }),
     }).run();
 
-    await recordDecision(thesisId, 'Update Thesis', 'Hold', 'Holding due to current valuation', { db: handle.db });
+    await recordDecision(
+      thesisId, 'Update Thesis', 'Hold', 'Holding due to current valuation',
+      ['evidence-1'], ['Exit entirely instead of holding'],
+      { db: handle.db },
+    );
 
     const exportPayload = await exportThesisData(thesisId, { db: handle.db });
     const parsed = thesisExportSchema.safeParse(exportPayload);
@@ -140,6 +155,10 @@ describe('Decision Library & Import/Export persistence', () => {
       boundingBox: '[0.1,0.2,0.3,0.4]',
     });
     expect(exportPayload.decisions).toHaveLength(1);
+    expect(exportPayload.decisions[0]).toMatchObject({
+      evidenceIds: ['evidence-1'],
+      alternatives: ['Exit entirely instead of holding'],
+    });
 
     const importResult = await importThesisData(exportPayload, { db: handle.db });
     expect(importResult.conversationId).toBeDefined();
@@ -169,11 +188,57 @@ describe('Decision Library & Import/Export persistence', () => {
     expect(importedDecisions[0].outcome).toBe('Update Thesis');
     expect(importedDecisions[0].action).toBe('Hold');
     expect(importedDecisions[0].rationale).toBe('Holding due to current valuation');
+    expect(JSON.parse(importedDecisions[0].evidenceIds)).toEqual(['evidence-1']);
+    expect(JSON.parse(importedDecisions[0].alternatives)).toEqual(['Exit entirely instead of holding']);
+  });
+
+  /**
+   * `createThesisFromValidatedDraft` (the helper extracted for
+   * `docs/drafts/cli-terminal-dashboard-draft-plan.md` §4.3) deliberately does
+   * not run `draftClarificationBlock` — that gate belongs to `confirmDraft`
+   * only. A pre-M011 export (or a package like the real ISAT dogfood thesis,
+   * whose assumptions are all `legacy_unspecified`) must keep importing
+   * successfully; gating it here would be a regression, not a fix.
+   */
+  it('imports a package with an unresolved measurement contract without the clarification gate blocking it', async () => {
+    const legacyExport: ThesisExport = {
+      version: 1,
+      thesis: {
+        ticker: 'ISAT',
+        companyName: 'Indosat Ooredoo Hutchison',
+        market: 'ID',
+        coreBelief: 'Legacy pre-M011 thesis with no measurement contract.',
+        title: 'ISAT — Indosat Ooredoo Hutchison',
+        description: 'Legacy pre-M011 thesis with no measurement contract.',
+        status: 'active',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      assumptions: [{
+        statement: 'Capex efficiency improves operating margin.',
+        status: 'untested',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        // No `measurement` at all — exactly what a pre-M011 export looks
+        // like, and what the real ISAT thesis's rows are today.
+        evidence: [],
+      }],
+      decisions: [],
+    };
+    const parsed = thesisExportSchema.safeParse(legacyExport);
+    expect(parsed.success).toBe(true);
+
+    const importResult = await importThesisData(legacyExport, { db: handle.db });
+    expect(importResult.thesisId).toBeDefined();
+
+    const importedAssumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, importResult.thesisId)).get();
+    expect(importedAssumption).toBeDefined();
+
+    const measurement = handle.db.select().from(assumptionMeasurements).where(eq(assumptionMeasurements.assumptionId, importedAssumption!.id)).get();
+    expect(measurement?.resolution).toBe('legacy_unspecified');
   });
 
   it('cascades deletion of decisions when a thesis is deleted', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
-    await recordDecision(thesisId, 'Archive', null, 'Cascade test reasoning', { db: handle.db });
+    await recordDecision(thesisId, 'Archive', null, 'Cascade test reasoning', [], [], { db: handle.db });
 
     expect(handle.db.select().from(decisions).all()).toHaveLength(1);
 
@@ -189,19 +254,19 @@ describe('Decision Library & Import/Export persistence', () => {
     await processResearchJobs(conversationId, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
     const rec = await generateDecisionRecommendation(thesisId, { db: handle.db });
     expect(rec.recommendedOutcome).toBe('Investigate Further');
-    expect(rec.recommendedAction).toBe('Buy');
+    expect(rec).not.toHaveProperty('recommendedAction');
     expect(rec.rationale).toContain('Palantir gross margin');
   });
 
   /**
    * M011. The structural half of the confidence gate. This thesis is confirmed
-   * but never researched, so nothing in it is evidenced — and a recommendation
-   * carrying a position action ('Buy') would be exactly the overconfidence the
-   * audit found. The narrowing is enforced by `safeParse` inside
-   * `structuredExtract`, and propagated into a real model's own output grammar
-   * by `z.toJSONSchema`, so this is not prompt wording that a model may ignore.
+   * but never researched, so nothing in it is evidenced — and an overconfident
+   * outcome ('No Change') would be exactly the overconfidence the audit found.
+   * The narrowing is enforced by `safeParse` inside `structuredExtract`, and
+   * propagated into a real model's own output grammar by `z.toJSONSchema`, so
+   * this is not prompt wording that a model may ignore.
    */
-  it('cannot return a position action while the confidence gate is suppressed', async () => {
+  it('forces an Investigate Further outcome while the confidence gate is suppressed', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
     const panel = await getResearchPanel(conversationId, { db: handle.db });
     expect(panel.coverage?.confidenceGate).toBe('suppressed');
@@ -209,15 +274,15 @@ describe('Decision Library & Import/Export persistence', () => {
 
     const rec = await generateDecisionRecommendation(thesisId, { db: handle.db });
     expect(rec.recommendedOutcome).toBe('Investigate Further');
-    expect(rec.recommendedAction).toBeNull();
+    expect(rec).not.toHaveProperty('recommendedAction');
   });
 
   it('returns the decision timeline in chronological order with a previousAction delta', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
 
-    await recordDecision(thesisId, 'Investigate Further', 'Buy', 'Initial buy rationale', { db: handle.db });
-    await recordDecision(thesisId, 'No Change', 'Buy', 'Still confident', { db: handle.db });
-    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Thesis broke down', { db: handle.db });
+    await recordDecision(thesisId, 'Investigate Further', 'Buy', 'Initial buy rationale', [], [], { db: handle.db });
+    await recordDecision(thesisId, 'No Change', 'Buy', 'Still confident', [], [], { db: handle.db });
+    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Thesis broke down', [], [], { db: handle.db });
 
     const panel = await getResearchPanel(conversationId, { db: handle.db });
     expect(panel.decisions).toHaveLength(3);
@@ -234,7 +299,7 @@ describe('Decision Library & Import/Export persistence', () => {
 
   it('never sends recorded decision history to the LLM provider (DEC-0009 boundary)', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
-    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Prior review outcome that must stay local-only', { db: handle.db });
+    await recordDecision(thesisId, 'Update Thesis', 'Exit', 'Prior review outcome that must stay local-only', [], [], { db: handle.db });
 
     const spy = vi.spyOn(MockProvider.prototype, 'structuredExtract');
     await generateDecisionRecommendation(thesisId, { db: handle.db });

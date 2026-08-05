@@ -1,9 +1,19 @@
 # Draft Plan: Terminal-First Research Workflow + Web App as Dashboard/Control Panel
 
-Status: **DRAFT — not yet accepted.** No DEC written yet, no milestone number
-assigned. This is a working document from an architecture review session
-(2026-08-03), not governing authority. Promote the relevant pieces into
-`docs/milestones/` + a DEC only once the open questions in §7 are answered.
+Status: **DRAFT — partially implemented, partially still open.** No milestone
+number assigned. This is a working document from an architecture review
+session (2026-08-03); it does not itself govern.
+[`DEC-0017`](../decisions/DEC-0017-cli-terminal-workflow-and-concurrency-model.md)
+(accepted 2026-08-05) now covers the pieces marked "**Done, DEC-0017**" below —
+§4.2's WAL/lease-owner concurrency model and §4.3's shared
+`createThesisFromValidatedDraft` path. §5 step 3's three CLI intake scripts
+(`research:panel`, `research:queue`, `thesis:stage`) already exist and are
+tested end-to-end — verified directly by reading each script, 2026-08-05.
+§5 step 6 (hide Chat UI from navigation) is **not** done — verified directly
+2026-08-05: `components/Sidebar.tsx` still renders "+ New" and the full
+conversation list as primary navigation. Everything else in this document
+(§5 steps 4/5/6/7, the Web App → Control Panel conversion, and the Ollama
+decision) remains open and ungoverned.
 
 ## 1. Motivation
 
@@ -123,6 +133,9 @@ build them**:
 
 ### 4.2 Shared backend (`db/`, `lib/research/service.ts`) — prerequisite, not UI code
 
+**Done, `DEC-0017` (2026-08-05).** Both items below are implemented, tested,
+and applied to the real local database. See `DEC-0017` Approved Scope item 3.
+
 1. **`db/client.ts`: enable WAL + `busy_timeout`.**
    ```ts
    sqlite.pragma('journal_mode = WAL');
@@ -153,6 +166,18 @@ build them**:
    race today, not just script vs. script.
 
 ### 4.3 Shared thesis-creation logic — required before any CLI intake can create a new thesis
+
+**Done, `DEC-0017` (2026-08-05), with one deliberate deviation from this
+section's original wording.** `createThesisFromValidatedDraft` is
+implemented and used by both `confirmDraft` and `importThesisData`, per the
+"Required refactor" paragraph below — but it does **not** run
+`draftClarificationBlock` itself, unlike what that paragraph's phrasing
+originally implied. Applying the gate unconditionally to `importThesisData`
+would have blocked re-importing any thesis with a `legacy_unspecified` or
+otherwise unresolved measurement contract — including the real ISAT dogfood
+thesis — which the import path has never gated on and must keep not gating
+on. See `DEC-0017` Approved Scope item 4 for the full reasoning and the
+regression test that proves both the sharing and the gate's correct scope.
 
 Verified by direct code read: `confirmDraft` (`lib/research/service.ts:126`)
 does **not** accept a draft object. It requires `conversationId` +
@@ -188,16 +213,30 @@ invent a new one.
 
 1. **Backend hardening** (§4.2) — WAL/busy_timeout, lease-owner fix. Ship
    first; everything else depends on concurrent access being safe.
+   **Done, `DEC-0017` (2026-08-05).**
 2. **Refactor `createThesisFromValidatedDraft`** (§4.3) out of `confirmDraft`
-   and the import path.
+   and the import path. **Done, `DEC-0017` (2026-08-05)** — see §4.3's note
+   on the one deliberate deviation (import stays ungated).
 3. **CLI intake scripts**, built on top of (1) and (2):
-   - `npm run thesis:create -- ...` (wraps the shared function above)
-   - `npm run research:queue -- --thesis-id X` (or `--conversation-id`;
-     avoid `--ticker` alone as the primary key — a ticker can map to more
-     than one thesis/conversation)
-   - `npm run research:panel -- --thesis-id X` (read verdict/coverage/evidence
-     as JSON, for the agent to relay conversationally)
-   - `npm run decisions:record -- --thesis-id X ...`
+   - ~~`npm run thesis:create -- ...`~~ **Superseded, not built as specified.**
+     What shipped instead is `npm run thesis:stage -- --draft '...'`
+     (verified 2026-08-05): it validates the draft and writes only a
+     `conversations`/`messages` row, printing a `localhost:3000/c/<id>` URL —
+     it never inserts a `theses` row itself. The thesis is created only when
+     the user opens that URL and clicks Confirm in the browser (`confirmDraft`,
+     via the existing API route). This is a stronger gate than the stdin
+     confirmation this step originally called for: the CLI session cannot
+     construct thesis state at all, not even with a piped-in "yes". See
+     `DEC-0017` Approved Scope item 5.
+   - `npm run research:queue -- --thesis-id X` — **built, verified working
+     2026-08-05** (reads the thesis, calls `processResearchJobs`).
+   - `npm run research:panel -- --thesis-id X` — **built, verified working
+     2026-08-05** (reads `getResearchPanel`, prints JSON).
+   - `npm run decisions:record -- --thesis-id X ...` — **not built.** When it
+     is, the interactive-stdin-confirmation requirement below still applies
+     in full; nothing about `thesis:stage`'s stronger browser-gate design
+     transfers to it, since recording a decision has no equivalent
+     browser-confirm step today.
    Verify end-to-end from an actual terminal agent session before touching
    the Web App's navigation.
    **Mutating scripts (`thesis:create`, `decisions:record`) must require a
@@ -225,7 +264,9 @@ invent a new one.
    objects sharing one connection), a lease-expiry-during-long-run test, a
    worker-crash/retry test, an idempotency/duplicate-evidence test.
 6. **Hide Chat UI from navigation** (not delete). Keep `/c/[id]` as read-only
-   legacy for conversations created before this change.
+   legacy for conversations created before this change. **Not done** —
+   verified 2026-08-05: `components/Sidebar.tsx` still renders "+ New" and
+   the full conversation list as primary navigation.
 7. **Ollama decision** (§7.2) — separate, still open.
 
 ## 6. Nice-to-have (not blocking)
@@ -382,6 +423,20 @@ explicit control-panel surface") relocates the existing
 `generateDecisionRecommendation` behavior unchanged; it is still non-compliant
 with Workflow E until that separate discussion resolves it.
 
+**Follow-up discussion held and all five fixed, 2026-08-05.** In order:
+`generateDecisionRecommendation`'s prompt no longer asks for or accepts an
+action (`recommendedAction` removed from `decisionRecommendationSchema`
+entirely, not merely nulled); `decisions` gained `evidenceIds`/`alternatives`
+columns (migration `0010`); `explorationDraftSchema` gained a required
+`citation` field per candidate and `candidates` now requires 3-5 per Workflow
+B (was `.min(1).max(5)`); `portfolioPositions` replaced `shares`/
+`averageBuyPrice` with a `status` (`owned`|`watchlist`) tag (migrations
+`0010`/`0011`), and the Sidebar "Track Asset"/"Add Holding" form now collects
+that tag instead of quantity/cost basis. All four verified by `tsc --noEmit`
+and the full test suite (356 passed, 3 skipped) after the change, not merely
+asserted. §5 step 4's "relocates unchanged" caveat above no longer applies —
+the behavior it warned about was fixed at the source, not relocated.
+
 ### 8.1 New risks specific to the CLI plan (confirmed)
 
 **Gap 1 — no mechanism carries the Moral Constitution into a CLI agent's
@@ -480,6 +535,14 @@ in scope than a full `DEC-0009`-style provider approval (per §7.1, the user
 has already granted that exception), but "no DEC at all" is the same failure
 shape as R-018's revert — a short, real record is cheap insurance against
 repeating it.
+
+**Written and accepted, 2026-08-05.**
+[`DEC-0017`](../decisions/DEC-0017-cli-terminal-workflow-and-concurrency-model.md)
+covers exactly this scope, written after — not before — the concurrency model
+and shared-draft-creation refactor were implemented and verified, per this
+paragraph's own sequencing logic. It also records that `decisions:record`'s
+interactive-stdin-confirmation requirement remains an unbuilt prerequisite,
+not retroactively satisfied.
 
 ## 9. References
 

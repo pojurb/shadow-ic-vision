@@ -139,6 +139,7 @@ export function ResearchPanel({
   const [outcome, setOutcome] = useState<'No Change' | 'Investigate Further' | 'Update Thesis' | 'Archive'>('No Change');
   const [optionalAction, setOptionalAction] = useState<'Buy' | 'Hold' | 'Reduce' | 'Exit' | null>(null);
   const [userReasoning, setUserReasoning] = useState('');
+  const [alternativesText, setAlternativesText] = useState('');
   const [recording, setRecording] = useState(false);
 
   const [acceptingSecondaryEvidence, setAcceptingSecondaryEvidence] = useState<string | null>(null);
@@ -146,7 +147,6 @@ export function ResearchPanel({
   const [analyzing, setAnalyzing] = useState(false);
   const [recommendation, setRecommendation] = useState<{
     recommendedOutcome: 'No Change' | 'Investigate Further' | 'Update Thesis' | 'Archive';
-    recommendedAction: 'Buy' | 'Hold' | 'Reduce' | 'Exit' | null;
     rationale: string;
   } | null>(null);
 
@@ -169,7 +169,6 @@ export function ResearchPanel({
   const applyRecommendation = () => {
     if (!recommendation) return;
     setOutcome(recommendation.recommendedOutcome);
-    setOptionalAction(recommendation.recommendedAction);
     setUserReasoning(recommendation.rationale);
   };
 
@@ -183,15 +182,25 @@ export function ResearchPanel({
     setRecording(true);
     setError(null);
     try {
+      // VISION.md §7: the record must retain the relevant evidence — this
+      // snapshots every evidence row currently shown for the thesis, since
+      // that is what the user's reasoning was actually weighed against.
+      const evidenceIds = data.items.flatMap((item) => item.evidence.map((e) => e.id));
+      const alternatives = alternativesText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
       const response = await fetch(`/api/theses/${data.thesis.id}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ outcome, optionalAction, userReasoning }),
+        body: JSON.stringify({ outcome, optionalAction, userReasoning, evidenceIds, alternatives }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Unable to record decision.');
-      
+
       setUserReasoning('');
+      setAlternativesText('');
       setOutcome('No Change');
       setOptionalAction(null);
       await load();
@@ -567,6 +576,11 @@ export function ResearchPanel({
                       </p>
                     )}
                     <p className={styles.decisionReasoning}>{dec.userReasoning}</p>
+                    {dec.alternatives.length > 0 && (
+                      <p className={styles.decisionAlternatives}>
+                        Alternatives considered: {dec.alternatives.join('; ')}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -599,7 +613,7 @@ export function ResearchPanel({
               {recommendation && (
                 <div className={styles.recommendationBox}>
                   <div className={styles.recommendationHeader}>
-                    <strong className={styles.recommendationLabel}>AI Suggestion:</strong>
+                    <strong className={styles.recommendationLabel}>Evidence Assessment:</strong>
                     <button
                       type="button"
                       onClick={applyRecommendation}
@@ -610,7 +624,6 @@ export function ResearchPanel({
                   </div>
                   <p className={styles.recommendationOutcome}>
                     {recommendation.recommendedOutcome}
-                    {recommendation.recommendedAction ? ` (${recommendation.recommendedAction})` : ''}
                   </p>
                   <p className={styles.recommendationRationale}>{recommendation.rationale}</p>
                 </div>
@@ -654,6 +667,17 @@ export function ResearchPanel({
                   value={userReasoning}
                   onChange={(e) => setUserReasoning(e.target.value)}
                   placeholder="Explain the reasoning..."
+                  className={styles.decisionTextarea}
+                />
+              </div>
+              <div>
+                <label htmlFor="alternatives-textarea" className={styles.decisionFieldLabel}>Known Alternatives Considered (one per line, optional)</label>
+                <textarea
+                  id="alternatives-textarea"
+                  rows={2}
+                  value={alternativesText}
+                  onChange={(e) => setAlternativesText(e.target.value)}
+                  placeholder="e.g. Wait for next quarter's filing before deciding"
                   className={styles.decisionTextarea}
                 />
               </div>

@@ -21,6 +21,7 @@ must match the linked documents.
 | DEC-0014 | `accepted` | [Local-only scope reaffirmation](DEC-0014-local-only-scope-reaffirmation.md) | Amends DEC-0009 | Production/hosted confidential processing is explicitly out of scope; the roadmapped production-provider-approval milestone is withdrawn pending a hosted-deployment ADR |
 | DEC-0015 | `accepted` | [Secondary-source ingestion boundaries](DEC-0015-secondary-source-ingestion-boundaries.md) | M007 product scoping | Defines admissible sources, licensing, structural `secondary_issuer`/`secondary_news` trust classes, and `discovery_pointer` web search rules |
 | DEC-0016 | `accepted` | [Evidence polarity classifier boundary](DEC-0016-evidence-polarity-classifier-boundary.md) | M011 provider call site | Optional polarity classifier is off by default and gated on live research mode; never overrides arithmetic or a structural refusal, and a `model_classified` verdict can never produce a quantified breach |
+| DEC-0017 | `accepted` | [Terminal-first CLI workflow and concurrency model](DEC-0017-cli-terminal-workflow-and-concurrency-model.md) | CLI/Dashboard interface split, SQLite concurrency, script design | WAL + lease-owner gate makes concurrent browser/CLI access safe; one shared `createThesisFromValidatedDraft` path; a new thesis's real commit gate is the browser, never the CLI |
 
 ## Historical Drafts
 

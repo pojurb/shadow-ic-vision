@@ -23,6 +23,7 @@ import {
   type MeasurementContract,
   thesisDraftSchema,
   type ThesisDraft,
+  type AssumptionRowStatus,
   type ResearchPanelDTO,
   type DecisionOutcome,
   type DecisionAction,
@@ -123,6 +124,93 @@ async function resolveEvidencePolarities(params: {
   return { contract, polarities };
 }
 
+/**
+ * Draft plan `docs/drafts/cli-terminal-dashboard-draft-plan.md` §4.3. The
+ * thesis/assumption/measurement/job insert sequence that `confirmDraft` and
+ * `importThesisData` each used to duplicate independently — a future CLI
+ * intake path would have made it a third independent copy to keep in sync.
+ *
+ * Deliberately does **not** run `draftClarificationBlock` itself: that gate
+ * belongs to `confirmDraft` (a fresh draft becoming a tracked thesis for the
+ * first time) but must not apply to `importThesisData` (restoring a package
+ * whose assumptions may be `legacy_unspecified` or otherwise pre-M011 — e.g.
+ * the real ISAT dogfood thesis — which must keep importing exactly as it does
+ * today). Each caller decides whether to gate before calling this.
+ */
+function createThesisFromValidatedDraft(
+  tx: { select: AppDatabase['select']; insert: AppDatabase['insert']; update: AppDatabase['update'] },
+  params: {
+    thesisId: string;
+    conversationId: string;
+    draftMessageId: string | null;
+    ticker: string;
+    companyName: string;
+    market: 'US' | 'ID';
+    coreBelief: string;
+    title: string;
+    description: string;
+    status: 'active' | 'archived';
+    createdAt?: string;
+    updatedAt?: string;
+    assumptions: Array<{
+      statement: string;
+      status: AssumptionRowStatus;
+      measurement: MeasurementContract;
+      createdAt?: string;
+      updatedAt?: string;
+    }>;
+    jobStatus: 'queued' | 'succeeded';
+    sourceMode: 'mock' | 'live';
+  },
+): { assumptionIds: string[]; jobIds: string[] } {
+  tx.insert(theses).values({
+    id: params.thesisId,
+    conversationId: params.conversationId,
+    draftMessageId: params.draftMessageId,
+    ticker: params.ticker,
+    companyName: params.companyName,
+    market: params.market,
+    coreBelief: params.coreBelief,
+    title: params.title,
+    description: params.description,
+    status: params.status,
+    ...(params.createdAt ? { createdAt: params.createdAt } : {}),
+    ...(params.updatedAt ? { updatedAt: params.updatedAt } : {}),
+  }).run();
+
+  const assumptionIds: string[] = [];
+  const jobIds: string[] = [];
+  for (const draftAssumption of params.assumptions) {
+    const assumptionId = randomUUID();
+    const jobId = randomUUID();
+    tx.insert(assumptions).values({
+      id: assumptionId,
+      thesisId: params.thesisId,
+      statement: draftAssumption.statement,
+      status: draftAssumption.status,
+      ...(draftAssumption.createdAt ? { createdAt: draftAssumption.createdAt } : {}),
+      ...(draftAssumption.updatedAt ? { updatedAt: draftAssumption.updatedAt } : {}),
+    }).run();
+    // M011. The contract makes the same draft-to-row transition every other
+    // field of `thesisDraft` already makes, in the same transaction — so an
+    // assumption can never exist without one.
+    tx.insert(assumptionMeasurements).values(
+      measurementInsertValues(assumptionId, draftAssumption.measurement),
+    ).run();
+    tx.insert(researchJobs).values({
+      id: jobId,
+      assumptionId,
+      status: params.jobStatus,
+      sourceMode: params.sourceMode,
+      ...(draftAssumption.updatedAt ? { updatedAt: draftAssumption.updatedAt } : {}),
+    }).run();
+    assumptionIds.push(assumptionId);
+    jobIds.push(jobId);
+  }
+
+  return { assumptionIds, jobIds };
+}
+
 export function confirmDraft(
   conversationId: string,
   messageId: string,
@@ -183,8 +271,9 @@ export function confirmDraft(
 
     const thesisId = randomUUID();
     const title = `${draft.ticker} — ${draft.companyName}`;
-    tx.insert(theses).values({
-      id: thesisId,
+
+    const { jobIds } = createThesisFromValidatedDraft(tx, {
+      thesisId,
       conversationId,
       draftMessageId: messageId,
       ticker: draft.ticker,
@@ -194,7 +283,14 @@ export function confirmDraft(
       title,
       description: draft.coreBelief,
       status: 'active',
-    }).run();
+      assumptions: draft.assumptions.map((a) => ({
+        statement: a.statement,
+        status: a.status,
+        measurement: a.measurement,
+      })),
+      jobStatus: 'queued',
+      sourceMode: pipeline.sourceMode,
+    });
 
     // Found during live testing (2026-07-30): `conversations.title` had no
     // sync with the thesis it belongs to, so the sidebar kept showing
@@ -202,31 +298,6 @@ export function confirmDraft(
     // the same canonical title `theses.title` just got, in the same
     // transaction, from the same local — the two can never drift apart.
     tx.update(conversations).set({ title, updatedAt: new Date().toISOString() }).where(eq(conversations.id, conversationId)).run();
-
-    const jobIds: string[] = [];
-    for (const draftAssumption of draft.assumptions) {
-      const assumptionId = randomUUID();
-      const jobId = randomUUID();
-      tx.insert(assumptions).values({
-        id: assumptionId,
-        thesisId,
-        statement: draftAssumption.statement,
-        status: draftAssumption.status,
-      }).run();
-      // M011. The contract makes the same draft-to-row transition every other
-      // field of `thesisDraft` already makes, in the same transaction — so an
-      // assumption can never exist without one.
-      tx.insert(assumptionMeasurements).values(
-        measurementInsertValues(assumptionId, draftAssumption.measurement),
-      ).run();
-      tx.insert(researchJobs).values({
-        id: jobId,
-        assumptionId,
-        status: 'queued',
-        sourceMode: pipeline.sourceMode,
-      }).run();
-      jobIds.push(jobId);
-    }
 
     return { thesisId, jobIds, alreadyConfirmed: false, title };
   });
@@ -305,6 +376,8 @@ export async function getResearchPanel(
       outcome: row.outcome as DecisionOutcome,
       optionalAction: row.action as DecisionAction,
       userReasoning: row.rationale,
+      evidenceIds: JSON.parse(row.evidenceIds) as string[],
+      alternatives: JSON.parse(row.alternatives) as string[],
       timestamp: row.createdAt,
       previousAction,
     };
@@ -422,7 +495,7 @@ export async function processResearchJobs(
 
   await db
     .update(researchJobs)
-    .set({ status: 'queued', leaseExpiresAt: null, updatedAt: nowIso })
+    .set({ status: 'queued', leaseExpiresAt: null, leaseOwner: null, updatedAt: nowIso })
     .where(and(eq(researchJobs.status, 'running'), lt(researchJobs.leaseExpiresAt, nowIso)))
     .run();
 
@@ -435,6 +508,11 @@ export async function processResearchJobs(
     .all();
 
   for (const row of jobs) {
+    // Draft plan §4.2. Identifies this specific claim, distinct from any
+    // later claim the reclaim sweep above might hand to a different worker
+    // after this one's lease expires — every write below this point must
+    // stay conditional on still holding it.
+    const runId = randomUUID();
     const leaseExpiresAt = new Date(currentTime.getTime() + 60_000).toISOString();
     const claimed = await db
       .update(researchJobs)
@@ -445,6 +523,7 @@ export async function processResearchJobs(
         sourceMode: pipeline.sourceMode,
         attemptCount: row.job.attemptCount + 1,
         leaseExpiresAt,
+        leaseOwner: runId,
         updatedAt: nowIso,
       })
       .where(and(eq(researchJobs.id, row.job.id), eq(researchJobs.status, 'queued')))
@@ -453,94 +532,119 @@ export async function processResearchJobs(
 
     if (!claimed || !row.thesis.ticker || !row.thesis.market) continue;
 
-    const market = row.thesis.market;
-    const ticker = row.thesis.ticker;
-    const knownDocumentIds = row.job.attemptCount > 0
-      ? new Set(db.select({ documentId: sourceSnapshots.documentId }).from(sourceSnapshots).where(and(
-          eq(sourceSnapshots.market, market), eq(sourceSnapshots.ticker, ticker),
-        )).all().map((item) => item.documentId))
-      : undefined;
-
-    // M007 Slice 4. Deliberately runs BEFORE the official try/catch below,
-    // not after it: the official path has early `continue`s (unchanged,
-    // empty evidence) that would otherwise skip these calls entirely.
-    // Secondary sources are independent of the official outcome — a press
-    // release or news item can be new even when the official filing hasn't
-    // changed — and never touch research_jobs.status (soft-failure
-    // boundary, decided scope: see runSecondaryResearchCall).
-    const marketSecondaryAdapters = secondaryAdapters[market];
-    await runSecondaryResearchCall({
-      db, snapshotDirectory, now, market, ticker, knownDocumentIds,
-      jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
-      adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer', polarityClassifier,
-    });
-    await runSecondaryResearchCall({
-      db, snapshotDirectory, now, market, ticker, knownDocumentIds,
-      jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
-      adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news', polarityClassifier,
-    });
-
-    // M011 Slice 4. Same placement rationale as the two calls above: before the
-    // official try/catch, so the official path's early `continue`s cannot skip
-    // it, and with the same soft-failure boundary.
-    await runXbrlFactCall({
-      db, snapshotDirectory, now, sourceMode: pipeline.sourceMode, ticker,
-      jobId: row.job.id, assumptionId: row.assumption.id,
-      source: xbrlFactSources[market],
-    });
-
-    // M008 Slices 1 & 3. Same independence and soft-failure posture as the
-    // two calls above: a Tavily failure or an empty/fully-rejected result
-    // never touches research_jobs.status. Promotion runs automatically,
-    // right after discovery, per the packet's §8 "Promotion trigger
-    // strategy (RESOLVED)" — the CLI counterpart (`promoteAllEligibleCandidates`,
-    // `scripts/promote-discoveries.ts`) exists for re-evaluating candidates
-    // after `.env` allowlists change, not for this automatic path.
-    await runDiscoveryAndPromotion({
-      db, snapshotDirectory, now, market, ticker,
-      companyName: row.thesis.companyName, jobId: row.job.id,
-      assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
-      provider: discoveryProvider, promotionClients, sourceMode: pipeline.sourceMode,
-    });
+    // Draft plan §4.2 "heartbeat/lease renewal for long-running work". A
+    // subprocess-backed CLI call can easily exceed the 60s lease, so renew it
+    // periodically for the duration of this job's processing — conditioned
+    // on still owning the lease, so a worker whose lease was already reclaimed
+    // cannot resurrect it out from under a new claimant.
+    const heartbeat = setInterval(() => {
+      db.update(researchJobs)
+        .set({ leaseExpiresAt: new Date(now().getTime() + 60_000).toISOString() })
+        .where(and(eq(researchJobs.id, row.job.id), eq(researchJobs.leaseOwner, runId)))
+        .run();
+    }, 20_000);
 
     try {
-      const candidateOverrides = pipeline.sourceMode === 'mock'
-        ? [candidateFor(market, row.assumption.statement)]
-        : undefined;
-      const execution = await pipeline.executeResearchJob(
-        market,
-        ticker,
-        row.assumption.statement,
-        candidateOverrides,
-        knownDocumentIds,
-      );
+      await processOneResearchJob({
+        db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now,
+        snapshotDirectory, polarityClassifier, xbrlFactSources, row, runId,
+      });
+    } finally {
+      clearInterval(heartbeat);
+    }
+  }
 
-      if (execution.unchanged) {
-        await db.update(researchJobs).set({ status: 'succeeded', error: null, errorCode: null, leaseExpiresAt: null, updatedAt: now().toISOString() }).where(eq(researchJobs.id, row.job.id)).run();
-        continue;
-      }
+  return getResearchPanel(conversationId, input);
+}
 
-      if (execution.evidence.length === 0) {
-        persistSourceSnapshot({
-          db,
-          jobId: row.job.id,
-          snapshot: execution.snapshot,
-          documentHash: execution.documentHash,
-          sourceMode: pipeline.sourceMode,
-          snapshotDirectory,
-          outcome: 'rejected',
-          errorCode: 'citation_not_found',
-        });
-        await db.update(researchJobs).set({
-          status: 'degraded',
-          error: 'No evidence candidate passed the applicable verification gate.',
-          errorCode: 'citation_not_found',
-          leaseExpiresAt: null,
-          updatedAt: now().toISOString(),
-        }).where(eq(researchJobs.id, row.job.id)).run();
-        continue;
-      }
+async function processOneResearchJob(params: {
+  db: ReturnType<typeof dependencies>['db'];
+  pipeline: ReturnType<typeof dependencies>['pipeline'];
+  secondaryAdapters: ReturnType<typeof dependencies>['secondaryAdapters'];
+  discoveryProvider: ReturnType<typeof dependencies>['discoveryProvider'];
+  promotionClients: ReturnType<typeof dependencies>['promotionClients'];
+  now: ReturnType<typeof dependencies>['now'];
+  snapshotDirectory: ReturnType<typeof dependencies>['snapshotDirectory'];
+  polarityClassifier: ReturnType<typeof dependencies>['polarityClassifier'];
+  xbrlFactSources: ReturnType<typeof dependencies>['xbrlFactSources'];
+  row: { job: typeof researchJobs.$inferSelect; assumption: typeof assumptions.$inferSelect; thesis: typeof theses.$inferSelect };
+  runId: string;
+}) {
+  const { db, pipeline, secondaryAdapters, discoveryProvider, promotionClients, now, snapshotDirectory, polarityClassifier, xbrlFactSources, row, runId } = params;
+  // Every write below is gated on still holding this lease: a worker whose
+  // lease was reclaimed by the sweep (and possibly already re-claimed by a
+  // different worker with a different leaseOwner) writes nothing here
+  // instead of clobbering the new claimant's state.
+  const ownLease = and(eq(researchJobs.id, row.job.id), eq(researchJobs.leaseOwner, runId));
 
+  const market = row.thesis.market as 'US' | 'ID';
+  const ticker = row.thesis.ticker as string;
+  const knownDocumentIds = row.job.attemptCount > 0
+    ? new Set(db.select({ documentId: sourceSnapshots.documentId }).from(sourceSnapshots).where(and(
+        eq(sourceSnapshots.market, market), eq(sourceSnapshots.ticker, ticker),
+      )).all().map((item) => item.documentId))
+    : undefined;
+
+  // M007 Slice 4. Deliberately runs BEFORE the official try/catch below,
+  // not after it: the official path has early returns (unchanged,
+  // empty evidence) that would otherwise skip these calls entirely.
+  // Secondary sources are independent of the official outcome — a press
+  // release or news item can be new even when the official filing hasn't
+  // changed — and never touch research_jobs.status (soft-failure
+  // boundary, decided scope: see runSecondaryResearchCall).
+  const marketSecondaryAdapters = secondaryAdapters[market];
+  await runSecondaryResearchCall({
+    db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+    jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+    adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer', polarityClassifier,
+  });
+  await runSecondaryResearchCall({
+    db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+    jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+    adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news', polarityClassifier,
+  });
+
+  // M011 Slice 4. Same placement rationale as the two calls above: before the
+  // official try/catch, so the official path's early returns cannot skip
+  // it, and with the same soft-failure boundary.
+  await runXbrlFactCall({
+    db, snapshotDirectory, now, sourceMode: pipeline.sourceMode, ticker,
+    jobId: row.job.id, assumptionId: row.assumption.id,
+    source: xbrlFactSources[market],
+  });
+
+  // M008 Slices 1 & 3. Same independence and soft-failure posture as the
+  // two calls above: a Tavily failure or an empty/fully-rejected result
+  // never touches research_jobs.status. Promotion runs automatically,
+  // right after discovery, per the packet's §8 "Promotion trigger
+  // strategy (RESOLVED)" — the CLI counterpart (`promoteAllEligibleCandidates`,
+  // `scripts/promote-discoveries.ts`) exists for re-evaluating candidates
+  // after `.env` allowlists change, not for this automatic path.
+  await runDiscoveryAndPromotion({
+    db, snapshotDirectory, now, market, ticker,
+    companyName: row.thesis.companyName, jobId: row.job.id,
+    assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+    provider: discoveryProvider, promotionClients, sourceMode: pipeline.sourceMode,
+  });
+
+  try {
+    const candidateOverrides = pipeline.sourceMode === 'mock'
+      ? [candidateFor(market, row.assumption.statement)]
+      : undefined;
+    const execution = await pipeline.executeResearchJob(
+      market,
+      ticker,
+      row.assumption.statement,
+      candidateOverrides,
+      knownDocumentIds,
+    );
+
+    if (execution.unchanged) {
+      await db.update(researchJobs).set({ status: 'succeeded', error: null, errorCode: null, leaseExpiresAt: null, leaseOwner: null, updatedAt: now().toISOString() }).where(ownLease).run();
+      return;
+    }
+
+    if (execution.evidence.length === 0) {
       persistSourceSnapshot({
         db,
         jobId: row.job.id,
@@ -548,61 +652,81 @@ export async function processResearchJobs(
         documentHash: execution.documentHash,
         sourceMode: pipeline.sourceMode,
         snapshotDirectory,
-        outcome: 'verified',
+        outcome: 'rejected',
+        errorCode: 'citation_not_found',
       });
-      const { contract, polarities } = await resolveEvidencePolarities({
-        db,
-        assumptionId: row.assumption.id,
-        assumptionStatement: row.assumption.statement,
-        evidence: execution.evidence,
-        classifier: polarityClassifier,
-      });
-      await db.transaction((tx) => {
-        execution.evidence.forEach((result, index) => {
-          const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
-            eq(evidence.assumptionId, row.assumption.id),
-            eq(evidence.documentHash, result.documentHash),
-            eq(evidence.content, result.exactQuote),
-          )).get();
-          if (duplicate) return;
-          tx.insert(evidence).values(evidenceInsertValues(row.assumption.id, result, contract, polarities[index])).run();
-        });
-        // M007 Slice 5: official evidence arriving reverts a pending
-        // secondary-only assumption back to untested (clearing path 1).
-        applyAssumptionStatusGate(tx, row.assumption.id, execution.evidence.map((e) => e.verificationStatus), now().toISOString());
-        tx.update(researchJobs).set({
-          status: 'succeeded',
-          error: null,
-          errorCode: null,
-          leaseExpiresAt: null,
-          updatedAt: now().toISOString(),
-        }).where(eq(researchJobs.id, row.job.id)).run();
-      });
-    } catch (error) {
-      const errorCode = error instanceof ResearchSourceError ? error.code : 'source_http_error';
-      if (error instanceof ResearchSourceError && error.context) {
-        persistSourceSnapshot({
-          db,
-          jobId: row.job.id,
-          snapshot: error.context.snapshot,
-          documentHash: error.context.documentHash,
-          sourceMode: pipeline.sourceMode,
-          snapshotDirectory,
-          outcome: 'rejected',
-          errorCode,
-        });
-      }
       await db.update(researchJobs).set({
-        status: isDegradedSourceError(error) ? 'degraded' : 'failed',
-        error: error instanceof Error ? error.message : 'Unexpected research failure.',
-        errorCode,
+        status: 'degraded',
+        error: 'No evidence candidate passed the applicable verification gate.',
+        errorCode: 'citation_not_found',
         leaseExpiresAt: null,
+        leaseOwner: null,
         updatedAt: now().toISOString(),
-      }).where(eq(researchJobs.id, row.job.id)).run();
+      }).where(ownLease).run();
+      return;
     }
-  }
 
-  return getResearchPanel(conversationId, input);
+    persistSourceSnapshot({
+      db,
+      jobId: row.job.id,
+      snapshot: execution.snapshot,
+      documentHash: execution.documentHash,
+      sourceMode: pipeline.sourceMode,
+      snapshotDirectory,
+      outcome: 'verified',
+    });
+    const { contract, polarities } = await resolveEvidencePolarities({
+      db,
+      assumptionId: row.assumption.id,
+      assumptionStatement: row.assumption.statement,
+      evidence: execution.evidence,
+      classifier: polarityClassifier,
+    });
+    await db.transaction((tx) => {
+      execution.evidence.forEach((result, index) => {
+        const duplicate = tx.select({ id: evidence.id }).from(evidence).where(and(
+          eq(evidence.assumptionId, row.assumption.id),
+          eq(evidence.documentHash, result.documentHash),
+          eq(evidence.content, result.exactQuote),
+        )).get();
+        if (duplicate) return;
+        tx.insert(evidence).values(evidenceInsertValues(row.assumption.id, result, contract, polarities[index])).run();
+      });
+      // M007 Slice 5: official evidence arriving reverts a pending
+      // secondary-only assumption back to untested (clearing path 1).
+      applyAssumptionStatusGate(tx, row.assumption.id, execution.evidence.map((e) => e.verificationStatus), now().toISOString());
+      tx.update(researchJobs).set({
+        status: 'succeeded',
+        error: null,
+        errorCode: null,
+        leaseExpiresAt: null,
+        leaseOwner: null,
+        updatedAt: now().toISOString(),
+      }).where(ownLease).run();
+    });
+  } catch (error) {
+    const errorCode = error instanceof ResearchSourceError ? error.code : 'source_http_error';
+    if (error instanceof ResearchSourceError && error.context) {
+      persistSourceSnapshot({
+        db,
+        jobId: row.job.id,
+        snapshot: error.context.snapshot,
+        documentHash: error.context.documentHash,
+        sourceMode: pipeline.sourceMode,
+        snapshotDirectory,
+        outcome: 'rejected',
+        errorCode,
+      });
+    }
+    await db.update(researchJobs).set({
+      status: isDegradedSourceError(error) ? 'degraded' : 'failed',
+      error: error instanceof Error ? error.message : 'Unexpected research failure.',
+      errorCode,
+      leaseExpiresAt: null,
+      leaseOwner: null,
+      updatedAt: now().toISOString(),
+    }).where(ownLease).run();
+  }
 }
 
 /**
@@ -845,6 +969,7 @@ export async function retryResearchJob(jobId: string, input: ServiceDependencies
     error: null,
     errorCode: null,
     leaseExpiresAt: null,
+    leaseOwner: null,
     updatedAt: now().toISOString(),
   }).where(and(
     eq(researchJobs.id, jobId),
@@ -936,6 +1061,8 @@ export async function recordDecision(
   outcome: DecisionOutcome,
   optionalAction: DecisionAction,
   userReasoning: string,
+  evidenceIds: string[] = [],
+  alternatives: string[] = [],
   input: ServiceDependencies = {},
 ) {
   const { db, now } = dependencies(input);
@@ -948,10 +1075,12 @@ export async function recordDecision(
     outcome,
     action: optionalAction,
     rationale: userReasoning,
+    evidenceIds: JSON.stringify(evidenceIds),
+    alternatives: JSON.stringify(alternatives),
     createdAt,
   }).run();
 
-  return { id: decisionId, outcome, optionalAction, userReasoning, timestamp: createdAt };
+  return { id: decisionId, outcome, optionalAction, userReasoning, evidenceIds, alternatives, timestamp: createdAt };
 }
 
 export async function exportThesisData(
@@ -1025,6 +1154,8 @@ export async function exportThesisData(
     outcome: row.outcome as DecisionOutcome,
     optionalAction: row.action as DecisionAction,
     userReasoning: row.rationale,
+    evidenceIds: JSON.parse(row.evidenceIds) as string[],
+    alternatives: JSON.parse(row.alternatives) as string[],
     timestamp: row.createdAt,
   }));
 
@@ -1091,8 +1222,14 @@ export async function importThesisData(
       createdAt: importedThesis.createdAt,
     }).run();
 
-    tx.insert(theses).values({
-      id: thesisId,
+    // Deliberately does not run `draftClarificationBlock` — see
+    // `createThesisFromValidatedDraft`'s doc comment. An import is restoring
+    // a package that may predate M011 (legacy_unspecified contracts, e.g. the
+    // real ISAT dogfood thesis) or was already active elsewhere; it must keep
+    // importing exactly as it does today, not be re-validated as if it were a
+    // brand-new draft.
+    const { assumptionIds } = createThesisFromValidatedDraft(tx, {
+      thesisId,
       conversationId,
       draftMessageId,
       ticker: importedThesis.ticker,
@@ -1104,34 +1241,22 @@ export async function importThesisData(
       status: importedThesis.status,
       createdAt: importedThesis.createdAt,
       updatedAt: now().toISOString(),
-    }).run();
-
-    for (const a of importedAssumptions) {
-      const assumptionId = randomUUID();
-      tx.insert(assumptions).values({
-        id: assumptionId,
-        thesisId,
+      assumptions: importedAssumptions.map((a) => ({
         statement: a.statement,
         status: a.status,
+        // M011. An export predating M011 has no `measurement`, so the
+        // imported assumption gets the legacy sentinel — which reports
+        // honestly as "cannot be checked" rather than silently as "measured".
+        measurement: a.measurement ?? LEGACY_MEASUREMENT_CONTRACT,
         createdAt: a.createdAt,
         updatedAt: now().toISOString(),
-      }).run();
+      })),
+      jobStatus: 'succeeded',
+      sourceMode: 'mock',
+    });
 
-      // M011. An export predating M011 has no `measurement`, so the imported
-      // assumption gets the legacy sentinel — which reports honestly as
-      // "cannot be checked" rather than silently as "measured".
-      tx.insert(assumptionMeasurements).values(
-        measurementInsertValues(assumptionId, a.measurement ?? LEGACY_MEASUREMENT_CONTRACT),
-      ).run();
-
-      tx.insert(researchJobs).values({
-        id: randomUUID(),
-        assumptionId,
-        status: 'succeeded',
-        sourceMode: 'mock',
-        updatedAt: now().toISOString(),
-      }).run();
-
+    importedAssumptions.forEach((a, index) => {
+      const assumptionId = assumptionIds[index];
       for (const e of a.evidence) {
         tx.insert(evidence).values({
           id: randomUUID(),
@@ -1163,7 +1288,7 @@ export async function importThesisData(
           polarityMethod: e.polarityMethod ?? 'no_contract',
         }).run();
       }
-    }
+    });
 
     for (const d of importedDecisions) {
       tx.insert(decisions).values({
@@ -1172,6 +1297,8 @@ export async function importThesisData(
         outcome: d.outcome,
         action: d.optionalAction,
         rationale: d.userReasoning,
+        evidenceIds: JSON.stringify(d.evidenceIds ?? []),
+        alternatives: JSON.stringify(d.alternatives ?? []),
         createdAt: d.timestamp,
       }).run();
     }
@@ -1256,15 +1383,14 @@ export async function generateDecisionRecommendation(
     contextPrompt += `\n`;
   }
 
-  contextPrompt += `Based on the provided verified evidence, recommend the most appropriate next action.\n`;
+  contextPrompt += `Based on the provided verified evidence, classify how this thesis's evidence base has changed.\n`;
   contextPrompt += `Choose one of the following recommended outcomes:\n`;
   contextPrompt += `- 'No Change': The evidence supports all assumptions, or there is no new conflicting information.\n`;
   contextPrompt += `- 'Investigate Further': There are gaps in evidence, or some evidence is degraded/unclear.\n`;
   contextPrompt += `- 'Update Thesis': Some evidence directly challenges or contradicts the assumptions, requiring a thesis modification.\n`;
   contextPrompt += `- 'Archive': The core belief is invalidated or no longer relevant.\n\n`;
-  contextPrompt += `Choose one optional action: 'Buy', 'Hold', 'Reduce', 'Exit', or null.\n`;
   contextPrompt += `Provide a concise rationale (1-3 sentences) explaining the reasoning.\n`;
-  contextPrompt += `Do not give direct trade advice, but align your recommendation strictly with the evidence ledger.\n`;
+  contextPrompt += `Never recommend, suggest, or imply a trade or position action (e.g. Buy, Hold, Reduce, Exit) — that decision belongs to the user alone. Describe only what the evidence shows.\n`;
 
   const provider = getLLMProvider({ modelId: input.llmModelId });
 
@@ -1293,7 +1419,6 @@ export async function generateDecisionRecommendation(
   const recommendationSchema = coverage?.confidenceGate === 'suppressed'
     ? decisionRecommendationSchema.extend({
       recommendedOutcome: z.literal('Investigate Further'),
-      recommendedAction: z.null(),
     })
     : verdict?.level === 'breached'
       ? decisionRecommendationSchema.extend({

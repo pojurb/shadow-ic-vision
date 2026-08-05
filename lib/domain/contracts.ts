@@ -201,6 +201,8 @@ export type ThesisDraft = z.infer<typeof thesisDraftSchema>;
  *
  * A disabled button is not a control, which is why both halves exist.
  */
+export type AssumptionRowStatus = z.infer<typeof assumptionStatusSchema>;
+
 export function draftClarificationBlock(draft: ThesisDraft): {
   blocked: boolean;
   questions: Array<{ statement: string; question: string; reason: MeasurementAmbiguityReason }>;
@@ -321,6 +323,11 @@ export const decisionRecordSchema = z.object({
   outcome: decisionOutcomeSchema,
   optionalAction: decisionActionSchema,
   userReasoning: z.string().trim().min(1).max(4_000),
+  // VISION.md §7: "every record retains the user's reasoning, relevant
+  // evidence, known alternatives, and timestamp." Both default to `[]` so
+  // decisions recorded before this field existed still validate.
+  evidenceIds: z.array(z.string()).default([]),
+  alternatives: z.array(z.string().trim().min(1)).default([]),
   timestamp: z.string(),
 });
 
@@ -331,6 +338,8 @@ export type DecisionDTO = {
   outcome: DecisionOutcome;
   optionalAction: DecisionAction;
   userReasoning: string;
+  evidenceIds: string[];
+  alternatives: string[];
   timestamp: string;
   previousAction?: DecisionAction;
 };
@@ -393,7 +402,6 @@ export type ThesisExport = z.infer<typeof thesisExportSchema>;
 
 export const decisionRecommendationSchema = z.object({
   recommendedOutcome: decisionOutcomeSchema,
-  recommendedAction: decisionActionSchema,
   rationale: z.string().trim().min(1).max(4_000),
 });
 

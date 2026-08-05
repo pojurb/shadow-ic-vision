@@ -1,3 +1,180 @@
+# Session Checkpoint - 2026-08-05 (CLI-workflow resume: TLKM verification, 5 gap fixes, lease-owner concurrency, shared draft-creation refactor, DEC-0017)
+
+Resumed from a prior session's draft plan
+(`docs/drafts/cli-terminal-dashboard-draft-plan.md`, 2026-08-03/04) and two
+learning candidates (`LC-20260804-001`, `LC-20260804-002`) via an explicit,
+detailed resume prompt rather than starting from a summary. No milestone is
+active; this work is governance/hardening outside the M001-M011 sequence,
+the same category as the R-018 revert.
+
+## TLKM Thesis: Verified, Not Assumed (2026-08-05)
+
+The resume prompt said conversation `22d51621-...` was staged but possibly
+stale, and that 4 of 6 assumptions were still `ambiguous` awaiting the user's
+final calibrated numbers. Queried the real local database directly before
+acting on either claim:
+
+- `22d51621-...` (12:11:28) was indeed stale — never confirmed, no `theses`
+  row references it. A **later** staging (`7bb5aefb-...`, 12:34:07) **was**
+  confirmed into an active thesis (`168cd37c-...`, 12:45:25) — from an
+  earlier part of the same prior session the resume prompt's summary had
+  compressed away.
+- That confirmed thesis already had all four previously-`ambiguous`
+  measurement contracts resolved to specific numbers (≥30% NeutraDC
+  ownership; ≥0pp segment-growth differential; MW-share-increases; ≥1200MW
+  hyperscaler backlog and PLN capacity, both benchmarked to BDx). Per
+  `LC-20260804-001`'s own rule, I could not tell from the database alone
+  *who* chose these numbers — asked the user directly rather than assuming
+  either way. **User confirmed they chose them.**
+- All 6 research jobs had already run live and come back `degraded`
+  (`issuer_source_unavailable`) — a real, unresolved finding, set aside for a
+  separate discussion rather than folded into this session's scope creep.
+
+## Five Pre-Existing Gaps Fixed (draft plan §8.0, 2026-08-05)
+
+Re-verified all five claims against current code before asking the user
+anything (all five still accurate). User chose "fix now" for all five:
+
+1. **`generateDecisionRecommendation`** no longer asks the model to choose an
+   investment action. `recommendedAction` removed from
+   `decisionRecommendationSchema` entirely (not merely nulled); the prompt no
+   longer offers 'Buy'/'Hold'/'Reduce'/'Exit'; `ResearchPanel`'s "AI
+   Suggestion" + implicit action-apply relabeled to "Evidence Assessment" and
+   scoped to outcome + rationale only.
+2. **`decisions`** gained `evidenceIds`/`alternatives` (JSON array columns,
+   migration `0010`) — `evidenceIds` auto-snapshots whatever evidence is on
+   the panel when a decision is recorded (no new selection UI built); a new
+   "Known Alternatives Considered" textarea feeds `alternatives`.
+3. **`explorationDraftSchema`** gained a required `citation` field per
+   candidate and `candidates` now requires 3-5 (was `.min(1).max(5)`) per
+   `PRODUCT_STRATEGY.md` Workflow B. Updated the chat system prompt, mock
+   fixtures, and `ChatUI` to match.
+4. **`portfolioPositions.shares`/`averageBuyPrice`** removed; replaced with
+   `status` (`owned`|`watchlist`), per `PRODUCT_STRATEGY.md` §3's explicit
+   "does not collect quantity, cost basis, position value" line. Verified the
+   real table was empty before generating the drop migration, so this
+   carried zero data-loss risk. Verified `lib/portfolio/priorityQueue.ts`'s
+   scoring never actually used these fields (alerts/staleness/challenged
+   assumptions only), narrowing the real blast radius to `Sidebar.tsx`'s
+   form and one API route pair.
+5. Same commit as (4) — Sidebar's "Track Asset"/"Add Holding" form now
+   collects the Owned/Watchlist tag instead of quantity/cost basis.
+
+**Migration bug found and hand-fixed, not just generated and trusted.**
+`drizzle-kit generate` produced a migration (`0010`) whose `INSERT ...
+SELECT` referenced a `status` column on the *old* table shape, before that
+migration's own `ALTER` added it — every temp-database test hit
+`SqliteError: no such column: "status"`. Hand-corrected the SELECT to use the
+literal default instead of the nonexistent column; re-ran the full suite to
+confirm.
+
+## Lease-Owner Concurrency Fix (roadmap §5 step 1, 2026-08-05)
+
+`processResearchJobs`'s final-state writes previously filtered only on job
+`id`; a worker whose lease was reclaimed by the sweep could clobber a later
+claimant's state. Added `research_jobs.leaseOwner` (migration `0012`), a
+`runId` per claim, every final-state write (`succeeded`/`degraded`/
+`failed`/`unchanged`) now gated on `eq(leaseOwner, runId)`, plus a 20s
+heartbeat renewing the lease for long-running jobs. `retryResearchJob` also
+clears `leaseOwner`.
+
+**Verification discipline applied, not just "test passes."** Wrote the
+regression test, then **temporarily reverted the gate** on one write path and
+confirmed the test failed with the expected error before reverting the
+revert and confirming it passed. Same discipline applied a second time later
+in the session (see below) — this is now the pattern for any fix whose test
+could otherwise be passing vacuously.
+
+## `createThesisFromValidatedDraft` Refactor (roadmap §5 step 2, 2026-08-05)
+
+`confirmDraft` and `importThesisData` duplicated the same
+theses/assumptions/measurements/jobs insert sequence independently — a real
+risk for a future third CLI-intake copy. Extracted a shared function.
+
+**A real conflict was found between the prior session's own draft plan and
+current shipped behavior, surfaced to the user rather than silently resolved
+either way.** The draft plan's literal wording said the shared function
+should contain "the clarification gate." Doing that literally would make
+`importThesisData` newly reject any package with an unresolved/
+`legacy_unspecified` measurement contract — which real dogfood data
+(`ISAT`, `ceccb31c-...`, all 8 assumptions `legacy_unspecified`) actually
+has. Asked the user explicitly: apply the gate to both paths per the old
+plan's wording (accept the regression), or keep import ungated (deviate from
+the old plan, preserve today's behavior). **User chose to keep import
+ungated.** `createThesisFromValidatedDraft` therefore does not call
+`draftClarificationBlock` at all; each caller decides. Added a regression
+test proving this, verified fail-then-pass the same way as the lease-owner
+fix.
+
+## `DEC-0017` Written and Accepted (2026-08-05)
+
+Covers the CLI/Dashboard interface split, the WAL/lease-owner concurrency
+model, and script design (the shipped `thesis:stage` stage-then-browser-
+confirm pattern, which is a *stronger* gate than the stdin-confirmation
+design the draft plan originally called for — the CLI session cannot
+construct thesis state at all, browser click required). Explicitly records
+`decisions:record`'s interactive-stdin-confirmation requirement as still
+unbuilt, not retroactively satisfied. Every claim in it was verified against
+running code/tests in this session, not asserted from the design doc.
+Written `proposed`, then accepted by the user (approving authority) the same
+day after reviewing.
+
+## Documentation Sync (2026-08-05)
+
+Prompted by the user asking directly whether "important docs" had been
+updated too — they had not, beyond the DEC itself. Closed the gap:
+
+- `docs/CODEBASE_MAP.md`: added the `leaseOwner` invariant to the Research
+  Job State Machine section, the shared-insert-path note to "Thesis to exact
+  Evidence", and schema notes for `PortfolioPosition.status` and
+  `Decision.evidenceIds`/`alternatives`.
+- `docs/drafts/cli-terminal-dashboard-draft-plan.md`: annotated every
+  completed item (§4.2, §4.3, §5 steps 1/2/3, §8.0, §8.1's governance-record
+  paragraph) with what actually shipped, including the ISAT-gate deviation.
+  **Caught and corrected my own inaccurate claim before it was saved**: an
+  early draft of this update asserted §5 step 6 (hide Chat UI from
+  navigation) was also done: it is not — re-checked `components/Sidebar.tsx`
+  directly and found "+ New" and the full conversation list still rendered
+  as primary navigation, and corrected the claim before writing it.
+- `docs/decisions/INDEX.md`: `DEC-0017` row added.
+- `npm run context:generate` regenerated `docs/generated/code-index.json`;
+  `context:check` and `status:check` both pass.
+- `docs/RISK_REGISTER.md`: deliberately **not** given a new row — the
+  concurrency defect was an implementation gap in already-accepted
+  `ADR-0006` local-runtime scope, not a new provider or data-classification
+  risk, matching `DEC-0017`'s own stated Risk Register Effects.
+
+## Verified
+
+Full suite: **356 passed, 3 skipped** (up from 354 at session start).
+`tsc --noEmit` clean throughout. Migrations `0010`-`0012` applied and
+verified directly against the real local database
+(`d:/jp-invest-data/db.sqlite`, outside the test suite): all 14 pre-existing
+`research_jobs` rows (including the real TLKM thesis's 6 `degraded` jobs)
+survived intact; `portfolioPositions`/`decisions` tables were empty, so the
+schema changes carried zero data-loss risk.
+
+### Exact Resume Point
+
+Nothing committed this session. Still open, not started:
+
+- Roadmap §5 step 4 (Web App → Dashboard/Control Panel conversion:
+  live-refresh, moving actions into an explicit control-panel surface).
+- Roadmap §5 step 5 (concurrency/integration tests beyond the one
+  lease-race test added this session: two `DatabaseHandle`s on one on-disk
+  file, a worker-crash/retry test, an idempotency/duplicate-evidence test).
+- Roadmap §5 step 6 (hide Chat UI from navigation) — confirmed **not** done,
+  see above.
+- `decisions:record` CLI script — not built; interactive-stdin-confirmation
+  requirement still applies in full per `DEC-0017`.
+- Ollama decision (§7.2) — not discussed this session.
+- TLKM's 6 `degraded` research jobs (`issuer_source_unavailable`) — a real
+  finding from this session's verification, deliberately not investigated
+  further to avoid scope creep into the CLI-workflow work the user was
+  actually resuming.
+
+---
+
 # Session Checkpoint - 2026-08-03 (M011 evidence polarity + measurement contracts)
 
 Opened from an **external** finding rather than a fired review trigger: a

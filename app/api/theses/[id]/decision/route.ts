@@ -18,7 +18,9 @@ export async function POST(
       thesisId,
       parsed.data.outcome,
       parsed.data.optionalAction,
-      parsed.data.userReasoning
+      parsed.data.userReasoning,
+      parsed.data.evidenceIds,
+      parsed.data.alternatives,
     );
     return NextResponse.json(result);
   } catch (error) {

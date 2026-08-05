@@ -9,6 +9,7 @@ import { thesisDraftSchema, type MeasurementContract } from '@/lib/domain/contra
 import { acceptSecondaryEvidence, confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
 import { OfficialHttpClient } from '@/lib/research/http';
+import type { CitationPipeline } from '@/lib/research/pipeline';
 
 // M011. A resolved contract, deliberately: without one `confirmDraft` refuses
 // the draft (that refusal has its own test below), so every existing case in
@@ -439,6 +440,41 @@ describe('local vertical slice persistence', () => {
     expect(handle.db.select().from(assumptions).all()).toHaveLength(0);
     expect(handle.db.select().from(researchJobs).all()).toHaveLength(0);
     expect(handle.db.select().from(evidence).all()).toHaveLength(0);
+  });
+
+  /**
+   * Draft plan `docs/drafts/cli-terminal-dashboard-draft-plan.md` §4.2. Before
+   * the lease-owner fix, every final-state write filtered only on the job's
+   * `id`, so a worker whose lease had already been reclaimed (and re-claimed
+   * by a second worker) could still overwrite whatever that second worker had
+   * written. This simulates exactly that interleaving: the fake pipeline
+   * reassigns the job's `leaseOwner` mid-call, standing in for the reclaim
+   * sweep handing the job to a second worker while the first worker's fetch
+   * is still in flight.
+   */
+  it('does not let a reclaimed worker overwrite a later claimant (lease-owner race)', async () => {
+    const confirmed = confirmDraft(conversationId, messageId, { db: handle.db });
+
+    const racyPipeline = {
+      sourceMode: 'mock' as const,
+      executeResearchJob: async () => {
+        handle.db.update(researchJobs)
+          .set({ leaseOwner: 'second-worker', status: 'running' })
+          .where(eq(researchJobs.id, confirmed.jobIds[0]))
+          .run();
+        return { unchanged: true, documentId: 'doc-irrelevant' };
+      },
+    } as unknown as CitationPipeline;
+
+    await processResearchJobs(conversationId, {
+      db: handle.db,
+      pipeline: racyPipeline,
+      snapshotDirectory: path.join(directory, 'snapshots'),
+    });
+
+    const jobAfter = handle.db.select().from(researchJobs).where(eq(researchJobs.id, confirmed.jobIds[0])).get();
+    expect(jobAfter?.leaseOwner).toBe('second-worker');
+    expect(jobAfter?.status).toBe('running');
   });
 
   it('deduplicates immutable snapshots across jobs', async () => {

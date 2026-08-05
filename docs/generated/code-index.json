@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "d00a22e9c4217a7ea0313b4e33dfda927b721878c87cc6881ed38e1b530f8b9c",
+  "sourceDigest": "b88070faaf11e3ab769291f5c27138d89af6f33150a30714f5e3c2fc17599f4d",
   "roots": [
     "app",
     "components",
@@ -948,6 +948,7 @@
         }
       ],
       "exports": [
+        "AssumptionRowStatus",
         "ChatResponsePayload",
         "CoverageLedgerDTO",
         "DecisionAction",
@@ -3154,6 +3155,10 @@
           "resolved": "lib/research/ingestion.ts"
         },
         {
+          "specifier": "@/lib/research/pipeline",
+          "resolved": "lib/research/pipeline.ts"
+        },
+        {
           "specifier": "@/lib/research/service",
           "resolved": "lib/research/service.ts"
         },
@@ -3777,6 +3782,7 @@
         "lib/domain/contracts.ts",
         "lib/research/http.ts",
         "lib/research/ingestion.ts",
+        "lib/research/pipeline.ts",
         "lib/research/service.ts"
       ]
     },

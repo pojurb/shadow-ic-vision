@@ -48,11 +48,19 @@ DiscoveryCandidate: pre-fetch Class C staging, not yet populated by anything (de
 Market + ticker -> SourceCursor
 IngestionRun + IngestionLease coordinate periodic refresh
 PortfolioPosition many -> 0..1 Thesis
+  (2026-08-05: `status` (`owned`|`watchlist`) tags the position per
+  PRODUCT_STRATEGY.md §3; `shares`/`averageBuyPrice` were removed (migration
+  `0011`) — V1 does not collect quantity, cost basis, or position value)
 PortfolioPosition 1 -> many PortfolioAlerts
   (PortfolioAlert.documentHash -> SourceSnapshot.documentHash)
 Thesis 1 -> many Assumptions (for briefing priority scoring)
 Thesis 1 -> many Decisions (for staleness calculation and the review history timeline)
-  (Decision.outcome/action are typed columns since migration 0006; ordered by createdAt)
+  (Decision.outcome/action are typed columns since migration 0006; ordered by createdAt.
+  2026-08-05: Decision.evidenceIds/alternatives (JSON arrays, migration `0010`)
+  satisfy VISION.md §7's "relevant evidence, known alternatives" requirement —
+  evidenceIds is a point-in-time snapshot of what was on the panel when the
+  decision was recorded, not a foreign key, so it survives that evidence later
+  being superseded or deleted)
 ```
 
 Raw source bytes are immutable and content-addressed outside the repository.
@@ -77,6 +85,20 @@ M007 (2026-07-25): secondary-source calls (`runSecondaryResearchCall` in
 `lib/research/service.ts`) run alongside this state machine but never
 participate in it — they cannot cause `succeeded`→`degraded`/`failed` or vice
 versa. The diagram above describes the official path only.
+
+**Lease ownership (2026-08-05, `DEC-0017`).** `research_jobs.leaseOwner`
+(migration `0012`) is a per-claim `runId`, not just `leaseExpiresAt`. Every
+final-state write in `processResearchJobs` (`succeeded`, `degraded`, `failed`,
+the `unchanged` short-circuit) is conditioned on
+`eq(researchJobs.leaseOwner, runId)`, not merely the job `id` — so a worker
+whose lease was reclaimed by the sweep above (`running --> queued: expired
+lease recovery`), and possibly already re-claimed by a different worker with a
+different `runId`, writes nothing instead of clobbering the new claimant's
+state. A heartbeat renews the lease every 20s for the duration of a job's
+processing, since a subprocess-backed caller (e.g. a CLI script) can exceed
+the 60s lease. Proven by `tests/research-service.test.ts`'s "does not let a
+reclaimed worker overwrite a later claimant" — confirmed to fail without the
+`leaseOwner` gate, pass with it.
 
 **Assumption confirmation gate** (separate from the job state machine
 above — this is `assumptions.status`, not `research_jobs.status`):
@@ -111,6 +133,21 @@ Chat input
   -> exact verifier
   -> Evidence(exact_verified, interpretation=pending)
 ```
+
+**Shared insert path (2026-08-05, `DEC-0017`).** `confirmDraft` and
+`importThesisData` both call `createThesisFromValidatedDraft`
+(`lib/research/service.ts`) for the actual
+`theses`/`assumptions`/`assumptionMeasurements`/`researchJobs` inserts, rather
+than duplicating that sequence — a third CLI-intake path would otherwise have
+made it three independent copies to keep in sync. That shared function
+deliberately does **not** run `draftClarificationBlock` itself: the gate
+belongs to `confirmDraft` only (a fresh draft becoming a tracked thesis for
+the first time). `importThesisData` must keep restoring packages whose
+assumptions may be `legacy_unspecified` (pre-M011, e.g. the real ISAT dogfood
+thesis) without the gate blocking them — proven by
+`tests/decisions.test.ts`'s "imports a package with an unresolved measurement
+contract without the clarification gate blocking it", confirmed to fail if
+the gate is applied inside the shared function.
 
 ### Secondary-Source Ingestion (M007, 2026-07-25)
 

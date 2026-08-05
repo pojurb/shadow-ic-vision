@@ -172,6 +172,14 @@ export const researchJobs = sqliteTable('research_jobs', {
   sourceMode: text('source_mode', { enum: ['mock', 'live'] }).notNull().default('mock'),
   attemptCount: integer('attempt_count').notNull().default(0),
   leaseExpiresAt: text('lease_expires_at'),
+  // Draft plan `docs/drafts/cli-terminal-dashboard-draft-plan.md` §4.2: the
+  // reclaim sweep resets any job past its lease back to `queued` regardless
+  // of whether the original worker is still alive, and every final-state
+  // update filtered only on `id`, so a worker that outlives its own lease can
+  // clobber whatever a later claimant already wrote. `leaseOwner` makes every
+  // final-state write conditional on still holding the lease it started
+  // with, so a stale worker's write becomes a no-op instead of a clobber.
+  leaseOwner: text('lease_owner'),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex('research_jobs_assumption_id_unique').on(table.assumptionId)]);

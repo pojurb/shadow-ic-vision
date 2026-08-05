@@ -72,7 +72,6 @@ export class MockProvider implements LLMProvider {
         ? { recommendedOutcome: 'Invalid' }
         : {
             recommendedOutcome: 'Investigate Further',
-            recommendedAction: 'Buy',
             rationale: 'Palantir gross margin remains strong at 81.3%, but further validation is needed for Indonesian banks.',
           };
       const parsed = schema.safeParse(candidate);
@@ -98,7 +97,6 @@ export class MockProvider implements LLMProvider {
       if (this.mode !== 'malformed') {
         const constrained = schema.safeParse({
           recommendedOutcome: 'Investigate Further',
-          recommendedAction: null,
           rationale: 'The evidence ledger does not support a confident conclusion yet.',
         });
         if (constrained.success) {
