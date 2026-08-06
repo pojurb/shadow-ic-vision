@@ -1,3 +1,132 @@
+# Session Checkpoint - 2026-08-06 (Class-C document classification, promotion cleanup, relevance-gate attempt, quantified R-025 finding — remedy deferred)
+
+Continuation of 2026-08-05b below. Commits this session, on top of `153c998`:
+`df600f4`, `cf306da`, `b52a1f3`, `e8a99c3`. No milestone is active.
+
+## Class-C Promotion: Two Rounds Of Independent Review
+
+`df600f4` gated Class-C promotion on a URL-shape predicate (`isIssuerReleaseUrl`)
+after the first review found it labelling any page on an allowlisted issuer
+origin a "Web-discovered issuer release" — the live database had 5 snapshots
+under that label that were none of them a release (the homepage and four IR
+index pages).
+
+A second review found `df600f4` itself insufficient and identified two
+defects it introduced: the gate judged the pre-redirect `candidateUrl` while
+the snapshot recorded `fetched.url`, and `not_an_issuer_release` rejections
+were terminal (`promoteAllEligibleCandidates` only re-swept
+`domain_not_allowlisted`). `cf306da` replaced URL-shape judgment with
+`classifySecondaryDocument` (`lib/research/secondary-document.ts`) — JSON-LD
+`@type` and `og:type`, read from the fetched document — applied to both
+Class A and Class B, since leaving news ungated was the same defect. Measured
+15/15 against every real retained TLKM secondary snapshot: exact separation,
+no false positive or negative. Also corrected a docstring
+(`isIssuerReleaseUrl`) that claimed a distinction the implementation did not
+make — the same overclaim class this codebase spent 2026-08-05 removing from
+its verdict copy, this time in code from this session.
+
+`b52a1f3` repaired the five pre-existing mislabelled rows: dry run first
+(matching the M010 `cleanup-boilerplate-evidence` precedent — mechanics
+governed by that precedent, authorization to run it was separate and
+explicit), raw snapshots and files retained, one non-admissible evidence row
+deleted, zero assumption-status changes (13 other secondary rows remained on
+the affected assumption), zero human decisions (`user_confirmed_secondary`)
+touched. Applied and verified directly against the live database afterward.
+
+## Relevance Gate: Shipped Narrower Than Its Own Name Claimed
+
+Agreed next step after Class-C: relevance before any polarity classifier,
+since labelling irrelevant prose as supporting/contradicting only makes wrong
+evidence look stronger. `e8a99c3` generalized M009's existing ticker/bare-year
+exclusion in `rankSentenceCandidates` to the full company name and market
+(`identity`, threaded from the thesis) — proven by a test on the real
+stock-index-round-up quote that motivated it, and by a from-scratch
+re-run of the live TLKM thesis after resetting its jobs.
+
+**The re-run itself surfaced the limit.** Two new issuer-press-release rows
+were added by the same run — both about a sustainability award, attached to
+the "hyperscaler capital commitments" assumption. Neither mentions a
+hyperscaler. Instrumenting `significantTokens` directly (not guessed) showed
+the matched tokens were `komitmen`, `sebagai`, `digital` — none an identity
+token, so identity exclusion was never going to catch this case.
+
+A third independent review (same reviewer, "Luna" — the label the user gave
+this reviewer in conversation) was commissioned specifically for this finding.
+Its verdict: `e8a99c3` is a sound narrow fix, kept, but does **not** establish
+a relevance gate — token overlap decides whether a passage becomes Evidence
+at all, not merely which candidates rank higher, and identity exclusion
+leaves the larger share of false positives (generic corporate vocabulary)
+untouched. Its own instrumented audit of the live retained TLKM corpus
+(11 documents, 6 assumptions, 66 combinations, 72 candidates), judged against
+"does this passage contain a proposition capable of changing evaluation of
+the assigned metric or relationship": 4 directly relevant, 4 adjacent but
+insufficient, 64 clearly irrelevant — 88.9% (94.4% including adjacent)
+false-positive. **Independently corroborated this same session**, different
+method: eyeballing all 39 live persisted secondary evidence rows directly
+found at most 2-3 plausibly relevant.
+
+One of the review's own citations was wrong — it named
+`DEC-0015-research-source-ladder-and-fallback-policy.md`, which does not
+exist; the real file is `DEC-0015-secondary-source-ingestion-boundaries.md`.
+Checked before repeating the substantive claim to the user: DEC-0015 §5 does
+say ingested secondary text is evaluated for "factual claims and thesis
+assumption alignment" — sloppy citation, not fabrication, and the point
+underneath it held.
+
+Four candidate remedies of increasing scope were laid out, none selected:
+rename the mechanism honestly + add missing Indonesian stop words (low-risk
+hygiene — `sebagai`, `dengan`, `dalam`, `pada`, `oleh`, `serta`, `juga` are
+absent from `STOP_WORDS` while rough English equivalents are present); a
+deterministic relevance contract keyed to the measurement contract's own
+concept groups (entity/alias, metric, event type) rather than arbitrary token
+overlap; and, only for general paraphrase, a governed model-based relevance
+assessor — explicitly **not** authorized by `DEC-0016`, which covers polarity
+classification after evidence exists, not a relevance decision gating
+whether evidence is created. A floor raised from 1 to 2 qualifying tokens
+alone was shown insufficient: 37 of the same corpus's clearly-irrelevant
+candidates would still clear it.
+
+**User's explicit instruction: record this, do not execute any remedy.**
+Written into `docs/RISK_REGISTER.md`'s R-025 entry (both a new dated
+narrative paragraph and updates to the existing table row's
+Mitigation/Residual-risk cells, review date bumped to 2026-08-06) rather than
+implemented. `e8a99c3` itself is not reverted — the identity exclusion and an
+unrelated exact-number substring-match fix it also contains
+(`matchesNumberExactly`, a threshold of 30 no longer "matched" by 130 or
+2030) are both real, narrow, kept improvements.
+
+## Verified
+
+Suite 379 passed / 3 skipped as of `e8a99c3`. `tsc --noEmit`, `npm run lint`,
+`context:check`, `status:check` clean through `b52a1f3` (not re-run after the
+`RISK_REGISTER.md`-only edit in this checkpoint, since it touches no code).
+
+### Exact Resume Point
+
+**Immediate open decision, not yet made:** scope of the R-025 remedy. Four
+candidates recorded above and in `RISK_REGISTER.md`, ranging from low-risk
+hygiene to a schema/UI-touching candidate-vs-Evidence status split to a
+governed model call requiring its own decision record and milestone. Revisit
+this before doing anything else in the evidence-relevance area.
+
+Also open, carried from 2026-08-05b and still untouched:
+- `source_too_large` on issuer PDFs (five TLKM jobs fail here honestly as of
+  the last re-run).
+- `knownDocumentIds` is ticker-scoped, not per-assumption — sibling
+  assumptions still block each other from extracting from the same document.
+- Verdict-level semantics (TLKM `holding` at `supported = 0`) — user-owned
+  calibration, not chosen by an engineer.
+- Two further findings from the second review, not yet acted on: automatic
+  promotion is effectively first-assumption-only
+  (`promotePendingForAssumption` marks a candidate globally `fetched` after
+  one assumption, so later assumptions never see it — contradicts this
+  module's own comment claiming independent per-assumption evaluation), and
+  R-026's text is stale (still says promotion has "no URL-shape check").
+- Roadmap §5 steps 4/5/6, `decisions:record`, and the Ollama question (§7.2)
+  all remain untouched.
+
+---
+
 # Session Checkpoint - 2026-08-05b (commit of prior work, CLI usability, honest verdict copy, independent review, retrieval sweep)
 
 Continuation of the session below, which had ended with 27 files uncommitted.
