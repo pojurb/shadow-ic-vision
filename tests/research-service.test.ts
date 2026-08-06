@@ -720,7 +720,16 @@ describe('local vertical slice persistence', () => {
         providerId: 'stub',
         async search() { return { kind: 'found' as const, value: [{ url: 'https://wire.example.com/pltr/margin-update' }] }; },
       };
-      const html = '<html><body><p>Palantir reported gross margin of 81.3% in the quarter, remaining above 80%.</p></body></html>';
+      /*
+       * `og:type` added 2026-08-06: promotion now classifies the fetched
+       * document and fails closed, so a page declaring nothing is refused
+       * rather than assumed to be an article. Real publishers emit this for
+       * their own social-preview tooling — every genuine article among the
+       * live TLKM snapshots carries it — so a fixture without it was modelling
+       * a page that does not occur in practice.
+       */
+      const html = '<html><head><meta property="og:type" content="article"/></head>'
+        + '<body><p>Palantir reported gross margin of 81.3% in the quarter, remaining above 80%.</p></body></html>';
       const promotionClients = {
         'https://wire.example.com': {
           client: new OfficialHttpClient({

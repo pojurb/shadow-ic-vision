@@ -107,38 +107,106 @@ describe('M008 discovery-candidate promotion (DEC-0015 §3.2 domain gate)', () =
    * assumption to `pending_confirmation` and offers "Accept secondary
    * evidence" in the panel.
    */
-  it.each([
-    ['a site homepage', 'https://www.telkom.co.id/'],
-    ['an IR report-index page', 'https://www.telkom.co.id/sites/hubungan-investor/id_ID/page/laporan-1025'],
-  ])('rejects %s on an allowlisted issuer domain without fetching it', async (_label, candidateUrl) => {
+  it('rejects a site homepage without fetching it', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
     const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+    const candidateUrl = 'https://www.telkom.co.id/';
     handle.db.insert(discoveryCandidates).values({
-      id: 'cand-not-release', market: 'ID', ticker: 'TLKM',
+      id: 'cand-homepage', market: 'ID', ticker: 'TLKM',
       candidateUrl, discoveredVia: 'web_search', searchQuery: 'TLKM', status: 'pending',
     }).run();
 
     const clients: PromotionClients = {
       'https://www.telkom.co.id': {
-        client: { get: () => { throw new Error('must not fetch an ineligible page'); } } as unknown as OfficialHttpClient,
+        client: { get: () => { throw new Error('must not fetch a homepage'); } } as unknown as OfficialHttpClient,
         sourceClass: 'issuer',
       },
     };
 
     const outcome = await promoteCandidate({
-      db: handle.db, candidateId: 'cand-not-release', candidateUrl,
+      db: handle.db, candidateId: 'cand-homepage', candidateUrl,
       market: 'ID', ticker: 'TLKM', assumptionId: assumption.id, assumptionStatement: assumption.statement,
       snapshotDirectory: path.join(directory, 'snapshots'), sourceMode: 'live', now: () => new Date(),
       clients,
     });
 
     expect(outcome).toBe('rejected');
-    expect(handle.db.select().from(discoveryCandidates).where(eq(discoveryCandidates.id, 'cand-not-release')).get()).toMatchObject({
-      status: 'rejected', rejectionReason: 'not_an_issuer_release',
-    });
+    expect(handle.db.select().from(discoveryCandidates).where(eq(discoveryCandidates.id, 'cand-homepage')).get())
+      .toMatchObject({ status: 'rejected', rejectionReason: 'not_an_issuer_release' });
     expect(handle.db.select().from(evidence).all()).toHaveLength(0);
-    // The status gate must not have fired either.
     expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('untested');
+  });
+
+  /*
+   * The URL carries a section word, so no path-shape rule can refuse it — this
+   * is exactly the case an independent review showed a URL-only gate could not
+   * reach. The document itself declares `og:type=website`, which is what every
+   * one of the five mislabelled pages in the live database declares, and what
+   * separates them from the ten genuine releases and articles retained
+   * alongside them.
+   */
+  it.each([
+    ['issuer', 'https://www.telkom.co.id/sites/berita/id_ID/page/news-122'],
+    ['news', 'https://www.telkom.co.id/sites/berita/id_ID/news/index'],
+  ])('fetches, then rejects a %s-class section index the URL alone cannot catch', async (sourceClass, candidateUrl) => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+    handle.db.insert(discoveryCandidates).values({
+      id: 'cand-index', market: 'ID', ticker: 'TLKM',
+      candidateUrl, discoveredVia: 'web_search', searchQuery: 'TLKM', status: 'pending',
+    }).run();
+
+    const indexHtml = '<html><head><meta property="og:type" content="website"/></head>'
+      + '<body><p>TLKM net interest margin remains above 6.0% according to this listing page.</p></body></html>';
+    const clients: PromotionClients = {
+      'https://www.telkom.co.id': {
+        client: stubClient(indexHtml, 'www.telkom.co.id', path.join(directory, 'outbound.log')),
+        sourceClass: sourceClass as 'issuer' | 'news',
+      },
+    };
+
+    const outcome = await promoteCandidate({
+      db: handle.db, candidateId: 'cand-index', candidateUrl,
+      market: 'ID', ticker: 'TLKM', assumptionId: assumption.id, assumptionStatement: assumption.statement,
+      snapshotDirectory: path.join(directory, 'snapshots'), sourceMode: 'live', now: () => new Date(),
+      clients,
+    });
+
+    expect(outcome).toBe('rejected');
+    const row = handle.db.select().from(discoveryCandidates).where(eq(discoveryCandidates.id, 'cand-index')).get();
+    expect(row?.rejectionReason).toBe('not_an_article');
+    // A refused document is never persisted to `source_snapshots`, so the
+    // candidate carries no resulting hash.
+    expect(row?.resultingDocumentHash).toBeNull();
+    expect(handle.db.select().from(evidence).all()).toHaveLength(0);
+    expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('untested');
+  });
+
+  it('promotes a genuine release whose URL shape is opaque, on the document declaration alone', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+    // No section word anywhere in the path: the URL-only gate rejected this
+    // shape outright, and did so terminally.
+    const candidateUrl = 'https://ir.bri.co.id/investors/update/12345';
+    handle.db.insert(discoveryCandidates).values({
+      id: 'cand-opaque', market: 'ID', ticker: 'BBRI',
+      candidateUrl, discoveredVia: 'web_search', searchQuery: 'BBRI', status: 'pending',
+    }).run();
+
+    const releaseHtml = '<html><head><script type="application/ld+json">{"@type":"NewsArticle","headline":"BBRI Q1"}</script></head>'
+      + '<body><p>BBRI reported net interest margin (NIM) remains above 6.0% in the latest quarter.</p></body></html>';
+    const clients: PromotionClients = {
+      'https://ir.bri.co.id': { client: stubClient(releaseHtml, 'ir.bri.co.id', path.join(directory, 'outbound.log')), sourceClass: 'issuer' },
+    };
+
+    const outcome = await promoteCandidate({
+      db: handle.db, candidateId: 'cand-opaque', candidateUrl,
+      market: 'ID', ticker: 'BBRI', assumptionId: assumption.id, assumptionStatement: assumption.statement,
+      snapshotDirectory: path.join(directory, 'snapshots'), sourceMode: 'live', now: () => new Date(),
+      clients,
+    });
+
+    expect(outcome).toBe('promoted');
   });
 
   it('fetches, extracts, and inserts secondary_issuer evidence through OfficialHttpClient when the domain is allowlisted', async () => {

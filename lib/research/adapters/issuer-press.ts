@@ -63,8 +63,23 @@ const SECTION_TOKENS = [
 ];
 
 /**
- * Whether a single URL is shaped like a direct issuer release, as opposed to a
- * homepage, a listing page, or an IR navigation page.
+ * A cheap URL-shape hint, **not** a classifier.
+ *
+ * An earlier version of this comment claimed the predicate distinguished a
+ * direct release from "a homepage, a listing page, or an IR navigation page".
+ * An independent review pointed out that the implementation demonstrably does
+ * not: `/news`, `/newsroom` and `/news?page=2` are all section indexes and all
+ * return `true`, because a section word is exactly what a listing page carries.
+ * The overclaim is corrected here rather than left to mislead the next reader —
+ * the same failure this codebase spent 2026-08-05 removing from its verdict
+ * copy.
+ *
+ * What it does do: reject paths carrying no news/press section word at all,
+ * which is what an IR overview or report-index page looks like. Authoritative
+ * classification lives in `classifySecondaryDocument`
+ * (`lib/research/secondary-document.ts`), which reads the fetched document.
+ * This remains in use only as the fallback for documents that declare nothing —
+ * chiefly PDFs, which carry no such markup.
  *
  * `discoverIssuerPressReleases` below applies its eligibility rules to anchors
  * found on a known listing page. Class-C promotion has no listing page to

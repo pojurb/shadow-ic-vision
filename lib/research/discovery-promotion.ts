@@ -1,10 +1,11 @@
 import 'server-only';
 
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import type { AppDatabase } from '@/db/client';
 import { assumptions, discoveryCandidates, evidence, theses } from '@/db/schema';
 import { buildClientsByOrigin } from './adapters/factory';
 import { isIssuerReleaseUrl } from './adapters/issuer-press';
+import { classifySecondaryDocument } from './secondary-document';
 import type { ResearchMarket, ResearchSourceMode, SourceSnapshot } from './adapters/types';
 import { getIssuerPressReleaseUrls, getNewsWireFeedUrls } from './config';
 import { extractSecondaryCandidates } from './extractors/candidate';
@@ -38,6 +39,31 @@ export function buildPromotionClients(logPath: string): PromotionClients {
   }
   return merged;
 }
+
+/** A homepage — the one shape cheap enough, and certain enough, to refuse unfetched. */
+function isBareOrigin(url: string): boolean {
+  try {
+    return !new URL(url).pathname.replace(/\/+$/, '');
+  } catch {
+    return false;
+  }
+}
+
+/*
+ * Rejections that a later code or configuration change can legitimately
+ * overturn, and which `promoteAllEligibleCandidates` therefore re-evaluates.
+ * `domain_not_allowlisted` was already here; the classification reasons joined
+ * it because a candidate refused by today's classifier must not be excluded
+ * from tomorrow's improved one — a permanently terminal rejection was a defect
+ * this module shipped with on 2026-08-06 and is exactly how a genuine release
+ * with an unusual URL would have been lost for good.
+ */
+export const REVIEWABLE_REJECTION_REASONS = [
+  'domain_not_allowlisted',
+  'not_an_issuer_release',
+  'not_an_article',
+  'unclassifiable_document',
+] as const;
 
 function resolvePromotionClient(url: string, clients: PromotionClients): PromotionClient | undefined {
   try {
@@ -98,10 +124,20 @@ export async function promoteCandidate(params: {
    * moves its assumption to `pending_confirmation` and offers the user
    * "Accept secondary evidence" in the panel.
    *
-   * Rejecting before the fetch also means no HTTP call is made for a page that
-   * could never have been eligible.
+   * Two stages, after an independent review found a URL-only gate insufficient
+   * (2026-08-06). Only a bare origin is refused before the fetch — a homepage
+   * is never an article, and refusing it costs no HTTP call. Every other
+   * candidate is fetched and then classified from the document itself
+   * (`classifySecondaryDocument`), because `DEC-0015` defines its classes by
+   * document type and `ADR-0006` requires the target to be fetched *and*
+   * classified. Judging the path alone also permanently rejected genuine
+   * releases whose URLs use opaque or unlisted conventions.
+   *
+   * The post-fetch check reads `fetched.url`, so a candidate that redirects to
+   * a different page is judged on where it actually landed — the URL written
+   * into the snapshot — not on where it claimed to point.
    */
-  if (resolved.sourceClass === 'issuer' && !isIssuerReleaseUrl(new URL(candidateUrl))) {
+  if (isBareOrigin(candidateUrl)) {
     db.update(discoveryCandidates).set({
       status: 'rejected',
       rejectionReason: 'not_an_issuer_release',
@@ -120,6 +156,35 @@ export async function promoteCandidate(params: {
       updatedAt: nowIso,
     }).where(eq(discoveryCandidates.id, candidateId)).run();
     return 'unreachable';
+  }
+
+  /*
+   * Applied to issuer and news alike. An origin configured for a news feed
+   * proves only that a publisher is allowlisted, not that this page is an
+   * article — the same defect Class A had, and leaving Class B ungated was an
+   * inconsistency the review declined to accept.
+   *
+   * Fails closed. A document that declares nothing is `undetermined`, and a
+   * PDF has no such markup at all, so both fall back to the URL hint rather
+   * than being admitted on the assumption that they are releases.
+   */
+  const isHtml = !(fetched.contentType === 'application/pdf' || fetched.url.toLowerCase().endsWith('.pdf'));
+  const documentKind = isHtml
+    ? classifySecondaryDocument(new TextDecoder().decode(fetched.bytes))
+    : 'undetermined';
+  const eligible = documentKind === 'article'
+    || (documentKind === 'undetermined' && isIssuerReleaseUrl(new URL(fetched.url)));
+
+  if (!eligible) {
+    db.update(discoveryCandidates).set({
+      status: 'rejected',
+      // No `resultingDocumentHash`: that column is a foreign key into
+      // `source_snapshots`, and a refused document is deliberately never
+      // persisted there. The reason plus the candidate URL is the audit trail.
+      rejectionReason: documentKind === 'not_article' ? 'not_an_article' : 'unclassifiable_document',
+      updatedAt: nowIso,
+    }).where(eq(discoveryCandidates.id, candidateId)).run();
+    return 'rejected';
   }
 
   const snapshot: SourceSnapshot = {
@@ -314,7 +379,10 @@ export async function promoteAllEligibleCandidates(params: {
   const rows = params.db.select().from(discoveryCandidates).where(
     or(
       eq(discoveryCandidates.status, 'pending'),
-      and(eq(discoveryCandidates.status, 'rejected'), eq(discoveryCandidates.rejectionReason, 'domain_not_allowlisted')),
+      and(
+        eq(discoveryCandidates.status, 'rejected'),
+        inArray(discoveryCandidates.rejectionReason, [...REVIEWABLE_REJECTION_REASONS]),
+      ),
     ),
   ).all();
 
