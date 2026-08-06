@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeIdxAttachmentUrl, parseIdxAnnouncements } from '@/lib/research/adapters/idx';
 import { discoverIssuerDocuments } from '@/lib/research/adapters/issuer';
-import { discoverIssuerPressReleases } from '@/lib/research/adapters/issuer-press';
+import { discoverIssuerPressReleases, isIssuerReleaseUrl } from '@/lib/research/adapters/issuer-press';
 import { NewsWireAdapter, parseNewsFeedItems } from '@/lib/research/adapters/news-wire';
 import { SecAdapter, selectLatestFiling } from '@/lib/research/adapters/sec';
 import { OfficialHttpClient, resetHttpStateForTests } from '@/lib/research/http';
@@ -91,6 +91,25 @@ describe('official source adapters', () => {
         expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/financial-20260430.pdf', publishDate: '2026-04-30' }),
         expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/annual-report-2025.pdf' }),
       ]);
+  });
+
+  /*
+   * The single-URL form of the eligibility judgment, used by Class-C promotion
+   * (`promoteCandidate`), which has no listing page to reason about. All four
+   * URLs below are verbatim from the live database, where every one of them
+   * had been stored as "Web-discovered issuer release" on origin match alone.
+   */
+  it('recognises a direct issuer release by URL and rejects homepages and IR index pages', () => {
+    const release = 'https://www.telkom.co.id/sites/berita/id_ID/news/transformasi-telkomgroup-mulai-tunjukkan-hasil';
+    expect(isIssuerReleaseUrl(new URL(release))).toBe(true);
+
+    for (const notARelease of [
+      'https://www.telkom.co.id/',
+      'https://www.telkom.co.id/sites/hubungan-investor/id_ID/page/laporan-1025',
+      'https://www.telkom.co.id/sites/investor-relations/en_US/page/financial-highlights-542',
+    ]) {
+      expect(isIssuerReleaseUrl(new URL(notARelease))).toBe(false);
+    }
   });
 
   // M007 Class A. Deliberately does NOT reuse discoverIssuerDocuments's test

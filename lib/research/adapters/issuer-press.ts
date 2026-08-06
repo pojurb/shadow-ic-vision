@@ -53,6 +53,50 @@ export class IssuerPressReleaseAdapter implements SourceAdapter {
 }
 
 /**
+ * The section words `isIssuerReleaseUrl` looks for as whole path tokens. Same
+ * vocabulary as `PRESS_RELEASE_TERMS` above, decomposed into single words
+ * because that is the form a URL path carries them in.
+ */
+const SECTION_TOKENS = [
+  'press', 'release', 'releases', 'news', 'newsroom',
+  'berita', 'siaran', 'pers', 'pengumuman', 'announcement', 'announcements',
+];
+
+/**
+ * Whether a single URL is shaped like a direct issuer release, as opposed to a
+ * homepage, a listing page, or an IR navigation page.
+ *
+ * `discoverIssuerPressReleases` below applies its eligibility rules to anchors
+ * found on a known listing page. Class-C promotion has no listing page to
+ * reason about — it receives one URL from a web search — so it needs the same
+ * judgment in a form that takes a URL alone. This is that form, exported from
+ * the adapter that owns the definition so the two paths cannot drift apart.
+ *
+ * Added 2026-08-06 after an independent review found `promoteCandidate`
+ * assigning its source class from the URL's *origin* only. Any page on an
+ * allowlisted issuer domain was stored as "Web-discovered issuer release",
+ * which put `https://www.telkom.co.id/` and several generic IR overview and
+ * report-index pages in the live database under that label — none of them a
+ * release or an announcement, and so none of them Class A as `DEC-0015`
+ * defines it.
+ */
+export function isIssuerReleaseUrl(url: URL): boolean {
+  const path = url.pathname.replace(/\/+$/, '');
+  // A bare origin is a homepage, never a release.
+  if (!path) return false;
+  /*
+   * Tokenized rather than substring-matched against `PRESS_RELEASE_TERMS`.
+   * That list is built for link *text* ("...business update press release"),
+   * where the words appear together; a path segment is usually the bare
+   * section name, so `/press/nim-update` contains none of those phrases
+   * literally. Matching whole tokens also avoids the substring accidents a
+   * raw `includes` invites — `/compressed-data/` must not read as `press`.
+   */
+  const tokens = new Set(path.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+  return SECTION_TOKENS.some((token) => tokens.has(token));
+}
+
+/**
  * M010 (R-026). Identity of a link for repeat-counting and dedupe: origin +
  * pathname + search, hash stripped, trailing slash normalized. The hash is
  * dropped deliberately — `#search` and `#` self-links are the exact shapes that

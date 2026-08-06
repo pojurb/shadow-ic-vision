@@ -4,6 +4,7 @@ import { and, eq, or } from 'drizzle-orm';
 import type { AppDatabase } from '@/db/client';
 import { assumptions, discoveryCandidates, evidence, theses } from '@/db/schema';
 import { buildClientsByOrigin } from './adapters/factory';
+import { isIssuerReleaseUrl } from './adapters/issuer-press';
 import type { ResearchMarket, ResearchSourceMode, SourceSnapshot } from './adapters/types';
 import { getIssuerPressReleaseUrls, getNewsWireFeedUrls } from './config';
 import { extractSecondaryCandidates } from './extractors/candidate';
@@ -81,6 +82,29 @@ export async function promoteCandidate(params: {
     db.update(discoveryCandidates).set({
       status: 'rejected',
       rejectionReason: 'domain_not_allowlisted',
+      updatedAt: nowIso,
+    }).where(eq(discoveryCandidates.id, candidateId)).run();
+    return 'rejected';
+  }
+
+  /*
+   * `DEC-0015`'s table defines Class A as "direct company press releases and
+   * investor relations announcements". Origin allowlisting proves only that a
+   * URL is on a trusted domain, not that the page at it is a release — so
+   * until now every fetched page on an issuer domain was labelled
+   * "Web-discovered issuer release", including the site homepage and generic
+   * IR overview and report-index pages, all of which are in the live database
+   * under that label. A mislabel is not cosmetic: any secondary evidence row
+   * moves its assumption to `pending_confirmation` and offers the user
+   * "Accept secondary evidence" in the panel.
+   *
+   * Rejecting before the fetch also means no HTTP call is made for a page that
+   * could never have been eligible.
+   */
+  if (resolved.sourceClass === 'issuer' && !isIssuerReleaseUrl(new URL(candidateUrl))) {
+    db.update(discoveryCandidates).set({
+      status: 'rejected',
+      rejectionReason: 'not_an_issuer_release',
       updatedAt: nowIso,
     }).where(eq(discoveryCandidates.id, candidateId)).run();
     return 'rejected';

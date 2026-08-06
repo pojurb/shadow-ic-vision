@@ -95,6 +95,52 @@ describe('M008 discovery-candidate promotion (DEC-0015 §3.2 domain gate)', () =
     expect(handle.db.select().from(evidence).all()).toHaveLength(0);
   });
 
+  /*
+   * Found by independent review, 2026-08-06. `promoteCandidate` assigned its
+   * source class from the URL's origin alone, so any page on an allowlisted
+   * issuer domain was stored as "Web-discovered issuer release". These two
+   * URLs are verbatim from the live database under that label — a site
+   * homepage and an IR report-index page, neither of which is a release or an
+   * announcement, and so neither is Class A as DEC-0015 defines it.
+   *
+   * The mislabel is not cosmetic: any secondary evidence row moves its
+   * assumption to `pending_confirmation` and offers "Accept secondary
+   * evidence" in the panel.
+   */
+  it.each([
+    ['a site homepage', 'https://www.telkom.co.id/'],
+    ['an IR report-index page', 'https://www.telkom.co.id/sites/hubungan-investor/id_ID/page/laporan-1025'],
+  ])('rejects %s on an allowlisted issuer domain without fetching it', async (_label, candidateUrl) => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
+    handle.db.insert(discoveryCandidates).values({
+      id: 'cand-not-release', market: 'ID', ticker: 'TLKM',
+      candidateUrl, discoveredVia: 'web_search', searchQuery: 'TLKM', status: 'pending',
+    }).run();
+
+    const clients: PromotionClients = {
+      'https://www.telkom.co.id': {
+        client: { get: () => { throw new Error('must not fetch an ineligible page'); } } as unknown as OfficialHttpClient,
+        sourceClass: 'issuer',
+      },
+    };
+
+    const outcome = await promoteCandidate({
+      db: handle.db, candidateId: 'cand-not-release', candidateUrl,
+      market: 'ID', ticker: 'TLKM', assumptionId: assumption.id, assumptionStatement: assumption.statement,
+      snapshotDirectory: path.join(directory, 'snapshots'), sourceMode: 'live', now: () => new Date(),
+      clients,
+    });
+
+    expect(outcome).toBe('rejected');
+    expect(handle.db.select().from(discoveryCandidates).where(eq(discoveryCandidates.id, 'cand-not-release')).get()).toMatchObject({
+      status: 'rejected', rejectionReason: 'not_an_issuer_release',
+    });
+    expect(handle.db.select().from(evidence).all()).toHaveLength(0);
+    // The status gate must not have fired either.
+    expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('untested');
+  });
+
   it('fetches, extracts, and inserts secondary_issuer evidence through OfficialHttpClient when the domain is allowlisted', async () => {
     const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
     const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
