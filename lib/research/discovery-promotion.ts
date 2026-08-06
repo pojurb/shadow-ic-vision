@@ -241,7 +241,18 @@ export async function promoteCandidate(params: {
     });
 
     const verificationStatus = resolved.sourceClass === 'issuer' ? 'secondary_issuer' as const : 'secondary_news' as const;
-    const candidates = extractSecondaryCandidates(extracted, assumptionStatement, ticker, resolved.sourceClass);
+    /*
+     * Same identity exclusion the Class A/B paths apply: words that only say
+     * which company this is cannot also show that a passage concerns this
+     * assumption. Read from the thesis the assumption belongs to.
+     */
+    const owner = db.select({ companyName: theses.companyName })
+      .from(theses)
+      .innerJoin(assumptions, eq(assumptions.thesisId, theses.id))
+      .where(eq(assumptions.id, assumptionId))
+      .get();
+    const identity = `${owner?.companyName ?? ''} ${market === 'ID' ? 'Indonesia' : 'United States'}`;
+    const candidates = extractSecondaryCandidates(extracted, assumptionStatement, ticker, resolved.sourceClass, 3, identity);
     const insertedStatuses: VerifiedEvidence['verificationStatus'][] = [];
 
     db.transaction((tx) => {

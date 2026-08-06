@@ -199,10 +199,12 @@ function rankSentenceCandidates(
   ticker: string,
   limit: number,
   sourceTier: 'official' | 'secondary' = 'official',
+  identity = '',
 ): Array<{ quote: string; pageNumber: number | null }> {
   const assumptionTokens = significantTokens(`${ticker} ${assumption}`);
   const assumptionNumbers = numbers(assumption);
   const lowerTicker = ticker.toLowerCase();
+  const identityTokens = significantTokens(identity);
   const ranked = document.pages.flatMap((page) => segmentationUnits(page, sourceTier)
     .flatMap(splitSentences)
     .filter((quote) => !isBoilerplatePhrase(quote))
@@ -210,7 +212,16 @@ function rankSentenceCandidates(
       const quoteTokens = significantTokens(quote);
       const matchedTokens = [...assumptionTokens].filter((token) => quoteTokens.has(token));
       const tokenMatches = matchedTokens.length;
-      const numberMatches = assumptionNumbers.filter((number) => quote.includes(number)).length;
+      const numberMatches = assumptionNumbers.filter((number) => matchesNumberExactly(quote, number)).length;
+      /*
+       * Left as "any digit". Restricting this bonus to numbers the assumption
+       * names was tried and reverted: it rejected "Palantir reported gross
+       * margin of 81.3%" for an assumption requiring gross margin above 80%,
+       * where the figure is the whole point but is not the same number. The
+       * relevance problem is handled by `qualifyingTokenMatches` below, which
+       * refuses the passage outright when nothing but the company's identity
+       * matched — a topical gate, not a scoring tweak.
+       */
       const hasNumericFact = /\d/.test(quote);
       // M009 (R-025). A token equal to the ticker itself or a bare four-digit
       // year (a copyright year, a filing year mentioned in passing) is common
@@ -219,8 +230,22 @@ function rankSentenceCandidates(
       // `tokenMatches`/`score` as before (official-path behavior unaffected);
       // excluded only from `qualifyingTokenMatches`, which gates
       // secondary-tier candidates below.
+      /*
+       * Generalized 2026-08-06 from "the ticker and bare years" to "everything
+       * that merely identifies the company". `identityTokens` carries the
+       * company name and market from the thesis, because those words are given
+       * by *which thesis this is* and so cannot also be evidence that a passage
+       * concerns a *particular assumption* of it.
+       *
+       * The case that forced it: an assumption about NeutraDC's data-centre
+       * market share was "evidenced" by "Pergerakan indeks ditopang penguatan
+       * saham PT Telkom Indonesia Tbk (TLKM) yang melonjak 4,18%" — an index
+       * round-up. Its entire overlap was the ticker plus `indonesia`, which
+       * cleared a floor of one qualifying token. Nothing in it mentions
+       * NeutraDC, market share, or data centres.
+       */
       const qualifyingTokenMatches = matchedTokens.filter(
-        (token) => token !== lowerTicker && !/^\d{4}$/.test(token),
+        (token) => token !== lowerTicker && !/^\d{4}$/.test(token) && !identityTokens.has(token),
       ).length;
       return {
         quote,
@@ -304,8 +329,15 @@ export function extractSecondaryCandidates(
   ticker: string,
   sourceClass: 'issuer' | 'news',
   limit = 3,
+  /**
+   * Company name and market, from the thesis. Their tokens are excluded from
+   * the qualifying-match count — see `rankSentenceCandidates`. Optional and
+   * empty by default so a caller without thesis context behaves exactly as
+   * before rather than silently losing the guard.
+   */
+  identity = '',
 ): EvidenceCandidate[] {
-  const selected = rankSentenceCandidates(document, assumption, ticker, limit, 'secondary');
+  const selected = rankSentenceCandidates(document, assumption, ticker, limit, 'secondary', identity);
   const impactSummary = sourceClass === 'issuer'
     ? 'Passage matched against a company investor-relations release. Secondary source; official confirmation remains pending.'
     : 'Passage matched against a curated news-wire article. Secondary source; official confirmation remains pending.';
@@ -435,4 +467,16 @@ function significantTokens(text: string): Set<string> {
 
 function numbers(text: string): string[] {
   return text.match(/\d+(?:[.,]\d+)?%?/g) ?? [];
+}
+
+/**
+ * Substring matching treated an assumption's `30` as satisfied by `130`,
+ * `2030`, or `3.05`, so a threshold could be "matched" by a number that has
+ * nothing to do with it — and each such match was worth 5 points, the largest
+ * single term in the score. Boundaries are digits and decimal separators
+ * rather than `\b`, because `\b` sits happily between `1` and `30`.
+ */
+function matchesNumberExactly(text: string, value: string): boolean {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\d.,])${escaped}(?![\\d.,])`).test(text);
 }

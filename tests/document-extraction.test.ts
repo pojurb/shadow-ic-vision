@@ -319,6 +319,50 @@ describe('deterministic document extraction', () => {
       expect(candidates).toHaveLength(0);
     });
 
+    /*
+     * The 2026-08-06 relevance gate, from the real TLKM thesis. This exact
+     * sentence was persisted as evidence for an assumption about NeutraDC's
+     * data-centre market share. Its entire overlap with that assumption is the
+     * ticker plus "Indonesia" — the words that say which company the thesis is
+     * about, which cannot also show that a passage concerns one of its
+     * assumptions. Nothing in it mentions NeutraDC, market share, or data
+     * centres.
+     */
+    it('excludes a market round-up whose only overlap is the company identity', () => {
+      const document = toDocument(
+        'Pergerakan indeks ditopang penguatan saham PT Telkom Indonesia Tbk (TLKM) yang melonjak 4,18%, diikuti AMMN dan MAPI.',
+      );
+      const assumption = 'NeutraDC mempertahankan atau memperbesar pangsa pasar dalam sektor data center Indonesia relatif terhadap DCI Indonesia.';
+      const identity = 'PT Telkom Indonesia (Persero) Tbk Indonesia';
+
+      // Without the identity context this passed the qualifying-token floor on
+      // the word "Indonesia" alone.
+      expect(extractSecondaryCandidates(document, assumption, 'TLKM', 'news')).toHaveLength(1);
+      expect(extractSecondaryCandidates(document, assumption, 'TLKM', 'news', 3, identity)).toHaveLength(0);
+    });
+
+    it('keeps a passage that shares a term beyond the company identity', () => {
+      const document = toDocument(
+        'NeutraDC menambah kapasitas data center di Jakarta hingga 51 megawatt pada kuartal ini.',
+      );
+      const assumption = 'NeutraDC mempertahankan atau memperbesar pangsa pasar dalam sektor data center Indonesia relatif terhadap DCI Indonesia.';
+      const identity = 'PT Telkom Indonesia (Persero) Tbk Indonesia';
+
+      expect(extractSecondaryCandidates(document, assumption, 'TLKM', 'issuer', 3, identity).length).toBeGreaterThan(0);
+    });
+
+    it('does not credit a threshold to a number that merely contains it', () => {
+      const document = toDocument(
+        'Beban operasional tercatat sebesar 130 miliar rupiah pada periode berjalan menurut manajemen perseroan.',
+      );
+      // The assumption's threshold is 30; the passage's 130 must not count as
+      // a match worth the score's largest single term.
+      const candidates = extractSecondaryCandidates(
+        document, 'TLKM mempertahankan setidaknya 30 persen kepemilikan ekonomi di NeutraDC.', 'TLKM', 'issuer',
+      );
+      expect(candidates).toHaveLength(0);
+    });
+
     it('does not over-filter a genuine short secondary press-release fact sharing non-generic tokens with the assumption', () => {
       const issuerText = 'Net revenue increased 10%. Palantir reported gross margin of 81.3% in the quarter.';
       const document = toDocument(issuerText);

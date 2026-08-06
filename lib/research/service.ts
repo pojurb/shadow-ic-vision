@@ -592,14 +592,22 @@ async function processOneResearchJob(params: {
   // release or news item can be new even when the official filing hasn't
   // changed — and never touch research_jobs.status (soft-failure
   // boundary, decided scope: see runSecondaryResearchCall).
+  /*
+   * The words that merely say *which company this is*. They are excluded from
+   * the relevance score's qualifying-match count, because a passage sharing
+   * only these is about the issuer in general, not about this assumption —
+   * see `rankSentenceCandidates`.
+   */
+  const identity = `${row.thesis.companyName ?? ''} ${market === 'ID' ? 'Indonesia' : 'United States'}`;
+
   const marketSecondaryAdapters = secondaryAdapters[market];
   await runSecondaryResearchCall({
-    db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+    db, snapshotDirectory, now, market, ticker, knownDocumentIds, identity,
     jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
     adapter: marketSecondaryAdapters.issuerPr, evidenceClass: 'secondary_issuer', polarityClassifier,
   });
   await runSecondaryResearchCall({
-    db, snapshotDirectory, now, market, ticker, knownDocumentIds,
+    db, snapshotDirectory, now, market, ticker, knownDocumentIds, identity,
     jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
     adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news', polarityClassifier,
   });
@@ -895,6 +903,7 @@ async function runSecondaryResearchCall(params: {
   now: () => Date;
   market: ResearchMarket;
   ticker: string;
+  identity?: string;
   jobId: string;
   assumptionId: string;
   assumptionStatement: string;
@@ -913,6 +922,7 @@ async function runSecondaryResearchCall(params: {
       undefined,
       params.knownDocumentIds,
       params.evidenceClass,
+      params.identity,
     );
     if (execution.unchanged || execution.evidence.length === 0) return;
 

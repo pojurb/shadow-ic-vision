@@ -73,6 +73,7 @@ export class CitationPipeline {
     candidateOverrides?: EvidenceCandidate[],
     knownDocumentIds: ReadonlySet<string> = new Set(),
     evidenceClass: 'official' | 'secondary_issuer' | 'secondary_news' = 'official',
+    identity = '',
   ): Promise<ResearchExecution> {
     const adapter = this.adapters[market];
     const discovery = await adapter.discover({ market, ticker, documentTypes: ['10-Q', '10-K'] });
@@ -125,7 +126,7 @@ export class CitationPipeline {
     const candidates = candidateOverrides ?? (
       evidenceClass === 'official'
         ? extractDeterministicCandidates(extracted, assumption, ticker)
-        : extractSecondaryCandidates(extracted, assumption, ticker, evidenceClass === 'secondary_issuer' ? 'issuer' : 'news')
+        : extractSecondaryCandidates(extracted, assumption, ticker, evidenceClass === 'secondary_issuer' ? 'issuer' : 'news', 3, identity)
     );
     const verifiedEvidence: VerifiedEvidence[] = [];
 
