@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "468ca09c89d28ceb509e7cdbdd6d0b225cc1870256285581c780cd53037138f2",
+  "sourceDigest": "0f6319d05e3918692427daba84b5f0736bbca48bbfbebdb8d32191b368322a55",
   "roots": [
     "app",
     "components",
@@ -1141,7 +1141,8 @@
       ],
       "exports": [
         "IssuerPressReleaseAdapter",
-        "discoverIssuerPressReleases"
+        "discoverIssuerPressReleases",
+        "isIssuerReleaseUrl"
       ]
     },
     {
@@ -1412,6 +1413,10 @@
           "resolved": "lib/research/adapters/factory.ts"
         },
         {
+          "specifier": "./adapters/issuer-press",
+          "resolved": "lib/research/adapters/issuer-press.ts"
+        },
+        {
           "specifier": "./adapters/types",
           "resolved": "lib/research/adapters/types.ts"
         },
@@ -1444,6 +1449,10 @@
           "resolved": "lib/research/pipeline.ts"
         },
         {
+          "specifier": "./secondary-document",
+          "resolved": "lib/research/secondary-document.ts"
+        },
+        {
           "specifier": "./snapshot-store",
           "resolved": "lib/research/snapshot-store.ts"
         },
@@ -1474,6 +1483,7 @@
         "PromotionOutcome",
         "PromotionSourceClass",
         "PromotionSweepStats",
+        "REVIEWABLE_REJECTION_REASONS",
         "buildPromotionClients",
         "promoteAllEligibleCandidates",
         "promoteCandidate",
@@ -2106,6 +2116,54 @@
         "PolarityResult",
         "classifyPolarity",
         "readObservedMeasurement"
+      ]
+    },
+    {
+      "path": "lib/research/promotion-cleanup.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./secondary-document",
+          "resolved": "lib/research/secondary-document.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "PromotionCleanupReport",
+        "cleanupMislabelledPromotions"
+      ]
+    },
+    {
+      "path": "lib/research/secondary-document.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "SecondaryDocumentKind",
+        "classifySecondaryDocument"
       ]
     },
     {
@@ -3062,6 +3120,45 @@
       "exports": []
     },
     {
+      "path": "tests/promotion-cleanup.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/research/promotion-cleanup",
+          "resolved": "lib/research/promotion-cleanup.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/provider-boundary.test.ts",
       "kind": "test",
       "imports": [
@@ -3177,6 +3274,21 @@
         {
           "specifier": "node:path",
           "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/secondary-document.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/secondary-document",
+          "resolved": "lib/research/secondary-document.ts"
         },
         {
           "specifier": "vitest",
@@ -3759,6 +3871,14 @@
       ]
     },
     {
+      "path": "tests/promotion-cleanup.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/research/promotion-cleanup.ts"
+      ]
+    },
+    {
       "path": "tests/provider-boundary.test.ts",
       "productionModules": []
     },
@@ -3784,6 +3904,12 @@
         "lib/research/ingestion.ts",
         "lib/research/pipeline.ts",
         "lib/research/service.ts"
+      ]
+    },
+    {
+      "path": "tests/secondary-document.test.ts",
+      "productionModules": [
+        "lib/research/secondary-document.ts"
       ]
     },
     {
