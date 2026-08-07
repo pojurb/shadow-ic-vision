@@ -649,14 +649,32 @@ describe('local vertical slice persistence', () => {
   });
 
   describe('acceptSecondaryEvidence (M007 clearing path 2)', () => {
-    it('transitions a pending_confirmation assumption to user_confirmed_secondary', async () => {
+    /*
+     * Was "transitions a pending_confirmation assumption to
+     * user_confirmed_secondary". Inverted 2026-08-06: acceptance is withheld
+     * while relevance is unassessed (`secondaryEvidenceAcceptanceAvailable`).
+     *
+     * `pending_confirmation` is reached from any secondary evidence, and
+     * secondary evidence is selected by lexical overlap that nothing checks for
+     * topical relevance — an audit of the live corpus put the clearly
+     * irrelevant share near nine in ten (R-025). Soliciting acceptance on that
+     * basis asks for a judgment the system cannot support, and
+     * `user_confirmed_secondary` is a durable human decision no later cleanup
+     * may silently reverse.
+     *
+     * The server refuses independently of the panel hiding the control: a
+     * disabled button is not a control. When relevance assessment lands, flip
+     * the seam and restore the original assertion.
+     */
+    it('withholds acceptance while relevance is unassessed, leaving the status untouched', async () => {
       const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
       const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get()!;
       handle.db.update(assumptions).set({ status: 'pending_confirmation' }).where(eq(assumptions.id, assumption.id)).run();
 
-      const result = await acceptSecondaryEvidence(assumption.id, { db: handle.db });
-      expect(result.status).toBe('user_confirmed_secondary');
-      expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status).toBe('user_confirmed_secondary');
+      await expect(acceptSecondaryEvidence(assumption.id, { db: handle.db }))
+        .rejects.toThrow(/not been checked for relevance/);
+      expect(handle.db.select().from(assumptions).where(eq(assumptions.id, assumption.id)).get()?.status)
+        .toBe('pending_confirmation');
     });
 
     it('refuses to accept an assumption that is not pending confirmation', async () => {

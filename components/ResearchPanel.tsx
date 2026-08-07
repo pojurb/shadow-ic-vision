@@ -1,7 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ResearchPanelDTO, DecisionOutcome, DecisionAction, MeasurementOperator, MeasurementUnit } from '@/lib/domain/contracts';
+import {
+  SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON,
+  secondaryEvidenceAcceptanceAvailable,
+  type ResearchPanelDTO,
+  type DecisionOutcome,
+  type DecisionAction,
+  type MeasurementOperator,
+  type MeasurementUnit,
+} from '@/lib/domain/contracts';
 import type { OllamaModelId } from '@/lib/ai/ollama-models';
 import styles from './Workspace.module.css';
 
@@ -466,14 +474,26 @@ export function ResearchPanel({
                   {assumptionStatusBadge(item.assumptionStatus)}
                 </span>
               </p>
+              {/*
+                * The acceptance control is withheld while relevance is
+                * unassessed — see `secondaryEvidenceAcceptanceAvailable`, which
+                * is the one place to flip when that changes. `confirmDraft`'s
+                * server half refuses the request too, so this is not the only
+                * guard. Showing the reason rather than a greyed-out button:
+                * the user should know *why* nothing is being asked of them.
+                */}
               {item.assumptionStatus === 'pending_confirmation' && (
-                <button
-                  className={styles.acceptSecondaryEvidenceButton}
-                  onClick={() => acceptSecondaryEvidence(item.assumptionId)}
-                  disabled={acceptingSecondaryEvidence === item.assumptionId}
-                >
-                  {acceptingSecondaryEvidence === item.assumptionId ? 'Accepting…' : 'Accept secondary evidence'}
-                </button>
+                secondaryEvidenceAcceptanceAvailable() ? (
+                  <button
+                    className={styles.acceptSecondaryEvidenceButton}
+                    onClick={() => acceptSecondaryEvidence(item.assumptionId)}
+                    disabled={acceptingSecondaryEvidence === item.assumptionId}
+                  >
+                    {acceptingSecondaryEvidence === item.assumptionId ? 'Accepting…' : 'Accept secondary evidence'}
+                  </button>
+                ) : (
+                  <p className={styles.muted}>{SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON}</p>
+                )
               )}
               {(item.job.status === 'queued' || item.job.status === 'running') && (
                 <p className={styles.muted}>

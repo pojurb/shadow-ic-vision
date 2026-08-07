@@ -138,11 +138,24 @@ export function deriveThesisVerdict(input: {
 
   contradictions.sort((left, right) => Math.abs(right.deltaVsThreshold) - Math.abs(left.deltaVsThreshold));
 
+  /*
+   * `DEC-0018`. The positive state additionally requires that something is
+   * actually supported. It previously followed from the absence of a
+   * contradiction alone, which meant a thesis whose every quote was
+   * `inconclusive` — the real TLKM thesis, 42 rows of it — still read
+   * `THESIS HOLDING`. Absence of contradiction is not evidence of support,
+   * least of all when the system could not evaluate direction at all.
+   *
+   * The positive state is kept rather than deleted: "evidence supports a
+   * measurable claim", "no contradiction found", and "not enough evidence" are
+   * three different things, and collapsing the first into the third would lose
+   * a distinction the product needs. It is gated, not removed.
+   */
   const level: ThesisVerdictLevel = contradictions.length > 0
     ? 'breached'
     : softContradictionCount > 0
       ? 'at_risk'
-      : input.coverage.confidenceGate === 'suppressed'
+      : input.coverage.confidenceGate === 'suppressed' || input.coverage.supported === 0
         ? 'insufficient_evidence'
         : 'holding';
 
@@ -174,13 +187,28 @@ function buildHeadline(
   }
   if (level === 'insufficient_evidence') {
     const parts: string[] = [];
+    /*
+     * `DEC-0018` opened a route to this level that the two suppression reasons
+     * below do not describe: coverage can be complete and the gate open while
+     * nothing is supported. Stated first because it is the strongest reason
+     * present when it applies — and because without it `parts` could be empty,
+     * which rendered as the malformed "INSUFFICIENT EVIDENCE — . No
+     * conclusion...".
+     */
+    if (coverage.supported === 0) {
+      parts.push('no assumption is supported by evidence');
+      if (coverage.inconclusiveOnly > 0) {
+        parts.push(`${coverage.inconclusiveOnly} ${coverage.inconclusiveOnly === 1 ? 'has a quote' : 'have quotes'} `
+          + 'verified verbatim from their source but never checked for relevance to the claim');
+      }
+    }
     if (coverage.suppressionReasons.includes('low_coverage')) {
       parts.push(`only ${coverage.evidenced} of ${coverage.totalAssumptions} assumptions have any evidence`);
     }
     if (coverage.suppressionReasons.includes('unresolved_contracts')) {
       parts.push(`${coverage.unresolvedContracts} assumption${coverage.unresolvedContracts === 1 ? '' : 's'} cannot be measured as stated`);
     }
-    return `INSUFFICIENT EVIDENCE — ${parts.join(', and ')}. No conclusion about this thesis is supported yet.`;
+    return `INSUFFICIENT EVIDENCE — ${parts.join('; ')}. No conclusion about this thesis is supported yet.`;
   }
   return buildHoldingHeadline(coverage);
 }

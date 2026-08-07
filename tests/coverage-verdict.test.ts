@@ -237,20 +237,28 @@ describe('deriveThesisVerdict', () => {
   });
 
   /*
-   * Regression for the real TLKM thesis (2026-08-05): every evidence row was
-   * `inconclusive` with `polarityMethod = no_observed_value`, so nothing could
-   * be marked contradicting and the old headline read as a confirmation
-   * ("5 of 6 assumptions are evidenced and none is contradicted") when in fact
-   * zero assumptions were supported and the system had simply been unable to
+   * Regression for the real TLKM thesis (2026-08-05, strengthened 2026-08-06):
+   * every evidence row was `inconclusive` with
+   * `polarityMethod = no_observed_value`, so nothing could be marked
+   * contradicting and the headline read as a confirmation when in fact zero
+   * assumptions were supported and the system had simply been unable to
    * evaluate any of them.
+   *
+   * `DEC-0018`: the level itself — not only the wording — now refuses the
+   * positive state here. Absence of contradiction is not evidence of support,
+   * so a thesis with `supported = 0` is `insufficient_evidence` no matter how
+   * many quotes it carries. Note the confidence gate is **open** (coverage is
+   * 2/2), so this reaches that level by a path where `suppressionReasons` is
+   * empty — the branch `buildHeadline` previously had no sentence for.
    */
-  it('does not let an all-inconclusive thesis read as a confirmation', () => {
+  it('refuses the positive state for an all-inconclusive thesis, even with an open gate', () => {
     const allInconclusive = deriveCoverageLedger([
       assumption({ polarities: ['inconclusive'] }),
       assumption({ assumptionId: 'a2', polarities: ['inconclusive'] }),
     ]);
     expect(allInconclusive.supported).toBe(0);
     expect(allInconclusive.confidenceGate).toBe('open');
+    expect(allInconclusive.suppressionReasons).toEqual([]);
 
     const verdict = deriveThesisVerdict({
       coverage: allInconclusive,
@@ -259,10 +267,13 @@ describe('deriveThesisVerdict', () => {
       })],
     });
 
-    expect(verdict.level).toBe('holding');
-    expect(verdict.headline).toContain('0 of 2 assumptions are supported');
+    expect(verdict.level).toBe('insufficient_evidence');
+    expect(verdict.headline).toContain('INSUFFICIENT EVIDENCE');
+    expect(verdict.headline).toContain('no assumption is supported by evidence');
     expect(verdict.headline).toContain('2 have quotes verified verbatim from their source but never checked for relevance to the claim');
-    expect(verdict.headline).toContain('nothing is confirmed either');
+    // The sentence must be well-formed, not the empty-reasons artefact.
+    expect(verdict.headline).not.toContain('— .');
+    expect(verdict.headline).not.toContain('HOLDING');
     // The phrase that made the old wording misleading must not stand alone.
     expect(verdict.headline).not.toContain('are evidenced');
     /*

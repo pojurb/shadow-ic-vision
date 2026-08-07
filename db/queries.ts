@@ -1,12 +1,15 @@
 import 'server-only';
 
 import { getDatabase } from './client';
-import { conversations, messages, theses, portfolioPositions, portfolioAlerts, sourceSnapshots, decisions, assumptions } from './schema';
-import { eq, desc, count, max, sql } from 'drizzle-orm';
+import { conversations, messages, theses, portfolioPositions, portfolioAlerts, sourceSnapshots, decisions, assumptions, evidence, researchJobs } from './schema';
+import { eq, desc, count, inArray, max, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { ProviderMetadata } from '@/lib/ai/provider';
 import { thesisDraftSchema, chatResponsePayloadSchema, type MessageDTO, type ThesisDraft, type ChatResponsePayload } from '@/lib/domain/contracts';
-import { calculatePriorityScore } from '@/lib/portfolio/priorityQueue';
+import { calculatePriorityScore, type ThesisResearchSummary } from '@/lib/portfolio/priorityQueue';
+import { deriveCoverageLedger } from '@/lib/research/coverage';
+import { deriveThesisVerdict } from '@/lib/research/verdict';
+import { loadMeasurementContract } from '@/lib/research/measurement';
 
 export async function createConversation(title: string) {
   const { db } = getDatabase();
@@ -208,6 +211,110 @@ export async function markAllAlertsAsReadForPosition(positionId: string) {
     .where(eq(portfolioAlerts.positionId, positionId));
 }
 
+/**
+ * The research state the briefing needs, per thesis.
+ *
+ * The briefing carried only positions, alerts, review age and a `challenged`
+ * flag until 2026-08-06, so a tracked thesis appeared in the Top-10 queue and
+ * the status index as a bare ticker — no verdict, no coverage, nothing about
+ * whether its assumptions actually stand. That made the weekly review
+ * (`VISION.md` §4, the product's core experience) a list of symbols rather
+ * than a prompt to re-evaluate anything.
+ *
+ * Reuses the same pure derivations the Research Panel renders
+ * (`deriveCoverageLedger`, `deriveThesisVerdict`), assembled the way
+ * `getResearchPanel` assembles them, so the two surfaces cannot disagree.
+ * Evidence *content* is deliberately not loaded — only polarity and tier, which
+ * is all the derivations read.
+ */
+async function getThesisResearchSummaries(
+  db: ReturnType<typeof getDatabase>['db'],
+  thesisIds: string[],
+): Promise<Map<string, ThesisResearchSummary>> {
+  const summaries = new Map<string, ThesisResearchSummary>();
+  if (thesisIds.length === 0) return summaries;
+
+  const rows = db
+    .select({
+      thesisId: assumptions.thesisId,
+      assumptionId: assumptions.id,
+      statement: assumptions.statement,
+      market: theses.market,
+      jobStatus: researchJobs.status,
+    })
+    .from(assumptions)
+    .innerJoin(theses, eq(theses.id, assumptions.thesisId))
+    .leftJoin(researchJobs, eq(researchJobs.assumptionId, assumptions.id))
+    .where(inArray(assumptions.thesisId, thesisIds))
+    .all();
+
+  const evidenceRows = db
+    .select({
+      id: evidence.id,
+      assumptionId: evidence.assumptionId,
+      polarity: evidence.polarity,
+      sourceTier: evidence.sourceTier,
+      deltaVsThreshold: evidence.deltaVsThreshold,
+      sourceName: evidence.sourceName,
+      sourceUrl: evidence.sourceUrl,
+    })
+    .from(evidence)
+    .innerJoin(assumptions, eq(assumptions.id, evidence.assumptionId))
+    .where(inArray(assumptions.thesisId, thesisIds))
+    .all();
+
+  for (const thesisId of new Set(rows.map((row) => row.thesisId))) {
+    const thesisRows = rows.filter((row) => row.thesisId === thesisId);
+    const evidenceFor = (assumptionId: string) => evidenceRows.filter((row) => row.assumptionId === assumptionId);
+
+    const coverage = deriveCoverageLedger(thesisRows.map((row) => ({
+      assumptionId: row.assumptionId,
+      statement: row.statement,
+      market: row.market as 'US' | 'ID',
+      contract: loadMeasurementContract(db, row.assumptionId),
+      jobStatus: row.jobStatus ?? 'queued',
+      polarities: evidenceFor(row.assumptionId).map((item) => item.polarity),
+    })));
+
+    const verdict = deriveThesisVerdict({
+      coverage,
+      assumptions: thesisRows.map((row) => ({
+        assumptionId: row.assumptionId,
+        statement: row.statement,
+        contract: loadMeasurementContract(db, row.assumptionId),
+        evidence: evidenceFor(row.assumptionId).map((item) => ({
+          id: item.id,
+          polarity: item.polarity,
+          deltaVsThreshold: item.deltaVsThreshold,
+          // Only structured-fact evidence carries an observed value, and none
+          // of it is needed to pick a level — the panel quantifies breaches.
+          observedValue: null,
+          sourceName: item.sourceName,
+          sourceUrl: item.sourceUrl,
+        })),
+      })),
+    });
+
+    summaries.set(thesisId, {
+      verdictLevel: verdict.level,
+      supported: coverage.supported,
+      totalAssumptions: coverage.totalAssumptions,
+      unevidenced: coverage.unevidenced,
+      /*
+       * Named for what these rows are, not what they were called. They are
+       * passages retrieved by lexical overlap whose relevance to the claim was
+       * never assessed (R-025) — reporting them as corroboration is the
+       * overstatement this whole change exists to stop.
+       */
+      relevanceUnassessedCount: evidenceRows.filter(
+        (row) => thesisRows.some((r) => r.assumptionId === row.assumptionId) && row.sourceTier === 'secondary',
+      ).length,
+    });
+  }
+
+  return summaries;
+}
+
 export async function getPortfolioBriefing() {
   const { db } = getDatabase();
 
@@ -255,6 +362,11 @@ export async function getPortfolioBriefing() {
     .where(eq(assumptions.status, 'challenged'));
   const thesisIdsWithChallengedAssumptions = new Set(challengedAssumptionTheses.map((row) => row.thesisId));
 
+  const researchSummaries = await getThesisResearchSummaries(
+    db,
+    [...new Set(positions.map((pos) => pos.thesisId).filter((id): id is string => Boolean(id)))],
+  );
+
   const now = new Date();
 
   return positions.map((pos) => {
@@ -277,6 +389,7 @@ export async function getPortfolioBriefing() {
       hasChallengedAssumptions,
       lastOutcome: latestOutcome?.outcome ?? null,
       lastAction: latestOutcome?.action ?? null,
+      research: (pos.thesisId ? researchSummaries.get(pos.thesisId) : undefined) ?? null,
     };
   }).sort((a, b) => b.priorityScore - a.priorityScore);
 }

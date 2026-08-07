@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { STALE_REVIEW_DAYS, type PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
+import { STALE_REVIEW_DAYS, VERDICT_LABEL, type PortfolioHoldingQueueItem, type ThesisResearchSummary } from '@/lib/portfolio/priorityQueue';
+
+const VERDICT_TONE: Record<ThesisResearchSummary['verdictLevel'], string> = {
+  breached: 'bg-red-100 text-red-800',
+  at_risk: 'bg-orange-100 text-orange-800',
+  holding: 'bg-green-100 text-green-800',
+  insufficient_evidence: 'bg-gray-200 text-gray-700',
+};
 
 export default function PortfolioStatusIndex() {
   const [index, setIndex] = useState<PortfolioHoldingQueueItem[]>([]);
@@ -91,6 +98,7 @@ export default function PortfolioStatusIndex() {
                 <th className="p-3 font-semibold cursor-pointer" onClick={() => handleSort('priorityScore')}>
                   Priority Score {sortField === 'priorityScore' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
+                <th className="p-3 font-semibold">Thesis Status</th>
                 <th className="p-3 font-semibold">Flags / Alerts</th>
                 <th className="p-3 font-semibold cursor-pointer" onClick={() => handleSort('daysSinceLastReview')}>
                   Last Reviewed {sortField === 'daysSinceLastReview' && (sortOrder === 'asc' ? '↑' : '↓')}
@@ -107,6 +115,27 @@ export default function PortfolioStatusIndex() {
                   </td>
                   <td className="p-3 font-mono">
                     {item.priorityScore}
+                  </td>
+                  {/*
+                    * The status index existed to answer "where do active theses
+                    * stand" (VISION §4). Until 2026-08-06 it could not: it knew
+                    * nothing of verdict or coverage.
+                    */}
+                  <td className="p-3">
+                    {item.research ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`text-xs px-2 py-1 rounded w-fit ${VERDICT_TONE[item.research.verdictLevel]}`}>
+                          {VERDICT_LABEL[item.research.verdictLevel]}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {item.research.supported} of {item.research.totalAssumptions} supported
+                          {item.research.relevanceUnassessedCount > 0
+                            && ` · ${item.research.relevanceUnassessedCount} not relevance-checked`}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">No linked thesis</span>
+                    )}
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2 items-center flex-wrap">
@@ -155,7 +184,7 @@ export default function PortfolioStatusIndex() {
               ))}
               {sortedIndex.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-3 text-center text-gray-500">
+                  <td colSpan={7} className="p-3 text-center text-gray-500">
                     No portfolio holdings match your filters.
                   </td>
                 </tr>

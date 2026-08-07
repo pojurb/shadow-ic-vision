@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "72855d92a48eb018ef3bb15c645b7ed3cf52fa1433ffdc56a307711c008cdfee",
+  "sourceDigest": "ae3b523aeccf6bffa0847f558710dc85c609e5dd6b8b8786b59e762ef839bd51",
   "roots": [
     "app",
     "components",
@@ -699,6 +699,18 @@
           "resolved": "lib/portfolio/priorityQueue.ts"
         },
         {
+          "specifier": "@/lib/research/coverage",
+          "resolved": "lib/research/coverage.ts"
+        },
+        {
+          "specifier": "@/lib/research/measurement",
+          "resolved": "lib/research/measurement.ts"
+        },
+        {
+          "specifier": "@/lib/research/verdict",
+          "resolved": "lib/research/verdict.ts"
+        },
+        {
           "specifier": "drizzle-orm",
           "resolved": null
         },
@@ -968,6 +980,7 @@
         "MessageDTO",
         "ResearchItemDTO",
         "ResearchPanelDTO",
+        "SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON",
         "THRESHOLD_OPERATORS",
         "ThesisDraft",
         "ThesisExport",
@@ -994,6 +1007,7 @@
         "researchJobStatusSchema",
         "researchRetryRequestSchema",
         "researchRunRequestSchema",
+        "secondaryEvidenceAcceptanceAvailable",
         "thesisDraftSchema",
         "thesisExportSchema"
       ]
@@ -1005,6 +1019,8 @@
       "exports": [
         "PortfolioHoldingQueueItem",
         "STALE_REVIEW_DAYS",
+        "ThesisResearchSummary",
+        "VERDICT_LABEL",
         "calculatePriorityScore"
       ]
     },

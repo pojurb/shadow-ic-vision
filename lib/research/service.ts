@@ -30,6 +30,8 @@ import {
   type DecisionDTO,
   type ThesisExport,
   decisionRecommendationSchema,
+  SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON,
+  secondaryEvidenceAcceptanceAvailable,
   type DecisionRecommendation,
 } from '@/lib/domain/contracts';
 import { getLLMProvider } from '@/lib/ai/factory';
@@ -1030,6 +1032,16 @@ export async function retryResearchJob(jobId: string, input: ServiceDependencies
  * one, even after acceptance.
  */
 export async function acceptSecondaryEvidence(assumptionId: string, input: ServiceDependencies = {}) {
+  /*
+   * Server half of the containment; the panel hides the control, and this
+   * refuses the request regardless. A disabled button is not a control — the
+   * same reason `draftClarificationBlock` is enforced in both `ChatUI` and
+   * `confirmDraft` rather than only in the UI.
+   */
+  if (!secondaryEvidenceAcceptanceAvailable()) {
+    throw new Error(SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON);
+  }
+
   const { db, now } = dependencies(input);
   const result = await db.update(assumptions).set({
     status: 'user_confirmed_secondary',

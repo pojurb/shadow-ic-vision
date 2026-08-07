@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '@/db/client';
-import { conversations, theses, assumptions, researchJobs, decisions, portfolioPositions, portfolioAlerts } from '@/db/schema';
+import { conversations, theses, assumptions, researchJobs, decisions, evidence, portfolioPositions, portfolioAlerts } from '@/db/schema';
 import { getPortfolioBriefing } from '@/db/queries';
 import { calculatePriorityScore, STALE_REVIEW_DAYS } from '@/lib/portfolio/priorityQueue';
 import { persistSourceSnapshot } from '@/lib/research/snapshot-store';
@@ -111,6 +111,56 @@ describe('getPortfolioBriefing', () => {
     expect(item?.thesisId).toBe(thesisId);
     expect(item?.conversationId).toBe(conversationId);
     expect(item?.conversationId).not.toBe(thesisId);
+  });
+
+  /*
+   * The briefing carried no research state until 2026-08-06, so a tracked
+   * thesis reached the weekly review surface as a bare ticker — nothing about
+   * whether its assumptions stood. `VISION.md` §4 asks this surface "where do
+   * active theses stand, and what requires a decision?"; it could not answer.
+   */
+  it('carries the thesis verdict and coverage for a linked position', async () => {
+    const posId = randomUUID();
+    handle.db.insert(portfolioPositions).values({
+      id: posId, ticker: 'PLTR', market: 'US', thesisId,
+    }).run();
+
+    const briefing = await getPortfolioBriefing();
+    const item = briefing.find((entry) => entry.id === posId);
+
+    expect(item?.research).toMatchObject({
+      totalAssumptions: 1,
+      supported: 0,
+      // No evidence at all, so the assumption is unevidenced and the gate is
+      // suppressed for low coverage.
+      unevidenced: 1,
+      verdictLevel: 'insufficient_evidence',
+      relevanceUnassessedCount: 0,
+    });
+  });
+
+  it('counts relevance-unassessed secondary passages separately from support', async () => {
+    const posId = randomUUID();
+    handle.db.insert(portfolioPositions).values({
+      id: posId, ticker: 'PLTR', market: 'US', thesisId,
+    }).run();
+    handle.db.insert(evidence).values({
+      id: randomUUID(), assumptionId, sourceFormat: 'html', contentKind: 'text',
+      extractionMethod: 'text', verificationStatus: 'secondary_issuer',
+      documentHash: 'hash-1', sourceUrl: 'https://issuer.test/press/x',
+      retrievalTimestamp: '2026-08-06T00:00:00.000Z', content: 'Some passage.',
+      sourceTier: 'secondary', sourceName: 'Issuer press release (PLTR)',
+      impactSummary: '', polarity: 'inconclusive',
+    }).run();
+
+    const briefing = await getPortfolioBriefing();
+    const item = briefing.find((entry) => entry.id === posId);
+
+    // DEC-0018: a quote is not support. The passage is counted, and the
+    // verdict stays negative because nothing is actually supported.
+    expect(item?.research?.relevanceUnassessedCount).toBe(1);
+    expect(item?.research?.supported).toBe(0);
+    expect(item?.research?.verdictLevel).toBe('insufficient_evidence');
   });
 
   it('returns a null conversationId for an unlinked position', async () => {

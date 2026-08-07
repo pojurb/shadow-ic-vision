@@ -220,6 +220,36 @@ export function draftClarificationBlock(draft: ThesisDraft): {
   return { blocked: questions.length > 0, questions };
 }
 
+/**
+ * Whether the user may be asked to accept an assumption's secondary evidence.
+ *
+ * **Deliberately always false**, in the same shape as `DEC-0016`'s inert
+ * polarity-classifier seam: one named place to flip when the thing it waits on
+ * exists. Declared in this module because both `ResearchPanel` and
+ * `acceptSecondaryEvidence` must agree, and this is the client/server boundary.
+ *
+ * What it waits on is a relevance assessment. `deriveAssumptionStatus`
+ * (`lib/research/assumption-status.ts`) moves an assumption to
+ * `pending_confirmation` when *any* secondary evidence arrives, and secondary
+ * evidence is selected by lexical overlap (`rankSentenceCandidates`), which
+ * nothing downstream checks for topical relevance to the claim. An audit of the
+ * live TLKM corpus on 2026-08-06 put the clearly-irrelevant share of such
+ * passages near nine in ten (`docs/RISK_REGISTER.md`, R-025).
+ *
+ * Asking the user to confirm material on that basis solicits a judgment the
+ * system cannot support, and `user_confirmed_secondary` is a durable record of
+ * a human decision that no later cleanup may silently reverse — so a wrong
+ * acceptance is expensive to undo. Until relevance is assessed, the honest
+ * answer is to show the passages and offer no acceptance.
+ */
+export function secondaryEvidenceAcceptanceAvailable(): boolean {
+  return false;
+}
+
+/** Shown by the panel and thrown by the service, so both give the same reason. */
+export const SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON =
+  'These passages have not been checked for relevance to this claim, so they are not offered for acceptance.';
+
 export const explorationDraftSchema = z.object({
   sectorName: z.string().trim().min(1).max(100),
   candidates: z.array(

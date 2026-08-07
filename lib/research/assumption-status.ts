@@ -5,6 +5,14 @@ export type AssumptionStatus = 'untested' | 'verified' | 'challenged' | 'held-be
 const OFFICIAL_STATUSES: ReadonlySet<EvidenceVerificationStatus> = new Set(['exact_verified', 'ocr_matched']);
 const SECONDARY_STATUSES: ReadonlySet<EvidenceVerificationStatus> = new Set(['secondary_issuer', 'secondary_news']);
 
+/*
+ * The gate deciding whether acceptance may be *offered* at all lives in
+ * `lib/domain/contracts.ts` as `secondaryEvidenceAcceptanceAvailable`, because
+ * the panel needs it too and that module is the client/server boundary. The
+ * transition rules below still describe how an assumption reaches
+ * `pending_confirmation` in the first place.
+ */
+
 /**
  * M007 Workflow 3 — the assumption confirmation gate. A pure decision
  * function: callers query current state and apply the returned status

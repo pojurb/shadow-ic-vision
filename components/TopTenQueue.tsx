@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { STALE_REVIEW_DAYS, type PortfolioHoldingQueueItem } from '@/lib/portfolio/priorityQueue';
+import { STALE_REVIEW_DAYS, VERDICT_LABEL, type PortfolioHoldingQueueItem, type ThesisResearchSummary } from '@/lib/portfolio/priorityQueue';
+
+const VERDICT_TONE: Record<ThesisResearchSummary['verdictLevel'], string> = {
+  breached: 'bg-red-100 text-red-800',
+  at_risk: 'bg-orange-100 text-orange-800',
+  holding: 'bg-green-100 text-green-800',
+  insufficient_evidence: 'bg-gray-200 text-gray-700',
+};
 
 export function TopTenQueue({
   onSelect,
@@ -67,8 +74,28 @@ export function TopTenQueue({
                 {item.hasChallengedAssumptions && (
                   <span className="text-[10px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded" title="Challenged Assumptions">⚠</span>
                 )}
+                {item.research && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded ${VERDICT_TONE[item.research.verdictLevel]}`}
+                    title="Thesis verdict"
+                  >
+                    {VERDICT_LABEL[item.research.verdictLevel]}
+                  </span>
+                )}
               </div>
             </button>
+            {/*
+              * The reason to review, not just the ticker. Without this the
+              * weekly review surface showed a symbol and nothing about whether
+              * the thesis still stands.
+              */}
+            {item.research && (
+              <p className="text-[10px] text-gray-500 pl-8 pb-1">
+                {item.research.supported} of {item.research.totalAssumptions} assumptions supported
+                {item.research.relevanceUnassessedCount > 0
+                  && ` · ${item.research.relevanceUnassessedCount} passages not relevance-checked`}
+              </p>
+            )}
           </li>
         ))}
       </ul>
