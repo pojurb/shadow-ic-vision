@@ -28,7 +28,24 @@ export function persistSourceSnapshot(input: {
 }) {
   fs.mkdirSync(input.snapshotDirectory, { recursive: true });
   const storagePath = path.join(input.snapshotDirectory, `${input.documentHash}.bin`);
-  if (!fs.existsSync(storagePath)) fs.writeFileSync(storagePath, input.snapshot.rawBytes);
+  /*
+   * M013. An empty file is a failed write, not a stored document.
+   *
+   * This was guarded by `existsSync` alone, so a zero-byte file could never be
+   * replaced — the guard read "already stored" from mere existence. A real
+   * defect produced exactly those: `pdfjs.getDocument` detaches the buffer it
+   * is handed and persistence runs afterwards, leaving seven of fifteen
+   * snapshots empty. `extractPdf` now hands pdfjs a copy, so no new ones
+   * appear; without this line the existing ones would stay empty for the life
+   * of the store, since every later fetch of the same document would decline
+   * to write.
+   *
+   * Storage is content-addressed — the filename *is* the hash of the intended
+   * content — so a zero-byte file at that path cannot be a legitimate version
+   * of it. A retained non-empty snapshot is still never overwritten.
+   */
+  const stored = fs.existsSync(storagePath) ? fs.statSync(storagePath).size : 0;
+  if (stored === 0) fs.writeFileSync(storagePath, input.snapshot.rawBytes);
 
   input.db.transaction((tx) => {
     const newSnapshot = tx.insert(sourceSnapshots).values({

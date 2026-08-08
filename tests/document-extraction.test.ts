@@ -704,6 +704,50 @@ describe('deterministic document extraction', () => {
     // must no longer be its size. Asserting the *reason* rather than success
     // is what keeps this test honest without shipping a 10 MB fixture.
     await expect(extractDocument(snapshot)).rejects.not.toMatchObject({ code: 'source_too_large' });
+  }, 15_000);
+
+  /*
+   * M013. The caller still owns `rawBytes` after extraction returns.
+   *
+   * `pdfjs.getDocument` *transfers* the ArrayBuffer it is handed, detaching the
+   * caller's view: measured on a real 10,972,090-byte file, `byteLength` became
+   * 0 the moment `getDocument` was awaited. All five `persistSourceSnapshot`
+   * call sites in `lib/research/service.ts` run after extraction and write
+   * `snapshot.rawBytes` to disk, so the snapshot store silently filled with
+   * empty files — seven of fifteen when this was found. Evidence stayed marked
+   * `exact_verified` while its retained source artifact held nothing, and
+   * `document_hash` recorded a hash the stored file did not have.
+   *
+   * The correlation that proved the cause: every PDF that extracted
+   * successfully was 0 bytes, the two rejected on size — pdfjs never saw them —
+   * were intact, and HTML snapshots were unaffected because cheerio does not
+   * detach.
+   *
+   * This asserts the invariant persistence depends on rather than the shape of
+   * the fix, so it keeps holding if extraction is later rewritten.
+   */
+  it('leaves the caller\'s rawBytes intact after extracting a PDF', async () => {
+    const rawBytes = createPdf('Gross margin was 81.3% in Q1.');
+    const sizeBefore = rawBytes.byteLength;
+    expect(sizeBefore).toBeGreaterThan(0);
+
+    await extractDocument({
+      documentId: 'ownership-1',
+      market: 'US',
+      ticker: 'PLTR',
+      sourceUrl: 'https://www.sec.gov/filing.pdf',
+      sourceName: 'SEC filing',
+      sourceTier: 'official',
+      publishDate: '2026-04-30',
+      sourceFormat: 'pdf',
+      rawBytes,
+      retrievalTimestamp: '2026-07-04T00:00:00.000Z',
+      contentType: 'application/pdf',
+      httpStatus: 200,
+    });
+
+    expect(rawBytes.byteLength).toBe(sizeBefore);
+    expect(rawBytes.buffer.byteLength).toBeGreaterThan(0);
   });
 
   it('extracts text-layer PDFs with one-based page provenance', async () => {

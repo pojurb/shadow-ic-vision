@@ -23,6 +23,174 @@ cleared. If Slice 2's diagnosis turns out to require a new capability (for
 example, a different extraction strategy for large documents), that becomes its
 own decision, raised at review rather than assumed here.
 
+## Slice outcomes — 2026-08-08 (Slices 1–3; Slices 4–5 not started)
+
+Every figure below was read directly from `d:/jp-invest-data/db.sqlite` or
+measured by running the real code against the real retained documents. A
+database backup was taken before the Slice 3 re-run:
+`db-before-m013-slice3-20260808T114512.sqlite`.
+
+### Slice 1 — diagnosis
+
+**Two size limits disagreed.** Download allowed 25 MB
+(`lib/research/http.ts`); extraction refused anything past 10 MB
+(`lib/research/extractors/document.ts`). Documents between the two were
+fetched, hashed, written to the snapshot store, and then refused unread —
+a 24.3 MB annual report and a 10.5 MB climate report, the latter missing the
+old ceiling by 0.5 MB.
+
+Two things kept this hidden for days, and both are worth remembering:
+
+- **The reported reason was wrong.** Jobs read *"exceeds the 25 MB M001
+  limit"* while the document was 24.3 MB — under that limit. The text was
+  hardcoded in the download path and went on being emitted after a different
+  check did the rejecting.
+- **The failure path did not log.** Both size rejections threw without calling
+  `this.log`, while every neighbouring rejection path logged first. So
+  `logs/outbound.log` showed nothing at all, and that silence actively misled
+  this milestone's own diagnosis — the log looked clean while six jobs failed.
+
+### Slice 2 — repair, and what it measured
+
+One `SOURCE_BYTE_LIMIT` in `lib/research/adapters/types.ts`, read by the
+download path, the extraction path, and both issuer clients. Value 500 MB, the
+user's calibration decision. Messages now state measured size against the
+active limit; both rejections log. Committed as `d2c6427`; five tests proven to
+fail first, suite 389 → 392.
+
+Measured by running the real extraction path over the retained snapshots:
+
+| Document | Size | Time | Peak RSS | Result |
+|---|---|---|---|---|
+| Laporan Tahunan Telkom 2023 | 24.3 MB | 8.5 s | ~790 MB | 521 pages, 1,224,092 chars |
+| Laporan Risiko Iklim | 10.5 MB | 0.5 s | ~817 MB | 41 pages, **110 chars** |
+
+**The climate report is not empty, and pdfjs is not at fault.** Its metadata
+reads `Producer: Microsoft® PowerPoint®`, `Title: LAPORAN RISIKO IKLIM 2023`,
+with **zero embedded fonts** — every slide was flattened to raster on export.
+Page 12 alone holds 201 image objects; extracting one and viewing it shows
+legible text (*"PT Telkom Indonesia (Persero) Tbk"*). The content is fully
+present as pixels. It needs OCR, and the `VisionTranscriber` path (DEC-0012
+eligible) is still not wired into `CitationPipeline`.
+
+**This document is therefore class (B), not (C)** — it exists and is readable,
+with a named, known blocker. Recorded here so Slice 4 does not re-derive it.
+Note it is a *climate risk* report and one assumption concerns firm PLN power;
+whether it actually carries that figure is a Slice 4 question, not an
+assumption to make here.
+
+### Slice 3 — re-run and record
+
+| | Before | After |
+|---|---|---|
+| Jobs | 6 `degraded/source_too_large` | **6 `succeeded`** |
+| Evidence, official (`exact_verified`) | 3 | **21** |
+| Evidence, secondary | 48 | 48 |
+| Assumption status | 5 `pending_confirmation`, 1 `untested` | **6 `untested`** |
+| Polarity | 51 all `inconclusive` | 69 all `inconclusive` |
+| Verdict | `INSUFFICIENT_EVIDENCE` | `INSUFFICIENT_EVIDENCE`, 0 of 6 supported |
+
+**No flood.** 18 new rows, not hundreds — the ranker's per-assumption limit
+bounds yield regardless of document length. The volume fear behind Q4 did not
+materialise at this corpus size.
+
+**The verdict held.** `DEC-0018` kept the system from claiming support it does
+not have, and the headline states the real situation: quotes verified verbatim,
+relevance unchecked.
+
+### Four findings from Slice 3, for discussion after Slice 4
+
+**1. The document that motivated the fix still contributes nothing.** The 18
+new rows come from six *newly discovered* documents — Laporan Tahunan 2021 and
+2022, Laporan Keberlanjutan 2021 and 2022, and two 2021 quarterly financial
+statements. The 24.3 MB Laporan Tahunan 2023 was **not re-processed**: its only
+`research_job_sources` row is dated `2026-08-05`, before the fix, and
+`knownDocumentIds` (ticker-scoped — a defect already on the open list) skips a
+document once seen. The limit is genuinely repaired, proven by direct
+extraction; a *different* known defect now stands between it and the corpus.
+The six documents that did contribute are all 2021–2022 vintage.
+
+**2. R-025 applies at the official tier just as badly.** The 88.9% audit was
+measured on secondary evidence; official is no better. Of 21 official rows, at
+most one is plausibly relevant — p106, *"Telkom bersaing dengan beberapa
+perusahaan yang turut mendirikan data center di Jakarta, Surabaya…"* against
+the market-share assumption. The rest include a **glossary page** and a
+**disclosure-criteria index table**. The NeutraDC ownership claim drew
+generic governance prose and loan-covenant terms; the strategic-investor claim
+drew a 2021 data-privacy case and **COVID-19 vaccine distribution**; the
+hyperscaler claim drew a **2008 2G/3G network procurement agreement**; the PLN
+power claim drew post-employment health benefits. Fixing supply did not fix
+relevance, and now there is measured evidence that they are independent
+problems at both tiers.
+
+**3. A regression in honesty, caused by success.** Assumption status moved from
+five `pending_confirmation` to six `untested`. That is M007 behaving as
+designed — an assumption resting only on secondary evidence is gated, and the
+gate clears when official evidence arrives. But the official evidence that
+cleared it is as irrelevant as the secondary evidence it replaced. The signal
+*"this rests only on secondary sources"* is now gone, and the acceptance
+containment shipped in `6fa90d7` is moot because nothing is
+`pending_confirmation` any more. The gate keyed on **tier**, which was a proxy
+for trust; the thing it was proxying for was **relevance**, which nothing
+measures.
+
+**4. Retained snapshots for successfully-extracted PDFs are zero bytes.**
+Seven of fifteen files in the snapshot store are empty; six were created by
+this Slice 3 run. Cause proven directly rather than inferred: `pdfjs.getDocument`
+**transfers and detaches** the source ArrayBuffer — measured on a real file,
+`byteLength` 10,972,090 → **0** after the call. `pipeline.ts` hashes the bytes
+(line 112) and extracts (line 115), then `service.ts` calls
+`persistSourceSnapshot` afterwards, and `snapshot-store.ts:31` writes the
+now-detached buffer.
+
+The correlation is exact and is what confirms it: every PDF that extracted
+successfully is 0 bytes; the two PDFs rejected for size — pdfjs never touched
+them — are intact at 24.3 MB and 10.5 MB; HTML snapshots are unaffected because
+cheerio does not detach.
+
+This is the most serious defect this milestone has surfaced, because it is not
+about relevance at all. Evidence is stored `exact_verified` while its retained
+source artifact is empty, so those quotes **cannot be re-verified against their
+source**, and `document_hash` records a hash the stored file does not have. It
+also endangers the M010 cleanup precedent, which re-derives from snapshots to
+decide staleness: run against an empty snapshot it would find no quote and
+could delete valid evidence. Nothing is permanently lost — the documents are
+re-fetchable — but the provenance guarantee is currently not being kept.
+
+**Repaired 2026-08-08, before Slice 4 resumed** — user decision, on the ground
+that it was corrupting data on a daily schedule while Slice 4 writes no evidence
+at all. Two changes, each proven fail-then-pass:
+
+- `extractPdf` hands pdfjs a copy rather than the caller's buffer. The
+  regression test asserts the invariant persistence depends on — *the caller
+  still owns `rawBytes` after extraction returns* — rather than the shape of the
+  fix, so it keeps holding if extraction is rewritten. It failed at 604 → 0
+  before the change.
+- `persistSourceSnapshot` treats a zero-byte file as a failed write rather than
+  a stored document. Without this the seven already-empty files could never be
+  replaced: the guard read "already stored" from mere existence, making the
+  damage permanent. Storage is content-addressed, so an empty file at a
+  hash-named path cannot be a legitimate version of it; a retained non-empty
+  snapshot is still never overwritten, which has its own test.
+
+Verified on live data: a subsequent `research:refresh` fetched six issuer
+documents (annual reports 2019–2021, three quarterly statements) and all six
+wrote intact at 1.4–7.3 MB. `tests/snapshot-store.test.ts` is new; the module
+had no coverage.
+
+**Still outstanding:** 21 of 85 evidence rows point at empty source files, since
+those documents have not been re-fetched. Quote text is intact and displays
+normally; only re-verification is lost. The self-healing guard means a re-fetch
+repairs them, but whether to re-fetch, leave as recorded debt, or delete is a
+user decision. Most of the 21 are the irrelevant passages R-025 describes, so
+the practical loss is small — the broken guarantee is the cost, not the data.
+
+A second, unrelated observation surfaced while verifying: snapshots live under
+**two** directories — `D:\jp-invest-data\snapshots\` (the seven empty legacy
+files) and `D:\jp-invest-data\source-snapshots\` (where writes go now, per
+`SOURCE_SNAPSHOT_DIR`). Not investigated; recorded so it is not mistaken for
+part of this defect.
+
 ## 0. Why this packet exists, and why it is not a relevance milestone
 
 Three days of analysis — two independent AI reviewers working from different

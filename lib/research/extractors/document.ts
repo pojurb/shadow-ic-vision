@@ -176,7 +176,23 @@ export async function extractPdf(
 ): Promise<ExtractedDocument> {
   try {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    const task = pdfjs.getDocument({ data: rawBytes, useWorkerFetch: false });
+    /*
+     * M013. pdfjs is handed a **copy**, never the caller's buffer.
+     *
+     * `getDocument` transfers the ArrayBuffer it receives, which detaches the
+     * caller's view — measured on a real 10,972,090-byte document, `byteLength`
+     * became 0 the moment this call was awaited. Every `persistSourceSnapshot`
+     * call site runs *after* extraction and writes `snapshot.rawBytes`, so the
+     * snapshot store filled with empty files while the evidence drawn from
+     * those documents was still stored `exact_verified` — quotes that could no
+     * longer be re-verified against a source that was, on disk, nothing.
+     *
+     * The copy costs one extra buffer for the duration of extraction. The
+     * alternative — persisting before extraction — was not chosen because the
+     * outcome (`verified`/`rejected`) is only known afterwards, and splitting
+     * the write from its audit row would put the two out of step.
+     */
+    const task = pdfjs.getDocument({ data: new Uint8Array(rawBytes), useWorkerFetch: false });
     const document = await task.promise;
     const pages: ExtractedPage[] = [];
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {

@@ -1,61 +1,109 @@
 # Active Milestone
 
-Status: `scoped` — awaiting user acceptance
+Status: `accepted` — in progress, Slices 1–3 complete
 
-Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (scoped 2026-08-08; repair the official-source path, then classify each assumption's source adequacy)
+Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (accepted 2026-08-08; official-source path repaired, source-adequacy classification pending)
 
 Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
 
-## Current Phase — M013 scoped, not started
+## Current Phase — M013 in progress; Slice 4 deliberately paused
 
-**No code has been written for M013.** The packet is drafted and awaits user
-acceptance; this section records why it exists and what it deliberately does not
-do.
+Acceptance was given by direction rather than by a single statement: the user
+authorised each slice in turn (Slice 1 alone, then the repair, then the re-run),
+and set the byte-limit calibration. Recorded that way rather than backdating a
+formal acceptance that did not happen.
 
-M013 was opened by a finding rather than a fired review trigger, and the finding
-arrived *after* three days of R-025 remedy analysis had already converged. Two
-independent AI reviews, working from different directions and both grounded in
-`VISION.md`, agreed that the system conflates *passage found*, *passage worth
-reviewing*, and *evidence judged relevant*. That diagnosis stands. What neither
-review tested was whether the corpus contains anything worth distinguishing.
+**Slices 1–3 are complete. Slice 4 is paused by user decision** so an integrity
+defect found during Slice 3 can be repaired first — it is actively producing bad
+data on a daily schedule, while Slice 4 is analysis that writes no evidence.
+Full detail lives in the packet's "Slice outcomes" section; the summary follows.
 
-A direct inspection of the live TLKM sources found it largely does not. **All
-six** official-source jobs sit at `degraded` / `source_too_large` after 8–9
-attempts — the financial statements have never once been read. The corpus that
-filled the gap is ~25 daily market-wire round-ups (index moves, foreign net-sell
-figures) and ~13 CSR/education press releases, with a **sustainability report**
-as the only document classified `Issuer official`. Separately, three of six
-assumptions ask for figures issuers do not customarily disclose at all:
-competitor-set MW market share, hyperscaler contracted/MoU MW, and firm PLN
-power MW.
+### What Slices 1–3 established
 
-This reorders the work without overturning the diagnosis. A relevance-review
-loop built on this corpus would have the user labelling ~45 market-wire and CSR
-passages as irrelevant one at a time — against a corpus that changes completely
-the moment the official path is repaired, and any ranking or volume calibration
-made now would not survive that repair.
+**The official path is repaired.** Two size limits disagreed — 25 MB at download
+(`lib/research/http.ts`), 10 MB at extraction
+(`lib/research/extractors/document.ts`) — so documents between them were fetched,
+hashed, stored, and then refused unread. Both now read one `SOURCE_BYTE_LIMIT`
+(`lib/research/adapters/types.ts`, 500 MB, the user's calibration). Shipped in
+`d2c6427`; suite 389 → 392. All six TLKM jobs moved `degraded` → `succeeded`,
+official evidence 3 → 21 rows, and the re-run added 18 rows rather than
+hundreds — the volume fear behind Q4 did not materialise.
 
-M013 therefore repairs the official path (Q1), classifies each assumption's
-source adequacy as (A) reachable / (B) exists but unreachable / (C) no public
-source (Q2), and closes the four remaining questions from the 2026-08-06→08
-analysis: the product posture (Q3 — already settled by `VISION.md` §3/§5.2/§7 as
-**challenger**, recorded rather than re-litigated), acceptable review volume
-(Q4), whether a verdict gated on user labelling is acceptable (Q5), and the
-R-025 remedy scope (Q6, scoped as a follow-on packet).
+Two things had kept the cause hidden, and both are fixed: the error text
+hardcoded "25 MB" and went on being emitted after a different check did the
+rejecting, and both size rejections threw **without logging** while every
+neighbouring path logged first — so `logs/outbound.log` looked clean while six
+jobs failed.
 
-It implements **none** of the four R-025 remedy options — not the relevance
-contract, not the `PassageCandidate`/`Evidence` split, not a model assessor, and
-not the stop-word hygiene. Their proportionality is not decidable until it is
-known whether the corpus can answer the thesis at all. **R-025 stays `Open` and
-untouched.** New risk **R-028** records the distinct case where no public source
-exists anywhere — measured by M013, not mitigated by it.
+### Four findings, held for discussion after Slice 4
 
-Also recorded and not yet fixed, found in the same analysis: `recordDecision`
-auto-populates `evidenceIds` with **every** evidence row currently displayed
-(`components/ResearchPanel.tsx:196`) rather than a user selection, so the one
-real decision record in the live database cites 51 rows the user never chose —
-which undermines `VISION.md` §9.7's "reconstruct the evidence behind a decision"
-precisely because the record looks thorough.
+1. **The document that motivated the fix still contributes nothing.** The 24.3 MB
+   Laporan Tahunan 2023 was not re-processed — `knownDocumentIds` is
+   ticker-scoped (already on the open list) and skips a document once seen. The
+   18 new rows come from six *newly discovered* 2021–2022 documents instead. The
+   limit is genuinely repaired, proven by direct extraction (521 pages,
+   1,224,092 characters, 8.5 s); a different known defect now stands between
+   that document and the corpus.
+
+2. **R-025 applies at the official tier just as badly.** Of 21 official rows, at
+   most one is plausibly relevant. The rest include a glossary page and a
+   disclosure-criteria index table; the strategic-investor claim drew COVID-19
+   vaccine distribution, the hyperscaler claim a 2008 2G/3G procurement
+   agreement, the PLN power claim post-employment health benefits. Fixing supply
+   did not fix relevance — they are now measured as independent problems at both
+   tiers.
+
+3. **A regression in honesty, caused by success.** Assumption status moved from
+   five `pending_confirmation` to six `untested`, which is M007 behaving as
+   designed: the gate clears when official evidence arrives. But the official
+   evidence that cleared it is as irrelevant as the secondary evidence it
+   replaced, so the signal "this rests only on secondary sources" is gone and the
+   acceptance containment from `6fa90d7` is moot. The gate keyed on **tier** as a
+   proxy for trust; what it was proxying for is **relevance**, which nothing
+   measures.
+
+4. **Retained snapshots for successfully-extracted PDFs are zero bytes.** Seven
+   of fifteen files in the snapshot store are empty. Cause proven, not inferred:
+   `pdfjs.getDocument` transfers and detaches the source ArrayBuffer — measured
+   on a real file, `byteLength` 10,972,090 → **0** after the call — and
+   `persistSourceSnapshot` runs afterwards, writing the detached buffer. The
+   correlation is exact: every PDF that extracted successfully is empty, the two
+   rejected for size are intact, and HTML is unaffected.
+
+**Finding 4 was repaired before Slice 4 resumed**, by user decision — it was
+producing bad data on a daily schedule while Slice 4 is analysis that writes no
+evidence, so pausing cost nothing. Two changes, each proven fail-then-pass:
+
+- `extractPdf` hands pdfjs a **copy**, never the caller's buffer. This protects
+  all five `persistSourceSnapshot` call sites at once, since every one of them
+  runs after extraction.
+- `persistSourceSnapshot` treats a **zero-byte file as a failed write**, not as
+  a stored document. The guard was `existsSync` alone, so an empty file could
+  never be replaced and the damage was permanent; storage is content-addressed,
+  so an empty file at a hash-named path cannot be a legitimate version of it. A
+  retained non-empty snapshot is still never overwritten.
+
+Verified on live data, not fixtures: a `research:refresh` afterwards fetched six
+issuer documents (annual reports 2019–2021 and three quarterly statements) and
+**all six wrote intact**, 1.4–7.3 MB, where before the fix every successfully
+extracted PDF became 0 bytes. `tests/snapshot-store.test.ts` is new — the module
+had no test coverage at all.
+
+**Not fully repaired, and recorded rather than smoothed over.** 21 of the 85
+evidence rows still point at empty source files, because those documents have
+not been re-fetched. Their quote text is intact and displays normally; what is
+missing is the ability to re-verify them against the source. The self-healing
+guard means a re-fetch would repair them, but that has not been done and is a
+separate decision: leave them as recorded debt, re-fetch, or delete. Most of the
+21 are the irrelevant passages R-025 describes, so the practical loss is small —
+the broken guarantee is the real cost, not the data.
+
+Also recorded and not yet fixed, found earlier in the same analysis:
+`recordDecision` auto-populates `evidenceIds` with **every** evidence row
+currently displayed (`components/ResearchPanel.tsx:196`) rather than a user
+selection, so the one real decision record in the live database cites rows the
+user never chose — which undermines `VISION.md` §9.7's "reconstruct the evidence
+behind a decision" precisely because the record looks thorough.
 
 ## Previous Phase — M012 close-out
 
@@ -757,13 +805,15 @@ Milestones 4 through 10 are complete and verified.
     evidence is exactly where M010 left it. [`DEC-0016`](docs/decisions/DEC-0016-evidence-polarity-classifier-boundary.md)
     accepted the same day, scoped narrowly to the optional classifier seam.
 
-11. **Milestone 13** — `scoped`, awaiting acceptance:
+11. **Milestone 13** — `accepted`, in progress:
     [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md).
-    Repair the official-source path (all six TLKM jobs fail `source_too_large`),
-    then classify each assumption's source adequacy (A/B/C) so the R-025 remedy
-    is chosen from findings rather than argument. Implements none of the four
-    remedy options; **R-025 stays `Open`**; new **R-028** measured, not
-    mitigated. See "Current Phase — M013 scoped, not started" above.
+    Slices 1–3 complete: the official path is repaired (`d2c6427`, one shared
+    `SOURCE_BYTE_LIMIT`), all six TLKM jobs now `succeeded`, official evidence
+    3 → 21 rows. Slice 4 (source-adequacy A/B/C) is **paused by user decision**
+    while a zero-byte-snapshot integrity defect found during Slice 3 is
+    repaired. Implements none of the four R-025 remedy options; **R-025 stays
+    `Open`**; new **R-028** measured, not mitigated. See "Current Phase" above
+    and the packet's "Slice outcomes".
 
 Milestone 12 is complete. Milestone 11 is complete.
 
