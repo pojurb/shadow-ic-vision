@@ -78,9 +78,9 @@ export default function PortfolioStatusIndex() {
             onChange={e => setFilterMarket(e.target.value as 'ALL' | 'US' | 'ID')}
             className="border rounded p-1"
           >
-            <option value="ALL">All Markets</option>
-            <option value="US">US Only</option>
-            <option value="ID">ID Only</option>
+            <option value="ALL" className="bg-white text-gray-900">All Markets</option>
+            <option value="US" className="bg-white text-gray-900">US Only</option>
+            <option value="ID" className="bg-white text-gray-900">ID Only</option>
           </select>
         </div>
       </div>
@@ -91,7 +91,7 @@ export default function PortfolioStatusIndex() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-100 border-b">
+              <tr className="bg-gray-100 text-gray-900 border-b">
                 <th className="p-3 font-semibold cursor-pointer" onClick={() => handleSort('ticker')}>
                   Ticker/Market {sortField === 'ticker' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
@@ -109,9 +109,9 @@ export default function PortfolioStatusIndex() {
             </thead>
             <tbody>
               {sortedIndex.map(item => (
-                <tr key={item.id} className="border-b hover:bg-gray-50">
+                <tr key={item.id} className="border-b hover:bg-gray-50 hover:text-gray-900">
                   <td className="p-3 font-medium">
-                    {item.ticker} <span className="text-xs bg-gray-200 px-1 rounded">{item.market}</span>
+                    {item.ticker} <span className="text-xs bg-gray-200 text-gray-700 px-1 rounded">{item.market}</span>
                   </td>
                   <td className="p-3 font-mono">
                     {item.priorityScore}

@@ -53,7 +53,7 @@ export function TopTenQueue({
           <li key={item.id} className="group">
             <button
               onClick={() => onSelect(item)}
-              className="w-full text-left px-2 py-1.5 rounded-md hover:bg-gray-100 flex items-center justify-between"
+              className="w-full text-left px-2 py-1.5 rounded-md hover:bg-gray-100 hover:text-gray-900 flex items-center justify-between"
             >
               <div className="flex items-center gap-2 truncate">
                 <span className="text-xs font-mono text-gray-400 w-4">{idx + 1}.</span>

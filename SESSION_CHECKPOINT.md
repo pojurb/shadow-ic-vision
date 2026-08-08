@@ -1,3 +1,262 @@
+# Session Checkpoint - 2026-08-08 (the main loop ran end-to-end for the first time, live in browser; a pre-existing Tailwind wiring defect found and fixed)
+
+Continuation of 2026-08-07 below, same working tree (`6fa90d7`), no new
+commits yet this session — everything below is verified against the live
+database and the live dev server, not yet written to git.
+
+## The Blocking Experiment Ran — All Four Steps, Verified To The Database
+
+The 2026-08-07 entry's exact resume point was four manual steps that had to
+happen before any relevance-area work could be scoped. They ran today, in the
+user's own browser, against the real dev server. Every claim below was
+re-verified directly against `d:/jp-invest-data/db.sqlite` after the fact —
+not read off the UI.
+
+1. **TLKM added to the portfolio** (Watchlist, linked to the TLKM thesis) —
+   `portfolio_positions`: 0 → **1**.
+2. **`/portfolio` bridge seen in a browser for the first time.** Resolves the
+   2026-08-07 entry's open caveat ("the briefing bridge has never been seen in
+   a browser"). It rendered the correct content on the first load — but with a
+   pre-existing, unrelated rendering defect that made it briefly hard to
+   verify (see below), fixed mid-session.
+3. **Acceptance containment confirmed live.** Opened the TLKM assumption card
+   in the Research panel (`/c/7bb5aefb-...`, reached via the "View research"
+   button under the confirmed thesis draft — the draft card's own "Confirmation
+   required" heading is stale copy that doesn't reflect confirmed state, a
+   separate minor defect noted but not fixed). No "Accept secondary evidence"
+   button rendered. In its place, verbatim: *"These passages have not been
+   checked for relevance to this claim, so they are not offered for
+   acceptance."* Matches `SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON` exactly.
+4. **A real decision recorded.** `decisions`: 0 → **1** — outcome
+   `Update Thesis`, optional action `Hold`, rationale *"Masih belum ada
+   petunjuk jelas langkah berikutnya"* (an honest reflection of the 0-of-6
+   coverage state), `evidenceIds` populated with all 48 evidence rows,
+   `alternatives: []`.
+
+   Verified the `action: "Hold"` value was the user's own manual selection,
+   not an AI suggestion — traced `generateDecisionRecommendation`
+   (`lib/research/service.ts:1363`) end to end: `decisionRecommendationSchema`
+   has no action/trade field at all, only `recommendedOutcome` (the four
+   process states) and `rationale`, and the prompt itself states outright
+   *"Never recommend, suggest, or imply a trade or position action (e.g. Buy,
+   Hold, Reduce, Exit) — that decision belongs to the user alone."* Both the
+   schema shape and the prompt wording enforce `AGENTS.md` rule 2
+   structurally, not just by instruction.
+
+**The product's main loop — add position, see bridged verdict, review
+evidence, record a decision — has now executed once, completely, for the
+first time.**
+
+## Found And Fixed: Tailwind CSS Was Never Wired Into The App
+
+Discovered while trying to read the `/portfolio` bridge output in step 2
+above: the table cell rendered `"Not enough evidence0 of 6 supported · 45 not
+relevance-checked"` — no space, no line break, between what should have been
+two stacked `<span>`s. Root cause, verified directly: `app/globals.css` (the
+only global stylesheet, imported once in `app/layout.tsx`) contained hand-
+written CSS only and **no `@import "tailwindcss";` or `@tailwind` directive
+at all** — `postcss.config.mjs` correctly registers `@tailwindcss/postcss`,
+but the plugin had nothing to expand. Every Tailwind utility class in the
+codebase had generated zero CSS since the project began; this predates all
+work in this checkpoint and is not a regression from any recent commit.
+Repo-wide grep confirmed only two files use raw Tailwind utility classNames
+(everything else uses CSS Modules, already unaffected): `app/portfolio/page.tsx`
+and `components/TopTenQueue.tsx`.
+
+Two fixes, both handed to an external reviewer ("Luna," per the user's
+existing practice) with a self-contained prompt and applied by them, then
+verified here directly against the current code (not taken on the reviewer's
+report):
+
+1. **The wiring fix** — `app/globals.css` line 1 is now `@import
+   "tailwindcss";`. Confirmed live: badges render as colored pills, the
+   `/portfolio` table row spacing/gap now works, the concatenation bug is
+   gone.
+2. **A dark-theme contrast defect the wiring fix exposed** — both affected
+   files were authored with light-mode Tailwind assumptions (`bg-gray-100`,
+   `bg-gray-200`, `hover:bg-gray-50`/`hover:bg-gray-100`) with no paired text
+   color, invisible while Tailwind was inert but rendering near-white text on
+   near-white backgrounds once it activated, against this app's dark theme
+   (`body { background: #121212; color: #ededed; }`). Confirmed live in the
+   table header row and reproduced by inspection in three more spots
+   (the ticker's market-code badge, two hover states). Fixed by pairing each
+   with an explicit dark-safe text color (`bg-gray-100 text-gray-900`,
+   `bg-gray-200 text-gray-700`, `hover:bg-gray-50 hover:text-gray-900`,
+   `hover:bg-gray-100 hover:text-gray-900`) — verified present in both files
+   after the fix. `npx tsc --noEmit` clean afterward.
+
+Noted as a real possibility, not confirmed: this may be the root cause of the
+standing `feedback-ui-too-cramped` memory — if spacing/padding/rounded
+utility classes have been inert since day one everywhere they're used, that
+would produce exactly that complaint. Not re-investigated this session; worth
+a look next time UI density comes up.
+
+## Two Stale Items From The 2026-08-07 Entry, Now Resolved
+
+- "The briefing bridge has never been seen in a browser" — resolved by step 2
+  above. It rendered correctly once the pre-existing CSS defect was fixed.
+- "One test had its assertion reversed" (the acceptance-containment test) —
+  unchanged, still carried forward; the live browser check in step 3 above is
+  additional confirmation the *behavior* is correct, not a change to that
+  test note.
+
+### Exact Resume Point
+
+**Nothing is blocking now — the experiment that gated all relevance-area work
+has run.** What it showed: the bridge and containment both work as designed,
+and the user was able to record a real, honest decision even with the
+evidence base 100% unassessed for relevance — the rationale they wrote
+("no clear guidance on next steps yet") reflects that state accurately rather
+than being misled by it.
+
+**Open, unchanged: R-025 remedy scope.** Four candidates, still none chosen —
+recorded in the 2026-08-06 entry and `docs/RISK_REGISTER.md`. This is the
+next real decision, and it's the user's to make, not derivable from what the
+experiment showed.
+
+**New, small, not yet fixed:**
+- The thesis draft card's "Confirmation required" heading renders
+  unconditionally even after confirmation — only the button below it branches
+  on confirmed state (`components/ChatUI.tsx`, the `thesisDraft &&` block).
+  Cosmetic, but confusing — a confirmed thesis's card still reads as pending.
+
+**Still open, carried from 2026-08-07 and 2026-08-06, untouched this
+session:** `source_too_large` on issuer PDFs (visibly still failing live —
+one TLKM assumption card showed a `DEGRADED` badge with a `Retry` button
+during today's walkthrough), ticker-scoped `knownDocumentIds`,
+first-assumption-only promotion, R-026's stale text, Roadmap §5 steps 4/5/6 +
+`decisions:record` + the Ollama question (§7.2).
+
+Nothing in this entry is committed to git yet.
+
+---
+
+# Session Checkpoint - 2026-08-07 (DEC-0018 verdict gating, acceptance containment, briefing bridge — and the reframing that the main loop has never run)
+
+Continuation of 2026-08-06 below. Commits: `baff03c` (the checkpoint entry and
+R-025 narrative below this one — written by that session, committed as its own
+docs-only commit) and `6fa90d7`. No milestone is active. Working tree clean at
+`6fa90d7`; `RESUME_PROMPT.md` is untracked scratch, not part of the record.
+
+## The Reframing: The Product Has Never Run Its Own Loop
+
+Verified directly against `d:/jp-invest-data/db.sqlite` (re-verified this
+session, not carried over): `portfolio_positions` = **0**, `decisions` = **0**,
+`user_confirmed_secondary` = **0**. The Sunday Evening Ritual that `VISION.md`
+§4 describes and §9 makes the measure of success has never happened once, while
+a dozen-plus commits went into the evidence layer beneath it.
+
+The core technical problem, stated as plainly as it can be: **the system can
+prove where a quote came from; it cannot judge whether the quote is about the
+claim.** R-025 quantifies it — 88.9% of a 72-candidate audit of the live TLKM
+corpus clearly irrelevant to the assumption they were attached to.
+
+A second structural finding, from the same review pass: of TLKM's 6
+assumptions, only 1 is a financial-statement number. The rest are events and
+relationships (ownership %, MW of capacity, investor identity) with no XBRL tag
+in any market, and `createXbrlFactSources()` returns `ID: undefined` on every
+branch — so for the ID market `observedValue` is always null, polarity is
+always `inconclusive`, and the verdict can never reach `breached`.
+
+The open product question, still unanswered by the user: **is jp-invest a judge
+(rendering a verdict on a thesis) or a finder (surfacing relevant reading, the
+user judging)?** `VISION.md` §3/§5/§7 lean toward "a finder with honest
+limits". Nothing below should be read as having settled that.
+
+## `6fa90d7` — Three Changes, All Verified Fail-Then-Pass
+
+**DEC-0018 — the verdict's positive state now requires `coverage.supported > 0`.**
+`holding` previously followed from "no contradiction + open gate", neither of
+which requires anything to be supported; live TLKM read HOLDING over evidence
+that was 100% `inconclusive`. The state is **gated, not deleted** — removing
+the enum was proposed and rejected on review, because "supports a measurable
+claim", "no contradiction found" and "not enough evidence" are three distinct
+states. This opened a route to `insufficient_evidence` with an **open** gate
+and therefore empty `suppressionReasons`, which `buildHeadline` rendered as the
+malformed `"INSUFFICIENT EVIDENCE — ."`; a new clause fixes it while still
+asserting nothing about topical relevance in either direction.
+
+**Containment of the "Accept secondary evidence" control.** Withheld on both
+sides — the panel shows the reason instead of the control, and
+`acceptSecondaryEvidence` refuses the request regardless of the UI — because
+the passages behind it have never been assessed for relevance and
+`user_confirmed_secondary` is a durable human decision. The seam is
+`secondaryEvidenceAcceptanceAvailable()` in `lib/domain/contracts.ts`
+(currently `return false`), one place to flip, shaped like DEC-0016's inert
+classifier seam. The five existing `pending_confirmation` rows and
+`deriveAssumptionStatus` are untouched; that belongs to the relevance work.
+
+**Briefing bridge.** `getPortfolioBriefing()` now carries `verdictLevel`,
+`supported`/`totalAssumptions`, and `relevanceUnassessedCount` — deliberately
+separate from `supported` so unassessed passages cannot be presented as
+corroboration — reusing the same pure `deriveCoverageLedger`/
+`deriveThesisVerdict` the Research Panel renders. Rendered in `TopTenQueue` and
+`/portfolio`. Note the two surfaces count different units, both honestly: the
+panel headline counts **assumptions** carrying unassessed quotes (6), the
+briefing badge counts **secondary evidence rows** (45).
+
+## Verified Live This Session (2026-08-07, After `6fa90d7`)
+
+- `research:panel` on live TLKM reads `VERDICT INSUFFICIENT_EVIDENCE`,
+  headline well-formed: *"no assumption is supported by evidence; 6 have quotes
+  verified verbatim from their source but never checked for relevance to the
+  claim."* Coverage: 0 of 6 supported, gate **open**, retrieval 6 of 6.
+- The live corpus visibly confirms R-025 rather than merely asserting it: the
+  quotes attached to the NeutraDC market-share and strategic-investor
+  assumptions are IHSG close, EIDO ETF and foreign-net-sell chatter.
+- **Evidence counts have moved since the numbers in the docs below.** TLKM now
+  holds **48** evidence rows (3 official, 45 secondary), all `inconclusive` —
+  not the 42/39 that DEC-0018 and R-025 quote. Six secondary rows were created
+  `2026-08-07 13:31`, i.e. a live run happened that day that no checkpoint
+  records. The quoted figures are correct as of their own dates; the direction
+  of the finding is unchanged (still 0 supported, still 100% inconclusive).
+- Assumption statuses: TLKM 5 `pending_confirmation` + 1 `untested`; ISAT 8
+  `untested` (legacy, pre-M011).
+
+## Two Honest Caveats Carried Forward
+
+- **The briefing bridge has never been seen in a browser.** It was proven by
+  integration test against a temporary database, not by eye, because the real
+  portfolio is empty. A rendering defect would not yet be visible.
+- **One test had its assertion reversed**, not repaired:
+  `"transitions a pending_confirmation assumption to user_confirmed_secondary"`
+  became `"withholds acceptance while relevance is unassessed"`. An old
+  guarantee was deliberately withdrawn; the reason and the route back are in
+  the test's own comment.
+
+### Exact Resume Point
+
+**The next step is an experiment, not code, and it blocks the rest.** Nothing
+should be built in the relevance area before it runs. `npm run dev`, then:
+
+1. The user adds **TLKM** through the sidebar form (`components/Sidebar.tsx`),
+   picks `Owned`/`Watchlist`, links it to the TLKM thesis. This is durable
+   portfolio state — a user decision, not agent work.
+2. `localhost:3000` and `/portfolio` — TLKM should show the "Not enough
+   evidence" badge and "0 of 6 assumptions supported · 45 passages not
+   relevance-checked". First sighting of the bridge in a browser.
+3. `/c/7bb5aefb-b4cb-49d8-a4a7-4d4e95adb62e` — the Accept control should be
+   gone, replaced by the reason text.
+4. The user records one real review/decision (`decisions` is still 0, so this
+   also exercises `evidenceIds`/`alternatives` against real data).
+
+What steps 2 and 4 show decides the scope of the relevance milestone: a full
+deterministic relevance contract, or a cheap and visible `uncertain` label.
+
+**Still open, unchanged from the entry below:** R-025 remedy scope (four
+candidates, none chosen — hygiene/stop words; a deterministic relevance
+contract keyed to the measurement contract's concept groups, which the TLKM
+contract is rich enough to support, though a naive "all contract tokens"
+approach was shown to fail; a `PassageCandidate`-vs-`Evidence` status split; a
+governed model-based assessor that DEC-0016 does **not** authorize). Raising
+the token floor from 1 to 2 was measured insufficient — 37 irrelevant
+candidates still clear it. Also open: `source_too_large` on issuer PDFs (5 TLKM
+jobs still fail here honestly), ticker-scoped `knownDocumentIds`,
+first-assumption-only promotion, R-026's stale text, and Roadmap §5 steps
+4/5/6 + `decisions:record` + the Ollama question (§7.2).
+
+---
+
 # Session Checkpoint - 2026-08-06 (Class-C document classification, promotion cleanup, relevance-gate attempt, quantified R-025 finding — remedy deferred)
 
 Continuation of 2026-08-05b below. Commits this session, on top of `153c998`:
