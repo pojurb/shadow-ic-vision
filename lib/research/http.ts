@@ -2,7 +2,7 @@ import 'server-only';
 
 import fs from 'node:fs';
 import path from 'node:path';
-import type { SourceErrorCode } from './adapters/types';
+import { SOURCE_BYTE_LIMIT, type SourceErrorCode } from './adapters/types';
 import { ResearchSourceError } from './errors';
 
 export type HttpResult = {
@@ -45,7 +45,7 @@ export class OfficialHttpClient {
   constructor(private readonly options: HttpClientOptions) {
     this.timeoutMs = options.timeoutMs ?? 15_000;
     this.maxAttempts = options.maxAttempts ?? 3;
-    this.maxBytes = options.maxBytes ?? 25 * 1024 * 1024;
+    this.maxBytes = options.maxBytes ?? SOURCE_BYTE_LIMIT;
     this.minimumIntervalMs = Math.ceil(1000 / (options.requestsPerSecond ?? 8));
     this.cacheTtlMs = options.cacheTtlMs ?? 5 * 60_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -112,10 +112,28 @@ export class OfficialHttpClient {
           throw new ResearchSourceError(code, `Official source returned HTTP ${response.status}.`);
         }
 
+        /*
+         * M013. Both size rejections log before throwing, like every other
+         * rejection path above. They previously did not, so a size failure
+         * left no trace in `logs/outbound.log` at all — and that silence
+         * actively misled this milestone's own diagnosis, which read a clean
+         * log while six jobs were failing on size. The message states the
+         * measured size against the limit rather than naming a fixed number,
+         * because the old text hardcoded "25 MB" and went on being emitted
+         * after the limit moved.
+         */
+        const tooLarge = (size: number) => {
+          this.log(url.toString(), response.status, attempt, startedAt, 'source_too_large');
+          return new ResearchSourceError(
+            'source_too_large',
+            `Source document is ${Math.round(size / (1024 * 1024))} MB, past the ${Math.round(this.maxBytes / (1024 * 1024))} MB limit.`,
+          );
+        };
+
         const declaredSize = Number(response.headers.get('content-length') || 0);
-        if (declaredSize > this.maxBytes) throw new ResearchSourceError('source_too_large', 'Official document exceeds the 25 MB M001 limit.');
+        if (declaredSize > this.maxBytes) throw tooLarge(declaredSize);
         const bytes = new Uint8Array(await response.arrayBuffer());
-        if (bytes.byteLength > this.maxBytes) throw new ResearchSourceError('source_too_large', 'Official document exceeds the 25 MB M001 limit.');
+        if (bytes.byteLength > this.maxBytes) throw tooLarge(bytes.byteLength);
 
         const result: HttpResult = {
           url: url.toString(),

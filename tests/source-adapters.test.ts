@@ -8,6 +8,7 @@ import { discoverIssuerPressReleases, isIssuerReleaseUrl } from '@/lib/research/
 import { NewsWireAdapter, parseNewsFeedItems } from '@/lib/research/adapters/news-wire';
 import { SecAdapter, selectLatestFiling } from '@/lib/research/adapters/sec';
 import { OfficialHttpClient, resetHttpStateForTests } from '@/lib/research/http';
+import { SOURCE_BYTE_LIMIT } from '@/lib/research/adapters/types';
 
 describe('official source adapters', () => {
   let directory: string;
@@ -325,10 +326,42 @@ describe('official source adapters', () => {
   it('rejects a response that declares an oversized document', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('small', {
       status: 200,
-      headers: { 'content-length': String(26 * 1024 * 1024) },
+      headers: { 'content-length': String(SOURCE_BYTE_LIMIT + 1) },
     }));
     await expect(clientWith(fetchImpl, directory).get('https://www.sec.gov/large', 'text/html'))
       .rejects.toMatchObject({ code: 'source_too_large' });
+  });
+
+  /*
+   * M013 Slice 2. The download limit was 25 MB while extraction refused
+   * anything over 10 MB, so real issuer documents were fetched and stored and
+   * then discarded unread. Both limits are now one constant; a document under
+   * it must be accepted here.
+   */
+  it('accepts a document declared under the shared byte limit', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('report body', {
+      status: 200,
+      headers: { 'content-length': String(26 * 1024 * 1024), 'content-type': 'application/pdf' },
+    }));
+    const result = await clientWith(fetchImpl, directory).get('https://www.sec.gov/annual', 'application/pdf');
+    expect(result.status).toBe(200);
+  });
+
+  /*
+   * ADR-0006 transparency. Every other rejection path logged before throwing;
+   * these two did not, so `logs/outbound.log` showed nothing at all for a
+   * size failure. That silence actively misled M013's own diagnosis — the log
+   * looked clean while six jobs were failing on size.
+   */
+  it('logs a size rejection instead of throwing silently', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('small', {
+      status: 200,
+      headers: { 'content-length': String(SOURCE_BYTE_LIMIT + 1) },
+    }));
+    const logPath = path.join(directory, 'outbound.log');
+    await expect(clientWith(fetchImpl, directory).get('https://www.sec.gov/large', 'text/html'))
+      .rejects.toMatchObject({ code: 'source_too_large' });
+    expect(fs.readFileSync(logPath, 'utf8')).toContain('source_too_large');
   });
 });
 

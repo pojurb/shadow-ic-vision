@@ -650,7 +650,14 @@ describe('deterministic document extraction', () => {
     expect(extracted.sourceVariant).toBe('scanned');
   });
 
-  it('degrades oversized documents before extraction', async () => {
+  /*
+   * M013 Slice 2. The guard still exists, and this proves it — but it is
+   * exercised through an injected limit rather than by allocating a buffer
+   * past the real one, which is now 500 MB. `maxBytes` exists on the options
+   * for exactly this reason: a guard that can only be tested by allocating
+   * half a gigabyte would stop being tested.
+   */
+  it('degrades documents past the extraction byte limit', async () => {
     await expect(extractDocument({
       documentId: 'large-1',
       market: 'US',
@@ -660,11 +667,43 @@ describe('deterministic document extraction', () => {
       sourceTier: 'official',
       publishDate: '2026-04-30',
       sourceFormat: 'pdf',
+      rawBytes: new Uint8Array(2048),
+      retrievalTimestamp: '2026-07-04T00:00:00.000Z',
+      contentType: 'application/pdf',
+      httpStatus: 200,
+    }, { maxBytes: 1024 })).rejects.toMatchObject({ code: 'source_too_large' });
+  });
+
+  /*
+   * M013 Slice 2, the regression this milestone exists to prevent. Two size
+   * limits used to disagree: 25 MB at download (`lib/research/http.ts`) and
+   * 10 MB at extraction (this module). A 24.3 MB annual report and a 10.5 MB
+   * climate report were therefore fetched, stored on disk, and then refused —
+   * leaving a small sustainability report as the only official document TLKM
+   * ever produced evidence from. Both now read one shared `SOURCE_BYTE_LIMIT`,
+   * so they cannot drift apart again. A document over the old 10 MB limit must
+   * no longer be refused for its size.
+   */
+  it('no longer refuses a document over the retired 10 MB extraction limit', async () => {
+    const snapshot = {
+      documentId: 'annual-report-sized',
+      market: 'ID' as const,
+      ticker: 'TLKM',
+      sourceUrl: 'https://www.telkom.co.id/annual-report.pdf',
+      sourceName: 'Issuer official (TLKM)',
+      sourceTier: 'official' as const,
+      publishDate: '2026-04-30',
+      sourceFormat: 'pdf' as const,
       rawBytes: new Uint8Array(10 * 1024 * 1024 + 1),
       retrievalTimestamp: '2026-07-04T00:00:00.000Z',
       contentType: 'application/pdf',
       httpStatus: 200,
-    })).rejects.toMatchObject({ code: 'source_too_large' });
+    };
+
+    // It still fails — zeroed bytes are not a parseable PDF — but the reason
+    // must no longer be its size. Asserting the *reason* rather than success
+    // is what keeps this test honest without shipping a 10 MB fixture.
+    await expect(extractDocument(snapshot)).rejects.not.toMatchObject({ code: 'source_too_large' });
   });
 
   it('extracts text-layer PDFs with one-based page provenance', async () => {

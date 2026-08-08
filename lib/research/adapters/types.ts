@@ -2,6 +2,35 @@ export type ResearchMarket = 'US' | 'ID';
 export type SourceFormat = 'html' | 'pdf' | 'image' | 'xbrl';
 export type ResearchSourceMode = 'mock' | 'live';
 
+/**
+ * M013 — the single byte ceiling for a source document, shared by the download
+ * path (`lib/research/http.ts`) and the extraction path
+ * (`lib/research/extractors/document.ts`).
+ *
+ * It lives here, in the module both already import, because the defect this
+ * milestone opened on was the two limits **disagreeing**. Download allowed
+ * 25 MB; extraction refused anything past 10 MB. Real issuer documents were
+ * therefore fetched over the network, hashed, written to the snapshot store —
+ * and then discarded unread. On the live TLKM thesis that meant a 24.3 MB
+ * annual report and a 10.5 MB climate report (0.5 MB past the old limit) were
+ * both retained and refused, leaving a small sustainability report as the only
+ * official document the thesis ever produced evidence from. All six official
+ * jobs reported `source_too_large` while the error text named the 25 MB limit
+ * that had not actually been the one to reject them.
+ *
+ * Two constants can drift; one cannot. If a future change genuinely needs the
+ * download and extraction ceilings to differ, that difference should be
+ * deliberate and named — not the accident of two hardcoded numbers edited in
+ * different milestones.
+ *
+ * The value is the user's calibration decision (2026-08-08): deliberately
+ * generous, so that document size stops silently deciding what the product can
+ * read. Extraction still holds the whole document in memory, so this ceiling is
+ * a real resource commitment, not a formality — `extractPdf` cost against a
+ * genuinely large document is measured in M013 Slice 3 rather than assumed.
+ */
+export const SOURCE_BYTE_LIMIT = 500 * 1024 * 1024;
+
 export type SourceErrorCode =
   | 'source_configuration'
   | 'source_not_found'

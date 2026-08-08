@@ -11,7 +11,7 @@ import { MockNewsWireAdapter } from './mock-news-wire';
 import { MockSecAdapter } from './mock-sec';
 import { NewsWireAdapter } from './news-wire';
 import { SecAdapter } from './sec';
-import type { ResearchMarket, SourceAdapter } from './types';
+import { SOURCE_BYTE_LIMIT, type ResearchMarket, type SourceAdapter } from './types';
 
 export function createSourceAdapters(): Record<ResearchMarket, SourceAdapter> {
   if (getResearchSourceMode() === 'mock') return { US: new MockSecAdapter(), ID: new MockIdxAdapter() };
@@ -22,7 +22,7 @@ export function createSourceAdapters(): Record<ResearchMarket, SourceAdapter> {
   const issuerClients = Object.fromEntries([...new Set(Object.values(issuerUrls).map((value) => new URL(value).origin))].flatMap((origin) => {
     const host = new URL(origin).hostname;
     const alternateHost = host.startsWith('www.') ? host.slice(4) : `www.${host}`;
-    const client = new OfficialHttpClient({ allowedHosts: [host, alternateHost], userAgent: 'JP Invest official-source research', logPath, requestsPerSecond: 2, maxBytes: 25 * 1024 * 1024 });
+    const client = new OfficialHttpClient({ allowedHosts: [host, alternateHost], userAgent: 'JP Invest official-source research', logPath, requestsPerSecond: 2, maxBytes: SOURCE_BYTE_LIMIT });
     return [[origin, client], [`https://${alternateHost}`, client]];
   }));
   const issuerAdapter = new IssuerAdapter(issuerUrls, issuerClients);
@@ -58,7 +58,7 @@ export function buildClientsByOrigin(urls: Record<string, string>, logPath: stri
   return Object.fromEntries([...new Set(Object.values(urls).map((value) => new URL(value).origin))].flatMap((origin) => {
     const host = new URL(origin).hostname;
     const alternateHost = host.startsWith('www.') ? host.slice(4) : `www.${host}`;
-    const client = new OfficialHttpClient({ allowedHosts: [host, alternateHost], userAgent: 'JP Invest official-source research', logPath, requestsPerSecond: 2, maxBytes: 25 * 1024 * 1024 });
+    const client = new OfficialHttpClient({ allowedHosts: [host, alternateHost], userAgent: 'JP Invest official-source research', logPath, requestsPerSecond: 2, maxBytes: SOURCE_BYTE_LIMIT });
     return [[origin, client], [`https://${alternateHost}`, client]];
   }));
 }

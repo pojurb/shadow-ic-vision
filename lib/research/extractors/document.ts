@@ -1,5 +1,5 @@
 import { load } from 'cheerio';
-import type { SourceSnapshot } from '../adapters/types';
+import { SOURCE_BYTE_LIMIT, type SourceSnapshot } from '../adapters/types';
 import { ResearchSourceError } from '../errors';
 import { normalizeText } from '../verifier';
 import { detectEmbeddedInstructions, type InstructionClassifier } from './safety';
@@ -68,14 +68,31 @@ export type ExtractDocumentOptions = {
    * default.
    */
   instructionClassifier?: InstructionClassifier;
+  /**
+   * M013. Defaults to the shared `SOURCE_BYTE_LIMIT`. Overridable so the guard
+   * stays testable without allocating a buffer past the real ceiling — a guard
+   * that can only be exercised by allocating half a gigabyte stops being
+   * exercised at all.
+   */
+  maxBytes?: number;
 };
 
 export async function extractDocument(
   snapshot: SourceSnapshot,
   options: ExtractDocumentOptions = {},
 ): Promise<ExtractedDocument> {
-  if (snapshot.rawBytes.byteLength > 10 * 1024 * 1024) {
-    throw new ResearchSourceError('source_too_large', 'Source document is too large for first-slice multimodal processing.');
+  /*
+   * M013. Reads the same `SOURCE_BYTE_LIMIT` the download path enforces. This
+   * check was an independent 10 MB constant while downloads allowed 25 MB, so
+   * documents between the two were fetched, hashed, stored — and then refused
+   * here, unread. Sharing one constant is what stops the two from drifting.
+   */
+  const maxBytes = options.maxBytes ?? SOURCE_BYTE_LIMIT;
+  if (snapshot.rawBytes.byteLength > maxBytes) {
+    throw new ResearchSourceError(
+      'source_too_large',
+      `Source document is ${Math.round(snapshot.rawBytes.byteLength / (1024 * 1024))} MB, past the ${Math.round(maxBytes / (1024 * 1024))} MB limit.`,
+    );
   }
   if (snapshot.sourceFormat === 'html') return extractHtml(snapshot.rawBytes, options);
   if (snapshot.sourceFormat === 'pdf') return extractPdf(snapshot.rawBytes, options);
