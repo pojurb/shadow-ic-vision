@@ -1,4 +1,264 @@
+# Session Checkpoint - 2026-08-08d (M013 Slices 1–3 done; Slice 4 paused for a zero-byte-snapshot defect)
+
+M013 is `accepted` and in progress. Acceptance came by direction rather than a
+single statement — the user authorised Slice 1 alone, then the repair, then the
+re-run, and set the byte-limit calibration. Recorded that way rather than
+backdating a formal acceptance that did not happen.
+
+Entries below this one are from other sessions and are untouched, including the
+M014 handoff, which is the user's separate work.
+
+## Slice 1 — the two limits that disagreed
+
+Download allowed 25 MB (`lib/research/http.ts`); extraction refused past 10 MB
+(`lib/research/extractors/document.ts`). Documents between the two were fetched,
+hashed, written to the snapshot store, then refused unread — a 24.3 MB annual
+report and a 10.5 MB climate report, the latter missing the old ceiling by
+0.5 MB. That is the whole reason TLKM's corpus was market-wire round-ups and CSR
+press releases.
+
+**Two things kept it hidden, and both are worth remembering.** The reported
+reason was wrong: jobs read *"exceeds the 25 MB M001 limit"* while the document
+was 24.3 MB, because the text was hardcoded in the download path and went on
+being emitted after a different check did the rejecting. And the failure path
+did not log, while every neighbouring rejection path logged first — so
+`logs/outbound.log` looked clean while six jobs failed on size. That silence
+actively misled this milestone's own diagnosis; an early read of the clean log
+produced a wrong conclusion that had to be retracted.
+
+## Slice 2 — one constant, and what it measured
+
+`SOURCE_BYTE_LIMIT` now lives in `lib/research/adapters/types.ts` — the module
+both paths already import — read by the download path, the extraction path, and
+both issuer clients. Value 500 MB, the user's calibration. Messages state
+measured size against the active limit; both rejections log; `maxBytes` is
+overridable on the extractor so the guard stays testable without allocating half
+a gigabyte. Committed as `d2c6427`, five tests proven to fail first, suite
+389 → 392.
+
+Measured against the real retained documents, not fixtures: the 24.3 MB annual
+report yields 521 pages and 1,224,092 characters in 8.5 s at ~790 MB peak RSS.
+
+**The climate report is not empty and pdfjs is not at fault** — a correction to
+an earlier claim in this session. Its metadata reads `Producer: Microsoft®
+PowerPoint®`, `Title: LAPORAN RISIKO IKLIM 2023`, with **zero embedded fonts**:
+every slide was flattened to raster. Page 12 holds 201 image objects; extracting
+one and viewing it shows legible text (*"PT Telkom Indonesia (Persero) Tbk"*).
+It needs OCR, and the `VisionTranscriber` path (DEC-0012 eligible) is still not
+wired into `CitationPipeline`. **Class (B), not (C)** — recorded so Slice 4 does
+not re-derive it.
+
+## Slice 3 — the re-run, and four findings
+
+Backup taken first: `db-before-m013-slice3-20260808T114512.sqlite`.
+
+| | Before | After |
+|---|---|---|
+| Jobs | 6 `degraded/source_too_large` | **6 `succeeded`** |
+| Official evidence | 3 | **21** |
+| Secondary evidence | 48 | 48 |
+| Assumption status | 5 `pending_confirmation`, 1 `untested` | **6 `untested`** |
+| Verdict | `INSUFFICIENT_EVIDENCE` | `INSUFFICIENT_EVIDENCE`, 0 of 6 supported |
+
+No flood — 18 new rows, not hundreds; the ranker's per-assumption limit bounds
+yield regardless of document length. `DEC-0018` held: the system did not claim
+support it does not have.
+
+**Four findings, held for discussion after Slice 4:**
+
+1. **The document that motivated the fix still contributes nothing.** The 2023
+   annual report was not re-processed — `knownDocumentIds` is ticker-scoped
+   (already on the open list) and skips a document once seen. The 18 rows come
+   from six newly discovered 2021–2022 documents instead. The limit is genuinely
+   repaired; a different known defect now blocks that document.
+2. **R-025 applies at the official tier just as badly.** At most one of 21
+   official rows is plausibly relevant. The rest include a glossary page and a
+   disclosure-index table; the strategic-investor claim drew COVID-19 vaccine
+   distribution, the hyperscaler claim a 2008 2G/3G procurement agreement.
+   Supply and relevance are now measured as independent problems at both tiers.
+3. **A regression in honesty, caused by success.** `pending_confirmation` → 
+   `untested` is M007 behaving as designed, but the official evidence that
+   cleared the gate is as irrelevant as the secondary evidence it replaced. The
+   signal "this rests only on secondary sources" is gone and `6fa90d7`'s
+   containment is moot. The gate keyed on **tier** as a proxy for trust; what it
+   proxied for is **relevance**, which nothing measures.
+4. **Zero-byte snapshots** — see below.
+
+## Zero-byte snapshots — repaired (`09208aa`)
+
+Seven of fifteen files in the snapshot store are empty; six were created by this
+session's Slice 3 re-run. **Cause proven directly, not inferred:**
+`pdfjs.getDocument` transfers and detaches the source ArrayBuffer — measured on
+a real file, `byteLength` 10,972,090 → **0** after the call. `pipeline.ts` hashes
+(line 112) and extracts (line 115); `service.ts` then calls
+`persistSourceSnapshot`, and `snapshot-store.ts:31` writes the detached buffer.
+
+The correlation is exact and is what confirms it: every PDF that extracted
+successfully is 0 bytes; the two rejected for size — pdfjs never touched them —
+are intact at 24.3 MB and 10.5 MB; HTML is unaffected because cheerio does not
+detach.
+
+**Why it outranked Slice 4 in the user's decision:** evidence is stored
+`exact_verified` while its retained source artifact is empty, so those quotes
+cannot be re-verified and `document_hash` records a hash the stored file does not
+have. It also endangers the M010 cleanup precedent, which re-derives from
+snapshots to judge staleness and would find nothing — potentially deleting valid
+evidence. Nothing is permanently lost (documents are re-fetchable), but the
+product's foundational promise is currently not being kept, and the **daily
+scheduled refresh keeps producing more empty snapshots** without anyone running
+anything. Slice 4 is analysis that writes no evidence, so pausing it costs
+nothing.
+
+**Repaired in `09208aa`, before Slice 4 resumed.** Two changes, each proven
+fail-then-pass: `extractPdf` hands pdfjs a **copy** rather than the caller's
+buffer (protecting all five persistence call sites at once, since every one runs
+after extraction), and `persistSourceSnapshot` treats a **zero-byte file as a
+failed write** rather than a stored document — the guard was `existsSync` alone,
+so an empty file could never be replaced and the damage was permanent. Storage
+is content-addressed, so an empty file at a hash-named path cannot be a
+legitimate version of it; a retained non-empty snapshot is still never
+overwritten, which has its own test.
+
+Verified on live data, not fixtures: a `research:refresh` afterwards fetched six
+issuer documents (annual reports 2019–2021, three quarterly statements) and all
+six wrote intact at 1.4–7.3 MB. `tests/snapshot-store.test.ts` is new — the
+module had no coverage at all. Suite 405 passed / 3 skipped.
+
+**Still outstanding, recorded rather than smoothed over:** 21 of 85 evidence rows
+still point at empty source files, because those documents have not been
+re-fetched. Quote text is intact and displays normally; only re-verification is
+lost. The self-healing guard means a re-fetch repairs them, but whether to
+re-fetch, leave as recorded debt, or delete is a user decision. Most of the 21
+are the irrelevant passages R-025 describes, so the practical loss is small —
+the broken guarantee is the cost, not the data.
+
+Noticed while verifying and **not investigated**: snapshots live under two
+directories — `D:\jp-invest-data\snapshots\` (the seven empty legacy files) and
+`D:\jp-invest-data\source-snapshots\` (where writes go now, per
+`SOURCE_SNAPSHOT_DIR`). Recorded so it is not mistaken for part of this defect.
+
+### Exact Resume Point
+
+**Next: M013 Slice 4** — classify each TLKM assumption's source adequacy as
+(A) reachable / (B) exists but unreachable / (C) no public source. One thing to
+settle before starting: the division of research labour, because any web search
+the assistant runs is **exploration**, not jp-invest's verified evidence
+(`AGENTS.md` rule 1), and the classification itself is the user's call, not the
+assistant's.
+
+Already established, so Slice 4 need not re-derive it: the Laporan Risiko Iklim
+is class **(B)** — a PowerPoint deck flattened to raster with zero embedded
+fonts, fully legible, blocked only by OCR not being wired into
+`CitationPipeline`.
+
+**Known and unfixed, carried forward:** `evidenceIds` auto-fill
+(`components/ResearchPanel.tsx:196`) records every displayed row rather than a
+user selection; the thesis draft card's "Confirmation required" heading renders
+unconditionally after confirmation; `knownDocumentIds` ticker-scoping (now shown
+to have real consequences — see finding 1); the research-pipeline OCR gap
+(`VisionTranscriber` never wired into `CitationPipeline`); four scratch files at
+the repository root (`check_schema.ts`, `fix_db.ts`, `repair_json.js`,
+`update_row.ts`) that break `tsc --noEmit` and `npm run lint`; R-026's stale
+text; Roadmap §5 steps 4/5/6 + `decisions:record` + the Ollama question (§7.2).
+
+---
+
 # Session Checkpoint - 2026-08-08b (M013 scoped: the corpus, not only the matcher — plus a correction to this session's own earlier report)
+
+## M014 terminal-agent execution handoff prepared — 2026-08-08c
+
+The user requested an execution prompt for a user-invoked terminal agent
+through a terminal session. M014 is `accepted`; this entry records the accepted planning baseline
+and the implementation handoff, while closure remains pending QA.
+
+Execution baseline: split M014 into M014-A (DOCX/XLSX Office parsing) and
+M014-B (scanned-PDF terminal-agent OCR); use deterministic OpenXML traversal for
+DOCX and `exceljs` for XLSX after explicit dependency review; defer legacy
+`.doc`/`.xls`; preserve
+XLSX formula text plus cached/displayed values without evaluating formulas;
+include hidden and `veryHidden` sheets; keep `schemaVersion: 1` while widening
+the extraction-method enum; store OCR provider/model/prompt metadata in the
+existing knowledge SQLite columns; preserve the default report path; keep
+candidate graph output CLI/JSON-only; and require an explicit status for every
+remaining document.
+
+The terminal-agent prompt must require reading the repository instructions and relevant
+packets, running `git status --short`, preserving all existing user changes,
+avoiding `originals/`, `private/knowledge/`, database files, and unrelated
+documentation, beginning with Slice 0, and stopping/reporting rather than
+inventing a missing decision. The selected agent must not mark M014 active or complete.
+
+## M014 draft handoff — 2026-08-08
+
+This is the current session boundary. M012 is complete. M013 — Source
+Adequacy & Official Path Recovery — remains `scoped` and not started. M014 —
+Private Knowledge Coverage Expansion — is `accepted`, but not active, complete,
+or implemented.
+
+The M014 packet is:
+
+[`docs/milestones/M014-private-knowledge-coverage-expansion.md`](docs/milestones/M014-private-knowledge-coverage-expansion.md)
+
+M014 currently records these boundaries:
+
+- The repository has one canonical root-level `ACTIVE_MILESTONE.md` and one
+  canonical root-level `SESSION_CHECKPOINT.md`.
+- Relevant context is routed through `AGENTS.md`, `docs/CODEBASE_MAP.md`,
+  `ACTIVE_MILESTONE.md`, `SESSION_CHECKPOINT.md`,
+  `docs/milestones/ROADMAP.md`, `docs/decisions/INDEX.md`,
+  `docs/CLI_WORKFLOW.md`, and decisions `DEC-0017`, `DEC-0019`, and `DEC-0012`.
+- `EXECUTION_PLAN.md`, `BUILD_PLAN.md`, and `DATA_MODEL.md` are absent and are
+  not treated as authorities for this repository.
+- M014 covers 22 DOCX files, 2 XLSX files, and 1 scanned PDF currently marked
+  `needs_ocr`; `originals/` remains read-only.
+- OCR's primary proposed operator path is a user-invoked vision-capable
+  terminal agent. Gemini, Codex, Claude, or another selected agent may use the
+  same provider-neutral file-backed handoff contract.
+- The application must validate and ingest the local OCR handoff; it must not
+  launch Gemini, Codex, Claude, or silently replace `LLMProvider`.
+- A no-handoff OCR run remains `needs_ocr`. OCR output remains private,
+  candidate-only, and separate from live `Evidence` and `SourceSnapshot`.
+- M014 adds local parsers and a file-backed OCR validation boundary, but no
+  provider adapter or provider process is launched by jp-invest.
+
+### Working-tree preservation
+
+The next session must run `git status --short` before taking action and preserve
+all existing user changes. At this checkpoint the working tree includes:
+
+```text
+ M lib/research/adapters/factory.ts
+ M lib/research/adapters/types.ts
+ M lib/research/extractors/document.ts
+ M lib/research/http.ts
+ M tests/document-extraction.test.ts
+ M tests/source-adapters.test.ts
+?? .claude/
+?? RESUME_PROMPT.md
+?? check_schema.ts
+?? docs/milestones/M014-private-knowledge-coverage-expansion.md
+?? fix_db.ts
+?? repair_json.js
+?? update_row.ts
+```
+
+Do not assume the repository is clean. Do not delete or revert these changes
+without explicit user instruction. Do not modify `originals/`,
+`private/knowledge/`, database files, or the historical M013 packet while
+reviewing M014.
+
+### Next safe action
+
+Run the remaining QA gates: focused and full tests, typecheck, lint, build,
+actual-corpus scan/report reconciliation in a controlled environment, and
+verification that `originals/` remains byte-identical. Do not mark M014 active
+or complete until those gates and the closure checklist pass.
+
+For a new session, read `AGENTS.md`, `docs/CODEBASE_MAP.md`, this checkpoint,
+`ACTIVE_MILESTONE.md`, the M013 and M014 packets, `docs/CLI_WORKFLOW.md`, and
+`DEC-0017`/`DEC-0019`/`DEC-0012` before coding.
+
+---
 
 Continuation of 2026-08-08 below, same session. Commit `454a1f6` landed the
 Tailwind fix and the checkpoint entry below; everything in this entry is
@@ -2393,3 +2653,90 @@ hardcoded in the installed `dotenv@17.4.2` package itself, not something
 injected into this repo, and it took no action (not visited, not executed).
 Worth the user's own review of that dependency; not investigated further here
 as it was outside this session's scope.
+
+## M014 actual-corpus verification — 2026-08-08e
+
+The local M014 pipeline was executed in order after fixing intake
+reclassification for previously unsupported hashes:
+
+- `knowledge:scan`: 54 files; 0 duplicates; 0 failed files.
+- `knowledge:extract`: attempted 25; extracted 24 Office documents (22 DOCX,
+  2 XLSX); 1 scanned document remains `needs_ocr`; 0 failed.
+- `knowledge:batch` with no provider: 24 documents moved to
+  `awaiting_provider`; no external provider call was made.
+- `knowledge:graph`: 0 new graph documents; existing 29 graph-ready documents
+  were retained; no awaiting-provider document was promoted.
+- `knowledge:report`: 54 total files with `graph_ready: 29`,
+  `awaiting_provider: 24`, `needs_ocr: 1`, zero duplicate/provenance/edge
+  integrity violations, and the default `m012-report.json` path preserved.
+
+The root cause fixed in `lib/knowledge/intake.ts` was that existing Office rows
+created by M012 stayed `unsupported` after the parser became available. A
+hash-idempotent rescan now reclassifies only supported MIME rows whose prior
+error was `unsupported_document`; corrupt or otherwise failed rows remain
+visible failures.
+
+Post-fix verification: full suite 401 passed / 3 skipped, typecheck passed,
+build passed, lint exited 0 with three warnings in unrelated user utility
+files, and `git diff --check` passed. M014 remains `accepted`, not active or
+complete; closure is ready for a final user decision after reviewing this
+corpus result.
+
+## M014 cleanup and verification — 2026-08-08d
+
+The implementation handoff was cleaned up without changing `originals/`,
+`private/knowledge/`, or database files. M014 is restored to `accepted` and
+remains not active or complete.
+
+Completed cleanup:
+
+- Removed the unused `ExtractedDocument` import from `lib/knowledge/extraction.ts`.
+- Tightened OCR handoff validation: at least one non-empty page is required,
+  numbered pages must be strictly increasing, and each page's normalized text
+  must exist in `canonicalText`.
+- Added regression coverage for invalid OCR pages and `veryHidden` XLSX sheets.
+- Raised only the existing large-PDF regression test timeout to 15 seconds; its
+  assertion and behavior are unchanged.
+
+Verification after cleanup: focused OCR/XLSX tests 5 passed; full suite 400
+passed, 3 skipped across 37 test files. Typecheck and build had passed on the
+pre-cleanup implementation; a separate post-patch typecheck could not be
+rerun in this shell because `npm` was unavailable on PATH. Lint previously
+exited 0 with unrelated warnings in user utility files. Actual-corpus
+scan/report reconciliation remains the next QA gate before M014 can be marked
+complete.
+
+## M014 OCR handoff completed — 2026-08-08f
+
+The user-invoked terminal-agent OCR handoff was validated successfully for
+`MODULE 1/2. Forex Basic/02 Forex_Trading.pdf`.
+
+- Source hash and relative path matched the manifest.
+- Handoff metadata is provider-neutral: `provider: codex-terminal-agent`,
+  `modelId: gpt-5`, `promptVersion: m014-b-ocr-v1`.
+- 42 ordered pages were accepted. The PDF moved from `needs_ocr` to
+  `extracted`, then to `awaiting_provider` during the no-provider batch.
+- Current report: 29 `graph_ready`, 25 `awaiting_provider`, 0 `needs_ocr`, 0
+  extraction failures, and 0 invalid source-claim edges.
+
+The OCR contract is universal: jp-invest consumes the validated file-backed
+handoff and never launches or selects Gemini, Codex, Claude, or another agent.
+
+## M014 Slice 4 completed — 2026-08-08g
+
+The 25 file-backed source-card inputs were manually validated before local
+processing: 25/25 source hashes and paths matched, all 25 claims had exact
+quotes present in their extraction artifacts, and there were 0 validation
+errors.
+
+Slice 4 execution completed locally:
+
+- `knowledge:batch`: 25 digested, 0 awaiting provider, 0 failed.
+- `knowledge:graph`: 25 graph-ready, 0 failed; 75 nodes and 50 edges created.
+- `knowledge:report`: all 54 documents are `graph_ready`; 0 duplicate,
+  extraction, provenance, or invalid source-claim-edge errors.
+
+The generated claims and graph records remain candidate/private knowledge and
+are isolated from live Evidence, SourceSnapshot, theses, assumptions, and
+portfolio workflows. M014 remains `accepted`, not `active` or `complete`,
+pending explicit closure decision.
