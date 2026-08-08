@@ -36,6 +36,8 @@ const LOCAL_TEXT_MIME_TYPES = new Set([
   'text/csv',
   'application/json',
   'application/xml',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]);
 
 export type KnowledgeScanResult = {
@@ -166,6 +168,19 @@ export function scanKnowledgeSources(input: {
         errorCode: null,
       });
     } else {
+      const shouldReclassifyAsExtractable = existingDocument.status === 'unsupported'
+        && isLocallyExtractableMimeType(readable.mimeType)
+        && (!existingDocument.errorCode || existingDocument.errorCode === 'unsupported_document');
+      if (shouldReclassifyAsExtractable) {
+        input.db.update(knowledgeDocuments).set({
+          mimeType: readable.mimeType,
+          sizeBytes: readable.sizeBytes,
+          status: 'extractable',
+          lastError: null,
+          errorCode: null,
+          updatedAt: new Date().toISOString(),
+        }).where(eq(knowledgeDocuments.documentHash, readable.sourceHash)).run();
+      }
       if (existingDocument.relativePath === readable.relativePath
         && (existingDocument.mimeType !== readable.mimeType || existingDocument.sizeBytes !== readable.sizeBytes)) {
         input.db.update(knowledgeDocuments).set({
@@ -179,9 +194,9 @@ export function scanKnowledgeSources(input: {
         sourceHash: readable.sourceHash,
         mimeType: readable.mimeType,
         sizeBytes: readable.sizeBytes,
-        status: existingDocument.status as KnowledgeDocumentStatus,
+        status: shouldReclassifyAsExtractable ? 'extractable' : existingDocument.status as KnowledgeDocumentStatus,
         duplicateOfHash: null,
-        errorCode: existingDocument.errorCode,
+        errorCode: shouldReclassifyAsExtractable ? null : existingDocument.errorCode,
       });
     }
   }

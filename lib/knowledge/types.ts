@@ -124,7 +124,7 @@ export const knowledgeExtractionArtifactSchema = z.object({
     blocks: z.array(z.string()).optional(),
   })),
   parserVersion: z.string().min(1),
-  extractionMethod: z.enum(['html_parser', 'pdf_text', 'text_file']),
+  extractionMethod: z.enum(['html_parser', 'pdf_text', 'text_file', 'docx_parser', 'xlsx_parser', 'ocr']),
   sourceVariant: z.enum(['text_layer', 'scanned']),
   untrustedInstructionFlagged: z.boolean(),
 });

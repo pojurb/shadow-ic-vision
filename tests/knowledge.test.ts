@@ -56,6 +56,18 @@ describe('M012 private knowledge corpus and graph foundation', () => {
     expect(fs.readFileSync(paths.manifestPath, 'utf8')).toBe(firstManifest);
   });
 
+  it('reclassifies previously unsupported documents when a local parser becomes available', () => {
+    fs.writeFileSync(path.join(paths.sourceRoot, 'MODULE 1', 'reclassified.txt'), 'A parser-ready local claim.');
+    scanKnowledgeSources({ db: handle.db, sourceRoot: paths.sourceRoot, knowledgeRoot: paths.knowledgeRoot, manifestPath: paths.manifestPath });
+    const document = handle.db.select().from(knowledgeDocuments).all()[0];
+    handle.db.update(knowledgeDocuments).set({ status: 'unsupported', errorCode: 'unsupported_document', lastError: 'Legacy parser did not support this MIME type.' }).where(eq(knowledgeDocuments.documentHash, document.documentHash)).run();
+
+    const result = scanKnowledgeSources({ db: handle.db, sourceRoot: paths.sourceRoot, knowledgeRoot: paths.knowledgeRoot, manifestPath: paths.manifestPath });
+
+    expect(result.records[0].status).toBe('extractable');
+    expect(handle.db.select({ status: knowledgeDocuments.status }).from(knowledgeDocuments).all()[0].status).toBe('extractable');
+  });
+
   it('extracts local text and marks image sources as needing OCR without calling a provider', async () => {
     fs.writeFileSync(path.join(paths.sourceRoot, 'MODULE 1', 'lesson.txt'), 'A sanitized local framework claim.');
     fs.writeFileSync(path.join(paths.sourceRoot, 'MODULE 2', 'scan.png'), Buffer.from([137, 80, 78, 71]));

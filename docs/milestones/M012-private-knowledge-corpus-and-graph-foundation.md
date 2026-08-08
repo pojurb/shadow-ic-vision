@@ -40,6 +40,10 @@ Users can scan `originals/`, see deterministic hashes and duplicate status,
 extract supported files locally, leave unsupported/scanned files visibly
 unprocessed, validate a future strict-JSON digest without a live provider, and
 inspect candidate graph data without confusing it with current market evidence.
+The product purpose of this foundation is to make that corpus usable as a
+source-traceable analysis substrate for user-led analysis while keeping its
+candidate knowledge separate from live Evidence and automated investment
+conclusions.
 
 ## 2. Current source and artifact layout
 

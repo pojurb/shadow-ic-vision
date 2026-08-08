@@ -30,4 +30,10 @@ This codebase follows a strict "Moral Constitution" — see [`VISION.md` §6-§7
 
 4. **When resolving an `ambiguous` measurement contract (or any other user-owned calibration value), propose methodology — never the final number.** Freely name conventions, comparable frameworks, and reasoning (e.g., "SOTP/EV contribution," "marginal share of new capacity," "SBNB/contracted backlog" — cite the real convention by name, not a vague "best practice"). Never supply the specific calibrated threshold/number for the user's specific thesis and present it as settled; present it as a choice within the framework you named, and say plainly what is still open. This is a narrower sibling of rule 2: rule 2 blocks a *conclusion*, this rule blocks a *calibration input* that would let the conclusion be reverse-engineered from a number you chose. See [`LC-20260804-001`](docs/learning/candidates/LC-20260804-001-ai-proposes-methodology-not-final-thresholds.md) for the full reasoning and corroborating prior art.
 
+Private Knowledge is a source-traceable analysis substrate for user-led
+analysis of the private educational corpus. It is separate from live
+`Evidence`/`SourceSnapshot`, is not current market evidence, and must not be
+used to produce an automatic investment conclusion; `graph_ready` remains
+candidate knowledge with provenance.
+
 Breaking any of these four rules means the product is not functioning as designed.

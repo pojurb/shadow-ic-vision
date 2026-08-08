@@ -85,6 +85,12 @@ Knowledge claims never enter `evidence` or `source_snapshots`. Raw source files
 and full extracted text remain local artifacts, and candidate graph relations
 must carry source claim provenance.
 
+The Private Knowledge layer is an analysis substrate for user-led analysis of
+the educational corpus: it supports finding, comparing, connecting, and
+interrogating source-traceable candidate knowledge. It is not a source of live
+Evidence or current market fact, and `graph_ready` does not mean approved truth
+or an automatic investment conclusion.
+
 ## Research Job State Machine
 
 ```mermaid

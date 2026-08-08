@@ -105,6 +105,47 @@ selection, so the one real decision record in the live database cites rows the
 user never chose — which undermines `VISION.md` §9.7's "reconstruct the evidence
 behind a decision" precisely because the record looks thorough.
 
+### Slice 4, first finding — the official corpus stops at 2023
+
+Slice 4 opened by mapping what the corpus actually holds, and found something
+larger than any per-assumption classification. **All 15 official TLKM documents
+are 2019–2023.** Nothing from 2024, 2025, or 2026 exists in the corpus, while
+the thesis concerns a transaction in progress *now*.
+
+Cause verified against the live issuer page, not inferred. Of 185 `.pdf` links
+in the page HTML, 24 carry a 2024–2026 date, and `discoverIssuerDocuments`
+returns **48 documents, none of them newer than 2023**. The filter
+(`lib/research/adapters/issuer.ts:56`) requires the link's context to contain a
+`REPORT_TERMS` entry — `laporan keuangan`, `financial statement`, `annual
+report`, `laporan tahunan`, `audited`. Two facts combine:
+
+- The page is JavaScript-rendered, so for the recent entries the anchor text and
+  its container text are both **empty**. The only context available is the URL
+  path.
+- Telkom changed its file-naming convention around 2024, from full words
+  (`Laporan Keuangan(Unaudited) 9M 2019.pdf`, `6K_Annual_Report_2019.pdf`) to
+  abbreviations (`Telkom-FS-Bahasa-TW-II-2026.pdf`,
+  `TLKM-2025AR-fullbook-54-00-hires.pdf`, `FS-Telkom-Triwulan-III-2025-rilis.pdf`).
+
+`FS`, `AR`, `LK` and `TW` match none of the terms, so every report published
+from 2024 onward is invisible to the pipeline. The documents themselves are on
+the allowlisted host and fetchable — the 2025 annual report, FY2025 audited
+financials, and 1Q/2Q 2026 statements among them.
+
+This is the **third independent blocker on the same official path**, each
+failing silently into "no evidence" rather than an error: the byte-limit
+mismatch (fixed, `d2c6427`), ticker-scoped `knownDocumentIds` (known, unfixed),
+and now the naming-convention gap. It also changes what Slice 4 can conclude:
+A1 (30% ownership post-transaction) and A2 (Digital Infrastructure revenue
+growth) both looked unanswerable and are in fact **(B) — exists but unreachable**,
+behind a small and now-named blocker.
+
+**User decision: fix this before completing the classification** (option 1 of
+three offered), so the A/B/C judgment is made against a corpus that includes the
+documents the thesis actually depends on. Which terms or URL patterns count as
+"an official report" is a calibration the user owns — too loose and corporate
+presentations and marketing decks enter the corpus.
+
 ## Previous Phase — M012 close-out
 
 M012 is complete as the approved local-only foundation for a source-traceable
@@ -113,6 +154,10 @@ archive is the repository-root `originals/` directory; generated artifacts
 remain under ignored `private/knowledge/`. This subsystem is deliberately
 separate from the ticker/date-bound `Evidence` and `SourceSnapshot` research
 pipeline.
+Its product role is to provide a source-traceable analysis substrate for
+user-led analysis of the educational corpus. It is not live Evidence, current
+market fact, or an automatic investment-conclusion workflow; candidate graph
+records remain provenance-linked knowledge rather than approved truth.
 
 Active Packet: [`docs/milestones/M011-evidence-polarity-and-measurement-contracts.md`](docs/milestones/M011-evidence-polarity-and-measurement-contracts.md) (complete 2026-08-03; all six slices plus governance close-out implemented and tested — see "Slice Outcomes")
 
@@ -809,11 +854,14 @@ Milestones 4 through 10 are complete and verified.
     [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md).
     Slices 1–3 complete: the official path is repaired (`d2c6427`, one shared
     `SOURCE_BYTE_LIMIT`), all six TLKM jobs now `succeeded`, official evidence
-    3 → 21 rows. Slice 4 (source-adequacy A/B/C) is **paused by user decision**
-    while a zero-byte-snapshot integrity defect found during Slice 3 is
-    repaired. Implements none of the four R-025 remedy options; **R-025 stays
-    `Open`**; new **R-028** measured, not mitigated. See "Current Phase" above
-    and the packet's "Slice outcomes".
+    3 → 21 rows; the zero-byte-snapshot integrity defect found during Slice 3 is
+    repaired (`09208aa`). Slice 4 is **started and paused at its first finding**:
+    the official corpus stops at 2023 because `REPORT_TERMS` does not match
+    Telkom's post-2024 abbreviated file naming, so 24 reachable 2024–2026 reports
+    are invisible. User chose to fix that before completing the A/B/C
+    classification. Implements none of the four R-025 remedy options; **R-025
+    stays `Open`**; new **R-028** measured, not mitigated. See "Current Phase"
+    above and the packet's "Slice outcomes".
 
 Milestone 12 is complete. Milestone 11 is complete.
 

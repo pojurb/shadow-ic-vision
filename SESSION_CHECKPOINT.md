@@ -1,3 +1,106 @@
+# Session Checkpoint - 2026-08-08f (M013 Slice 4 opened: the official corpus stops at 2023, and why)
+
+Continuation of `2026-08-08d` below, same session. Entries further down belong to
+other sessions and are untouched, including the M014 work.
+
+## The finding that paused Slice 4 immediately
+
+Slice 4 began by mapping what the corpus actually holds before classifying
+anything. That map produced a finding larger than any per-assumption judgment.
+
+**All 15 official TLKM documents are 2019–2023.** Nothing from 2024, 2025 or
+2026 is in the corpus — while the thesis concerns a divestment transaction in
+progress *now*, in 2026. The secondary corpus is current (late July / early
+August 2026); only the official tier is a stale archive.
+
+### Cause, verified against the live page rather than inferred
+
+Running the real `discoverIssuerDocuments` against
+`https://www.telkom.co.id/sites/hubungan-investor/id_ID/page/laporan-1025`:
+
+- 185 `.pdf` links in the page HTML, spanning 2002–2026
+- 24 of them carry a 2024–2026 date
+- `discoverIssuerDocuments` returns **48 documents, newest 2023** — zero from
+  2024 onward
+
+The filter at `lib/research/adapters/issuer.ts:56` admits a link only if its
+context contains a `REPORT_TERMS` entry: `laporan keuangan`, `financial
+statement`, `annual report`, `laporan tahunan`, `audited`. Two facts combine to
+exclude every recent report:
+
+1. **The page is JavaScript-rendered.** For the recent entries the anchor text
+   and its container text are both empty — checked directly, both returned `""`.
+   So the only context the filter can see is the URL path.
+2. **Telkom changed its file-naming convention around 2024**, from full words to
+   abbreviations:
+
+| Era | Example filename | Matches? |
+|---|---|---|
+| 2019–2023 | `Laporan Keuangan(Unaudited) 9M 2019.pdf`, `6K_Annual_Report_2019.pdf` | yes — full words |
+| 2024–2026 | `Telkom-FS-Bahasa-TW-II-2026.pdf`, `TLKM-2025AR-fullbook-54-00-hires.pdf`, `FS-Telkom-Triwulan-III-2025-rilis.pdf` | no — `FS` / `AR` / `LK` / `TW` |
+
+The documents are on the allowlisted host, https, `.pdf`-suffixed, and
+fetchable. Among them: the 2025 annual report, FY2025 audited consolidated
+financials, and the 1Q and 2Q 2026 statements — exactly the material A1 and A2
+need.
+
+### Why this matters beyond the corpus
+
+It is the **third independent blocker on the same official path**, and all three
+failed silently into "no evidence" rather than into an error:
+
+1. The byte-limit mismatch — fixed, `d2c6427`
+2. Ticker-scoped `knownDocumentIds` — known, unfixed
+3. `REPORT_TERMS` against the post-2024 naming — found now
+
+It also changes what Slice 4 can conclude. A1 (30% ownership post-transaction)
+and A2 (Digital Infrastructure revenue growth) both looked unanswerable from the
+corpus. They are in fact **(B) — exists but unreachable**, behind a blocker that
+is small and now named. No assumption can honestly be called **(A)** until the
+recent documents are actually read.
+
+### User decision
+
+Fix the discovery gap **before** completing the A/B/C classification, so the
+judgment is made against a corpus that contains the documents the thesis
+depends on. Recorded as option 1 of three offered; the other two were to classify
+against the corpus as-is, or to have the assistant propose methodology and the
+user pick the term list.
+
+**The term list is a calibration the user owns.** Too loose and corporate
+presentations, info memos and marketing decks enter the corpus as "official
+reports" — `1Q-2026-TLKM-Corporate-Presentation-Info-Memo.pdf` sits in the same
+directory as the financial statements.
+
+## OCR handoff protocol, agreed this session
+
+All OCR work is split out: the assistant writes a prompt, the user runs it in
+their own terminal agent, and pastes the output back. The assistant does not
+wire `VisionTranscriber`, does not call a vision provider, and does not run OCR
+itself.
+
+The first such prompt was issued for the Laporan Risiko Iklim (the raster-only
+PowerPoint export), asking four availability questions — MW/GW capacity figures,
+PLN supply mentions, NeutraDC mentions, energy/emissions numbers. **Its output
+had not been received when this entry was written.** Its purpose is source
+adequacy: whether the document *contains* a figure, not to ingest quotes as
+evidence. That keeps it clear of DEC-0012, under which OCR output would be
+`ocr_matched` and never `exact_verified`.
+
+### Exact Resume Point
+
+**Next: fix `REPORT_TERMS`/discovery so 2024–2026 issuer reports are reachable,
+then complete Slice 4.** A handoff prompt for this is in the session's final
+message. Diagnosis is already done — see above — so the next session starts at
+the calibration question, not at investigation.
+
+Still pending and unchanged: the OCR output for the Laporan Risiko Iklim; the
+21-of-85 evidence rows whose source snapshots are empty; `evidenceIds` auto-fill;
+the two snapshot directories (`snapshots\` legacy vs `source-snapshots\` current);
+four scratch files at the repository root breaking `tsc` and `lint`.
+
+---
+
 # Session Checkpoint - 2026-08-08d (M013 Slices 1–3 done; Slice 4 paused for a zero-byte-snapshot defect)
 
 M013 is `accepted` and in progress. Acceptance came by direction rather than a
@@ -2740,3 +2843,13 @@ The generated claims and graph records remain candidate/private knowledge and
 are isolated from live Evidence, SourceSnapshot, theses, assumptions, and
 portfolio workflows. M014 remains `accepted`, not `active` or `complete`,
 pending explicit closure decision.
+
+## M014 product position clarified
+
+M014's private knowledge subsystem is explicitly a **source-traceable analysis
+substrate for user-led analysis** of the educational corpus. It helps retrieve,
+compare, connect, and interrogate frameworks, concepts, mechanisms, indicators,
+claims, and limitations. It is not current verified market evidence, and
+`graph_ready` remains a provenance-checked candidate state rather than
+approved truth. Interpretation, relevance, and investment decisions remain
+with the user.

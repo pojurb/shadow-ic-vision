@@ -11,6 +11,12 @@ that shape the workflow below: **the agent's own web search is never
 jp-invest's verified evidence**, and **the agent never recommends Buy / Hold /
 Reduce / Exit**.
 
+Private Knowledge follows a separate boundary: it is a source-traceable
+analysis substrate for user-led analysis of the private educational corpus,
+not live Evidence or current market fact. Its candidate graph records may help
+organize analysis but must not be treated as approved truth or an automatic
+investment conclusion.
+
 ## Prerequisites
 
 - `.env` configured (see `.env.example`). `RESEARCH_SOURCE_MODE=live` for real

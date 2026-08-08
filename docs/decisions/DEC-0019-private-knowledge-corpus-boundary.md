@@ -27,6 +27,14 @@ Putting course claims into those tables would make educational material look
 like verified current fact. The corpus therefore needs its own local,
 source-traceable storage and processing boundary.
 
+The product position is explicit: Private Knowledge is a source-traceable
+analysis substrate for user-led analysis of the educational corpus. It helps
+the user find, compare, connect, and interrogate frameworks, concepts,
+mechanisms, indicators, claims, and limitations. It is not live Evidence,
+current market fact, or an automatic investment-conclusion engine; a
+`graph_ready` record remains candidate knowledge with provenance, not approved
+truth.
+
 ## Decision
 
 Approve M012 as a local-only Private Knowledge Corpus and Knowledge Graph

@@ -55,6 +55,10 @@ When the system warns the user that a thesis may be breaking, it must earn trust
 1. **Supporting Evidence:** The filing, transcript, or data point that triggered the concern, with its source, date, freshness, and verification status.
 2. **Alternative Views:** Presenting the strongest argument *for* the opposing position to ensure intellectual honesty.
 3. **Known Limits:** Showing what the system could not verify, which relevant sources may be missing, and which statements are inference rather than fact.
+4. **Private Knowledge Boundary:** Private educational knowledge may support
+   user-led analysis, but it is not live Evidence or current market fact. Its
+   source-traceable graph records remain candidate knowledge and must not be
+   presented as verified truth or an automatic investment conclusion.
 
 ## 6. The Moral Constitution (Trust Promises)
 

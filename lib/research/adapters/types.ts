@@ -51,6 +51,9 @@ export type SourceErrorCode =
   | 'encrypted_document'
   | 'corrupt_document'
   | 'scanned_document'
+  | 'corrupt_office_file'
+  | 'ocr_handoff_invalid'
+  | 'ocr_handoff_mismatch'
   /*
    * Every discovered document had already been retrieved, and none of them
    * produced evidence for this assumption. Distinct from `citation_not_found`

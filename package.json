@@ -39,11 +39,14 @@
     "fixtures:vision:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/generate-vision-fixtures.ts"
   },
   "dependencies": {
+    "@types/jszip": "^3.4.0",
     "ai": "^7.0.14",
     "better-sqlite3": "^12.11.1",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "next": "16.2.10",
     "pdfjs-dist": "^6.1.200",
     "react": "19.2.4",

@@ -253,6 +253,9 @@ ignored local artifacts, validates a provider-neutral source-card contract,
 and emits candidate provenance-linked graph records. It does not alter the
 live `Evidence`/`SourceSnapshot` hierarchy, call an external provider by
 default, or create a Macro Regime Lens or trading workflow.
+Its product role is to provide a source-traceable analysis substrate for
+user-led analysis of the educational corpus, not live Evidence, current market
+fact, or an automatic investment-conclusion workflow.
 
 ## M013: Source Adequacy & Official-Path Recovery
 
