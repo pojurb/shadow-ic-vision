@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "133d4ec5628997c976036c747e50b6ebea5210b96b3fc387bfd4cc4bba29b7bb",
+  "sourceDigest": "90985987c0bf350669f1a9d540947f5ca3402de3ebfadfdd6697786529478660",
   "roots": [
     "app",
     "components",
@@ -766,6 +766,11 @@
         "evidence",
         "ingestionLeases",
         "ingestionRuns",
+        "knowledgeClaims",
+        "knowledgeDocuments",
+        "knowledgeGraphEdges",
+        "knowledgeGraphNodes",
+        "knowledgeProcessingRuns",
         "messages",
         "portfolioAlerts",
         "portfolioPositions",
@@ -1010,6 +1015,311 @@
         "secondaryEvidenceAcceptanceAvailable",
         "thesisDraftSchema",
         "thesisExportSchema"
+      ]
+    },
+    {
+      "path": "lib/knowledge/batch.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./extraction",
+          "resolved": "lib/knowledge/extraction.ts"
+        },
+        {
+          "specifier": "./intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/knowledge/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "FileBackedKnowledgeProvider",
+        "KnowledgeBatchResult",
+        "KnowledgeDigestInput",
+        "KnowledgeDigestProvider",
+        "KnowledgeProviderError",
+        "processKnowledgeBatch",
+        "validateKnowledgeSourceCard"
+      ]
+    },
+    {
+      "path": "lib/knowledge/extraction.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "./paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/knowledge/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/research/errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/document",
+          "resolved": "lib/research/extractors/document.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgeExtractionResult",
+        "extractKnowledgeSources",
+        "readKnowledgeExtractionArtifact"
+      ]
+    },
+    {
+      "path": "lib/knowledge/graph.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/knowledge/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgeGraphResult",
+        "buildKnowledgeGraph",
+        "insertProvenanceCheckedEdge"
+      ]
+    },
+    {
+      "path": "lib/knowledge/index.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "*"
+      ]
+    },
+    {
+      "path": "lib/knowledge/intake.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/knowledge/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgeScanResult",
+        "detectKnowledgeMimeType",
+        "isLocallyExtractableMimeType",
+        "scanKnowledgeSources",
+        "syncManifestStatuses",
+        "writeManifest"
+      ]
+    },
+    {
+      "path": "lib/knowledge/paths.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgePaths",
+        "artifactRelativePath",
+        "ensureKnowledgeArtifactLayout",
+        "resolveKnowledgePaths",
+        "resolveSourcePath",
+        "toSourceRelativePath"
+      ]
+    },
+    {
+      "path": "lib/knowledge/report.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/knowledge/types.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgeReport",
+        "buildKnowledgeReport",
+        "parseClaimIds",
+        "writeKnowledgeReport"
+      ]
+    },
+    {
+      "path": "lib/knowledge/types.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "KnowledgeBatchArtifact",
+        "KnowledgeCardClaim",
+        "KnowledgeClassification",
+        "KnowledgeDocumentStatus",
+        "KnowledgeEdgeType",
+        "KnowledgeExtractionArtifact",
+        "KnowledgeManifestRecord",
+        "KnowledgeNodeType",
+        "KnowledgeProviderMetadata",
+        "KnowledgeSourceCard",
+        "knowledgeBatchArtifactSchema",
+        "knowledgeCardClaimSchema",
+        "knowledgeClassificationSchema",
+        "knowledgeDocumentStatusSchema",
+        "knowledgeEdgeTypeSchema",
+        "knowledgeExtractionArtifactSchema",
+        "knowledgeManifestRecordSchema",
+        "knowledgeNodeTypeSchema",
+        "knowledgeProviderMetadataSchema",
+        "knowledgeSourceCardSchema"
       ]
     },
     {
@@ -2799,6 +3109,61 @@
       "exports": []
     },
     {
+      "path": "tests/knowledge.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/batch",
+          "resolved": "lib/knowledge/batch.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/extraction",
+          "resolved": "lib/knowledge/extraction.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/graph",
+          "resolved": "lib/knowledge/graph.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/live-sources.test.ts",
       "kind": "test",
       "imports": [
@@ -3653,6 +4018,31 @@
       "module": "db/schema.ts"
     },
     {
+      "name": "knowledge_claims",
+      "symbol": "knowledgeClaims",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "knowledge_documents",
+      "symbol": "knowledgeDocuments",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "knowledge_graph_edges",
+      "symbol": "knowledgeGraphEdges",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "knowledge_graph_nodes",
+      "symbol": "knowledgeGraphNodes",
+      "module": "db/schema.ts"
+    },
+    {
+      "name": "knowledge_processing_runs",
+      "symbol": "knowledgeProcessingRuns",
+      "module": "db/schema.ts"
+    },
+    {
       "name": "messages",
       "symbol": "messages",
       "module": "db/schema.ts"
@@ -3796,6 +4186,18 @@
         "lib/research/assumption-status.ts",
         "lib/research/evidence-cleanup.ts",
         "lib/research/service.ts"
+      ]
+    },
+    {
+      "path": "tests/knowledge.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/knowledge/batch.ts",
+        "lib/knowledge/extraction.ts",
+        "lib/knowledge/graph.ts",
+        "lib/knowledge/intake.ts",
+        "lib/knowledge/paths.ts"
       ]
     },
     {

@@ -92,6 +92,13 @@
       "when": 1785892103671,
       "tag": "0012_add-research-job-lease-owner",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1786156808858,
+      "tag": "0013_add_private_knowledge",
+      "breakpoints": true
     }
   ]
 }

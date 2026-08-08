@@ -19,6 +19,10 @@ inputs/conventional_biz/*.csv
 !inputs/startups/_sample_fintech.csv
 !inputs/conventional_biz/_sample_cafe.csv
 
+# === PRIVATE KNOWLEDGE CORPUS (never commit) ===
+/originals/
+/private/knowledge/
+
 # === OS ARTIFACTS ===
 .DS_Store
 Thumbs.db

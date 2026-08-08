@@ -239,3 +239,17 @@ M011 adds **meaning**: what the number is, and which way it points. R-027 moves
 to `Mitigated`; **R-025 stays `Open`**, deliberately — polarity is only ever
 non-`inconclusive` for structured-fact evidence, so semantic relevance of
 text-derived secondary evidence remains exactly where M010 left it.
+
+## M012: Private Knowledge Corpus & Graph Foundation
+
+Status: `complete` (2026-08-08) — packet at
+[`M012-private-knowledge-corpus-and-graph-foundation.md`](M012-private-knowledge-corpus-and-graph-foundation.md),
+governed by [`DEC-0019`](../decisions/DEC-0019-private-knowledge-corpus-boundary.md).
+
+M012 creates a local SQLite/Drizzle subsystem for the private educational
+corpus already under the repository-root `originals/` directory. It preserves
+relative paths and content hashes, keeps raw files and full extraction under
+ignored local artifacts, validates a provider-neutral source-card contract,
+and emits candidate provenance-linked graph records. It does not alter the
+live `Evidence`/`SourceSnapshot` hierarchy, call an external provider by
+default, or create a Macro Regime Lens or trading workflow.

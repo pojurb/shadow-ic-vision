@@ -313,5 +313,106 @@ export const portfolioAlerts = sqliteTable('portfolio_alerts', {
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// M012: private educational knowledge corpus. These tables are deliberately
+// separate from source_snapshots/evidence: course material is a framework
+// corpus, never current market evidence.
+export const knowledgeDocuments = sqliteTable('knowledge_documents', {
+  documentHash: text('document_hash').primaryKey(),
+  relativePath: text('relative_path').notNull(),
+  mimeType: text('mime_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  status: text('status', {
+    enum: [
+      'discovered', 'duplicate', 'extractable', 'needs_ocr', 'unsupported',
+      'extracted', 'awaiting_provider', 'digested', 'graph_ready', 'failed',
+    ],
+  }).notNull(),
+  // The hash is validated by the intake service. It is intentionally not a
+  // self-reference in the Drizzle initializer, which would create a circular
+  // TypeScript inference path for this table definition.
+  duplicateOfHash: text('duplicate_of_hash'),
+  extractionPath: text('extraction_path'),
+  batchPath: text('batch_path'),
+  lastError: text('last_error'),
+  errorCode: text('error_code'),
+  retryCount: integer('retry_count').notNull().default(0),
+  provider: text('provider'),
+  modelId: text('model_id'),
+  promptVersion: text('prompt_version'),
+  processedAt: text('processed_at'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index('knowledge_documents_relative_path_idx').on(table.relativePath),
+  index('knowledge_documents_status_idx').on(table.status),
+]);
+
+export const knowledgeProcessingRuns = sqliteTable('knowledge_processing_runs', {
+  id: text('id').primaryKey(),
+  stage: text('stage', { enum: ['scan', 'extract', 'batch', 'graph', 'report'] }).notNull(),
+  documentHash: text('document_hash').references(() => knowledgeDocuments.documentHash, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['running', 'succeeded', 'failed', 'skipped'] }).notNull(),
+  provider: text('provider'),
+  modelId: text('model_id'),
+  promptVersion: text('prompt_version'),
+  retryCount: integer('retry_count').notNull().default(0),
+  startedAt: text('started_at').notNull(),
+  completedAt: text('completed_at'),
+  durationMs: integer('duration_ms'),
+  errorCode: text('error_code'),
+  error: text('error'),
+});
+
+export const knowledgeClaims = sqliteTable('knowledge_claims', {
+  id: text('id').primaryKey(),
+  documentHash: text('document_hash').notNull().references(() => knowledgeDocuments.documentHash, { onDelete: 'restrict' }),
+  claimText: text('claim_text').notNull(),
+  classification: text('classification', {
+    enum: ['framework', 'historical', 'time_sensitive', 'opinion', 'uncertain'],
+  }).notNull(),
+  locator: text('locator').notNull(),
+  quoteHash: text('quote_hash').notNull(),
+  status: text('status', { enum: ['candidate', 'approved', 'rejected'] }).notNull().default('candidate'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index('knowledge_claims_document_hash_idx').on(table.documentHash),
+]);
+
+export const knowledgeGraphNodes = sqliteTable('knowledge_graph_nodes', {
+  id: text('id').primaryKey(),
+  documentHash: text('document_hash').notNull().references(() => knowledgeDocuments.documentHash, { onDelete: 'restrict' }),
+  sourceClaimId: text('source_claim_id').references(() => knowledgeClaims.id, { onDelete: 'restrict' }),
+  nodeType: text('node_type', {
+    enum: ['SourceDocument', 'Section', 'Claim', 'Concept', 'Indicator', 'Mechanism', 'Framework', 'Limitation'],
+  }).notNull(),
+  label: text('label').notNull(),
+  description: text('description'),
+  status: text('status', { enum: ['candidate', 'approved', 'rejected'] }).notNull().default('candidate'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index('knowledge_graph_nodes_document_hash_idx').on(table.documentHash),
+  index('knowledge_graph_nodes_source_claim_idx').on(table.sourceClaimId),
+]);
+
+export const knowledgeGraphEdges = sqliteTable('knowledge_graph_edges', {
+  id: text('id').primaryKey(),
+  documentHash: text('document_hash').notNull().references(() => knowledgeDocuments.documentHash, { onDelete: 'restrict' }),
+  sourceNodeId: text('source_node_id').notNull().references(() => knowledgeGraphNodes.id, { onDelete: 'restrict' }),
+  targetNodeId: text('target_node_id').notNull().references(() => knowledgeGraphNodes.id, { onDelete: 'restrict' }),
+  edgeType: text('edge_type', {
+    enum: ['CONTAINS', 'ASSERTS', 'DEFINES', 'CAUSES', 'REQUIRES', 'MEASURED_BY', 'QUALIFIES', 'CONTRADICTS', 'DERIVED_FROM'],
+  }).notNull(),
+  sourceClaimIds: text('source_claim_ids').notNull().default('[]'),
+  status: text('status', { enum: ['candidate', 'approved', 'rejected'] }).notNull().default('candidate'),
+  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index('knowledge_graph_edges_document_hash_idx').on(table.documentHash),
+  index('knowledge_graph_edges_source_node_idx').on(table.sourceNodeId),
+  index('knowledge_graph_edges_target_node_idx').on(table.targetNodeId),
+]);
+
 
 

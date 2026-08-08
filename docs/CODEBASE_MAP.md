@@ -17,7 +17,8 @@ product and architecture authority remains in milestones, decisions, and
 | Research orchestration | Jobs, ingestion, citation pipeline, snapshots | `lib/research/` |
 | Source adapters | SEC, IDX, issuer, and synthetic fixtures | `lib/research/adapters/` |
 | Persistence | Drizzle schema, queries, migrations, external SQLite | `db/` |
-| Support scripts | Environment loading, evaluation harness, fixture generation | `scripts/dotenv-quiet.ts`, `scripts/eval-*.ts`, `scripts/generate-vision-fixtures.ts` |
+| Private knowledge | Local source intake, extraction, digest boundary, graph, reports | `lib/knowledge/`, `scripts/knowledge.ts`, `private/knowledge/` |
+| Support scripts | Environment loading, evaluation harness, fixture generation, terminal-first CLI workflow (`DEC-0017`) | `scripts/dotenv-quiet.ts`, `scripts/eval-*.ts`, `scripts/generate-vision-fixtures.ts`, `scripts/thesis-stage.ts`, `scripts/research-queue.ts`, `scripts/research-panel.ts`, `scripts/research-refresh.ts`, `scripts/research-retry.ts`, `scripts/promote-discoveries.ts`, `scripts/cleanup-boilerplate-evidence.ts`, `scripts/cleanup-mislabelled-promotions.ts`, `scripts/status-check.ts`, `scripts/context-index.ts`, `scripts/verify.ts` — see [`CLI_WORKFLOW.md`](CLI_WORKFLOW.md) |
 | Verification | Unit, integration, live opt-in, and browser checks | `tests/` |
 
 Route handlers validate transport input and delegate. Business behavior belongs
@@ -67,6 +68,23 @@ Raw source bytes are immutable and content-addressed outside the repository.
 Evidence stores verified extraction provenance; assumptions do not become
 verified merely because exact evidence exists.
 
+The M012 private knowledge flow is separate from that hierarchy:
+
+```text
+originals/ (read-only, Git-ignored)
+  -> lib/knowledge/intake.ts
+  -> knowledge_documents / manifest.jsonl
+  -> lib/knowledge/extraction.ts
+  -> private/knowledge/extracted/
+  -> provider-neutral validated source card
+  -> knowledge_claims / knowledge_graph_nodes / knowledge_graph_edges
+  -> private/knowledge/graph/ and reports/
+```
+
+Knowledge claims never enter `evidence` or `source_snapshots`. Raw source files
+and full extracted text remain local artifacts, and candidate graph relations
+must carry source claim provenance.
+
 ## Research Job State Machine
 
 ```mermaid
@@ -99,6 +117,24 @@ processing, since a subprocess-backed caller (e.g. a CLI script) can exceed
 the 60s lease. Proven by `tests/research-service.test.ts`'s "does not let a
 reclaimed worker overwrite a later claimant" — confirmed to fail without the
 `leaseOwner` gate, pass with it.
+
+**Retrieval sweeps forward instead of stopping at the first document
+(2026-08-05, `153c998`).** `executeResearchJob` previously inspected only
+`discovery.value[0]`; adapters can return up to 20 documents, so a known
+leading document (e.g. a quarterly filing that happens to sort first in DOM
+order) ended the job before a later, unfetched document (an annual report)
+was ever tried. It now advances to the first not-yet-retrieved document. The
+`unchanged` short-circuit in `processResearchJobs` (`lib/research/service.ts`)
+is also no longer written back as `succeeded` when it carries zero evidence
+for the assumption — that combination (every document already known, nothing
+extracted) now writes `degraded`/`errorCode: 'no_new_documents'` instead. Real
+case this fixed: a job that had honestly failed `source_too_large`, retried,
+short-circuited because the oversized document had since become a known
+snapshot, and was recorded a false `succeeded` that erased the original
+diagnostic. `source_snapshots` has no `job_id` (it is scoped by
+market/ticker), so `knownDocumentIds` is shared across sibling jobs — one job
+snapshotting a document can short-circuit every other assumption's job in the
+same run; not yet fixed, tracked in `SESSION_CHECKPOINT.md`.
 
 **Assumption confirmation gate** (separate from the job state machine
 above — this is `assumptions.status`, not `research_jobs.status`):
@@ -223,6 +259,17 @@ getPortfolioBriefing query
      - TopTenQueue: sidebar briefing of top 10 holdings
      - StatusIndex: full sortable/filterable table at /portfolio
 ```
+
+**Verdict bridge (2026-08-07, `6fa90d7`).** `getPortfolioBriefing` additionally
+runs the same pure `deriveCoverageLedger`/`deriveThesisVerdict` the Research
+Panel renders and attaches `verdictLevel`/`supported`/`totalAssumptions`/
+`relevanceUnassessedCount` per thesis, surfaced in both `TopTenQueue` and
+`/portfolio`. `relevanceUnassessedCount` is deliberately its own field, not
+folded into `supported` — it counts secondary evidence rows never assessed
+for topical relevance (R-025), so unassessed passages can't be presented as
+corroboration. The two surfaces count different units, both honestly: the
+Research Panel headline counts *assumptions* carrying unassessed quotes, the
+briefing badge counts *evidence rows*.
 
 ### Periodic official-source ingestion
 
@@ -471,6 +518,79 @@ getResearchPanel
   `assumptions.status` gets **no** auto-transition: `deriveAssumptionStatus`'s
   never-auto-mark invariant is preserved, so a breach does not reach the Top-10
   Queue — an explicit deferral, not an oversight.
+- **Post-M011 hardening, 2026-08-05 to 2026-08-07 (no milestone; governed by
+  `DEC-0017`/`DEC-0018`, not a numbered packet).** The verdict's positive state
+  (`deriveThesisVerdict`, `lib/research/verdict.ts`) additionally requires
+  `coverage.supported > 0` (`DEC-0018`) — absence of contradiction alone
+  previously reached `holding` even when every evidence row was
+  `inconclusive` (the real TLKM thesis, 42/42 rows). The state is gated, not
+  removed: a thesis whose structured facts genuinely clear their threshold
+  (the M011 PLTR path) still reaches it. Both the CLI panel and the web
+  `ResearchPanel` coverage line lead with `supported`, not `evidenced`
+  (`747396f`) — `evidenced` counts a row of any polarity and previously read
+  as confirmation while `supported` was zero; the retrieval ratio
+  (`evidenced / total`) is still shown because `confidenceGate` derives from
+  it, now labelled for what it measures. Verdict copy is under a standing
+  regression test forbidding `/irrelevant|unrelated|off-topic/`
+  (`tests/coverage-verdict.test.ts`) — the pipeline cannot honestly claim
+  relevance in either direction, only that a quote is verbatim-verified.
+- **Relevance remains the open gap R-025 tracks, quantified 2026-08-06.**
+  `e8a99c3` generalized M009's ticker/bare-year exclusion in
+  `rankSentenceCandidates` (`extractors/candidate.ts`) to the full company
+  name and market (an `identity` string threaded from the thesis through
+  `runSecondaryResearchCall`/`runDiscoveryAndPromotion` in
+  `lib/research/service.ts`), so a passage matching only the issuer's own
+  name no longer qualifies as topically relevant. This is a narrow, real fix,
+  **not** a relevance gate: token overlap still decides whether a passage
+  becomes Evidence at all, and an independent instrumented audit of the live
+  TLKM corpus (72 candidates across 6 assumptions) found 88.9% clearly
+  irrelevant to the assumption they were attached to (94.4% including
+  borderline). Four remedy candidates are recorded in
+  `docs/RISK_REGISTER.md`'s R-025 entry, none chosen — the user's explicit
+  instruction was to record the finding, not execute a remedy. Do not add
+  another denylist phrase or token-floor tweak expecting it to close this: a
+  floor raised from 1 to 2 qualifying tokens was measured insufficient (37 of
+  the same irrelevant candidates still cleared it). `secondaryEvidenceAcceptanceAvailable()`
+  (`lib/domain/contracts.ts`) currently `return`s `false` unconditionally —
+  the same off-by-default seam shape as `DEC-0016`'s classifier — so the
+  Research panel shows `SECONDARY_ACCEPTANCE_UNAVAILABLE_REASON` instead of an
+  "Accept secondary evidence" control, and `acceptSecondaryEvidence` refuses
+  the request server-side regardless of the UI, because `user_confirmed_secondary`
+  is a durable human decision and the passages behind it have never been
+  assessed for relevance. Flipping this seam belongs to the relevance
+  milestone, not a routine change.
+- **Class-C document classification, corrected twice, 2026-08-06 (`df600f4`,
+  `cf306da`, `b52a1f3`).** `promoteCandidate`
+  (`lib/research/discovery-promotion.ts`) previously labelled any fetch from
+  an allowlisted issuer origin a "Web-discovered issuer release" — the live
+  database held IR landing/index pages under that label. A first fix
+  (`df600f4`) gated on a URL-shape predicate but judged the pre-redirect
+  `candidateUrl` while the persisted snapshot recorded `fetched.url`, and made
+  rejections terminal. The real fix, `classifySecondaryDocument`
+  (`lib/research/secondary-document.ts`), reads `@type` from JSON-LD/`og:type`
+  in the *fetched* document and applies to both Class A and Class B (news was
+  equally ungated before) — measured 15/15 against every retained real TLKM
+  secondary snapshot with no false positive or negative. `b52a1f3` repaired
+  the five pre-existing mislabelled rows via the same dry-run-then-apply
+  discipline `cleanup-boilerplate-evidence` (M010) established
+  (`scripts/cleanup-mislabelled-promotions.ts`).
+- **Terminal-first CLI workflow (`DEC-0017`, accepted 2026-08-05).** A
+  terminal-based agent (any vendor) is an external orchestrator that shells
+  out to `npm run research:*`/`thesis:stage`/etc — it never swaps
+  `LLMProvider` inside evidence extraction, and no code under `app/api/*`
+  constructs or invokes a CLI agent process. SQLite runs WAL with a 5s
+  `busy_timeout` (`db/client.ts`) so a browser session and a CLI-triggered
+  script can write concurrently; see the Research Job State Machine section
+  above for the `leaseOwner` gate this makes safe. The actual thesis-creation
+  commitment gate is the browser, not the CLI: `thesis:stage`
+  (`scripts/thesis-stage.ts`) never inserts a `theses` row, only a
+  `conversations`/`messages` draft plus a printed `localhost:3000/c/<id>` URL
+  — the thesis is created only when the user opens it and clicks Confirm,
+  which calls the same `confirmDraft` a web-only user goes through. A
+  `decisions:record` script does not exist yet; when built it must block on
+  live interactive stdin for the action value per `DEC-0017` item 6, never
+  accept it as a pre-filled flag. See [`CLI_WORKFLOW.md`](CLI_WORKFLOW.md) for
+  the how-to.
 
 ## Task Routing
 
@@ -483,9 +603,11 @@ getResearchPanel
 | Portfolio briefing or priority queue | `lib/portfolio/priorityQueue.ts`, `db/queries.ts#getPortfolioBriefing`, schema | `tests/portfolio-briefing.test.ts` coverage, standard verify, link resolution (conversationId, not thesisId) |
 | Portfolio UI (queue/index) | `components/TopTenQueue.tsx`, `app/portfolio/page.tsx`, briefing route | `verify:full` with Playwright, sorting/filtering correctness, refresh-on-sync behavior |
 | Research source adapter | adapter types, HTTP client, pipeline, source tests | adapter tests, standard verify, opt-in live smoke when authorized |
-| Secondary-source evidence (M007/M009/M010) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule, boilerplate-phrase denylist, and M010's block-segmentation + shape guards), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping and M010 block sentinel), `lib/research/assumption-status.ts` (both the insert-shaped and removal-shaped derivations), `lib/research/evidence-cleanup.ts`, `lib/research/adapters/issuer-press.ts` (M010 listing-page guard)/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), M010 shape fixtures (a punctuation-free run-on with no denylisted phrase is the case M009's fixtures could not catch), the `blocks.join(' ') === text` identity, confirmation-gate test, standard verify. **Before adding another denylist phrase, check whether the failure is one of shape rather than vocabulary — that mistake is what M010 exists to correct.** Class C is out of scope — do not add search-provider code without a new milestone packet. |
+| Secondary-source evidence (M007/M009/M010, plus Class C/M008 discovery) | `lib/research/extractors/candidate.ts` (structural gate; `rankSentenceCandidates`'s `sourceTier`-gated qualifying-token rule, `identity`-token exclusion added `e8a99c3`, boilerplate-phrase denylist, and M010's block-segmentation + shape guards), `lib/research/extractors/document.ts` (`extractHtml`'s DOM-chrome stripping and M010 block sentinel), `lib/research/secondary-document.ts` (`classifySecondaryDocument`, the Class-C document-type gate — see the "Post-M011 hardening" invariant above), `lib/research/discovery-promotion.ts`, `lib/research/assumption-status.ts` (both the insert-shaped and removal-shaped derivations), `lib/research/evidence-cleanup.ts`, `lib/research/adapters/issuer-press.ts` (M010 listing-page guard)/`news-wire.ts`, milestone packets' §"Options Considered" | adversarial invariant test (never `exact_verified`/`ocr_matched`), boilerplate-fixture regression tests (M009, reproducing the real TLKM failures), M010 shape fixtures (a punctuation-free run-on with no denylisted phrase is the case M009's fixtures could not catch), the `blocks.join(' ') === text` identity, confirmation-gate test, standard verify. **Before adding another denylist phrase, check whether the failure is one of shape rather than vocabulary — that mistake is what M010 exists to correct — or of relevance rather than shape, which is R-025's still-open gap (see the Evidence relevance row below).** Class C (search discovery) shipped in M008 and is not out of scope; its remaining gap is document-type classification and relevance, not the search step itself. |
 | Research jobs or ingestion | service, ingestion, schema, scheduler scripts | unit/integration, standard verify, local operational check if scheduling changes |
-| Measurement contracts, polarity, verdict (M011) | `lib/domain/contracts.ts` (`measurementContractSchema`, `draftClarificationBlock`), `lib/research/polarity.ts`, `lib/research/evidence-persistence.ts` (the choke point), `lib/research/coverage.ts`, `lib/research/verdict.ts`, `lib/research/adapters/sec-xbrl.ts` (the instant-vs-duration gate), the M011 packet's "Options Considered" | `tests/measurement-contract.test.ts`, `tests/polarity.test.ts`, `tests/xbrl-facts.test.ts`, `tests/coverage-verdict.test.ts`, standard verify, `test:e2e` (the verdict's placement outside `.panelContent` is only observable in a browser). **Before adding a new polarity path, check whether it can assert a magnitude at all — if it cannot supply `observedValue`, the honest answer is `inconclusive`, not a guess.** Do not wire a `PolarityClassifier` by default without a new packet and a DEC-0016 amendment. |
+| Measurement contracts, polarity, verdict (M011 + `DEC-0018`) | `lib/domain/contracts.ts` (`measurementContractSchema`, `draftClarificationBlock`, `secondaryEvidenceAcceptanceAvailable`), `lib/research/polarity.ts`, `lib/research/evidence-persistence.ts` (the choke point), `lib/research/coverage.ts` (leads with `supported`, not `evidenced` — `747396f`), `lib/research/verdict.ts` (the `coverage.supported > 0` gate on `holding` — `DEC-0018`), `lib/research/adapters/sec-xbrl.ts` (the instant-vs-duration gate), the M011 packet's "Options Considered", `docs/decisions/DEC-0018-verdict-positive-state-conditions.md` | `tests/measurement-contract.test.ts`, `tests/polarity.test.ts`, `tests/xbrl-facts.test.ts`, `tests/coverage-verdict.test.ts`, `tests/portfolio-briefing.test.ts` (the verdict bridge), standard verify, `test:e2e` (the verdict's placement outside `.panelContent` is only observable in a browser). **Before adding a new polarity path, check whether it can assert a magnitude at all — if it cannot supply `observedValue`, the honest answer is `inconclusive`, not a guess.** Do not wire a `PolarityClassifier` by default without a new packet and a DEC-0016 amendment. Verdict/coverage copy must never assert topical relevance in either direction (regression-tested) — that is R-025's unresolved gap, not this row's problem to fix. |
+| Evidence relevance (R-025, `Open` — do not attempt a full fix without a scoped plan) | `lib/research/extractors/candidate.ts` (`rankSentenceCandidates`'s `identity`-token exclusion, `e8a99c3`), `lib/research/secondary-document.ts` (`classifySecondaryDocument`, the Class-C document-type gate), `docs/RISK_REGISTER.md`'s R-025 entry (the quantified 88.9%-irrelevant audit and four unchosen remedy candidates), `SESSION_CHECKPOINT.md`'s 2026-08-06/07 entries | The audit finding is user-owned scope, not an implementation detail — raise the remedy-scope question before writing relevance code. A token-floor tweak is not a fix (measured insufficient). Any change here should also check whether `secondaryEvidenceAcceptanceAvailable()` (`lib/domain/contracts.ts`) should still return `false`. |
+| Terminal CLI workflow (stage/queue/panel/refresh/retry/promote-discoveries) | [`CLI_WORKFLOW.md`](CLI_WORKFLOW.md), [`decisions/DEC-0017-cli-terminal-workflow-and-concurrency-model.md`](decisions/DEC-0017-cli-terminal-workflow-and-concurrency-model.md), the relevant `scripts/*.ts` | `tests/research-service.test.ts` (lease-owner race, fail-then-pass proven), `tests/decisions.test.ts` (shared-insert gate scoping), standard verify. No script may insert a `theses` row directly — durable thesis state is created only by the browser `Confirm` click via `confirmDraft`; a future `decisions:record` script must block on live interactive stdin for the action value, never a pre-filled flag. |
 | Learning promotion | `.agents/LEARNING.md`, candidate, index, promotion registry | independent review, `status:check`, `git diff --check` |
 | Release/checkpoint | `.agents/RELEASE.md`, verification summary, active/checkpoint docs | `verify:full`, retained evidence review |
 

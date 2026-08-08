@@ -23,6 +23,7 @@ must match the linked documents.
 | DEC-0016 | `accepted` | [Evidence polarity classifier boundary](DEC-0016-evidence-polarity-classifier-boundary.md) | M011 provider call site | Optional polarity classifier is off by default and gated on live research mode; never overrides arithmetic or a structural refusal, and a `model_classified` verdict can never produce a quantified breach |
 | DEC-0017 | `accepted` | [Terminal-first CLI workflow and concurrency model](DEC-0017-cli-terminal-workflow-and-concurrency-model.md) | CLI/Dashboard interface split, SQLite concurrency, script design | WAL + lease-owner gate makes concurrent browser/CLI access safe; one shared `createThesisFromValidatedDraft` path; a new thesis's real commit gate is the browser, never the CLI |
 | DEC-0018 | `accepted` | [Verdict positive-state conditions](DEC-0018-verdict-positive-state-conditions.md) | What the thesis verdict may affirm | The positive state requires at least one supported assumption; absence of contradiction is not evidence of support |
+| DEC-0019 | `accepted` | [Private knowledge corpus boundary](DEC-0019-private-knowledge-corpus-boundary.md) | Private knowledge subsystem | Local source-traceable corpus and candidate graph remain separate from live Evidence and SourceSnapshot |
 
 ## Historical Drafts
 
