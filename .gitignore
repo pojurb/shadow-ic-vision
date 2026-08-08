@@ -23,6 +23,9 @@ inputs/conventional_biz/*.csv
 /originals/
 /private/knowledge/
 
+# === PRIVATE OCR WORKING DATA (never commit) ===
+/tmp/pdfs/forex-ocr/
+
 # === OS ARTIFACTS ===
 .DS_Store
 Thumbs.db
