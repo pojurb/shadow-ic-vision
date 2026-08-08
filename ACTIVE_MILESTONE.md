@@ -1,6 +1,70 @@
 # Active Milestone
 
-Status: `complete`
+Status: `scoped` — awaiting user acceptance
+
+Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (scoped 2026-08-08; repair the official-source path, then classify each assumption's source adequacy)
+
+Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
+
+## Current Phase — M013 scoped, not started
+
+**No code has been written for M013.** The packet is drafted and awaits user
+acceptance; this section records why it exists and what it deliberately does not
+do.
+
+M013 was opened by a finding rather than a fired review trigger, and the finding
+arrived *after* three days of R-025 remedy analysis had already converged. Two
+independent AI reviews, working from different directions and both grounded in
+`VISION.md`, agreed that the system conflates *passage found*, *passage worth
+reviewing*, and *evidence judged relevant*. That diagnosis stands. What neither
+review tested was whether the corpus contains anything worth distinguishing.
+
+A direct inspection of the live TLKM sources found it largely does not. **All
+six** official-source jobs sit at `degraded` / `source_too_large` after 8–9
+attempts — the financial statements have never once been read. The corpus that
+filled the gap is ~25 daily market-wire round-ups (index moves, foreign net-sell
+figures) and ~13 CSR/education press releases, with a **sustainability report**
+as the only document classified `Issuer official`. Separately, three of six
+assumptions ask for figures issuers do not customarily disclose at all:
+competitor-set MW market share, hyperscaler contracted/MoU MW, and firm PLN
+power MW.
+
+This reorders the work without overturning the diagnosis. A relevance-review
+loop built on this corpus would have the user labelling ~45 market-wire and CSR
+passages as irrelevant one at a time — against a corpus that changes completely
+the moment the official path is repaired, and any ranking or volume calibration
+made now would not survive that repair.
+
+M013 therefore repairs the official path (Q1), classifies each assumption's
+source adequacy as (A) reachable / (B) exists but unreachable / (C) no public
+source (Q2), and closes the four remaining questions from the 2026-08-06→08
+analysis: the product posture (Q3 — already settled by `VISION.md` §3/§5.2/§7 as
+**challenger**, recorded rather than re-litigated), acceptable review volume
+(Q4), whether a verdict gated on user labelling is acceptable (Q5), and the
+R-025 remedy scope (Q6, scoped as a follow-on packet).
+
+It implements **none** of the four R-025 remedy options — not the relevance
+contract, not the `PassageCandidate`/`Evidence` split, not a model assessor, and
+not the stop-word hygiene. Their proportionality is not decidable until it is
+known whether the corpus can answer the thesis at all. **R-025 stays `Open` and
+untouched.** New risk **R-028** records the distinct case where no public source
+exists anywhere — measured by M013, not mitigated by it.
+
+Also recorded and not yet fixed, found in the same analysis: `recordDecision`
+auto-populates `evidenceIds` with **every** evidence row currently displayed
+(`components/ResearchPanel.tsx:196`) rather than a user selection, so the one
+real decision record in the live database cites 51 rows the user never chose —
+which undermines `VISION.md` §9.7's "reconstruct the evidence behind a decision"
+precisely because the record looks thorough.
+
+## Previous Phase — M012 close-out
+
+M012 is complete as the approved local-only foundation for a source-traceable
+private knowledge corpus and candidate knowledge graph. The canonical raw
+archive is the repository-root `originals/` directory; generated artifacts
+remain under ignored `private/knowledge/`. This subsystem is deliberately
+separate from the ticker/date-bound `Evidence` and `SourceSnapshot` research
+pipeline.
 
 Active Packet: [`docs/milestones/M011-evidence-polarity-and-measurement-contracts.md`](docs/milestones/M011-evidence-polarity-and-measurement-contracts.md) (complete 2026-08-03; all six slices plus governance close-out implemented and tested — see "Slice Outcomes")
 
@@ -693,7 +757,20 @@ Milestones 4 through 10 are complete and verified.
     evidence is exactly where M010 left it. [`DEC-0016`](docs/decisions/DEC-0016-evidence-polarity-classifier-boundary.md)
     accepted the same day, scoped narrowly to the optional classifier seam.
 
-No milestone is currently active. Milestone 11 is complete.
+11. **Milestone 13** — `scoped`, awaiting acceptance:
+    [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md).
+    Repair the official-source path (all six TLKM jobs fail `source_too_large`),
+    then classify each assumption's source adequacy (A/B/C) so the R-025 remedy
+    is chosen from findings rather than argument. Implements none of the four
+    remedy options; **R-025 stays `Open`**; new **R-028** measured, not
+    mitigated. See "Current Phase — M013 scoped, not started" above.
+
+Milestone 12 is complete. Milestone 11 is complete.
+
+M012 has no external-provider approval and no provider is enabled by default.
+The corpus intake is complete; source files under `originals/` remain
+read-only. Future OCR, Office parsing, and provider-backed digest work require
+an explicit follow-up scope.
 
 **Open, not this milestone's problem:** semantic relevance of secondary
 evidence (R-025, `Open`) — M010 fixes evidence *shape*, and the live run that

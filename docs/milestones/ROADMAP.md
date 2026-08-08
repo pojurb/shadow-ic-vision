@@ -253,3 +253,31 @@ ignored local artifacts, validates a provider-neutral source-card contract,
 and emits candidate provenance-linked graph records. It does not alter the
 live `Evidence`/`SourceSnapshot` hierarchy, call an external provider by
 default, or create a Macro Regime Lens or trading workflow.
+
+## M013: Source Adequacy & Official-Path Recovery
+
+Status: `scoped` (2026-08-08) — packet at
+[`M013-source-adequacy-and-official-path-recovery.md`](M013-source-adequacy-and-official-path-recovery.md),
+awaiting user acceptance. No new decision record required: it adds no provider,
+model, data class, trust tier, or product boundary.
+
+M013 exists because of a sequencing constraint discovered after — not before —
+the R-025 remedy debate had converged. Every official-source job for the live
+TLKM thesis fails with `source_too_large`, so the financial statements have
+never been read; the corpus that filled the gap is ~25 market-wire round-ups and
+~13 CSR/education press releases, with a sustainability report as the only
+`Issuer official` document. Three of six assumptions ask for figures issuers do
+not customarily disclose at all.
+
+The packet therefore repairs the official path and classifies each assumption's
+source adequacy — (A) reachable, (B) exists but unreachable, (C) no public
+source — and closes the six open questions from the 2026-08-06→08 analysis. It
+deliberately implements **none** of the four R-025 remedy options: their scope is
+not decidable until it is known whether the corpus can answer the thesis at all.
+New risk **R-028** records the "no source exists anywhere" case; **R-025** stays
+`Open` and untouched.
+
+The sequencing lesson, stated for reuse: M009 fixed evidence **vocabulary**,
+M010 fixed evidence **shape**, M011 added **meaning**, and the R-025 debate
+reached for **relevance** — while nobody had checked whether the **supply** was
+there to be judged. Verify the corpus before refining the filter.

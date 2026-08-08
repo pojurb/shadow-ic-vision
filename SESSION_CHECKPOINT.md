@@ -1,4 +1,180 @@
+# Session Checkpoint - 2026-08-08b (M013 scoped: the corpus, not only the matcher — plus a correction to this session's own earlier report)
+
+Continuation of 2026-08-08 below, same session. Commit `454a1f6` landed the
+Tailwind fix and the checkpoint entry below; everything in this entry is
+documentation only and no code has been written for M013.
+
+## Correction To This Session's Own Earlier Entry
+
+The entry below records, as evidence the decision flow works: *"`evidenceIds`
+populated with all 48 evidence rows"*. **That was reported as a success and it
+is a defect.** `recordDecision` builds the list itself
+(`components/ResearchPanel.tsx:196`):
+
+```js
+const evidenceIds = data.items.flatMap((item) => item.evidence.map((e) => e.id));
+```
+
+Every evidence row currently displayed, taken automatically. The user never
+selected them. The comment above it asserts this is *"what the user's reasoning
+was actually weighed against"* — an assumption, not a fact.
+
+The consequence lands on `VISION.md` §9.7 (*"reconstruct the evidence... behind
+a decision"*): reopening the one real decision in the live database yields 51
+quotes, of which roughly nine in ten are irrelevant under R-025. The record
+*looks* thoroughly evidenced, which is worse than looking thin. The only part
+that is genuinely the user's is the `rationale` they typed. Found by the
+reviewer "Terra" during an independent mapping pass, verified here directly
+against the code. Not fixed in this entry — recorded in `ACTIVE_MILESTONE.md`
+as a known defect.
+
+## The Finding That Opened M013
+
+After the R-025 remedy debate had already converged — two independent reviewers,
+different routes, both anchored to `VISION.md` — a direct inspection of the
+live TLKM **source corpus** found something neither review had tested.
+
+- **All six** official-source jobs sit at `degraded` / `source_too_large` after
+  8–9 attempts. The financial statements have **never once been read**.
+- Of 51 persisted evidence rows: ~25 from daily market-wire round-ups (index
+  moves, foreign net-sell figures), ~13 from CSR/education press releases (a
+  student programme, village development, a 61st-anniversary item). The only
+  document classified `Issuer official` is a **sustainability report**.
+- Three of six assumptions ask for figures issuers do not customarily disclose
+  at all: competitor-set MW market share, hyperscaler contracted/MoU MW, firm
+  PLN power MW.
+
+The diagnosis both reviews reached still stands — the system does conflate
+*passage found*, *passage worth reviewing*, and *evidence judged relevant*. What
+changed is the **order**. Building the review loop on this corpus means the
+user's first real session is labelling ~45 market-wire and CSR passages
+irrelevant one at a time, against a corpus that changes completely the moment
+the official path is repaired; any ranking or volume calibration made now would
+not survive that repair.
+
+The reusable form of the lesson: M009 fixed evidence **vocabulary**, M010 fixed
+**shape**, M011 added **meaning**, and the R-025 debate reached for
+**relevance** — while nobody checked whether the **supply** existed to be
+judged.
+
+## The Debate That Preceded It, In Brief
+
+Worth retaining because the reasoning is not reconstructible from the commits.
+
+- Four remedy options were analysed (hygiene / deterministic relevance contract
+  / `PassageCandidate`-`Evidence` split / model assessor). Both reviewers
+  independently landed on: **(c) as the epistemic correction, (b) demoted from
+  admission gate to non-destructive ranking + explanation, (a) as hygiene, (d)
+  deferred.**
+- The strongest argument against (b)-as-gate came from Terra and is sharper than
+  the visibility argument: a gate built from the user's own alias list filters
+  out disproportionately what lies *outside* the user's mental model — which is
+  exactly where thesis-disconfirming evidence lives. `VISION.md` §2 names
+  optimism bias as the enemy; §3 and §5.2 make challenging the thesis the
+  product's job.
+- **Q3 (judge vs finder) is settled by VISION and should stop being re-opened.**
+  §3 ("challenges your assumptions"), §5.2 ("Alternative Views"), and §7 ("does
+  not present every headline. It prioritizes") exclude both a passive finder and
+  an autonomous judge. The posture is **challenger**.
+- A `VISION.md` §9 mapping was performed twice, independently. Both found **zero
+  of eight metrics measured**. §9.4 (Signal Precision) turns out to be R-025
+  restated as a metric, and is *structurally* unmeasurable today. §9.1 already
+  mandates that the user "understands why items were prioritized" — while
+  `matchedTokens` (`candidate.ts:213`) and `calculatePriorityScore`'s components
+  are both computed and then discarded.
+- Two corrections to this assistant's claims, both from Terra, both verified:
+  `sourceTags` is **not** a reusable hook for relevance concepts (it is
+  XBRL-element-specific, `app/api/chat/route.ts:71`, correctly empty for ID
+  market); and "§9 as milestone scope determinant" is unsound as a *sole* frame —
+  building measurement for a capability that does not exist yet produces numbers
+  describing nothing. §9 is an acceptance lens, not a roadmap generator.
+- Two of Terra's own citations were loose while its conclusions held: DEC-0016
+  does not mention a relevance gate (it simply does not cover one), and §6.3
+  "user sovereignty" is about data rights rather than correcting relevance
+  concepts. Same pattern noted twice; worth continued verification rather than
+  distrust.
+
+## Written This Entry
+
+- `docs/milestones/M013-source-adequacy-and-official-path-recovery.md` — new,
+  `scoped`, awaiting user acceptance. Five slices: diagnose the official-path
+  failure (no fix), repair it, re-run and record the corpus, classify each
+  assumption (A) reachable / (B) exists but unreachable / (C) no public source,
+  then close Q3–Q6. Implements **none** of the four R-025 remedy options, and
+  says why in §0.
+- `docs/RISK_REGISTER.md` — **R-028** added (an assumption with no reachable
+  public source; measured by M013, not mitigated). R-025 gains a dated
+  re-scoping paragraph and stays `Open`. The sharp edge recorded in R-028: under
+  `DEC-0018`, if most assumptions are (C), the thesis is structurally pinned at
+  `INSUFFICIENT_EVIDENCE` regardless of any labelling effort — honest, but
+  nothing in the UI says so.
+- `ACTIVE_MILESTONE.md` — M013 active/`scoped`, M012 moved to latest-completed.
+- `docs/milestones/ROADMAP.md` — M013 entry with the sequencing lesson.
+
+## Verified This Entry
+
+Every number above read directly from `d:/jp-invest-data/db.sqlite`, not from
+the UI and not from a prior report. Corpus composition, job statuses, and the
+51-row count were each queried at the time of writing.
+
+**A daily scheduled refresh (`research:install-task`) mutates the live database
+with nobody running anything** — TLKM evidence moved 39 → 45 → 48 → 51 across
+three days through that path alone, and both this assistant and Terra "corrected"
+each other with figures that were accurate when taken. Any before/after
+comparison must use a frozen snapshot to be reproducible. Recorded in M013's
+verification plan.
+
+### Exact Resume Point
+
+**M013 awaits user acceptance. No code has been written for it.**
+
+First slice is deliberately diagnosis-only: establish *why* every official job
+fails `source_too_large` — a limit set too low, the wrong document targeted, or
+an extraction strategy that loads whole files — before choosing a repair. Its
+size is genuinely unknown, and Slice 2 turning out to warrant its own packet is
+a legitimate outcome to raise at review.
+
+**Known and unfixed, carried forward:** the `evidenceIds` auto-fill defect above;
+the thesis draft card's "Confirmation required" heading rendering
+unconditionally even after confirmation; ticker-scoped `knownDocumentIds`;
+first-assumption-only promotion; R-026's stale text; Roadmap §5 steps 4/5/6 +
+`decisions:record` + the Ollama question (§7.2).
+
+---
+
 # Session Checkpoint - 2026-08-08 (the main loop ran end-to-end for the first time, live in browser; a pre-existing Tailwind wiring defect found and fixed)
+
+## M012 start — 2026-08-08
+
+The user authorized the bounded local-only M012 implementation. The source
+corpus is already at the repository root `originals/` with the existing
+`MODULE 1/` and `MODULE 2/` hierarchy. It is read-only and must not be moved,
+renamed, copied, modified, deleted, flattened, logged, or sent to a provider.
+
+The generated artifact layout is `private/knowledge/manifest.jsonl` plus the
+`extracted/`, `batches/`, `reports/`, and `graph/` directories. No
+`private/knowledge/originals/` path is used. The implementation is governed by
+`DEC-0019` and the M012 packet. It must remain separate from live `Evidence`
+and `SourceSnapshot` records, use SQLite/Drizzle, and make no external provider
+calls by default or during verification.
+
+The next safe implementation slice is deterministic intake and manifest
+persistence, followed by local extraction, strict source-card validation, and
+candidate graph persistence. No commit or push is authorized.
+
+### M012 close-out — 2026-08-08
+
+M012 is complete. The actual corpus intake produced 54 unique documents, 0
+duplicates, and 0 read failures. Local extraction produced 29 extracted PDFs,
+1 `needs_ocr` PDF, and 24 visible `unsupported` Office files. With no provider
+configured, 29 extracted documents remain `awaiting_provider`; no graph claims
+or edges were created and no external provider was called.
+
+Verification passed: 389 tests passed / 3 skipped, 13 M012/migration tests
+passed, typecheck, lint, build, context index, status check, and diff check.
+The next safe work is a separately scoped parser/OCR or explicit provider
+milestone; it must not alter the read-only `originals/` archive or route course
+claims into live `Evidence`.
 
 Continuation of 2026-08-07 below, same working tree (`6fa90d7`), no new
 commits yet this session — everything below is verified against the live
