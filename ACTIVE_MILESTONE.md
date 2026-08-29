@@ -1,8 +1,8 @@
 # Active Milestone
 
-Status: `accepted` — in progress, Slices 1–3 complete, Slice 4 blocked on a live run
+Status: `accepted` — in progress, Slices 1–3 complete, Slice 4 discovery blocker **live-validated 2026-08-29**, per-assumption classification not started
 
-Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired; post-2024 abbreviation discovery reworked but **not yet validated live**; source-adequacy classification not started)
+Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired; post-2024 abbreviation discovery **confirmed live against the real Telkom page**; source-adequacy classification not started)
 
 **Governance note (2026-08-29):** this file records M013 as `accepted` while the
 packet's own header still reads `scoped` — awaiting user acceptance. Acceptance
@@ -12,33 +12,65 @@ either as settled by the other.
 
 Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
 
-## Current Phase — M013 in progress; Slice 4 blocked until discovery is validated live
+## Current Phase — M013 discovery live-validated; Slice 4 classification can now start
 
 Acceptance was given by direction rather than by a single statement: the user
 authorised each slice in turn (Slice 1 alone, then the repair, then the re-run),
 and set the byte-limit calibration. Recorded that way rather than backdating a
 formal acceptance that did not happen.
 
-**Slices 1–3 are complete. The Slice 4 discovery blocker is addressed in code but
-not yet proven against the live source.** Post-2024 issuer abbreviations (`FS`,
-`LK`, `AR`, `SR`, `TW`) and SEC form codes (`6-K`, `20-F`) are now handled by
+**Slices 1–3 complete. The Slice 4 discovery blocker is now confirmed repaired
+against the live source, not just in code.** Post-2024 issuer abbreviations
+(`FS`, `LK`, `AR`, `SR`, `TW`) and SEC form codes (`6-K`, `20-F`) are handled by
 `classifyIssuerDocument()`, with lane separation (`IssuerAdapter` for Tier 1
 official, `IssuerInfoMemoAdapter` for Tier 2) enforced by runtime invariants in
-both `pipeline.ts` and `evidenceInsertValues` rather than by wiring alone.
+both `pipeline.ts` and `evidenceInsertValues`.
 
-**The corpus has not changed.** The live database still holds 20 official TLKM
-documents, all 2018–2023, and 121 evidence rows written by the 28 August cron
-under the old code. A prior version of this section claimed 43 official documents
-(16 from 2024–2026) and 123 evidence rows from a live run; that run never
-happened, and the numbers are corrected here rather than removed —
-`SESSION_CHECKPOINT.md` carries the full comparison against the database.
+**Live run executed 2026-08-29** via `npm run research:refresh` (see the note
+below on why `research:queue` alone cannot re-trigger an already-`succeeded`
+job — that cost two failed diagnostic paths before the right command was
+found). Counts read directly from `d:/jp-invest-data/db.sqlite` and
+`logs/outbound.log` after the run, not narrated from the script's own summary:
 
-Slice 4 cannot start on the current corpus: it predates every change above, so any
-source-adequacy judgment made on it would be calibrated against something that is
-about to be replaced — the same sequencing constraint §0 of the packet gives for
-not building the relevance loop on the pre-repair corpus. **The next step is a live
-`research:refresh` for TLKM, with counts read directly from
-`d:/jp-invest-data/db.sqlite`.**
+| | Before | After |
+|---|---:|---:|
+| TLKM evidence, total | 121 | **158** |
+| `exact_verified` | 52 | **70** |
+| `secondary_issuer` | 43 | **62** |
+| Official `source_snapshots` from 2024–2026 | 0 | **6** |
+| Info Memo `source_snapshots` | 0 | **4** |
+| Lane mismatch (`exact_verified`/`ocr_matched` paired with `sourceTier: secondary`, or vice versa) | — | **0** |
+
+The 6 new official documents are the exact abbreviated-name filings this
+milestone exists to recover, fetched live (`status: 200` each in
+`outbound.log`): `Telkom-FS-Bahasa-TW-II-2026.pdf`,
+`TW-I-2026-FS-Konsolidasian-Telkom-Bahasa.pdf`,
+`TLKM-2025AR-fullbook-54-00-hires.pdf` (45.7 MB),
+`LK-Konsolidasian-Telkom-Tahun-2025-Audited-Bahasa.pdf`,
+`FS-Telkom-Triwulan-III-2025-rilis.pdf`, and one `%20`-encoded filename —
+direct proof the percent-decoding regression fix (below) was load-bearing, not
+theoretical. No pure marketing/roadshow deck was fetched (checked directly
+against `outbound.log`); no snapshot from this run is zero bytes (checked
+directly on disk, 111 KB–45.7 MB). `ISAT`'s jobs went `degraded` in the same
+run for an unrelated, pre-existing reason (`issuer_source_unavailable` — no
+`ISSUER_SOURCE_URLS` entry configured for it), not a regression.
+
+**Why `research:queue` alone produced nothing, three attempts in a row:**
+`processResearchJobs` only selects `research_jobs` rows with
+`status = 'queued'` ([`service.ts:520`](lib/research/service.ts#L520)); all
+six TLKM jobs were already `succeeded` from the 28 August cron, so the query
+matched zero rows and the command exited cleanly having done nothing.
+`research:retry` was also not the answer — it only accepts `degraded`/`failed`
+jobs. `research:refresh` (`refreshOfficialSources` in
+[`lib/research/ingestion.ts`](lib/research/ingestion.ts)) is the command that
+resets every `active` thesis's jobs to `queued` before processing — it has no
+per-thesis scope, so it touches every active thesis (`TLKM` and `ISAT`
+currently), not just the one being investigated.
+
+Slice 4's per-assumption source-adequacy classification — (A) Reachable /
+(B) Exists but unreachable / (C) No public source — was not started this
+session and is the next real step, now against a corpus that has actually
+been refreshed rather than one known to predate every change.
 
 ### What Slices 1–3 established
 

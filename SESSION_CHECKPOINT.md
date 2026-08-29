@@ -1,10 +1,12 @@
-# Session Checkpoint - 2026-08-29 (issuer discovery reworked; NOT yet validated live)
+# Session Checkpoint - 2026-08-29 (issuer discovery reworked and live-validated)
 
 ## What was built this session
 
 **Read the verification section before resuming.** An earlier version of this
-entry reported live-run results that never happened; they are corrected in
-place below rather than deleted, so the mistake stays legible.
+entry reported live-run results that never happened; corrected in place below
+rather than deleted (§"Verification Results"). A *real* live run was executed
+later the same session — §"Live validation, 2026-08-29 (actually executed)"
+below has the numbers, all read directly from the database after the run.
 
 1. **Discovery Gap Repaired (Post-2024 Issuer Abbreviations)**:
    - Telkom's IR reports index post-2024 uses abbreviations (`FS`, `LK`, `AR`, `SR`, `TW`) on client-rendered JS pages where anchor text is empty.
@@ -82,13 +84,89 @@ that happened. Read directly from `d:/jp-invest-data/db.sqlite` on 2026-08-29:
   re-classification does not reprocess already-seen documents (pre-existing, on the
   open list).
 
+### Live validation, 2026-08-29 (actually executed)
+
+**`npm run research:queue -- --thesis-id <TLKM>` was tried first and produced
+nothing, three times, including once via a separate reviewer session ("Luna")
+that hit a real but unrelated `EPERM` copying `db.sqlite` for its migration
+backup — diagnosed as environment-specific to that session (headless/sandboxed:
+its own GUI-inspection tool failed to attach to a native pipe), not a defect
+here, since the same copy succeeded repeatedly from this session at every
+retry.** The actual reason `research:queue` did nothing: `processResearchJobs`
+selects only `research_jobs` rows with `status = 'queued'`
+([`service.ts:520`](lib/research/service.ts#L520)); every TLKM job was already
+`succeeded` from the 28 August cron, so it matched nothing and exited clean
+having done nothing. `research:retry` doesn't apply either — `degraded`/`failed`
+only. The right command, found by reading `refreshOfficialSources` in
+[`lib/research/ingestion.ts`](lib/research/ingestion.ts): `npm run
+research:refresh`, which resets every **active** thesis's jobs to `queued`
+first. It has no per-ticker scope — this run touched `ISAT` too.
+
+Ran once, 2026-08-29T15:43–15:44 UTC. `newDocumentCount: 13`, top-level status
+`degraded` (from `ISAT` — see below, unrelated). Every number below is a fresh
+query against `d:/jp-invest-data/db.sqlite` and `logs/outbound.log` after the
+run completed, not the script's own JSON summary:
+
+| | Before | After |
+|---|---:|---:|
+| TLKM evidence, total | 121 | **158** |
+| `exact_verified` | 52 | **70** |
+| `secondary_issuer` | 43 | **62** |
+| `secondary_news` | 26 | 26 |
+| Official `source_snapshots`, 2024–2026 | 0 | **6** |
+| Info Memo `source_snapshots` (`sourceName LIKE 'Issuer info memo%'`) | 0 | **4** |
+| Lane mismatch rows | — | **0** |
+
+The 6 new official documents, all fetched live with `status: 200`
+(`logs/outbound.log`): `Telkom-FS-Bahasa-TW-II-2026.pdf`,
+`TW-I-2026-FS-Konsolidasian-Telkom-Bahasa.pdf`,
+`TLKM-2025AR-fullbook-54-00-hires.pdf` (45.7 MB — verified non-zero on disk,
+`storage_path` checked directly), `LK-Konsolidasian-Telkom-Tahun-2025-Audited-Bahasa.pdf`,
+`FS-Telkom-Triwulan-III-2025-rilis.pdf`, and
+`FS%20Telkom%20Triwulan%20II%202025_Bahasa%20Rilis.pdf` — the last one is
+percent-encoded, which is exactly the class of URL the earlier percent-decoding
+fix (above) exists for; its presence here is the fix proving itself live, not
+just against the retained-corpus regression fixtures. The 4 Info Memo
+documents: `1Q-2026-TLKM-Corporate-Presentation-Info-Memo.pdf` (info+memo
+precedence over the `presentation` deny-list, confirmed live),
+`TLKM-9M25-Info-Memo.pdf`, and two more percent-encoded ones
+(`TLKM%201H25%20Info%20Memo.pdf`, `TLKM%201Q25%20Info%20Memo.pdf`). No file
+under `presentation`/`roadshow`/`deck` alone was ever fetched — checked
+directly against `outbound.log`, not inferred from absence of complaints. All
+13 new `source-snapshots/*.bin` files verified non-zero on disk (111 KB–45.7 MB)
+— the M013 zero-byte-snapshot defect stayed fixed under real load.
+
+`ISAT`'s 8 jobs went `degraded` in the same run: `error_code:
+issuer_source_unavailable`, `"No trusted issuer source is configured for
+ISAT."` — pre-existing (no `ISSUER_SOURCE_URLS` entry for it), not caused by
+anything this session changed.
+
+### Two unrelated fixes made while investigating this
+
+- **`portfolio_positions.market` was `'US'` for the TLKM position** (added
+  2026-08-08 via the UI form), while its thesis is `market: 'ID'`. Found while
+  reviewing a Luna report on `RESUME_PROMPT.md` staleness. Consequence, not
+  cosmetic: `persistSourceSnapshot` matches positions to alert-eligibility by
+  `(ticker, market)` ([`snapshot-store.ts:73`](lib/research/snapshot-store.ts#L73)),
+  so this position had never once qualified for a `portfolioAlerts` row despite
+  being linked via `thesis_id`. Corrected to `'ID'` by direct UPDATE after a
+  fresh `db.sqlite` backup, user-authorized. `thesis_id`, `status`, and history
+  untouched.
+- **`RESUME_PROMPT.md` deleted.** It described itself, in its own governing
+  checkpoint entry, as "untracked scratch, not part of the record" — but had
+  been committed anyway (`d243a7d`, an unrelated "chore: quick update") and sat
+  three weeks stale (base commit `6fa90d7`; claimed `portfolio_positions = 0`,
+  `decisions = 0` when both were `1`), misleading a reviewer session that used
+  it for orientation. Removed rather than updated, consistent with its own
+  stated status and with `AGENTS.md`'s routing rule that only
+  `ACTIVE_MILESTONE.md`/`SESSION_CHECKPOINT.md` carry current status.
+
 ### Exact Resume Point
 
-**Next: a live `research:refresh` for TLKM**, then read the counts straight out of
-`d:/jp-invest-data/db.sqlite`. Slice 4's source-adequacy classification —
-(A) Reachable / (B) Exists but unreachable / (C) No public source — should be done
-against the corpus that run produces, not the current one, which predates every
-change above.
+**Live validation is done. Next: Slice 4's per-assumption source-adequacy
+classification** — (A) Reachable / (B) Exists but unreachable / (C) No public
+source — against the corpus this run produced, per `docs/milestones/M013-source-adequacy-and-official-path-recovery.md`
+§4 Slice 4. Nothing blocks starting it now.
 
 ---
 
