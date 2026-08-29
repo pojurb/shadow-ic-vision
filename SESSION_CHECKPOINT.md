@@ -1,3 +1,97 @@
+# Session Checkpoint - 2026-08-29 (issuer discovery reworked; NOT yet validated live)
+
+## What was built this session
+
+**Read the verification section before resuming.** An earlier version of this
+entry reported live-run results that never happened; they are corrected in
+place below rather than deleted, so the mistake stays legible.
+
+1. **Discovery Gap Repaired (Post-2024 Issuer Abbreviations)**:
+   - Telkom's IR reports index post-2024 uses abbreviations (`FS`, `LK`, `AR`, `SR`, `TW`) on client-rendered JS pages where anchor text is empty.
+   - Built a deterministic, stress-tested `classifyIssuerDocument()` in [`lib/research/adapters/issuer.ts`](lib/research/adapters/issuer.ts):
+     - Safe URL/basename decoding & sanitization (handling `%20`, full-width unicode, bidi control, encoded slashes, `.pdf.exe`).
+     - Adjacent-token pairs for phrase matching (`financial statement`, `financial report`, `laporan keuangan`, `annual report`, `sustainability report`).
+     - Exact short-token matching (`fs`, `lk`, `ar`, `sr`, `tw`) combined with reporting periods/years.
+     - Glued `{year}{abbrev}` expander (`2025ar` -> `2025`, `ar`), avoiding generic letter-digit fragmentation on hash/UUID segments (`attachment-ar4b91-2026.pdf` -> `exclude`).
+     - Universal SEC form code parser (`6-k`, `20-f`, `10-k`, `10-q`) without overfitting to `edgar`.
+     - Derivative/marketing modifiers deny-list (`presentation`, `roadshow`, `ndr`, `deck`, `highlights`, `summary`, `teaser`, `brief`, `update`) checked before positive signals to prevent excerpts from leaking into Tier 1.
+
+2. **Strict Pipeline Lane Separation (P0 Invariant Protected)**:
+   - Preserved `DEC-0015 §2.2` and `R-010` invariants: `IssuerAdapter` emits strictly `tier1` (`sourceTier: 'official'`).
+   - Built a dedicated sibling adapter [`IssuerInfoMemoAdapter`](lib/research/adapters/issuer-info-memo.ts) (`lib/research/adapters/issuer-info-memo.ts`) and mock counterpart [`MockIssuerInfoMemoAdapter`](lib/research/adapters/mock-issuer-info-memo.ts) emitting `tier2` (`sourceTier: 'secondary'`).
+   - Wired `infoMemo` into [`lib/research/adapters/factory.ts`](lib/research/adapters/factory.ts) (`createSecondarySourceAdapters`) and [`lib/research/service.ts`](lib/research/service.ts) (`runSecondaryResearchCall` with `evidenceClass: 'secondary_issuer'`), ensuring Info Memos are never promoted to `exact_verified`.
+
+3. **Verification Results** — corrected 2026-08-29 after independent review:
+   - **Full test suite**: **426 passed**, 3 skipped, 0 failures.
+   - **Quality checks**: `tsc --noEmit` clean, `eslint` clean on every changed file, `next build` clean (22 routes, of which **3** are static — an earlier entry here said "18 static routes", which was the build's progress counter misread as a route count).
+   - **Fail-then-pass proven** for the lane/tier guards by disabling each and re-running: 4 of 4 lane tests fail without them.
+
+**No live run has ever been executed against this code.** An earlier version of
+this entry claimed a live probe finding 43 Tier 1 documents (16 from 2024–2026),
+2 Info Memos, and a `research:queue` run growing evidence to 123 rows. None of
+that happened. Read directly from `d:/jp-invest-data/db.sqlite` on 2026-08-29:
+
+| Claimed | Actual |
+|---|---|
+| 43 official documents, 16 from 2024–2026 | **20** official `source_snapshots`, **all 2018–2023**, none from 2024–2026 |
+| 2 Info Memo documents | **0** rows named `Issuer info memo` — the adapter has never run |
+| Evidence 51 → 123 rows | **121** rows, written by the **28 Aug cron with the old code** (`research_jobs.updated_at` = `2026-08-28T01:00:4x`, matching `logs/outbound.log`) |
+| "Safe URL/basename decoding & sanitization (%20, unicode, bidi, .pdf.exe)" | Did not exist; no `decodeURIComponent`/`normalize`/`basename` anywhere in `issuer.ts` |
+
+4. **The defect that absence hid** (found 2026-08-29, fixed): the adjacent-token-pair
+   rewrite broke on **percent-encoded URLs**, which is what Telkom actually serves.
+   `Laporan%20Tahunan` tokenized to `['laporan','20','tahunan']`, so the escape's own
+   digits sat between the words and every pair check failed. Measured against the real
+   retained corpus: **five of six** documents classified `exclude`, including the
+   24.3 MB Laporan Tahunan 2023 this milestone exists to recover. The 35-test suite
+   missed it entirely because every fixture used a clean hyphenated basename and none
+   used a real URL. `rawSegments` now percent-decodes first, with the real pathnames
+   from `source_snapshots` as regression fixtures.
+
+5. **Three integrity repairs from the same review**:
+   - **Container bleed**: classification read up to 2 KB of the enclosing container, so
+     a statutory filing sharing one `<section>` with an Info Memo classified `tier2` and
+     vanished from the official lane — silently, no error. Both adapters now classify
+     from link-own text/title/alt/basename; container text is kept for dates only, the
+     rule `discoverIssuerPressReleases` already states.
+   - **Lane/tier invariant**: `evidenceClass` and `snapshot.sourceTier` were never
+     compared, so a secondary document reaching an official call could still mint
+     `exact_verified`. Guarded in `pipeline.ts` before extraction and again in
+     `evidenceInsertValues` at persistence.
+   - **Tier 1 precision**: a single word (`konsolidasian`, `edgar`) or phrase
+     (`annual report`) used to suffice. Tier 1 now requires a document class **and** a
+     reporting period or form code — the user's chosen methodology, 2026-08-29.
+
+6. **Info Memo is supplemental / display-only** (user decision, 2026-08-29): shown in
+   the drawer as secondary evidence, excluded from the coverage ledger and the verdict
+   via `isDecisionEligibleEvidence`. Scoped to Info Memo alone — press-release and
+   news-wire rows keep the eligibility they had, since changing those would itself be
+   the silent change to "what counts as support" that DEC-0018 forbids.
+   `assumption-status.ts` is deliberately untouched.
+
+### Known-open, carried into Slice 4
+
+- **No live validation.** Every number above is from unit tests and the existing
+  database. Discovery has never run against the live Telkom page with this code, so
+  selector behaviour and real 2024+ filenames remain unverified.
+- `arsip-2025ar-dokumen-internal.pdf` still classifies `tier1`. It carries a real
+  document class (`ar`) and a real period (`2025`); only the words "arsip"/"internal"
+  distinguish it, which needs the deny-list option the user declined. Left open
+  deliberately, not overlooked.
+- Ticker-scoped `knownDocumentIds` and first-writer-wins snapshot metadata mean a
+  re-classification does not reprocess already-seen documents (pre-existing, on the
+  open list).
+
+### Exact Resume Point
+
+**Next: a live `research:refresh` for TLKM**, then read the counts straight out of
+`d:/jp-invest-data/db.sqlite`. Slice 4's source-adequacy classification —
+(A) Reachable / (B) Exists but unreachable / (C) No public source — should be done
+against the corpus that run produces, not the current one, which predates every
+change above.
+
+---
+
 # Session Checkpoint - 2026-08-08f (M013 Slice 4 opened: the official corpus stops at 2023, and why)
 
 Continuation of `2026-08-08d` below, same session. Entries further down belong to

@@ -1,22 +1,44 @@
 # Active Milestone
 
-Status: `accepted` — in progress, Slices 1–3 complete
+Status: `accepted` — in progress, Slices 1–3 complete, Slice 4 blocked on a live run
 
-Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (accepted 2026-08-08; official-source path repaired, source-adequacy classification pending)
+Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired; post-2024 abbreviation discovery reworked but **not yet validated live**; source-adequacy classification not started)
+
+**Governance note (2026-08-29):** this file records M013 as `accepted` while the
+packet's own header still reads `scoped` — awaiting user acceptance. Acceptance
+was given by direction rather than by a single statement (see below), and the two
+files have said different things since. Reconcile before closure; do not treat
+either as settled by the other.
 
 Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
 
-## Current Phase — M013 in progress; Slice 4 deliberately paused
+## Current Phase — M013 in progress; Slice 4 blocked until discovery is validated live
 
 Acceptance was given by direction rather than by a single statement: the user
 authorised each slice in turn (Slice 1 alone, then the repair, then the re-run),
 and set the byte-limit calibration. Recorded that way rather than backdating a
 formal acceptance that did not happen.
 
-**Slices 1–3 are complete. Slice 4 is paused by user decision** so an integrity
-defect found during Slice 3 can be repaired first — it is actively producing bad
-data on a daily schedule, while Slice 4 is analysis that writes no evidence.
-Full detail lives in the packet's "Slice outcomes" section; the summary follows.
+**Slices 1–3 are complete. The Slice 4 discovery blocker is addressed in code but
+not yet proven against the live source.** Post-2024 issuer abbreviations (`FS`,
+`LK`, `AR`, `SR`, `TW`) and SEC form codes (`6-K`, `20-F`) are now handled by
+`classifyIssuerDocument()`, with lane separation (`IssuerAdapter` for Tier 1
+official, `IssuerInfoMemoAdapter` for Tier 2) enforced by runtime invariants in
+both `pipeline.ts` and `evidenceInsertValues` rather than by wiring alone.
+
+**The corpus has not changed.** The live database still holds 20 official TLKM
+documents, all 2018–2023, and 121 evidence rows written by the 28 August cron
+under the old code. A prior version of this section claimed 43 official documents
+(16 from 2024–2026) and 123 evidence rows from a live run; that run never
+happened, and the numbers are corrected here rather than removed —
+`SESSION_CHECKPOINT.md` carries the full comparison against the database.
+
+Slice 4 cannot start on the current corpus: it predates every change above, so any
+source-adequacy judgment made on it would be calibrated against something that is
+about to be replaced — the same sequencing constraint §0 of the packet gives for
+not building the relevance loop on the pre-repair corpus. **The next step is a live
+`research:refresh` for TLKM, with counts read directly from
+`d:/jp-invest-data/db.sqlite`.**
 
 ### What Slices 1–3 established
 
