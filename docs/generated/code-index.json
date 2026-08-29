@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "90985987c0bf350669f1a9d540947f5ca3402de3ebfadfdd6697786529478660",
+  "sourceDigest": "59e7dce4a93d04bfc792e399af394ef35df60dcd76cc859f2e353e57810f5966",
   "roots": [
     "app",
     "components",
@@ -1081,6 +1081,18 @@
           "resolved": "lib/knowledge/intake.ts"
         },
         {
+          "specifier": "./ocr",
+          "resolved": "lib/knowledge/ocr.ts"
+        },
+        {
+          "specifier": "./office/docx",
+          "resolved": "lib/knowledge/office/docx.ts"
+        },
+        {
+          "specifier": "./office/xlsx",
+          "resolved": "lib/knowledge/office/xlsx.ts"
+        },
+        {
           "specifier": "./paths",
           "resolved": "lib/knowledge/paths.ts"
         },
@@ -1237,6 +1249,95 @@
       ]
     },
     {
+      "path": "lib/knowledge/ocr.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/lib/research/errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "zod",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ExtractedOcrDoc",
+        "KnowledgeOcrHandoff",
+        "getOcrHandoffPath",
+        "knowledgeOcrHandoffSchema",
+        "processOcrHandoff"
+      ]
+    },
+    {
+      "path": "lib/knowledge/office/docx.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/lib/research/errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "jszip",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ExtractedOfficeDoc",
+        "extractDocxBytes"
+      ]
+    },
+    {
+      "path": "lib/knowledge/office/xlsx.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "@/lib/research/errors",
+          "resolved": "lib/research/errors.ts"
+        },
+        {
+          "specifier": "@/lib/research/extractors/safety",
+          "resolved": "lib/research/extractors/safety.ts"
+        },
+        {
+          "specifier": "@/lib/research/verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "exceljs",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ExtractedOfficeXlsx",
+        "extractXlsxBytes"
+      ]
+    },
+    {
       "path": "lib/knowledge/paths.ts",
       "kind": "module",
       "imports": [
@@ -1355,12 +1456,20 @@
           "resolved": "lib/research/adapters/issuer.ts"
         },
         {
+          "specifier": "./issuer-info-memo",
+          "resolved": "lib/research/adapters/issuer-info-memo.ts"
+        },
+        {
           "specifier": "./issuer-press",
           "resolved": "lib/research/adapters/issuer-press.ts"
         },
         {
           "specifier": "./mock-idx",
           "resolved": "lib/research/adapters/mock-idx.ts"
+        },
+        {
+          "specifier": "./mock-issuer-info-memo",
+          "resolved": "lib/research/adapters/mock-issuer-info-memo.ts"
         },
         {
           "specifier": "./mock-issuer-press",
@@ -1445,6 +1554,38 @@
       ]
     },
     {
+      "path": "lib/research/adapters/issuer-info-memo.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "../http",
+          "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "./helpers",
+          "resolved": "lib/research/adapters/helpers.ts"
+        },
+        {
+          "specifier": "./issuer",
+          "resolved": "lib/research/adapters/issuer.ts"
+        },
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "cheerio",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "INFO_MEMO_SOURCE_PREFIX",
+        "IssuerInfoMemoAdapter",
+        "discoverIssuerInfoMemos",
+        "isDecisionEligibleEvidence"
+      ]
+    },
+    {
       "path": "lib/research/adapters/issuer-press.ts",
       "kind": "module",
       "imports": [
@@ -1494,6 +1635,7 @@
       ],
       "exports": [
         "IssuerAdapter",
+        "classifyIssuerDocument",
         "discoverIssuerDocuments"
       ]
     },
@@ -1508,6 +1650,19 @@
       ],
       "exports": [
         "MockIdxAdapter"
+      ]
+    },
+    {
+      "path": "lib/research/adapters/mock-issuer-info-memo.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./types",
+          "resolved": "lib/research/adapters/types.ts"
+        }
+      ],
+      "exports": [
+        "MockIssuerInfoMemoAdapter"
       ]
     },
     {
@@ -1663,6 +1818,7 @@
       "exports": [
         "ResearchMarket",
         "ResearchSourceMode",
+        "SOURCE_BYTE_LIMIT",
         "SourceAdapter",
         "SourceDocumentRef",
         "SourceErrorCode",
@@ -2501,6 +2657,10 @@
           "resolved": "lib/research/adapters/factory.ts"
         },
         {
+          "specifier": "./adapters/issuer-info-memo",
+          "resolved": "lib/research/adapters/issuer-info-memo.ts"
+        },
+        {
           "specifier": "./adapters/sec-xbrl",
           "resolved": "lib/research/adapters/sec-xbrl.ts"
         },
@@ -3000,6 +3160,10 @@
           "resolved": "lib/research/adapters/types.ts"
         },
         {
+          "specifier": "@/lib/research/evidence-persistence",
+          "resolved": "lib/research/evidence-persistence.ts"
+        },
+        {
           "specifier": "@/lib/research/extractors/candidate",
           "resolved": "lib/research/extractors/candidate.ts"
         },
@@ -3087,6 +3251,159 @@
         },
         {
           "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/knowledge-docx.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/extraction",
+          "resolved": "lib/knowledge/extraction.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/office/docx",
+          "resolved": "lib/knowledge/office/docx.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "jszip",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/knowledge-ocr.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/extraction",
+          "resolved": "lib/knowledge/extraction.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/ocr",
+          "resolved": "lib/knowledge/ocr.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "node:crypto",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/knowledge-xlsx.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/extraction",
+          "resolved": "lib/knowledge/extraction.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/intake",
+          "resolved": "lib/knowledge/intake.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/office/xlsx",
+          "resolved": "lib/knowledge/office/xlsx.ts"
+        },
+        {
+          "specifier": "@/lib/knowledge/paths",
+          "resolved": "lib/knowledge/paths.ts"
+        },
+        {
+          "specifier": "exceljs",
           "resolved": null
         },
         {
@@ -3679,6 +3996,41 @@
       "exports": []
     },
     {
+      "path": "tests/snapshot-store.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "@/lib/research/snapshot-store",
+          "resolved": "lib/research/snapshot-store.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/source-adapters.test.ts",
       "kind": "test",
       "imports": [
@@ -3691,6 +4043,10 @@
           "resolved": "lib/research/adapters/issuer.ts"
         },
         {
+          "specifier": "@/lib/research/adapters/issuer-info-memo",
+          "resolved": "lib/research/adapters/issuer-info-memo.ts"
+        },
+        {
           "specifier": "@/lib/research/adapters/issuer-press",
           "resolved": "lib/research/adapters/issuer-press.ts"
         },
@@ -3701,6 +4057,10 @@
         {
           "specifier": "@/lib/research/adapters/sec",
           "resolved": "lib/research/adapters/sec.ts"
+        },
+        {
+          "specifier": "@/lib/research/adapters/types",
+          "resolved": "lib/research/adapters/types.ts"
         },
         {
           "specifier": "@/lib/research/http",
@@ -4164,6 +4524,7 @@
       "productionModules": [
         "lib/ai/provider.ts",
         "lib/research/adapters/types.ts",
+        "lib/research/evidence-persistence.ts",
         "lib/research/extractors/candidate.ts",
         "lib/research/extractors/document.ts",
         "lib/research/extractors/ocr.ts",
@@ -4186,6 +4547,39 @@
         "lib/research/assumption-status.ts",
         "lib/research/evidence-cleanup.ts",
         "lib/research/service.ts"
+      ]
+    },
+    {
+      "path": "tests/knowledge-docx.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/knowledge/extraction.ts",
+        "lib/knowledge/intake.ts",
+        "lib/knowledge/office/docx.ts",
+        "lib/knowledge/paths.ts"
+      ]
+    },
+    {
+      "path": "tests/knowledge-ocr.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/knowledge/extraction.ts",
+        "lib/knowledge/intake.ts",
+        "lib/knowledge/ocr.ts",
+        "lib/knowledge/paths.ts"
+      ]
+    },
+    {
+      "path": "tests/knowledge-xlsx.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/knowledge/extraction.ts",
+        "lib/knowledge/intake.ts",
+        "lib/knowledge/office/xlsx.ts",
+        "lib/knowledge/paths.ts"
       ]
     },
     {
@@ -4331,13 +4725,23 @@
       ]
     },
     {
+      "path": "tests/snapshot-store.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "lib/research/adapters/types.ts",
+        "lib/research/snapshot-store.ts"
+      ]
+    },
+    {
       "path": "tests/source-adapters.test.ts",
       "productionModules": [
         "lib/research/adapters/idx.ts",
+        "lib/research/adapters/issuer-info-memo.ts",
         "lib/research/adapters/issuer-press.ts",
         "lib/research/adapters/issuer.ts",
         "lib/research/adapters/news-wire.ts",
         "lib/research/adapters/sec.ts",
+        "lib/research/adapters/types.ts",
         "lib/research/http.ts"
       ]
     },

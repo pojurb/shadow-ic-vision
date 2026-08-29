@@ -83,6 +83,35 @@ export function evidenceInsertValues(
    */
   precomputed?: PolarityResult,
 ) {
+  /*
+   * DEC-0015 §2.2 / R-010, second line of defence. The pipeline now refuses a
+   * lane/tier mismatch before extraction; this refuses the same violation at
+   * the moment of persistence, which is the point of no return — an
+   * `exact_verified` row is a promise that the quote was verified verbatim
+   * against an official filing, and a row that breaks it is a data-integrity
+   * breach under DEC-0015's own incident clause.
+   *
+   * Two guards, because they fail differently: the pipeline guard protects
+   * the path that goes through `executeResearchJob`, while this one also
+   * covers `candidateOverrides` and any future caller that builds
+   * `VerifiedEvidence` by hand.
+   *
+   * `derived` is deliberately unconstrained. It is produced by calculation
+   * over already-persisted facts rather than by a source fetch, so its tier
+   * is not a lane property, and constraining it here would assert something
+   * this change has not verified.
+   */
+  const requiredTier = result.verificationStatus === 'exact_verified' || result.verificationStatus === 'ocr_matched'
+    ? 'official'
+    : result.verificationStatus === 'secondary_issuer' || result.verificationStatus === 'secondary_news'
+      ? 'secondary'
+      : null;
+  if (requiredTier && result.sourceTier !== requiredTier) {
+    throw new Error(
+      `Evidence integrity: verificationStatus '${result.verificationStatus}' requires sourceTier '${requiredTier}', got '${result.sourceTier}' from ${result.sourceName}.`,
+    );
+  }
+
   const { polarity, deltaVsThreshold, method } = precomputed ?? classifyPolarity({
     contract,
     observed: readObservedMeasurement(result.metadata),

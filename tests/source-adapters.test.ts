@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeIdxAttachmentUrl, parseIdxAnnouncements } from '@/lib/research/adapters/idx';
-import { discoverIssuerDocuments } from '@/lib/research/adapters/issuer';
+import { classifyIssuerDocument, discoverIssuerDocuments } from '@/lib/research/adapters/issuer';
+import { discoverIssuerInfoMemos } from '@/lib/research/adapters/issuer-info-memo';
 import { discoverIssuerPressReleases, isIssuerReleaseUrl } from '@/lib/research/adapters/issuer-press';
 import { NewsWireAdapter, parseNewsFeedItems } from '@/lib/research/adapters/news-wire';
 import { SecAdapter, selectLatestFiling } from '@/lib/research/adapters/sec';
@@ -92,6 +93,163 @@ describe('official source adapters', () => {
         expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/financial-20260430.pdf', publishDate: '2026-04-30' }),
         expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/annual-report-2025.pdf' }),
       ]);
+  });
+
+  // M013 follow-up: post-2024 Telkom renamed statutory filings to short
+  // abbreviations (FS/LK/AR/SR/TW), which the old bare-word REPORT_TERMS
+  // missed entirely. Filenames below are verbatim from the live Telkom IR
+  // page (docs/milestones/M013...); each row is a real case, not a fixture
+  // invented for coverage.
+  describe('classifyIssuerDocument (post-2024 abbreviation + Info Memo tiering)', () => {
+    it('tiers statutory filings as tier1 via short-token+year, without substring false-positives', () => {
+      expect(classifyIssuerDocument('telkom-fs-bahasa-tw-ii-2026.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('tw-i-2026-fs-konsolidasian-telkom-bahasa.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('lk-konsolidasian-telkom-tahun-2025-audited-bahasa.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('fs telkom q3 2024_bahasa rilis.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('tlkm-2025ar-fullbook-54-00-hires.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('telkom_ar2024_in_39-01_fullbook_compressed.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('tlkm-2025sr-ind-16-00-lores.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('arsip-transformasi-telkomgroup-2025.pdf')).toBe('exclude');
+    });
+
+    it('tiers EDGAR-filed SEC forms as tier1 via the long-term list', () => {
+      expect(classifyIssuerDocument('perusahaan-perseroan-tbk-20260512-6-k-edgar.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('perusahaan-perseroan-tbk-20260515-20-f-edgar.pdf')).toBe('tier1');
+    });
+
+    it('tiers Info Memo as tier2, even when the same filename also says "presentation"', () => {
+      expect(classifyIssuerDocument('1q-2026-tlkm-corporate-presentation-info-memo.pdf')).toBe('tier2');
+      expect(classifyIssuerDocument('tlkm-9m25-info-memo.pdf')).toBe('tier2');
+      expect(classifyIssuerDocument('tlkm 1h25 info memo.pdf')).toBe('tier2');
+    });
+
+    it('excludes pure marketing/roadshow decks', () => {
+      expect(classifyIssuerDocument('tlkm-fy25-corporate-presentation.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('9m25-infranexia-roadshow-presentation.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('tlkm-9m25-earnings-call-corporate-presentation.pdf')).toBe('exclude');
+    });
+
+    // Stress-test findings: precedence collisions, tokenization traps, and
+    // cross-issuer portability beyond the Telkom-specific examples above.
+    it('menolak deck derivatif meski memuat kosakata statutori (precedence)', () => {
+      expect(classifyIssuerDocument('financial-report-2025-analyst-briefing-presentation.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('tlkm-2025-sustainability-report-highlights-deck.pdf')).toBe('exclude');
+    });
+
+    it('tidak menciptakan token singkatan palsu dari segmen mirip hash/UUID', () => {
+      expect(classifyIssuerDocument('attachment-ar4b91-2026.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('report-9f2a71cd-fs-2026.pdf')).toBe('tier1'); // 'fs' segmen asli, bukan pecahan hash
+    });
+
+    it('portabel lintas emiten: BBRI, pemisah non-hyphen, dan Form 6-K tanpa kata "edgar"', () => {
+      expect(classifyIssuerDocument('bbri_fs_2025_q3_unaudited.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('laporan_keuangan_konsolidasian_30_juni_2026.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('laporan.keuangan.konsolidasian.2026.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('form_6k_20260401.pdf')).toBe('tier1');
+    });
+  });
+
+  // M013 follow-up: the pipeline-wiring finding — tier2 must live in its own
+  // adapter, never inside discoverIssuerDocuments, because IssuerAdapter is
+  // statically wired to an evidenceClass:'official' pipeline that never
+  // re-reads sourceTier per document (service.ts:90, pipeline.ts:126-130).
+  // This test proves the partition holds on one shared HTML fixture.
+  describe('discoverIssuerInfoMemos (tier2 lives in its own adapter, not IssuerAdapter)', () => {
+    const html = '<a href="/reports/telkom-fs-bahasa-tw-ii-2026.pdf">FS TW II 2026</a><a href="/reports/tlkm-9m25-info-memo.pdf">TLKM 9M25 Info Memo</a><a href="/reports/tlkm-fy25-corporate-presentation.pdf">Corporate Presentation</a>';
+    const query = { market: 'ID' as const, ticker: 'TLKM', documentTypes: [] };
+
+    it('discoverIssuerDocuments picks only the tier1 filing', () => {
+      const found = discoverIssuerDocuments(html, 'https://issuer.test/investor', query);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toEqual(expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/telkom-fs-bahasa-tw-ii-2026.pdf', sourceTier: 'official' }));
+    });
+
+    it('discoverIssuerInfoMemos picks only the tier2 Info Memo, never the tier1 filing or the deck', () => {
+      const found = discoverIssuerInfoMemos(html, 'https://issuer.test/investor', query);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toEqual(expect.objectContaining({ sourceUrl: 'https://issuer.test/reports/tlkm-9m25-info-memo.pdf', sourceTier: 'secondary' }));
+    });
+
+    /*
+     * Container bleed. Classification used to read up to 2 KB of the
+     * enclosing container, so two links sharing one `<section>` were judged
+     * on each other's text. Measured against the real code before the fix:
+     * the statutory FS link classified `tier2` and the official lane
+     * returned NOTHING — the milestone's own target document lost silently,
+     * with no error, because a neighbouring anchor said "Info Memo".
+     */
+    it('a statutory filing sharing one container with an Info Memo stays in the official lane', () => {
+      const shared = `<section>
+        <a href="/reports/telkom-fs-bahasa-tw-ii-2026.pdf">Laporan Keuangan TW II 2026</a>
+        <a href="/reports/tlkm-9m25-info-memo.pdf">TLKM 9M25 Info Memo</a>
+      </section>`;
+      expect(discoverIssuerDocuments(shared, 'https://issuer.test/investor', query).map((d) => d.sourceUrl))
+        .toEqual(['https://issuer.test/reports/telkom-fs-bahasa-tw-ii-2026.pdf']);
+      expect(discoverIssuerInfoMemos(shared, 'https://issuer.test/investor', query).map((d) => d.sourceUrl))
+        .toEqual(['https://issuer.test/reports/tlkm-9m25-info-memo.pdf']);
+    });
+  });
+
+  /*
+   * Every pathname below is verbatim from `source_snapshots` in the real
+   * database. They are here because the adjacent-token-pair rewrite broke on
+   * all of them and no fixture caught it: Telkom encodes spaces as `%20`, so
+   * `Laporan%20Tahunan` tokenized to ['laporan','20','tahunan'] and the pair
+   * check failed with the escape's own digits sitting between the words.
+   * Five of six real retained documents classified `exclude` — including the
+   * 24.3 MB Laporan Tahunan 2023 that M013 exists to recover.
+   */
+  describe('classifyIssuerDocument against real percent-encoded issuer URLs', () => {
+    it('classifies the retained TLKM corpus as tier1', () => {
+      for (const pathname of [
+        '/minio/show/data/lampiran/1711937200650_original_Laporan%20Tahunan%20Telkom%202023_website.pdf',
+        '/minio/show/data/lampiran/1630362585390_Laporan%20Keuangan%20Konsolidasian%20TW%20II%202021%20Bahasa.pdf',
+        '/minio/show/data/lampiran/1624856902971_Laporan%20Keuangan(unaudited)Q12021_Bahasa.pdf',
+        '/minio/show/data/lampiran/1576308021506_Laporan%20Keuangan(Audited)%20FY%202018.pdf',
+        '/minio/show/data/lampiran/1576307914162_Laporan%20Keuangan(Unaudited)%209M%202019.pdf',
+        '/minio/show/data/lampiran/1711937336092_original_Laporan%20Keberlanjutan%20Telkom%202023_website.pdf',
+        '/minio/show/data/lampiran/1650979879160_6K_Annual_Report_2021_htm.pdf',
+      ]) {
+        expect(classifyIssuerDocument(pathname.toLowerCase()), pathname).toBe('tier1');
+      }
+    });
+
+    it('survives a malformed escape rather than throwing', () => {
+      expect(classifyIssuerDocument('/reports/laporan-keuangan-50%-2026.pdf')).toBe('tier1');
+    });
+  });
+
+  /*
+   * Tier 1 requires a document class AND a reporting period or form code
+   * (user methodology decision, 2026-08-29). Documents that merely talk
+   * about filings carry the vocabulary but never a period.
+   */
+  describe('classifyIssuerDocument period/form requirement', () => {
+    it('rejects guides, templates and handbooks that echo statutory vocabulary', () => {
+      expect(classifyIssuerDocument('edgar-filing-guide.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('annual-report-template.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('pedoman-konsolidasian-internal.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('laporan-keuangan-panduan-pengisian.pdf')).toBe('exclude');
+    });
+
+    it('accepts two-digit period forms, which the year-only rule used to miss', () => {
+      expect(classifyIssuerDocument('bbri-fs-3q25.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('tlkm-lk-1h26.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('telkom-fs-fy25.pdf')).toBe('tier1');
+    });
+
+    it('does not read a bare two-digit number as a period', () => {
+      // The real TLKM annual report carries '54' and '00' as layout codes.
+      expect(classifyIssuerDocument('tlkm-ar-fullbook-54-00-hires.pdf')).toBe('exclude');
+      expect(classifyIssuerDocument('tlkm-2025ar-fullbook-54-00-hires.pdf')).toBe('tier1');
+    });
+
+    it('keeps content-descriptor words out of the deny-list so real filings survive', () => {
+      // 'update' and 'highlights' describe content, not format, and attach to
+      // legitimate filings — only format words are excluded.
+      expect(classifyIssuerDocument('laporan-keuangan-2026-update.pdf')).toBe('tier1');
+      expect(classifyIssuerDocument('tlkm-2025-sustainability-report-highlights-deck.pdf')).toBe('exclude');
+    });
   });
 
   /*

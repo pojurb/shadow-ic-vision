@@ -53,6 +53,7 @@ import { readObservedMeasurement, type PolarityResult } from './polarity';
 import { resolvePolarity, type PolarityClassifier } from './polarity-classifier';
 import { deriveCoverageLedger } from './coverage';
 import { deriveThesisVerdict } from './verdict';
+import { isDecisionEligibleEvidence } from './adapters/issuer-info-memo';
 import { createDiscoveryProvider } from './discovery/factory';
 import { persistDiscoveryCandidates } from './discovery/persist';
 import { buildDiscoveryQuery } from './discovery/query';
@@ -397,13 +398,23 @@ export async function getResearchPanel(
    * SQLite, whereas the panel component's only coverage is a route-mocked
    * Playwright spec.
    */
+  /*
+   * User decision, 2026-08-29: Info Memo evidence is supplemental /
+   * display-only. It still reaches the drawer through `evidenceRows`, and it
+   * is withheld from the two computations that decide anything — the
+   * coverage ledger and the verdict below. See
+   * `isDecisionEligibleEvidence` for the reasoning and for why the exclusion
+   * is scoped to Info Memo alone rather than to the secondary tier.
+   */
+  const decisionEligibleEvidence = evidenceRows.filter((record) => isDecisionEligibleEvidence(record));
+
   const coverage = deriveCoverageLedger(rows.map(({ assumption, job }) => ({
     assumptionId: assumption.id,
     statement: assumption.statement,
     market: thesis.market as 'US' | 'ID',
     contract: contractsByAssumption.get(assumption.id) ?? null,
     jobStatus: job.status,
-    polarities: evidenceRows.filter((record) => record.assumptionId === assumption.id).map((record) => record.polarity),
+    polarities: decisionEligibleEvidence.filter((record) => record.assumptionId === assumption.id).map((record) => record.polarity),
   })));
 
   const verdict = deriveThesisVerdict({
@@ -412,7 +423,7 @@ export async function getResearchPanel(
       assumptionId: assumption.id,
       statement: assumption.statement,
       contract: contractsByAssumption.get(assumption.id) ?? null,
-      evidence: evidenceRows
+      evidence: decisionEligibleEvidence
         .filter((record) => record.assumptionId === assumption.id)
         .map((record) => ({
           id: record.id,
@@ -612,6 +623,15 @@ async function processOneResearchJob(params: {
     db, snapshotDirectory, now, market, ticker, knownDocumentIds, identity,
     jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
     adapter: marketSecondaryAdapters.newsWire, evidenceClass: 'secondary_news', polarityClassifier,
+  });
+  // M013 follow-up. Same evidenceClass as issuerPr — Info Memo is DEC-0015
+  // Class A ("Official Issuer IR Releases"), just discovered via a
+  // different adapter because it lives on the report-listing page, not the
+  // press-release page.
+  await runSecondaryResearchCall({
+    db, snapshotDirectory, now, market, ticker, knownDocumentIds, identity,
+    jobId: row.job.id, assumptionId: row.assumption.id, assumptionStatement: row.assumption.statement,
+    adapter: marketSecondaryAdapters.infoMemo, evidenceClass: 'secondary_issuer', polarityClassifier,
   });
 
   // M011 Slice 4. Same placement rationale as the two calls above: before the

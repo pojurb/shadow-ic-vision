@@ -6,6 +6,7 @@ import { createDerivedCandidate, createOcrCandidate, createSecondaryIssuerCandid
 import { extractDocument, extractHtml, extractPdf } from '@/lib/research/extractors/document';
 import { createVisionTranscriber, extractSyntheticOcrCandidate, extractVisionOcrCandidate } from '@/lib/research/extractors/ocr';
 import { calculateGrossMarginFromFacts } from '@/lib/research/extractors/xbrl';
+import { evidenceInsertValues } from '@/lib/research/evidence-persistence';
 import { verifyExactMatch, verifyPageExactMatch } from '@/lib/research/verifier';
 import { createInstructionClassifier } from '@/lib/research/extractors/safety';
 
@@ -1000,6 +1001,101 @@ describe('secondary-source evidence through the citation pipeline (M007)', () =>
     if (result.unchanged) throw new Error('Expected a fresh execution.');
     expect(result.evidence.length).toBeGreaterThan(0);
     expect(result.evidence.every((item) => item.verificationStatus === 'secondary_news')).toBe(true);
+  });
+});
+
+/*
+ * DEC-0015 §2.2 lane invariant. Before these guards, `evidenceClass` (which
+ * picks the extractor) and `snapshot.sourceTier` (which the adapter stamps)
+ * were never compared: a secondary document reaching an official call ran
+ * the lenient extractor and could mint `exact_verified`, defeating the
+ * structural promotion barrier with no error and no failing test. The tier
+ * separation was real but rested entirely on `service.ts` wiring staying
+ * correct forever, which is not an invariant — it is a habit.
+ */
+describe('lane/tier invariant (DEC-0015 §2.2, R-010)', () => {
+  const adapterWithTier = (sourceTier: 'official' | 'secondary'): SourceAdapter => {
+    const snapshot = {
+      documentId: 'lane-probe-1',
+      market: 'US' as const,
+      ticker: 'PLTR',
+      sourceUrl: 'https://example.invalid/doc',
+      sourceName: `Probe adapter (${sourceTier})`,
+      sourceTier,
+      publishDate: '2026-07-20',
+      sourceFormat: 'html' as const,
+      rawBytes: new TextEncoder().encode('<html><body><p>Palantir reported gross margin of 81.3% in the quarter.</p></body></html>'),
+      retrievalTimestamp: '2026-07-20T00:00:00.000Z',
+      contentType: 'text/html',
+      httpStatus: 200,
+    };
+    return {
+      mode: 'mock',
+      async discover() { return { kind: 'found', value: [snapshot] }; },
+      async fetchSnapshot() { return { kind: 'found', value: snapshot }; },
+    };
+  };
+
+  it('refuses a secondary-tier document arriving through the official lane', async () => {
+    const adapter = adapterWithTier('secondary');
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+    await expect(pipeline.executeResearchJob(
+      'US', 'PLTR', 'PLTR gross margin remains above 80%.', undefined, new Set(), 'official',
+    )).rejects.toThrow(/Lane mismatch/);
+  });
+
+  it('refuses an official-tier document arriving through a secondary lane', async () => {
+    const adapter = adapterWithTier('official');
+    const pipeline = new CitationPipeline({ US: adapter, ID: adapter });
+    await expect(pipeline.executeResearchJob(
+      'US', 'PLTR', 'PLTR gross margin remains above 80%.', undefined, new Set(), 'secondary_issuer',
+    )).rejects.toThrow(/Lane mismatch/);
+  });
+
+  /*
+   * Second line of defence, at the point of no return. Covers callers the
+   * pipeline guard cannot see — `candidateOverrides`, and anything building
+   * `VerifiedEvidence` by hand.
+   */
+  describe('evidenceInsertValues persistence guard', () => {
+    const base = {
+      sourceUrl: 'https://example.invalid/doc',
+      sourceName: 'Probe',
+      sourceFormat: 'html' as const,
+      sourceVariant: null,
+      contentKind: 'text' as const,
+      publishDate: null,
+      retrievalTimestamp: '2026-07-20T00:00:00.000Z',
+      extractionMethod: 'html_parser' as const,
+      pageNumber: null,
+      boundingBox: null,
+      documentHash: 'hash',
+      canonicalTextHash: null,
+      exactQuote: 'quote',
+      impactSummary: 'summary',
+      metadata: {},
+    };
+
+    it('refuses exact_verified on a secondary-tier source', () => {
+      expect(() => evidenceInsertValues('assumption-1', {
+        ...base, verificationStatus: 'exact_verified', sourceTier: 'secondary',
+      } as never, null)).toThrow(/Evidence integrity/);
+    });
+
+    it('refuses secondary_issuer on an official-tier source', () => {
+      expect(() => evidenceInsertValues('assumption-1', {
+        ...base, verificationStatus: 'secondary_issuer', sourceTier: 'official',
+      } as never, null)).toThrow(/Evidence integrity/);
+    });
+
+    it('accepts each status on its own tier', () => {
+      expect(() => evidenceInsertValues('assumption-1', {
+        ...base, verificationStatus: 'exact_verified', sourceTier: 'official',
+      } as never, null)).not.toThrow();
+      expect(() => evidenceInsertValues('assumption-1', {
+        ...base, verificationStatus: 'secondary_issuer', sourceTier: 'secondary',
+      } as never, null)).not.toThrow();
+    });
   });
 });
 

@@ -2,8 +2,10 @@ import { getIssuerPressReleaseUrls, getIssuerSourceUrls, getNewsWireFeedUrls, ge
 import { OfficialHttpClient } from '../http';
 import { IdxAdapter } from './idx';
 import { IssuerAdapter } from './issuer';
+import { IssuerInfoMemoAdapter } from './issuer-info-memo';
 import { IssuerPressReleaseAdapter } from './issuer-press';
 import { MockIdxAdapter } from './mock-idx';
+import { MockIssuerInfoMemoAdapter } from './mock-issuer-info-memo';
 import { MockSecXbrlFactSource } from './mock-sec-xbrl';
 import { SecCompanyConceptSource, type XbrlFactSource } from './sec-xbrl';
 import { MockIssuerPressReleaseAdapter } from './mock-issuer-press';
@@ -45,6 +47,10 @@ export function createSourceAdapters(): Record<ResearchMarket, SourceAdapter> {
 export type SecondarySourceAdapters = {
   issuerPr?: SourceAdapter;
   newsWire?: SourceAdapter;
+  // M013 follow-up. Same optional-per-market shape as issuerPr/newsWire: a
+  // ticker with no configured ISSUER_SOURCE_URLS entry simply gets
+  // undefined, and callers skip it (never error).
+  infoMemo?: SourceAdapter;
 };
 
 /**
@@ -66,18 +72,19 @@ export function buildClientsByOrigin(urls: Record<string, string>, logPath: stri
 /**
  * M007 Slice 3. Sibling to `createSourceAdapters` — deliberately not a
  * change to that function's `Record<ResearchMarket, SourceAdapter>` return
- * shape, which is depended on elsewhere (including tests). Both fields are
- * optional per market: a ticker with no configured press-release URL or no
- * reachable news feed simply gets `undefined`, which callers must handle by
- * skipping that source class (never by erroring).
+ * shape, which is depended on elsewhere (including tests). Every field is
+ * optional per market: a ticker with no configured URL simply gets
+ * `undefined`, which callers must handle by skipping that source class
+ * (never by erroring).
  */
 export function createSecondarySourceAdapters(): Record<ResearchMarket, SecondarySourceAdapters> {
   if (getResearchSourceMode() === 'mock') {
     const mockIssuerPr = new MockIssuerPressReleaseAdapter();
     const mockNewsWire = new MockNewsWireAdapter();
+    const mockInfoMemo = new MockIssuerInfoMemoAdapter();
     return {
-      US: { issuerPr: mockIssuerPr, newsWire: mockNewsWire },
-      ID: { issuerPr: mockIssuerPr, newsWire: mockNewsWire },
+      US: { issuerPr: mockIssuerPr, newsWire: mockNewsWire, infoMemo: mockInfoMemo },
+      ID: { issuerPr: mockIssuerPr, newsWire: mockNewsWire, infoMemo: mockInfoMemo },
     };
   }
 
@@ -93,9 +100,17 @@ export function createSecondarySourceAdapters(): Record<ResearchMarket, Secondar
     ? new NewsWireAdapter(newsFeedUrls, buildClientsByOrigin(newsFeedUrls, logPath))
     : undefined;
 
+  // M013 follow-up. Reuses ISSUER_SOURCE_URLS (same report-listing page
+  // IssuerAdapter fetches) rather than a new env var — see
+  // issuer-info-memo.ts's file comment.
+  const issuerUrls = getIssuerSourceUrls();
+  const infoMemoAdapter = Object.keys(issuerUrls).length
+    ? new IssuerInfoMemoAdapter(issuerUrls, buildClientsByOrigin(issuerUrls, logPath))
+    : undefined;
+
   return {
-    US: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
-    ID: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter },
+    US: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter, infoMemo: infoMemoAdapter },
+    ID: { issuerPr: issuerPrAdapter, newsWire: newsWireAdapter, infoMemo: infoMemoAdapter },
   };
 }
 

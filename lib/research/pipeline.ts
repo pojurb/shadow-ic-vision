@@ -109,6 +109,27 @@ export class CitationPipeline {
     if (fetched.kind !== 'found') throw new ResearchSourceError(fetched.code, fetched.message);
 
     const snapshot = fetched.value;
+    /*
+     * DEC-0015 §2.2 lane invariant. `evidenceClass` picks the extractor and
+     * is fixed per `CitationPipeline` instance; `snapshot.sourceTier` is
+     * whatever the adapter chose to stamp. Nothing used to compare them, so
+     * an adapter returning a `secondary` document into an `official` call
+     * still ran `extractDeterministicCandidates` and could mint
+     * `exact_verified` — the structural promotion barrier defeated silently,
+     * with no error and no failing test. The tier separation was real but
+     * rested entirely on the wiring in `service.ts` being correct forever.
+     *
+     * Thrown rather than logged: a mismatch is a wiring defect, not a source
+     * condition, and continuing would persist evidence at the wrong trust
+     * class. `source_configuration` is the existing code for exactly that.
+     */
+    const expectedTier = evidenceClass === 'official' ? 'official' : 'secondary';
+    if (snapshot.sourceTier !== expectedTier) {
+      throw new ResearchSourceError(
+        'source_configuration',
+        `Lane mismatch: evidenceClass '${evidenceClass}' requires sourceTier '${expectedTier}', but ${snapshot.sourceName} supplied '${snapshot.sourceTier}'.`,
+      );
+    }
     const documentHash = createHash(snapshot.rawBytes);
     let extracted;
     try {
