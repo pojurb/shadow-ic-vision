@@ -166,7 +166,30 @@ anything this session changed.
 **Live validation is done. Next: Slice 4's per-assumption source-adequacy
 classification** — (A) Reachable / (B) Exists but unreachable / (C) No public
 source — against the corpus this run produced, per `docs/milestones/M013-source-adequacy-and-official-path-recovery.md`
-§4 Slice 4. Nothing blocks starting it now.
+§4 Slice 4. Nothing blocks starting it now. Not yet started as of this entry
+— this is where the next session begins.
+
+Two rules govern how to run it, stated in the packet itself, not optional:
+
+1. **Exploration is not evidence.** Any web search or model knowledge used to
+   locate or reason about a candidate source is exploration only — label it
+   as such explicitly. It does not become jp-invest's verified evidence
+   unless it goes through the research pipeline (`AGENTS.md` rule 1).
+2. **The classification is the user's, not the assistant's.** Assemble what
+   was found and lay out the reasoning per assumption, from the corpus this
+   session's live run produced; the user decides each assumption's class.
+   This is stated explicitly in the packet — not a call to make unilaterally.
+
+Query current evidence per TLKM assumption before saying anything about A/B/C
+— don't reuse this session's before/after table above as if it were per
+assumption; it's an aggregate. Thesis id `168cd37c-a6ce-473e-9b2a-943f253c0ef6`.
+
+**M014 status, clarified this session and worth restating on resume:**
+`docs/milestones/M014-private-knowledge-coverage-expansion.md` is `accepted`
+(2026-08-08) but its own header says explicitly *"It is not active or
+complete."* Zero implementation exists. Not referenced anywhere in
+`ACTIVE_MILESTONE.md`, whose Active Packet is still M013. Dormant, not done —
+re-check before assuming otherwise, since this could change later.
 
 ---
 
