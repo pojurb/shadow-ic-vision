@@ -23,7 +23,7 @@ cleared. If Slice 2's diagnosis turns out to require a new capability (for
 example, a different extraction strategy for large documents), that becomes its
 own decision, raised at review rather than assumed here.
 
-## Slice outcomes — 2026-08-08 (Slices 1–3; Slices 4–5 not started)
+## Slice outcomes — Slices 1–3 (2026-08-08), Slice 4 (2026-08-31); Slice 5 not started
 
 Every figure below was read directly from `d:/jp-invest-data/db.sqlite` or
 measured by running the real code against the real retained documents. A
@@ -190,6 +190,243 @@ A second, unrelated observation surfaced while verifying: snapshots live under
 files) and `D:\jp-invest-data\source-snapshots\` (where writes go now, per
 `SOURCE_SNAPSHOT_DIR`). Not investigated; recorded so it is not mistaken for
 part of this defect.
+
+### Slice 4 — source adequacy per assumption, 2026-08-31
+
+Classified against the corpus produced by the live run of 2026-08-29 (TLKM
+evidence 158; official `source_snapshots` 2024–2026 = 6; Info Memo = 4).
+
+**Whose judgment this is.** The user decided these six classes, after reviewing
+three independent analyses that reached them by different routes — this
+assistant's, and two external reviews the user commissioned and pasted back
+("Gemini" and "Terra"). The assistant assembled the evidence and laid out the
+reasoning; it did not classify. Recorded this way because the packet's own rule
+requires it, and because one of the six changed *because* an external review
+disagreed with this assistant (see A2).
+
+**Basis of each judgment.** Every class below rests on **verified evidence** —
+the evidence rows and measurement contracts read directly from
+`d:/jp-invest-data/db.sqlite` on 2026-08-31 — except where a line says
+`exploration`. No web search was performed by this assistant. The two external
+reviews are themselves exploration, not jp-invest evidence; they are recorded as
+corroborating reasoning, never as a source (`AGENTS.md` rule 1).
+
+| # | Assumption (abbrev.) | Class | Contract resolution |
+|---|---|---|---|
+| A1 | TLKM retains ≥30% of NeutraDC post-divestment | **B** | resolved (`gte 30 percent`) |
+| A2 | NeutraDC market share vs named competitive set | **C** | resolved (share of MW live+contracted) |
+| A3 | Strategic investor is a credible global DC/cloud operator | **B** | **`not_measurable`** |
+| A4 | Data-center contribution material to TLKM financials | **A** | resolved (segment YoY differential) |
+| A5 | Hyperscaler capital commitments flow via NeutraDC | **C** | resolved (`gte 1200`, MW) |
+| A6 | NeutraDC secures firm PLN power capacity | **C** (was B-provisional; OCR returned, see below) | resolved (`gte 1200`, MW firm) |
+
+**A1 — (B).** The transaction is in progress: the contract's own
+`definitionVariant` describes "pelepasan ~70% saham yang sedang diproses". No
+retrieved evidence states a post-transaction ownership percentage. The official
+job is `degraded/source_http_error`, so this is a retrieval and timing blocker,
+not an absence of source. The press releases that *were* retrieved concern
+InfraNexia — a different spin-off, ~99% Telkom-owned — not NeutraDC.
+
+**A2 — (C). This is the class that changed during review, and how it changed
+matters more than the class.** This assistant first read the statement loosely
+as "competitive position" and classified it **(A)**, citing the 2026 20-F
+naming competitors, the 10 MW Cikarang IT load, and 89% utilization. The
+"Terra" review rejected that: those are operating indicators, not a market
+share — there is no denominator and no peer-comparable share series. Reading
+the measurement contract afterwards settled it in Terra's favour, harder than
+Terra could have known: the contract requires **MW live+contracted for DCI,
+BDx, DayOne and DAMAC** as the denominator. Those are private operators that do
+not publish it, and TLKM does not publish its competitors' figures. The
+retrieved evidence supports a proxy analysis, not this contract.
+
+This also restores consistency with this packet's own §0, written on
+2026-08-08, which already named "competitor-set MW market share" as one of
+three assumptions asking for figures issuers do not customarily disclose. The
+assistant had drifted from that record by reading the statement text instead of
+the contract.
+
+**A3 — (B), with a finding neither external review could reach.** Both external
+reviews classified this (B) on the ground that a strategic investor's identity
+is disclosed at deal announcement, and that is right. But the contract row reads
+`resolution = not_measurable` with no metric at all. So A3 is (B) on *source
+adequacy* while remaining permanently unmeasurable: even when the disclosure
+arrives, there is no metric against which support or breach could be computed.
+Source adequacy and measurability are different axes, and A3 separates them.
+This is a Q5 input, recorded here so Slice 5 does not have to re-derive it.
+
+**A4 — (A).** The contract already converts the unmeasurable wording ("material
+enough to move valuation") into something a filing can settle: Digital
+Infrastructure segment YoY revenue growth minus consolidated YoY growth,
+differential ≥ 0 pp over 2+ consecutive quarters — and it states openly that
+NeutraDC is not disclosed separately, so the segment is used as a proxy. Segment
+reporting is a required disclosure and the financial statements are already in
+the corpus. What retrieval surfaced instead was ESG boilerplate from
+sustainability reports; that is a ranking failure (R-025), not a supply failure.
+The distinction is the whole point of this packet.
+
+**A5 — (C).** Across 43 retrieved rows there is no named hyperscaler
+commitment, counterparty, amount or allocation. The closest official match is a
+2008 2G/3G procurement agreement involving Oracle Corporation — unrelated to
+data-center hosting, and already recorded as an R-025 example in Slice 3. The
+contract asks for MW contracted/MoU per hyperscaler against a 1,200 MW
+benchmark; tenant-level contracted capacity is not something either the operator
+or the hyperscaler publishes.
+
+**A6 — (B), provisional.** The official evidence retrieved is entirely
+unrelated (related-party transactions, post-employment benefits, spectrum
+licensing). One press release confirms a NeutraDC–PLN collaboration on energy
+supply readiness for phased hyperscale expansion, with **no MW figure**. The
+contract's bar is explicit: **MW firm, not LoI or feasibility study**, against
+1,200 MW. Held provisional rather than closed because a concrete unread lead
+exists — the Laporan Risiko Iklim, already established as class (B) in Slice 2
+(a PowerPoint export flattened to raster, zero embedded fonts, legible, blocked
+only by OCR not being wired into `CitationPipeline`). The OCR handoff prompt for
+it was first issued on 2026-08-08 and went unanswered for three weeks. Locking a
+class over a document nobody has read would have been the same error this packet
+was created to correct, one tier down.
+
+**The OCR returned on 2026-08-31, and A6 resolves to (C).** Run by the user's
+own vision-capable terminal agent under the standing handoff protocol (this
+assistant writes the prompt, does not call a vision provider, and does not run
+OCR itself). Result on the question that mattered: **no firm capacity figure in
+MW, MVA or GW appears anywhere in the 41 pages** — and no aspirational one
+either. PLN appears twice, both times as Scope 2 *accounting methodology*
+(consumption derived from PLN billing, at a fixed tariff per kWh), never as
+supply, allocation or agreement. "NeutraDC", "hyperscale", "Cikarang" and
+"Batam" do not appear at all; the data centers are named only as an emissions
+boundary ("data center Telkom Data Ekosistem"). What the document does carry is
+a Scope 1/2 series 2020–2023, a 20%-by-2030 and net-zero-by-2060 target, solar
+and fuel-cell capacity in **GJ**, and NGFS energy-spend projections — real
+content, all of it irrelevant to this contract.
+
+So the lead is exhausted, and under the amended label A6 is **(C) — no public
+source identified for the current measurement contract**. This was the branch
+the Terra review specified in advance ("jika tidak ada angka firm capacity,
+evaluasi ulang menjadi 'tidak tersedia untuk measurement contract ini'"), which
+is why it is recorded here rather than re-opened as a new decision.
+
+**Verification of the OCR itself, not taken on the agent's report.** Structure
+was re-derived independently with pdfjs against the same snapshot: 41 pages
+(exact match), `Title: LAPORAN RISIKO IKLIM 2023`, `Producer: Microsoft®
+PowerPoint®`, and **65 characters of extractable text across all 41 pages
+combined** — confirming the raster-only finding from Slice 2 against the live
+file, with 9–560 image objects per page. What could *not* be independently
+re-checked is the negative itself: proving no MW figure exists anywhere requires
+a full visual pass of 41 raster pages, and `pdftoppm` is not installed in this
+environment. That residue is recorded rather than smoothed over. It is
+corroborated from a second direction: across all 158 evidence rows the pipeline
+has never surfaced a PLN capacity figure either, and a climate-risk report is
+not the genre in which contracted grid capacity is published.
+
+**A second-order finding worth keeping.** The Laporan Risiko Iklim was
+classified (B) in Slice 2 — correctly, as a statement about the *document*
+(legible, blocked only by format). It was then carried forward as if that made
+it a promising source for A6. It was not. **The class of a document and the
+class of an assumption are different judgments**, and the first does not
+propagate to the second. Slice 2's (B) said "this can be read"; only reading it
+could say "this answers nothing here."
+
+#### The (C) label is amended, and why
+
+The packet defined (C) as *"no public document would settle this claim, at any
+point on the ladder"*. That is a **universal negative**, and an empty search
+cannot establish it. Adopted instead, from the Terra review and accepted by the
+user:
+
+> **(C) — No public source identified for the current measurement contract.**
+
+This binds the label to two checkable things — the retrieval actually performed,
+and the contract in force when the judgment was made — rather than to a claim
+about the world that can never be verified. It is the same discipline
+`DEC-0018` applies to the verdict: do not assert what you cannot support. It
+also makes the label correctly *contingent*: change the contract and the class
+must be re-derived, which is exactly the behaviour the next section requires.
+
+#### Re-framing A2 and A5 is deferred, deliberately
+
+Both external reviews recommended reformulating A2 and A5 into proxies that
+public sources can satisfy. **Not done here, and not as part of Slice 4.**
+
+The substantive objection: A2 asks whether NeutraDC is *winning against a named
+competitive set*. The proposed proxy — its own capacity and utilization —
+answers a different and much easier question, whether it is *growing*. An
+operator can grow capacity and utilization while losing share. Substituting the
+proxy would let the thesis reach a positive verdict on a claim that was never
+tested, which is precisely the silent change to "what counts as support" that
+`DEC-0018` forbids.
+
+The sequencing objection is simpler: the finding *is* "under the contracts the
+user set, three of six assumptions have no identified public source". Re-framing
+before recording deletes the result of the experiment this packet exists to run.
+
+The right order, and where it belongs: record the classes against today's
+contracts (done here) → then decide re-framing as its own explicit, recorded
+decision with the prior contract preserved. That is Q6 / follow-on packet
+territory, and the proxy choice and any threshold in it are the user's
+calibration, not the assistant's (`AGENTS.md` rule 4).
+
+#### What the distribution actually means — and a correction to R-028
+
+Final distribution: **A = 1 (A4); B = 2 (A1, A3); C = 3 (A2, A5, A6).**
+
+`R-028` predicted the consequence on 2026-08-08, flagged as "unmeasured until
+M013 Slice 4 completes": *"`holding` requires `coverage.supported > 0`, so if
+most assumptions are (C), the thesis is structurally pinned at
+`INSUFFICIENT_EVIDENCE` no matter how much evidence work is done."* Slice 4 has
+now measured it, **and the inference was wrong.** Read directly from
+[`verdict.ts:154`](../../lib/research/verdict.ts#L154): the level falls to
+`insufficient_evidence` when `coverage.supported === 0`. Zero, not "most". **One
+supported assumption is enough to reach `holding`** — and A4 (class A, contract
+resolved) and A1 (class B, contract resolved, blocked only on a pending
+disclosure) are both capable of becoming supported. This thesis is not pinned.
+
+The real exposure is the mirror image of the predicted one, and worse:
+
+> At most **2 of 6** assumptions can ever be supported. The other four cannot,
+> for two different reasons: A2, A5 and A6 have no identified public source, and
+> A3 has no metric at all (`not_measurable`). Yet the verdict can read
+> **`HOLDING`** on the strength of **one** of the six — while two-thirds of the
+> thesis is permanently untestable, and nothing in the output says so.
+
+The suppression backstop does not catch this either: `confidenceGate` is derived
+from `coverageRatio`, which counts assumptions carrying *any* quote of any
+polarity. All six currently do, so the ratio reads 100% and the gate reads
+`open`. The gate cannot distinguish "evidenced" from "evidenceable".
+
+This belongs to Q5 and is the sharpest input it has: the question is not whether
+the user accepts a verdict pinned pessimistic, but whether they accept a
+positive verdict computed from a third of a thesis. R-028's residual-risk column
+should be corrected to this measured finding rather than left carrying the
+prediction.
+
+**Method note, since it caught two errors in one session.** Both mistakes
+corrected today — this assistant's (A) for A2, and this `DEC-0018` inference —
+came from reading a *summary* of a rule instead of the rule: the assumption
+statement instead of its measurement contract, and R-028's characterisation of
+`DEC-0018` instead of `verdict.ts`. In both cases the artifact was one file
+away.
+
+#### Follow-on items raised by this slice, not acted on
+
+- **A2 and A5 jobs are still being retried** — attempt counts 22–25 at the time
+  of classification, and the daily scheduled refresh keeps running them. They
+  cannot succeed as worded, so this burns fetches and keeps adding irrelevant
+  rows to the corpus. Recorded rather than fixed: `§8 Reversal` states Slice 2
+  is the only slice that changes runtime behaviour.
+- **A1 and A3 share one disclosure event.** Both external reviews independently
+  proposed a single transaction-monitoring trigger that would resolve both. They
+  remain two assumptions — the retained percentage and the counterparty's
+  profile are separate facts — but a shared refresh trigger is a sound follow-on
+  design.
+- **AC-M013-03 is met for all six.** A6's OCR returned the same day and closed
+  the last provisional class. What remains open is not this criterion but the
+  OCR *path*: `VisionTranscriber` is still not wired into `CitationPipeline`, so
+  the handoff remains manual and its output is a source-adequacy judgment, never
+  ingested as evidence (`DEC-0012` would make it `ocr_matched`, never
+  `exact_verified`).
+- **R-028's residual-risk column carries a prediction that measurement has now
+  falsified.** Correcting it is a register edit, not a Slice 4 finding, but it
+  should not be left standing.
 
 ## 0. Why this packet exists, and why it is not a relevance milestone
 

@@ -1,13 +1,131 @@
-# Session Checkpoint - 2026-08-31 (Slice 4 plan recorded, nothing executed yet)
+# Session Checkpoint - 2026-08-31 (M013 Slice 4 classified: 1 A, 3 B, 2 C — and the one this assistant got wrong)
 
-This entry records a **plan only**, agreed with the user before any work started
-this session. No database query, no code, no classification has been performed
-under this entry — it exists so a future session (or this one, resumed) has the
-agreed shape of Slice 4 without re-deriving it. Read the 2026-08-29 entry below
-first for full context (live-validated corpus: TLKM evidence 158, official
-`source_snapshots` 2024–2026 = 6, Info Memo = 4).
+Slice 4 ran and is recorded. The full per-assumption reasoning lives in the
+packet — `docs/milestones/M013-source-adequacy-and-official-path-recovery.md`
+§"Slice 4 — source adequacy per assumption, 2026-08-31" — not repeated here.
+This entry records what happened, what changed, and what is still open.
 
-## Agreed plan for M013 Slice 4
+| # | Assumption (abbrev.) | Class |
+|---|---|---|
+| A1 | TLKM retains ≥30% of NeutraDC post-divestment | **B** |
+| A2 | NeutraDC market share vs named competitive set | **C** |
+| A3 | Strategic investor is a credible global DC/cloud operator | **B** (contract `not_measurable`) |
+| A4 | Data-center contribution material to TLKM financials | **A** |
+| A5 | Hyperscaler capital commitments flow via NeutraDC | **C** |
+| A6 | NeutraDC secures firm PLN power capacity | **C** (was B-provisional; OCR returned same day) |
+
+**Whose decision this was.** The user's, after reviewing three independent
+analyses that reached the classes by different routes: this assistant's, and two
+external reviews the user commissioned and pasted back ("Gemini", "Terra"). The
+assistant assembled evidence and reasoning and did not classify. The external
+reviews are exploration, not jp-invest evidence — recorded as corroboration
+only (`AGENTS.md` rule 1). No web search was performed by this assistant; every
+class rests on evidence rows and measurement contracts read directly from
+`d:/jp-invest-data/db.sqlite` on 2026-08-31.
+
+**The assistant was wrong on A2, and an external review caught it.** This
+assistant read the statement loosely as "competitive position", saw the 2026
+20-F naming competitors plus the 10 MW Cikarang figure and 89% utilization, and
+classified **(A)**. Terra rejected it: those are operating indicators, not a
+market share — no denominator, no peer share series. Reading
+`assumption_measurements` afterwards settled it in Terra's favour and harder
+than Terra could have known: the contract requires **MW live+contracted for DCI,
+BDx, DayOne and DAMAC** as the denominator, which those private operators do not
+publish. Worth keeping as method, not just as an outcome: **the assumption text
+is not the claim — the measurement contract is.** Reading the statement instead
+of the contract is what produced the error, and it had already been recorded
+correctly in the packet's own §0 back on 2026-08-08.
+
+**The (C) label was amended.** The packet defined (C) as "no public document
+would settle this claim, at any point on the ladder" — a universal negative an
+empty search cannot establish. Now, per Terra and accepted by the user:
+**"No public source identified for the current measurement contract."** It binds
+the label to the retrieval actually performed and the contract in force, and
+makes the class correctly contingent on the contract.
+
+**Re-framing A2 and A5 was deferred deliberately.** Both external reviews
+recommended reformulating them into proxies public sources can satisfy. Refused
+as part of Slice 4 on two grounds, both in the packet: A2's proposed proxy (own
+capacity/utilization) answers *"are we growing"* rather than *"are we winning
+share"* — an operator can grow both while losing share, so substituting it lets
+the thesis reach a positive verdict on a claim never tested, the silent change
+to "what counts as support" `DEC-0018` forbids. And re-framing before recording
+would delete the finding this packet exists to produce. Belongs to Q6 as its own
+explicit decision, with the prior contract preserved.
+
+**A3 carries a finding neither external review could reach**, because neither
+had the contract data: its `resolution` is `not_measurable` with no metric at
+all. So it is (B) on source adequacy while remaining permanently unmeasurable —
+even when the disclosure lands, nothing can be computed from it. A Q5 input.
+
+**A6's OCR returned the same day, and closed it as (C).** Run by the user's own
+terminal agent under the standing handoff protocol. Across all 41 pages: **no
+firm capacity figure in MW/MVA/GW, and no aspirational one either.** PLN appears
+twice, both times as Scope 2 accounting methodology (consumption from PLN
+billing at a fixed per-kWh tariff), never as supply or allocation. "NeutraDC",
+"hyperscale", "Cikarang", "Batam" do not appear at all. Structure was
+independently re-verified here against the same snapshot with pdfjs — 41 pages
+(exact match), `LAPORAN RISIKO IKLIM 2023`, PowerPoint producer, and **65
+characters of extractable text across all 41 pages**, confirming Slice 2's
+raster-only finding on the live file. The negative itself could not be
+independently re-checked (that needs a full visual pass; `pdftoppm` is not
+installed here) — recorded as residue, and corroborated from the other side by
+the pipeline never surfacing a PLN capacity figure in 158 rows.
+
+Second-order lesson kept: the Laporan Risiko Iklim was class (B) as a
+*document*, and that was correct — but it was then carried as if that made it a
+promising source for A6, which it is not. **A document's class and an
+assumption's class are different judgments; the first does not propagate.**
+
+**Correction to this entry's own earlier claim about `DEC-0018`.** An earlier
+version of this entry said A2/A5 at (C) plus A3 unmeasurable means the thesis is
+"pinned below a positive verdict regardless of labelling effort". **That is
+wrong**, and it repeated an unmeasured prediction from `R-028` rather than
+reading the rule. [`verdict.ts:154`](lib/research/verdict.ts#L154) falls to
+`insufficient_evidence` only when `coverage.supported === 0` — so **one**
+supported assumption reaches `holding`, and A4 (class A) and A1 (class B,
+pending disclosure) both have resolved contracts and can get there. The real
+exposure is the reverse and sharper: at most 2 of 6 can ever be supported, yet
+the verdict can read `HOLDING` off one of six while two-thirds of the thesis is
+permanently untestable — and `confidenceGate` cannot catch it, because
+`coverageRatio` counts any quote of any polarity, so it reads 100% and `open`.
+R-028's residual column has been corrected in the register with the measured
+result, the falsified prediction left visible above it.
+
+Both errors corrected today — the (A) for A2, and this — came from reading a
+summary of a rule instead of the rule itself: the assumption statement instead
+of its measurement contract, R-028's characterisation instead of `verdict.ts`.
+In both cases the real artifact was one file away.
+
+### Still open after this slice
+
+- **The OCR path itself.** `VisionTranscriber` is still not wired into
+  `CitationPipeline`, so the handoff stays manual, and its output is a
+  source-adequacy judgment only — never ingested as evidence (`DEC-0012` makes
+  OCR output `ocr_matched`, never `exact_verified`).
+- **A2 and A5 jobs are still being retried** — 22–25 attempts each, and the
+  daily scheduled refresh keeps running them. They cannot succeed as worded, so
+  this burns fetches and adds irrelevant rows. Not fixed: §8 states Slice 2 is
+  the only slice that changes runtime behaviour.
+- **A1 and A3 share one disclosure event** — both external reviews independently
+  proposed a single transaction-monitoring trigger. They stay two assumptions;
+  the shared trigger is a follow-on design.
+
+### Exact Resume Point
+
+**Next: Slice 5** — record Q3 as settled by VISION, then close Q4, Q5 and Q6.
+`AC-M013-04` forbids leaving any of them silently open. Q5 is now informed by a
+measured finding, stated correctly: **at most 2 of 6 TLKM assumptions can ever
+be supported** (A2/A5/A6 have no identified source; A3 has no metric), **yet the
+verdict can read `HOLDING` off one of them.** So Q5 is not "do you accept a
+verdict stuck pessimistic" — it is "do you accept a positive verdict computed
+from a third of a thesis, with nothing in the output disclosing that". Q4 and Q6
+are user calibrations; the assistant presents distributions and trade-offs and
+does not choose (`AGENTS.md` rule 4).
+
+Superseded plan, kept for reference:
+
+## Agreed plan for M013 Slice 4 (as written before execution)
 
 Thesis id `168cd37c-a6ce-473e-9b2a-943f253c0ef6`. Per-assumption source-adequacy
 classification, (A) reachable / (B) exists-but-unreachable / (C) no public
@@ -57,11 +175,9 @@ AC-M013-04 forbids leaving any of them silently open:
 Closing Slice 5 closes M013 against its acceptance criteria (AC-M013-01
 through 05, §5 of the packet).
 
-### Exact Resume Point
-
-**Start at Slice 4, step 1** — query the 6 TLKM assumptions and their current
-evidence from the live DB. Nothing has been queried or classified yet as of
-this entry.
+*(The plan above was executed the same day. Its own resume point — "start at
+Slice 4, step 1" — is spent; the live resume point is the one at the top of this
+entry.)*
 
 ---
 

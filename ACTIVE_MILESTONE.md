@@ -1,8 +1,8 @@
 # Active Milestone
 
-Status: `accepted` — in progress, Slices 1–3 complete, Slice 4 discovery blocker **live-validated 2026-08-29**, per-assumption classification not started
+Status: `accepted` — in progress, **Slices 1–4 complete** (Slice 4 classified 2026-08-31: A=1, B=2, C=3 — all six final), Slice 5 not started
 
-Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired; post-2024 abbreviation discovery **confirmed live against the real Telkom page**; source-adequacy classification not started)
+Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired and live-validated; per-assumption source adequacy classified — see the packet's Slice 4 section for the reasoning behind each class)
 
 **Governance note (2026-08-29):** this file records M013 as `accepted` while the
 packet's own header still reads `scoped` — awaiting user acceptance. Acceptance
@@ -12,7 +12,33 @@ either as settled by the other.
 
 Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
 
-## Current Phase — M013 discovery live-validated; Slice 4 classification can now start
+## Current Phase — M013 Slice 4 classified; Slice 5 (close Q3–Q6) is next
+
+**Slice 4 completed 2026-08-31.** Per-assumption source adequacy: **A4 = (A);
+A1, A3 = (B); A2, A5, A6 = (C)** — A6 resolved the same day when the Laporan
+Risiko Iklim OCR returned with no firm MW figure anywhere in its 41 pages. The
+user decided the classes after reviewing three
+independent analyses; the assistant assembled evidence and reasoning and did not
+classify. Two things carried forward from it: the (C) label now reads *"no
+public source identified for the current measurement contract"* rather than
+asserting an unprovable universal negative, and re-framing A2/A5 into reachable
+proxies was **deferred to Q6 as its own explicit decision** — doing it inside
+Slice 4 would have deleted the finding and quietly changed what counts as
+support (`DEC-0018`). Full reasoning is in the packet's Slice 4 section; the
+narrative below this line predates it.
+
+**One measured correction came out of it, affecting `R-028`.** The register
+predicted that a majority of (C) classes would pin the thesis at
+`INSUFFICIENT_EVIDENCE`. It does not: `verdict.ts` falls to that level only when
+`coverage.supported === 0`, so one supported assumption reaches `holding`. The
+measured exposure is the reverse — at most 2 of 6 TLKM assumptions can ever be
+supported, yet the verdict can read `HOLDING` off one of them while two-thirds
+of the thesis is permanently untestable, and `confidenceGate` cannot detect it
+(`coverageRatio` counts any quote of any polarity, so it reads 100% / `open`).
+R-028's residual column now carries the measurement with the falsified
+prediction left visible. This is the main input to Q5.
+
+
 
 Acceptance was given by direction rather than by a single statement: the user
 authorised each slice in turn (Slice 1 alone, then the repair, then the re-run),
@@ -68,9 +94,9 @@ per-thesis scope, so it touches every active thesis (`TLKM` and `ISAT`
 currently), not just the one being investigated.
 
 Slice 4's per-assumption source-adequacy classification — (A) Reachable /
-(B) Exists but unreachable / (C) No public source — was not started this
-session and is the next real step, now against a corpus that has actually
-been refreshed rather than one known to predate every change.
+(B) Exists but unreachable / (C) No public source — was not started *in that
+session*; it ran on 2026-08-31 against the refreshed corpus. See the Current
+Phase section above for the outcome.
 
 ### What Slices 1–3 established
 
