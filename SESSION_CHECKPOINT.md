@@ -1,3 +1,70 @@
+# Session Checkpoint - 2026-08-31 (Slice 4 plan recorded, nothing executed yet)
+
+This entry records a **plan only**, agreed with the user before any work started
+this session. No database query, no code, no classification has been performed
+under this entry — it exists so a future session (or this one, resumed) has the
+agreed shape of Slice 4 without re-deriving it. Read the 2026-08-29 entry below
+first for full context (live-validated corpus: TLKM evidence 158, official
+`source_snapshots` 2024–2026 = 6, Info Memo = 4).
+
+## Agreed plan for M013 Slice 4
+
+Thesis id `168cd37c-a6ce-473e-9b2a-943f253c0ef6`. Per-assumption source-adequacy
+classification, (A) reachable / (B) exists-but-unreachable / (C) no public
+source, for each of TLKM's 6 assumptions.
+
+1. **Query the 6 assumptions and their current evidence** from the live DB
+   (`d:/jp-invest-data/db.sqlite`) — assumption text, linked evidence per
+   assumption (tier, document date, snapshot status, `sourceTier`). Not yet run.
+2. **Lay out what's known per assumption.** One is already established without
+   re-deriving: the Laporan Risiko Iklim is class (B) — raster-flattened PPT,
+   fully legible, blocked only by OCR not being wired into `CitationPipeline`.
+   The other five need the same treatment — check whether existing evidence is
+   actually relevant, and whether the needed document type is one issuers
+   customarily disclose at all.
+3. **Exploration kept separate from evidence.** Any web search used to check
+   whether a public source exists for a given claim is exploration only
+   (`AGENTS.md` rule 1) — labelled explicitly, never written to the DB, never
+   presented as jp-invest evidence.
+4. **Present findings per assumption, not a classification.** For each of the
+   6: the assumption text, evidence found (with tier/date), reasoning toward
+   A/B/C, and whether that reasoning rests on verified evidence or exploration.
+   The assistant does not choose the class — that is the user's call per the
+   packet's own rule 2, not an engineering decision.
+5. **Record the user's 6 decisions as durable data**, once made. Where exactly
+   they get persisted is still open — `lib/research/coverage.ts` already has
+   `no_source_for_market`, which may or may not be the right vehicle for (C);
+   the packet defers that as a separate design question, not part of Slice 4
+   itself.
+
+### Then Slice 5 (closes M013)
+
+Per the packet, all four remaining questions must be closed explicitly —
+AC-M013-04 forbids leaving any of them silently open:
+
+- **Q3** — already settled by `VISION.md` §3/§5.2/§7 (posture: challenger, not
+  finder or judge). Just needs recording, not re-litigating.
+- **Q4** — user sets the acceptable review volume; the assistant shows the
+  Slice 3 distribution/trade-offs and does not pick the number
+  (`AGENTS.md` rule 4).
+- **Q5** — user decides whether a verdict gated on their own labelling is
+  acceptable, informed by how many of the 6 assumptions land on (C) — if
+  several do, `DEC-0018` pins the thesis below a positive verdict regardless of
+  labelling effort, and the user should decide knowing that going in.
+- **Q6** — the R-025 remedy gets scoped as a follow-on packet, its shape
+  determined by the Slice 4 A/B/C distribution.
+
+Closing Slice 5 closes M013 against its acceptance criteria (AC-M013-01
+through 05, §5 of the packet).
+
+### Exact Resume Point
+
+**Start at Slice 4, step 1** — query the 6 TLKM assumptions and their current
+evidence from the live DB. Nothing has been queried or classified yet as of
+this entry.
+
+---
+
 # Session Checkpoint - 2026-08-29 (issuer discovery reworked and live-validated)
 
 ## What was built this session
