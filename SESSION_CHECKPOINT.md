@@ -1,4 +1,4 @@
-# Session Checkpoint - 2026-08-31 (M013 Slice 4 classified: 1 A, 3 B, 2 C — and the one this assistant got wrong)
+# Session Checkpoint - 2026-08-31 (Slice 4 classified; Q3/Q5/Q6 closed; then discovery found dead for 25 days, reopening A6)
 
 Slice 4 ran and is recorded. The full per-assumption reasoning lives in the
 packet — `docs/milestones/M013-source-adequacy-and-official-path-recovery.md`
@@ -111,7 +111,117 @@ In both cases the real artifact was one file away.
   proposed a single transaction-monitoring trigger. They stay two assumptions;
   the shared trigger is a follow-on design.
 
-### Exact Resume Point
+## Slice 5 partially done, and a live-infrastructure failure found — 2026-08-31 evening
+
+**Q3 closed** (posture = challenger, verified against `VISION.md` §3/§5.2/§7
+directly, not from this packet's summary of them). **Q5 and Q6 decided by the
+user.** **Q4 still open.** Then an unrelated cron symptom the user reported
+turned into the most consequential finding of the day.
+
+- **Q5 — accepted with mandatory disclosure.** A positive verdict may be reached
+  from a supported minority, but the output must state how many assumptions are
+  permanently untestable and why. Note it is arguably not optional: `VISION.md`
+  §7 already requires a missing source or risk to be *"visible and reviewable,
+  not hidden behind confidence language"*.
+- **Q6 — the smaller scope.** Give the system a way to express "this assumption
+  cannot be evidenced by any public source", and stop retrying jobs that cannot
+  succeed. Chosen on the packet's own §4 criterion, measured to apply.
+- **Q4 — OPEN. This is the one decision still outstanding.** The user asked for
+  the trade-offs first (delivered), then proposed a variant not among the three
+  offered: **Option 3 + a summary layer** — keep every passage and label why it
+  surfaced, but present a summary first with detail reachable on demand. **This
+  has not been worked through or answered yet.** `AC-M013-04` is not met until
+  it is.
+
+### Discovery had been dead for 25 days — and it changes A6
+
+`discovery_quota_exhausted` (Tavily HTTP 432, monthly credits exhausted) has
+fired ~14×/day **every day since 2026-08-06**. For 25 days nothing new was ever
+discovered; the pipeline only re-crawled known documents. The code handles it
+correctly and logs it; **nothing surfaces it** — `discoverySummary` has states
+for "never ran" and "ran and found nothing", but none for "ran and failed", so
+the panel showed stale candidates as if healthy. That is `VISION.md` §7's
+failure mode occurring in the product itself.
+
+**The user supplied a new Tavily key and it is live** — updated in `.env` (which
+is gitignored and untracked; verified before writing), previous file backed up
+to `.env.backup-20260831`. Tested with a real API call: **HTTP 200, 5 results**.
+
+**And the first result corrected a claim made earlier the same day.** Querying
+every TLKM evidence row containing MW/GW shows the corpus *does* hold the
+figures A6 needs — all filed against the wrong assumption:
+
+| Quote | Attached to |
+|---|---|
+| "Ekspansi ini akan meningkatkan kapasitas data center NeutraDC hingga mencapai **200 MW**" | **A2** |
+| "NeutraDC **berkolaborasi dengan PT PLN** dalam memastikan kesiapan pasokan energi" | **A2** |
+| "…current IT load capacity of **10 MW**" (20-F, official) | **A2** |
+| "capacity expansion of **18MW** … Cikarang" | **A2** |
+| "35 data centers … total capacity of **38 MW**" | **A3** |
+| "**42 MW** in 33 data centers" | **A4** |
+
+A6 — the assumption literally about PLN power capacity — got four rows of
+related-party accounting boilerplate containing the string "PLN". **So the
+earlier statement "one press release confirms a NeutraDC–PLN collaboration, with
+no MW figure" is wrong**, and is flagged inline in the packet rather than
+silently edited. **A6 returns to provisional.** Its (C) *reasoning* may still
+hold — "akan… hingga mencapai 200 MW" is aspirational and the contract's bar is
+firm MW, explicitly excluding LoI/feasibility — but that is a contract
+interpretation belonging to the user, and the evidence sweep behind the original
+call was incomplete. A2's (C) is unaffected: its problem is the *competitor*
+denominator, not NeutraDC's own numerator.
+
+The amended (C) label earned itself here: under the packet's original absolute
+wording the A6 entry would now be plainly false.
+
+### Two more cron faults, not yet repaired
+
+- **The scheduled task is killed mid-run.** `LastTaskResult` `0xC000013A`
+  (`STATUS_CONTROL_C_EXIT`). Leading hypothesis, unproven:
+  `StopIfGoingOnBatteries = True` on a laptop that also wakes late (scheduled
+  08:00 local, actually ran 08:40 on 8/30 and 09:03 on 8/31). Consequence in the
+  database right now: A5 stuck `running` with a lease that expired at
+  02:15:05Z, and **A3 and A6 never processed at all** — still `queued`. They sit
+  last in the queue and the run dies first, which is why their attempt counts
+  are 22 vs 24–25 and their evidence 14–16 rows vs 37–43. **Their thin corpora
+  are partly a scheduling artifact, not purely a source-availability signal.**
+- `cnbcindonesia.com/market/rss` times out on every attempt; one 20-F PDF took
+  229 seconds to download, eating much of the run before it died.
+
+### Exact Resume Point — start here tomorrow
+
+Do these in order. Nothing below has been started.
+
+1. **Back up `db.sqlite` first** (precedent: `db-before-m013-slice3-*.sqlite`).
+   The daily cron mutates the database unattended, so any before/after
+   comparison needs a frozen baseline. Current baseline to compare against:
+   **191 evidence rows, all `inconclusive`, 72 distinct source documents.**
+2. **Run `npm run research:refresh`** — the first run in 25 days with working
+   discovery. Note it has no per-ticker scope, so it also touches `ISAT` (whose
+   8 jobs fail on a pre-existing, unrelated `issuer_source_unavailable`). The
+   last full run took ~65 minutes.
+3. **Re-examine A6 against the refreshed corpus**, and give A1 (job `degraded`,
+   `source_http_error`), A3 and A6 a fair pass now that discovery works and they
+   are no longer starved. Then settle A6's class — including the contract
+   question that is the user's, not the assistant's: does "akan… hingga mencapai
+   200 MW" plus a PLN collaboration meet a bar written as *firm MW, not LoI or
+   feasibility study*?
+4. **Then close Q4** — the user's own proposal (Option 3 + summary layer) is the
+   live candidate and has not been evaluated yet.
+5. **Only then record the corrections** into the packet with results attached,
+   rather than writing them twice.
+
+Deferred, discussed but not decided: repairing the scheduled task
+(`StopIfGoingOnBatteries`, queue ordering so A3/A6 stop being starved) and
+making discovery failure visible in the panel — the latter fits naturally inside
+the Q6 scope the user just chose.
+
+---
+
+**Below: the Slice 4 record written earlier the same day. Read the correction
+above before treating A6 as settled.**
+
+### Exact Resume Point (superseded — see "start here tomorrow" above)
 
 **Next: Slice 5** — record Q3 as settled by VISION, then close Q4, Q5 and Q6.
 `AC-M013-04` forbids leaving any of them silently open. Q5 is now informed by a

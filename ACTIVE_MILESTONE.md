@@ -1,6 +1,6 @@
 # Active Milestone
 
-Status: `accepted` — in progress, **Slices 1–4 complete** (Slice 4 classified 2026-08-31: A=1, B=2, C=3 — all six final), Slice 5 not started
+Status: `accepted` — in progress. Slice 4 classified 2026-08-31 (A=1, B=2, C=3) but **A6 reopened the same evening**: discovery had been dead 25 days and the corpus does hold PLN/MW figures, misfiled under A2. Slice 5: **Q3, Q5, Q6 closed; Q4 open.** Next action is a DB backup + `research:refresh` with working discovery — see `SESSION_CHECKPOINT.md` "start here tomorrow".
 
 Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired and live-validated; per-assumption source adequacy classified — see the packet's Slice 4 section for the reasoning behind each class)
 

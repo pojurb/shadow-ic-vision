@@ -23,7 +23,7 @@ cleared. If Slice 2's diagnosis turns out to require a new capability (for
 example, a different extraction strategy for large documents), that becomes its
 own decision, raised at review rather than assumed here.
 
-## Slice outcomes — Slices 1–3 (2026-08-08), Slice 4 (2026-08-31); Slice 5 not started
+## Slice outcomes — Slices 1–3 (2026-08-08), Slices 4–5 (2026-08-31); Q3 closed, Q4–Q6 awaiting user decision
 
 Every figure below was read directly from `d:/jp-invest-data/db.sqlite` or
 measured by running the real code against the real retained documents. A
@@ -272,6 +272,16 @@ contract asks for MW contracted/MoU per hyperscaler against a 1,200 MW
 benchmark; tenant-level contracted capacity is not something either the operator
 or the hyperscaler publishes.
 
+> **⚠ CORRECTION PENDING, 2026-08-31 evening — do not read A6's paragraph below
+> as settled.** The sentence "with **no MW figure**" is **wrong**. The corpus
+> does contain a 200 MW figure tied to PLN and NeutraDC; it was attached to
+> **A2**, not A6, and so never appeared in A6's evidence. See
+> §"Discovery was dead while Slice 4 was classified" below. A6 returns to
+> **provisional** pending a re-run with working discovery. The (C) *reasoning*
+> may still hold — "akan… hingga mencapai 200 MW" is aspirational and the
+> contract's bar is firm MW — but that is a contract interpretation for the
+> user, and the evidence sweep this paragraph describes was incomplete.
+
 **A6 — (B), provisional.** The official evidence retrieved is entirely
 unrelated (related-party transactions, post-employment benefits, spectrum
 licensing). One press release confirms a NeutraDC–PLN collaboration on energy
@@ -427,6 +437,170 @@ away.
 - **R-028's residual-risk column carries a prediction that measurement has now
   falsified.** Correcting it is a register edit, not a Slice 4 finding, but it
   should not be left standing.
+
+### Slice 5 — Q3 recorded; Q4–Q6 inputs measured, 2026-08-31
+
+#### Q3 — settled by VISION, recorded so it stops being re-opened
+
+**The posture is `challenger`** — neither a passive finder nor an autonomous
+judge. Verified against `VISION.md` directly rather than taken from this
+packet's own earlier summary:
+
+- **§3** — *"an AI-assisted Investment Committee that tracks your theses,
+  **challenges your assumptions** with cited evidence and explicit uncertainty"*.
+  A passive finder does not challenge.
+- **§5.2** — *"**Alternative Views:** Presenting the strongest argument *for* the
+  opposing position to ensure intellectual honesty"*. A finder does not argue
+  the other side.
+- **§7** — *"The product does not present every headline. It **prioritizes**
+  information tied to user-defined theses and assumptions"*, and *"The user makes
+  every investment decision"*. An autonomous judge is excluded by the same
+  section.
+
+Q3 is closed. It is not a user decision and should not be asked again.
+
+**Two further §7/§6 clauses bear directly on Q5 and Q6 and were not cited in
+this packet's original framing.** Both were found while verifying the three
+above, and both mean Slice 4's findings are not merely interesting — they name
+obligations already in VISION:
+
+- **§7** — *"Missing a relevant source, change, or risk is a possible product
+  failure that must be **visible and reviewable, not hidden behind confidence
+  language**."* This is exactly the exposure measured above: a verdict that can
+  read `HOLDING` off one of six assumptions while four are permanently
+  untestable, with nothing in the output saying so. Under §7 that is not a
+  preference to calibrate — it is a stated product failure mode.
+- **§6.2** — *"Show uncertainty and coverage limits: the system must distinguish
+  verified facts, sourced claims, inferences, unresolved conflicts, stale
+  information, and **unavailable data**."* Class (C) *is* "unavailable data".
+  The vocabulary Slice 4 needed is already required by the constitution; what is
+  missing is any surface that expresses it.
+
+#### Measured inputs for Q4, Q5 and Q6 — read 2026-08-31 from the live database
+
+These are the facts the three remaining questions turn on. The questions
+themselves are the user's and are not answered here.
+
+| Measure | Value |
+|---|---:|
+| TLKM evidence rows, total | **191** |
+| …on 2026-08-29, after the live run | 158 |
+| Rows added since, by the unattended daily cron | **+33** (19 on 8/30, 14 on 8/31) |
+| Rows whose polarity is `inconclusive` | **191 — all of them** |
+| Rows `supports` or `contradicts` | **0** |
+| Distinct source documents feeding those rows | 72 |
+| `exact_verified` / `secondary_issuer` / `secondary_news` | 85 / 80 / 26 |
+| Job attempts per assumption | **22–25 each** |
+
+**The arrival rate is the Q4 input, and it is not hypothetical.** The corpus grew
+158 → 191 in two days with nobody running anything; the scheduled refresh did
+it. At that rate a weekly review cycle — the "Sunday Evening Ritual" of
+`VISION.md` §4 — presents on the order of 100 new passages. Applying R-025's
+measured 88.9% irrelevance rate to them leaves roughly a dozen worth reading,
+undifferentiated from the rest.
+
+**Zero directional polarity across 191 rows is the Q5 input**, alongside Slice
+4's distribution. Nothing has ever been supported or contradicted on this
+thesis, and four of six assumptions can never be — three for lack of any
+identified source, one for lack of any metric. Two can. So the question Q5 puts
+to the user is not whether to accept a pessimistic verdict; it is whether to
+accept a **positive** one computed from at most a third of a thesis.
+
+**The Q6 input is the distribution itself.** This packet's §4 stated the test in
+advance: *"If (C) dominates, the honest product need is a way to state 'this
+assumption cannot be evidenced by any public source' — a materially smaller
+change than either (b) or (c)."* Measured: **(C) is the largest class, 3 of 6**,
+and a fourth assumption is unmeasurable for a different reason. By the packet's
+own criterion the smaller change is the indicated one. The scope decision
+remains the user's.
+
+**One measured behaviour belongs to R-028 rather than to any of the three
+questions:** the jobs for A2, A5 and A6 — the three (C) assumptions — have run
+22 to 25 times each and are still being re-queued daily. They cannot succeed as
+worded. This is R-028's "searches indefinitely and reports 'no evidence yet'"
+happening in the live database, now with a count attached.
+
+#### Q5 and Q6 — decided by the user, 2026-08-31
+
+- **Q5 — accepted, with mandatory disclosure.** A positive verdict may still be
+  reached from a supported minority, **but the output must state how many
+  assumptions are permanently untestable and why**. Recorded as the user's
+  decision, and note it is arguably not optional anyway: `VISION.md` §7 requires
+  a missing source or risk to be *"visible and reviewable, not hidden behind
+  confidence language"*, which makes this a debt to pay rather than a preference
+  to hold.
+- **Q6 — the smaller scope.** The follow-on packet gives the system a way to
+  express *"this assumption cannot be evidenced by any public source"* and stops
+  retrying jobs that cannot succeed (A2/A5/A6, 22–25 attempts each). Chosen on
+  this packet's own §4 criterion, stated in advance and measured to apply: (C)
+  is the largest class. The `PassageCandidate`/`Evidence` split (remedy c) and
+  stop-word hygiene (remedy a) are not in it.
+- **Q4 — still open.** The user asked for the trade-offs to be explained before
+  deciding, then proposed a variant not among the three offered: **Option 3 plus
+  a summary layer** — every passage kept and labelled with why it surfaced, but
+  presented as a summary first, with the detail reachable on demand. Not yet
+  worked through; it is the open item, and `AC-M013-04` is not met until it is
+  closed.
+
+### Discovery was dead while Slice 4 was classified — found 2026-08-31 evening
+
+Investigating an unrelated cron symptom the user reported surfaced a standing
+failure that bears directly on the classifications above.
+
+**`discovery_quota_exhausted` — Tavily HTTP 432, "monthly credit allowance
+exhausted" — has fired ~14 times a day, every day, since 2026-08-06.** For 25
+days the pipeline discovered no new sources at all; it only re-crawled documents
+it already knew. The code handles the condition correctly
+([`tavily.ts:91`](../../lib/research/discovery/tavily.ts#L91) returns
+`unavailable`) and logs it to `logs/outbound.log`. **Nothing surfaces it.**
+`discoverySummary` ([`contracts.ts:531`](../../lib/domain/contracts.ts#L531))
+distinguishes "never ran" from "ran and found nothing" — there is no state for
+"ran and failed", so the panel shows stale candidates as if discovery were
+healthy. That is the §7 failure mode in the product itself, not in a thesis.
+
+**What this costs Slice 4.** The (C) classifications' *reasoning* is independent
+of discovery — A2 needs competitor MW that private operators do not publish, A5
+needs tenant-level contracted MW under NDA, A6's bar is firm MW and the climate
+report's OCR found none. Those are arguments about what gets published. But the
+*empirical leg* — "across N retrieved rows there is no…" — was measured over a
+retrieval set narrower than it should have been, for 25 days.
+
+**And the sweep was wrong in one concrete place.** Querying every TLKM evidence
+row containing MW/GW shows the corpus does hold the relevant figures — all
+attached to the wrong assumption:
+
+| Quote | Attached to |
+|---|---|
+| "Ekspansi ini akan meningkatkan kapasitas data center NeutraDC hingga mencapai **200 MW**" | **A2** |
+| "NeutraDC **berkolaborasi dengan PT PLN** dalam memastikan kesiapan pasokan energi" | **A2** |
+| "NeutraDC operates one Hyperscale Data Center … current IT load capacity of **10 MW**" (20-F, official) | **A2** |
+| "capacity expansion of **18MW** for the hyperscale data center in Cikarang" | **A2** |
+| "35 data centers with a total capacity of **38 MW**" | **A3** |
+| "**42 MW** in 33 data centers" | **A4** |
+
+A6 — the assumption literally about PLN power capacity — received four rows of
+related-party accounting boilerplate that merely contain the string "PLN". The
+single most relevant document in the corpus for A6 was filed under market share.
+This is R-025 in its purest observed form, and it is a **different** failure from
+"no source exists": the material was retrieved, persisted, and misfiled.
+
+**The amended (C) label earned itself here.** Under the packet's original
+absolute wording — "no public document would settle this claim, at any point on
+the ladder" — the A6 entry would now be plainly false. Under
+"no public source *identified* for the current measurement contract" it remains
+accurate, and correctly signals that identification, not the world, was the
+limit.
+
+**Two further cron faults, recorded for the repair that follows:** the scheduled
+task is being killed mid-run (`LastTaskResult` `0xC000013A`,
+`STATUS_CONTROL_C_EXIT`; `StopIfGoingOnBatteries = True` is the leading
+hypothesis, unproven), leaving A5 in `running` with an expired lease and
+**A3 and A6 never processed at all** — they sit last in the queue and the run
+dies first, which is why their attempt counts are 22 against 24–25 and their
+evidence rows 14–16 against 37–43. Their thin corpora are therefore partly a
+scheduling artifact, not purely a source-availability signal. Separately,
+`cnbcindonesia.com/market/rss` times out on every attempt, and one 20-F PDF took
+229 seconds to download, consuming much of the run's life before it was killed.
 
 ## 0. Why this packet exists, and why it is not a relevance milestone
 
