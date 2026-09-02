@@ -1,3 +1,148 @@
+# Session Checkpoint - 2026-09-02 (Tavily quota theory disproved; ISAT archived; discovery is 0-for-65)
+
+No M013 analysis this session — all infrastructure. Two things changed durably,
+one decision was deliberately parked so the milestone can close first.
+
+## Backup taken and verified
+
+`d:/jp-invest-data/db-before-m013-slice5-20260902T210037.sqlite` — 1,994,752
+bytes, 487 pages. Written through the SQLite online backup API rather than a
+file copy, because the database is in WAL mode and `db.sqlite-shm` was being
+touched by another process at the time. `integrity_check` = ok on both source
+and copy; **all 23 tables matched row-for-row**. Confirmed not a hardlink
+(distinct inodes, `links=1` each, `fsutil hardlink list` naming one path only).
+
+**New frozen baseline: 238 evidence rows, 90 distinct documents, 65 discovery
+candidates, 14 research jobs.** The 8/31 entry's baseline (191 rows / 72
+documents) is spent — the 9/1 and 9/2 cron runs added 47 rows unattended.
+
+## The Tavily quota theory was wrong, and the outbound log says so
+
+The working assumption going in — that the daily cron exhausted the free tier —
+is **false**. Measured from `logs/outbound.log`, which records every Tavily
+request:
+
+| Period | Calls/day |
+|---|---|
+| 2026-08-03 → 08-08 (dev burst) | 385–470 |
+| 2026-08-11 → today (steady state) | 12–14 |
+
+Steady state is ~14/day ≈ 420/month against a **1,000 credit/month** free tier
+(the tier figure is documented in `lib/research/discovery/tavily.ts`'s class
+comment; `search_depth: 'basic'` = 1 credit per call). The exhaustion that
+killed discovery for 25 days came from **manual live testing while M008 was
+being built**, 3–8 August — 470 calls on 8/5, 397 on 8/6, arriving in bursts of
+~26 at irregular hours across the whole day, which is not a cron signature.
+
+Mechanically, one refresh run costs one Tavily call per research job:
+`refreshOfficialSources` requeues **every** job of every active thesis
+unconditionally ([`ingestion.ts:44`](lib/research/ingestion.ts#L44)), and each
+job then makes exactly one search ([`service.ts:1009`](lib/research/service.ts#L1009)),
+regardless of whether that assumption already has evidence or could ever be
+evidenced.
+
+**So cadence was never the problem, and switching the cron to weekly was
+deliberately NOT done** — it would have dropped credit usage and made the defect
+below look solved while leaving it intact.
+
+## The real defect: discovery has never once succeeded
+
+Every discovery candidate ever produced has been rejected — all 65 of them,
+since the feature went live 2026-07-26:
+
+| Ticker | Status | Reason | Count |
+|---|---|---|---|
+| ISAT | rejected | `domain_not_allowlisted` | 43 |
+| TLKM | rejected | `domain_not_allowlisted` | 17 |
+| TLKM | rejected | `not_an_article` | 5 |
+
+**Zero promotions in the feature's entire lifetime.** Every Tavily credit spent
+since 26 July produced no evidence at all.
+
+This is a second failure mode for the Q6 scope, and a worse one than the quota
+outage that motivated Q6 in the first place. The panel renders these candidates
+as though they were progress; nothing distinguishes *"ran, found things,
+rejected every one"* from *"ran and found nothing yet"*. Same `VISION.md` §7
+blind spot, different cause.
+
+## ISAT archived — durable change made this session
+
+`.env` allowlists BBRI + TLKM in `ISSUER_SOURCE_URLS`, and TLKM alone in
+`ISSUER_PRESS_RELEASE_URLS`. **ISAT had no allowlist entry at all.** That is the
+root cause of its 8 jobs' standing `issuer_source_unavailable` — which the 8/31
+entry recorded as "pre-existing, unrelated", and it is neither. It also explains
+its 43 rejected candidates: ISAT's own official domains (`ioh.co.id`,
+`indosatooredoo.com`) are not allowlisted either, so even its issuer site is
+refused.
+
+The thesis sat in the worst of three states: `active`, but structurally
+incapable of ever succeeding — burning 8 Tavily credits a day and making every
+cron run report `degraded`.
+
+**User's decision: set ISAT non-active.** Executed — `theses.status`
+`active` → `archived` (the enum's only two values), 1 row changed, `updated_at`
+`2026-09-02T14:14:59.956Z`. Verified after the write: TLKM is the only `active`
+thesis, so `refreshOfficialSources` — which selects `where status = 'active'` —
+now picks up **6 jobs per run instead of 14**.
+
+**Measured effect: 6 credits/day ≈ 180/month, down from 14/day ≈ 420/month; 240
+credits/month freed.** ISAT's 8 jobs stay `degraded` and are simply never
+requeued again; nothing was deleted. No portfolio impact — the only position is
+TLKM (watchlist).
+
+## PARKED — return after M013 closes: is `idx.co.id` an official source?
+
+Deferred by the user so the running milestone finishes first. **Do not treat
+this as settled, and do not quietly add the domain to `.env`.**
+
+Tavily is returning genuinely relevant URLs that are then refused — including
+`idx.co.id` (the Indonesian stock exchange, i.e. the official filing venue) and
+issuers' own IR sites. Allowlisting IDX would plausibly make discovery start
+working for the first time.
+
+**Why this is a decision and not a config fix.** `DEC-0015` defines Class A
+narrowly as *"Direct company press releases and investor relations
+announcements"*. IDX is an exchange/regulator, not the issuer — so allowlisting
+it widens what the system counts as an official source. That is precisely the
+silent change to "what counts as support" that `DEC-0018` forbids. It needs a
+recorded decision, at minimum an amendment naming the new category.
+
+Sub-questions to answer when this is picked up:
+- Does IDX get its own source class, or join Class A?
+- Does it apply to every ticker, or only where the issuer's own site is
+  inadequate?
+- What happens to the **60** already-rejected `domain_not_allowlisted`
+  candidates — re-evaluated through `npm run research:promote-discoveries`
+  (which exists for exactly this case: re-evaluating candidates after an `.env`
+  allowlist change), or left rejected?
+
+## Exact Resume Point — supersedes the 8/31 list
+
+1. ~~Back up `db.sqlite`~~ — **done this session**, verified; path above.
+2. ~~Run `npm run research:refresh`~~ — **moot**. The cron already ran it on 9/1
+   and 9/2 with working discovery; running it by hand now only burns credits on
+   jobs that cannot succeed as worded.
+3. **Re-examine A6 against the refreshed corpus** — not started. What the
+   refresh actually delivered: A6 got **3 new rows, all the same related-party /
+   post-employment-benefit boilerplate**, still with no PLN capacity figure in
+   MW. A1 is now `succeeded` (45 rows), and A3/A6 are no longer starved (19–20
+   rows, up from 14–16) now that all 6 jobs get processed each run. The contract
+   question remains the user's, not the assistant's: does *"akan… hingga
+   mencapai 200 MW"* plus a PLN collaboration meet a bar written as **firm MW,
+   explicitly excluding LoI and feasibility study**?
+4. **Close Q4** — still the only outstanding M013 decision, still blocking
+   `AC-M013-04`. The user's own proposal (Option 3 + a summary layer) has still
+   not been worked through.
+5. **Then record the corrections** into the packet, with results attached.
+
+Still deferred, unchanged: repairing the scheduled task —
+`StopIfGoingOnBatteries = True` confirmed still set on `JP Invest Official
+Source Refresh` (daily 08:00, last run 9/2 09:59, result 0), and the 8/30 and
+8/31 runs are still sitting at status `running`, never completed — plus queue
+ordering so A3/A6 stop being processed last.
+
+---
+
 # Session Checkpoint - 2026-08-31 (Slice 4 classified; Q3/Q5/Q6 closed; then discovery found dead for 25 days, reopening A6)
 
 Slice 4 ran and is recorded. The full per-assumption reasoning lives in the
