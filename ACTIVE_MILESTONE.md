@@ -1,18 +1,57 @@
 # Active Milestone
 
-Status: `accepted` — in progress. Slice 4 classified 2026-08-31 (A=1, B=2, C=3) but **A6 reopened the same evening**: discovery had been dead 25 days and the corpus does hold PLN/MW figures, misfiled under A2. Slice 5: **Q3, Q5, Q6 closed; Q4 open.** Next action is a DB backup + `research:refresh` with working discovery — see `SESSION_CHECKPOINT.md` "start here tomorrow".
+Status: `accepted` — **all five acceptance criteria met 2026-09-02, awaiting user sign-off.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar). Next action is the user's sign-off, then the parked `idx.co.id` decision — see `SESSION_CHECKPOINT.md`.
 
 Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired and live-validated; per-assumption source adequacy classified — see the packet's Slice 4 section for the reasoning behind each class)
 
-**Governance note (2026-08-29):** this file records M013 as `accepted` while the
-packet's own header still reads `scoped` — awaiting user acceptance. Acceptance
-was given by direction rather than by a single statement (see below), and the two
-files have said different things since. Reconcile before closure; do not treat
-either as settled by the other.
+**Governance note (opened 2026-08-29, narrowed 2026-09-02):** this file recorded
+M013 as `accepted` while the packet's header read `scoped`, and the two have
+disagreed since. The packet header now reads *"all acceptance criteria met
+2026-09-02 — awaiting user sign-off"*, which states the measurable half without
+resolving the disagreement: **acceptance was given by direction rather than by a
+single statement, and no explicit sign-off exists for either file to cite.** The
+criteria being met is recorded and verifiable; the acceptance is not. Close this
+note only with an explicit user statement, not by inference from either file.
 
 Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
 
-## Current Phase — M013 Slice 4 classified; Slice 5 (close Q3–Q6) is next
+## Current Phase — M013 complete against its criteria; awaiting sign-off
+
+**Slice 5 completed 2026-09-02.** Two decisions closed it, both the user's.
+**A6 = (C)** — no public source identified for the current measurement contract;
+across 90 documents and 238 rows, including the 20-F and the fully OCR'd 41-page
+climate report, no firm PLN power figure in MW/MVA/GW has ever appeared. The
+8/31 claim that the corpus "does hold the figures A6 needs" did not survive
+being read against the contract: the 200 MW figure is *data-centre capacity*
+against a bar of **1,200 MW of firm PLN allocation**, and every one of the nine
+MW/GW rows in the thesis measures IT load or self-generated solar instead.
+**A6's threshold is recorded as defective and deliberately left unchanged** — at
+1,200 MW against a 200 MW ambition it is unsatisfiable at any realistic scale,
+but re-framing it now would delete the finding, the same reasoning that deferred
+A2 and A5.
+
+**Q4 closed on shape, not on volume.** Measurement showed volume is not the
+binding constraint: arrival swings 14 → 118 rows/week with pipeline health,
+while **236 of 236 rows sit at `inconclusive`** and `impact_summary` — though
+populated everywhere — holds **only 3 distinct values**, all describing the class
+of source rather than the content. The user's *Option 3 + summary layer* is
+adopted as the specification, with no number set, because nothing persisted
+today can feed a summary and the model-based route is out of this packet's
+scope. Building the differentiator belongs to the Q6 follow-on.
+
+**Two operational findings from the same day**, both recorded in the packet: the
+Tavily quota theory is disproved (steady state 12–14 calls/day against a
+1,000/month tier; the 25-day outage came from manual M008 testing at 385–470/day
+on 3–8 August), and **discovery has never once succeeded — all 65 candidates
+ever produced were rejected**, a second failure mode the panel is as blind to as
+the first. ISAT was archived: `active` but with no allowlist entry at all, so
+its 8 jobs could never succeed.
+
+**Parked, by explicit decision:** whether `idx.co.id` counts as an official
+source. It widens `DEC-0015` Class A and so needs its own decision record — and
+it is the live counter-argument to A6's class.
+
+### Superseded — the narrative below predates Slice 5
 
 **Slice 4 completed 2026-08-31.** Per-assumption source adequacy: **A4 = (A);
 A1, A3 = (B); A2, A5, A6 = (C)** — A6 resolved the same day when the Laporan

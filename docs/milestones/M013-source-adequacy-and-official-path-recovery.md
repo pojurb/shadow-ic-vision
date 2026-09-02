@@ -1,6 +1,6 @@
 # M013: Source Adequacy & Official-Path Recovery
 
-Status: `scoped` — awaiting user acceptance
+Status: `all acceptance criteria met 2026-09-02` — awaiting user sign-off
 
 Date drafted: 2026-08-08
 
@@ -23,7 +23,7 @@ cleared. If Slice 2's diagnosis turns out to require a new capability (for
 example, a different extraction strategy for large documents), that becomes its
 own decision, raised at review rather than assumed here.
 
-## Slice outcomes — Slices 1–3 (2026-08-08), Slices 4–5 (2026-08-31); Q3 closed, Q4–Q6 awaiting user decision
+## Slice outcomes — Slices 1–3 (2026-08-08), Slices 4–5 (2026-08-31, completed 2026-09-02); Q3–Q6 all closed
 
 Every figure below was read directly from `d:/jp-invest-data/db.sqlite` or
 measured by running the real code against the real retained documents. A
@@ -272,15 +272,21 @@ contract asks for MW contracted/MoU per hyperscaler against a 1,200 MW
 benchmark; tenant-level contracted capacity is not something either the operator
 or the hyperscaler publishes.
 
-> **⚠ CORRECTION PENDING, 2026-08-31 evening — do not read A6's paragraph below
-> as settled.** The sentence "with **no MW figure**" is **wrong**. The corpus
-> does contain a 200 MW figure tied to PLN and NeutraDC; it was attached to
-> **A2**, not A6, and so never appeared in A6's evidence. See
-> §"Discovery was dead while Slice 4 was classified" below. A6 returns to
-> **provisional** pending a re-run with working discovery. The (C) *reasoning*
-> may still hold — "akan… hingga mencapai 200 MW" is aspirational and the
-> contract's bar is firm MW — but that is a contract interpretation for the
-> user, and the evidence sweep this paragraph describes was incomplete.
+> **✔ CORRECTION RESOLVED, 2026-09-02. A6 is settled as (C).** Read this
+> paragraph with two amendments, both worked through in §"Slice 5 completed"
+> below.
+>
+> **(i) The sentence "with no MW figure" is imprecise, as the 8/31 review said.**
+> That press release (2026-08-14, document `5adc8a8f1ffa`) does carry a 200 MW
+> figure — in a different sentence from the PLN clause, and filed under **A2**,
+> so it never appeared in A6's evidence.
+>
+> **(ii) But the inference the 8/31 review drew from that is wrong.** It
+> concluded the corpus "does hold the figures A6 needs". It does not: the 200 MW
+> is *data-centre capacity*, and this contract asks for *firm power allocated by
+> PLN*, against a bar of **1,200 MW**. No MW figure anywhere in the thesis
+> measures the contracted metric. A6 stayed (C); the reasoning below is sound,
+> its evidence sweep was merely narrower than the corpus.
 
 **A6 — (B), provisional.** The official evidence retrieved is entirely
 unrelated (related-party transactions, post-employment benefits, spectrum
@@ -535,12 +541,14 @@ happening in the live database, now with a count attached.
   this packet's own §4 criterion, stated in advance and measured to apply: (C)
   is the largest class. The `PassageCandidate`/`Evidence` split (remedy c) and
   stop-word hygiene (remedy a) are not in it.
-- **Q4 — still open.** The user asked for the trade-offs to be explained before
-  deciding, then proposed a variant not among the three offered: **Option 3 plus
-  a summary layer** — every passage kept and labelled with why it surfaced, but
-  presented as a summary first, with the detail reachable on demand. Not yet
-  worked through; it is the open item, and `AC-M013-04` is not met until it is
-  closed.
+- **Q4 — closed 2026-09-02, on shape rather than volume.** The user asked for
+  the trade-offs first, then proposed a variant not among the three offered:
+  **Option 3 plus a summary layer** — every passage kept and labelled with why it
+  surfaced, presented as a summary first with detail reachable on demand. Worked
+  through in §"Slice 5 completed" below: it is adopted as the specification, but
+  no number is set, because measurement showed volume is not the binding
+  constraint and nothing persisted today can feed a summary. `AC-M013-04` is
+  met.
 
 ### Discovery was dead while Slice 4 was classified — found 2026-08-31 evening
 
@@ -601,6 +609,167 @@ evidence rows 14–16 against 37–43. Their thin corpora are therefore partly a
 scheduling artifact, not purely a source-availability signal. Separately,
 `cnbcindonesia.com/market/rss` times out on every attempt, and one 20-F PDF took
 229 seconds to download, consuming much of the run's life before it was killed.
+
+### Slice 5 completed — A6 settled, Q4 closed, 2026-09-02
+
+Every figure below was read from the live database on 2026-09-02, after two
+unattended cron runs (9/1, 9/2) the 8/31 entry could not have seen. Corpus at
+time of reading: **238 evidence rows, 90 distinct source documents** (was
+191 / 72). Backup taken first — `db-before-m013-slice5-20260902T210037.sqlite`,
+written through the SQLite online backup API and verified row-for-row across all
+23 tables.
+
+#### A6 — settled as (C), and the 8/31 correction was itself incomplete
+
+The 8/31 evening block reopened A6 on the grounds that the corpus "does hold the
+figures A6 needs, all filed against the wrong assumption." **Read against the
+contract, it does not.** Two things that block did not account for:
+
+**1. The bar is 1,200 MW, not merely "firm MW".** The contract reads `gte 1200`,
+`definition_variant`: *"Snapshot MW firm (bukan LoI/studi kelayakan) vs benchmark
+BDx 1,2 GW (1200 MW)"*. The 8/31 block framed the remaining question as
+aspirational-vs-firm alone. Even granting "akan… hingga mencapai 200 MW" as both
+firm and PLN-sourced, it sits **6× below the threshold**.
+
+**2. No MW figure anywhere in the thesis measures the contracted metric.** All
+nine MW/GW-bearing rows are data-centre IT load capacity or self-generated
+solar — never a firm power allocation from PLN:
+
+| Figure | What it measures | Filed under |
+|---|---|---|
+| 200 MW | target DC capacity expansion ("akan… hingga mencapai") | A2 |
+| 75 MW ×2 | hyperscale total capacity, final stage | A4 |
+| 42 MW | 33 data centres, to 3Q24 | A4 |
+| 38 MW | 35 data centres | A3 |
+| 22.5 MW | first-stage capacity, end 2021 | A4 |
+| 18 MW | Cikarang expansion | A2 |
+| 10 MW | current IT load, Cikarang (20-F, official) | A2 |
+| 14 / 20 MWp | Telkom's own solar PV to 2030 | A2 |
+
+IT load capacity is what a facility can host; a firm supply contract is a
+separate commercial instrument. The solar figures are the inverse of the metric —
+own generation, not PLN supply. **The only PLN-supply row in the entire thesis**
+(press release 2026-08-14, filed under A2) reads *"NeutraDC berkolaborasi dengan
+PT PLN (Persero) dalam memastikan kesiapan pasokan energi… secara bertahap"* — no
+MW, no term, no allocation. It sits in the same document as the 200 MW sentence
+(`5adc8a8f1ffa`), which is why the two were easy to read as one finding.
+
+A6's own 19 rows contain **zero** power figures; every "PLN" occurrence in them
+is related-party accounting boilerplate, and the three rows the 9/1 run added are
+more of the same.
+
+**The misfiling observation stands; the inference drawn from it does not.** The
+200 MW and PLN-collaboration rows are indeed filed under A2 rather than A6.
+Calling them "the figures A6 needs" repeated — for the third time in this
+packet — the error it has already named twice: **judging by the assumption's
+topic instead of by its measurement contract.** A row containing "MW" and
+"NeutraDC" is not automatically the metric, and a row containing "PLN" is not
+automatically PLN firm capacity.
+
+**User's decision, 2026-09-02: A6 is (C)** — no public source identified for the
+current measurement contract. Basis: across 90 documents and 238 rows, including
+the 20-F and the 41-page climate report read end-to-end by OCR, no firm PLN power
+figure in MW/MVA/GW has ever appeared; PLN occurs only as related-party
+accounting and as Scope 2 methodology. Final distribution unchanged:
+**A = 1 (A4); B = 2 (A1, A3); C = 3 (A2, A5, A6).**
+
+#### The threshold is flagged as defective, and deliberately left in place
+
+At `gte 1200` benchmarked to BDx's 1.2 GW, against a NeutraDC whose own publicly
+stated ambition is 200 MW, **A6 cannot be satisfied at any realistic scale** — its
+outcome is fixed negative regardless of how good disclosure becomes. That makes
+its class nearly inert: it labels "no source found" for a question already
+answered in the negative by arithmetic.
+
+There may also be a denominator mismatch structurally identical to the A2 error
+Terra caught: BDx's 1.2 GW may be a cross-market commitment, while the contract
+asks NeutraDC for an Indonesia-only PLN allocation. *No verified evidence was
+gathered on what the BDx figure covers — this is a question to check, not a
+claim.*
+
+**User's decision: keep the contract as written, record the defect, defer the
+revision.** This follows the precedent this packet set for A2 and A5 — re-framing
+before recording would delete the finding the packet exists to produce — and
+keeps any future change an explicit decision rather than a silent one
+(`DEC-0018`). Data-quality nit for whoever revises it: `unit` holds `"count"`
+while `definition_variant` says MW.
+
+#### Q4 — closed: the shape is decided, the number is deferred
+
+Q4 asked how many candidates per review cycle are acceptable. Measured on
+2026-09-02, **volume is not the binding constraint — the absence of any
+differentiator is.**
+
+| Measure | Value |
+|---|---|
+| Arrival, 11–28 Aug (discovery dead, official degraded) | ~14 rows/week |
+| Arrival, 27 Aug–2 Sep (healthy, incl. one manual run) | **118 rows/week** |
+| `polarity` | **236 / 236 `inconclusive`** |
+| `polarity_method` | 216 `no_observed_value`, 20 `not_measurable` |
+| `delta_vs_threshold` | **0 populated** |
+| `impact_summary` | populated on 236, but **only 3 distinct values** |
+
+The earlier estimate ("on the order of 100 new passages") is confirmed at the top
+of the range — but the rate swings **8×** with pipeline health, which no
+user-set number can track.
+
+Those three `impact_summary` values are *"Exact source passage matched
+deterministically. Interpretation remains pending."* (106×) and two secondary
+variants. They record which **class of source** a passage came from, never what
+it says. Setting N here would therefore cap an undifferentiated stream: a random
+N of ~118 equally uninformative rows, of which R-025's measured 88.9%
+irrelevance leaves roughly a dozen worth reading either way.
+
+**This is what the user's own proposal ran into.** *Option 3 + a summary layer* —
+keep every passage, label why it surfaced, present a summary first with detail on
+demand — is sound, but nothing persisted today can feed the summary:
+three-valued boilerplate carries no signal, polarity is uniform, and no relevance
+score is stored at all. The natural remaining route, a model-generated summary,
+is **remedy option (d)**, which §3 places explicitly out of scope. The proposal
+does not fail; it precedes its prerequisite.
+
+**User's decision, 2026-09-02: Q4 closes on shape, not on volume.** The review
+surface is Option 3 + a summary layer, recorded here as the specification. No
+number is set, because a number is meaningless before a differentiator exists.
+Building that differentiator, and the summary above it, belongs to the Q6
+follow-on packet.
+
+#### A second failure mode for Q6, worse than the one that motivated it
+
+Q6's scope was chosen against the quota outage recorded above. A wider read of
+the same table shows a second failure the panel is equally blind to: **every
+discovery candidate ever produced has been rejected — all 65 of them, since the
+feature went live 2026-07-26.** Sixty `domain_not_allowlisted` (43 ISAT, 17
+TLKM) and five `not_an_article`. Zero promotions in the feature's lifetime; every
+Tavily credit spent since 26 July produced no evidence.
+
+The panel renders those candidates as though they were progress. Nothing
+distinguishes *"ran, found things, rejected every one"* from *"ran and found
+nothing yet"* — the same `VISION.md` §7 blind spot as the quota case, reached by
+a different route. It argues for the Q6 remedy covering discovery **outcome**
+states, not only the "ran and failed" state named above.
+
+Two operational changes made the same day, recorded because they alter the
+figures any later run produces:
+
+- **ISAT archived** (`theses.status` → `archived`, the user's decision). It was
+  `active` with **no allowlist entry at all** — the real cause of the standing
+  `issuer_source_unavailable` that the 8/31 entry called "pre-existing,
+  unrelated", and of its 43 rejected candidates. Refresh now processes 6 jobs per
+  run instead of 14. ISAT had contributed only 2 evidence rows in its lifetime.
+- **The Tavily quota theory is disproved.** Measured from `logs/outbound.log`:
+  steady state is 12–14 calls/day (~420/month against a 1,000/month free tier),
+  while 3–8 August ran 385–470/day during manual M008 testing. The daily cron
+  never exhausted anything, so the cadence was left unchanged deliberately —
+  lowering it would have masked the 0-for-65 defect above.
+
+**Parked by explicit user decision, to be taken up once this packet closes:
+whether `idx.co.id` is an official source.** Allowlisting an exchange widens what
+counts as official beyond `DEC-0015`'s Class A (*"direct company press releases
+and investor relations announcements"*), exactly the silent change to "what
+counts as support" that `DEC-0018` forbids. It needs its own recorded decision —
+and it is the live counter-argument to A6's class: if IDX carries a PLN supply
+agreement, A6 is (B), not (C).
 
 ## 0. Why this packet exists, and why it is not a relevance milestone
 
@@ -801,6 +970,19 @@ With Slices 1–4 complete:
 - **AC-M013-05** — The 51 pre-existing evidence rows are unchanged in relevance
   status, and no historical row is retroactively labelled relevant or
   irrelevant.
+
+### Status against the criteria, read 2026-09-02
+
+| | Criterion | Status | Evidence |
+|---|---|---|---|
+| 01 | Official document retrieved and persisted | **met** | Slices 1–3; 106 `exact_verified` TLKM rows, no job at `source_too_large` |
+| 02 | Corpus composition recorded before/after | **met** | Slice 3 table; baselines 51 → 191 → 238 rows, each read from the live DB |
+| 03 | All six assumptions classified with reasoning | **met** | Slice 4 plus §"Slice 5 completed"; A = 1, B = 2, C = 3 |
+| 04 | Q3 recorded; Q4–Q6 each explicitly closed | **met** | Q3 recorded 8/31; Q5 and Q6 decided 8/31; **Q4 decided 2026-09-02** |
+| 05 | No historical row retroactively relabelled | **met** | All 236 TLKM rows remain `inconclusive` / `interpretation_status = pending`; nothing was ever relabelled |
+
+Sign-off is the user's (**Approval authority: user**); this table records that the
+criteria are satisfied, not that the packet has been accepted.
 
 ## 6. Verification plan
 

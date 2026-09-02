@@ -122,18 +122,36 @@ Sub-questions to answer when this is picked up:
 2. ~~Run `npm run research:refresh`~~ — **moot**. The cron already ran it on 9/1
    and 9/2 with working discovery; running it by hand now only burns credits on
    jobs that cannot succeed as worded.
-3. **Re-examine A6 against the refreshed corpus** — not started. What the
-   refresh actually delivered: A6 got **3 new rows, all the same related-party /
-   post-employment-benefit boilerplate**, still with no PLN capacity figure in
-   MW. A1 is now `succeeded` (45 rows), and A3/A6 are no longer starved (19–20
-   rows, up from 14–16) now that all 6 jobs get processed each run. The contract
-   question remains the user's, not the assistant's: does *"akan… hingga
-   mencapai 200 MW"* plus a PLN collaboration meet a bar written as **firm MW,
-   explicitly excluding LoI and feasibility study**?
-4. **Close Q4** — still the only outstanding M013 decision, still blocking
-   `AC-M013-04`. The user's own proposal (Option 3 + a summary layer) has still
-   not been worked through.
-5. **Then record the corrections** into the packet, with results attached.
+3. ~~Re-examine A6~~ — **done. A6 = (C), the user's decision.** Reading the
+   contract rather than the statement settled it: the bar is `gte 1200` — **1,200
+   MW of firm PLN power** — which the framing above omitted entirely. And no MW
+   figure anywhere in the thesis measures that metric; all nine are data-centre
+   IT load or Telkom's own solar. So the 8/31 claim that the corpus "does hold
+   the figures A6 needs" does not survive: the 200 MW is DC capacity, sitting 6×
+   under a bar it was never measuring. **The threshold itself is recorded as
+   defective and deliberately left unchanged** (unsatisfiable at NeutraDC's
+   scale), on the same precedent that deferred A2/A5.
+4. ~~Close Q4~~ — **done, closed on shape rather than volume.** Measurement
+   showed volume is not the binding constraint: arrival swings 14 → 118
+   rows/week, while 236/236 rows are `inconclusive` and `impact_summary` holds
+   only **3 distinct values**, all naming the class of source rather than the
+   content. The user's *Option 3 + summary layer* is adopted as the
+   specification with **no number set**, because nothing persisted today can
+   feed a summary and the model route is out of this packet's scope. The
+   differentiator belongs to Q6.
+5. ~~Record the corrections~~ — **done.** Written into the packet (§"Slice 5
+   completed"), the 8/31 ⚠ correction block resolved in place rather than
+   deleted, acceptance-criteria status table added, `ACTIVE_MILESTONE.md`
+   updated. `status:check` and `context:check` both clean.
+
+**M013 now meets all five acceptance criteria; sign-off is the user's and has
+not been given.** The standing governance discrepancy was narrowed, not closed:
+acceptance was originally given by direction rather than by a statement, so no
+explicit sign-off exists for either file to cite.
+
+**Next: the parked `idx.co.id` decision** — see the PARKED section above. It is
+also the live counter-argument to A6's class: if IDX carries a PLN supply
+agreement, A6 is (B), not (C).
 
 Still deferred, unchanged: repairing the scheduled task —
 `StopIfGoingOnBatteries = True` confirmed still set on `JP Invest Official
