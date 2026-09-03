@@ -47,9 +47,26 @@ ever produced were rejected**, a second failure mode the panel is as blind to as
 the first. ISAT was archived: `active` but with no allowlist entry at all, so
 its 8 jobs could never succeed.
 
-**Parked, by explicit decision:** whether `idx.co.id` counts as an official
-source. It widens `DEC-0015` Class A and so needs its own decision record — and
-it is the live counter-argument to A6's class.
+**The parked `idx.co.id` question turned out to be a phantom (2026-09-03).**
+IDX is *already* the ID market's primary official adapter, with the issuer
+adapter only as its fallback, and `idx.co.id` is already an accepted attachment
+host — nothing needed widening. **The real finding: that adapter has never
+produced a single document.** 67 calls to `www.idx.id` since 2026-07-05, every
+one HTTP 200, and zero snapshots and zero evidence; all 106 official TLKM rows
+came from the fallback. Cause: the live API returns `Kode_Emiten` as fixed-width
+`CHAR(100)`, so an exact `!==` discarded all 100 announcements before the
+title filter — 11 of which match the adapter's own report terms. Fixed in
+`831941e` (one `.trim()`, fail-first test, suite 427 green). **The pipeline has
+not been re-run.**
+
+Read against the six contracts this does **not** overturn the classification:
+only **A1** can move, (B) → (A), and that is (B) working as defined — it means
+"exists but blocked by a named blocker", and this bug is that blocker. A2/A5/A6
+fail at the metric level, which no IDX filing touches; A3 is `not_measurable`.
+
+**Open, and the user's alone:** sign off M013, or re-run `research:refresh`
+first. Recommendation is sign off first and re-run as the follow-on packet's
+opening act — see `SESSION_CHECKPOINT.md` for the pros and cons.
 
 ### Superseded — the narrative below predates Slice 5
 

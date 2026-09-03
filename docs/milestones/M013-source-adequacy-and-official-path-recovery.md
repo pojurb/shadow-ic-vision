@@ -763,6 +763,14 @@ figures any later run produces:
   never exhausted anything, so the cadence was left unchanged deliberately —
   lowering it would have masked the 0-for-65 defect above.
 
+> **⚠ CORRECTED 2026-09-03 — the paragraph below was wrong, and is kept only
+> because it was committed.** It framed `idx.co.id` as a governance question
+> about widening what counts as official. It is not one: **IDX is already the
+> primary official source adapter for the ID market**, with the issuer adapter
+> only as its fallback, and `idx.co.id` is already an accepted host inside
+> `normalizeIdxAttachmentUrl`. Nothing needed widening. The real finding is a
+> parser bug — see §"The IDX official path never worked" below.
+
 **Parked by explicit user decision, to be taken up once this packet closes:
 whether `idx.co.id` is an official source.** Allowlisting an exchange widens what
 counts as official beyond `DEC-0015`'s Class A (*"direct company press releases
@@ -770,6 +778,60 @@ and investor relations announcements"*), exactly the silent change to "what
 counts as support" that `DEC-0018` forbids. It needs its own recorded decision —
 and it is the live counter-argument to A6's class: if IDX carries a PLN supply
 agreement, A6 is (B), not (C).
+
+#### The IDX official path never worked — found and fixed 2026-09-03
+
+`IdxAdapter` is wired as the ID market's official adapter, with `IssuerAdapter`
+(telkom.co.id) only as its fallback. **It has never produced a single document.**
+
+| Measure | Value |
+|---|---|
+| Calls to `www.idx.id` since 2026-07-05 (`logs/outbound.log`) | **67, every one HTTP 200** |
+| `source_snapshots` from IDX | **0** |
+| `evidence` rows from IDX | **0** |
+
+Every official row on the TLKM thesis — all 106 — came from the fallback.
+
+**Cause: one comparison.** The live API returns `Kode_Emiten` as fixed-width
+`CHAR(100)` — `"TLKM"` followed by 96 spaces — so the exact `!==` check
+discarded every announcement before it reached the title-term filter. Measured
+against the real endpoint on 2026-09-03: **100 announcements in the two-year
+window, all with attachments, 11 titles matching the adapter's own
+`REPORT_TERMS`, every attachment URL valid — and 100 of 100 dropped at that
+first gate.** `discover()` then fell through to the fallback without surfacing
+anything, so the failure never appeared as an error: 67 successful calls whose
+results were silently thrown away.
+
+Every existing fixture used an unpadded code and stayed green. **This is the
+same fixture-green/live-failing shape Slice 1 recorded**, on the same official
+path, three weeks later. Fixed in `831941e` with a test that fails before the
+fix (returns `[]`) and passes after; suite 427 passed, typecheck and lint clean.
+The pipeline has **not** been re-run.
+
+**What it does and does not mean for this packet's classifications.** Read
+against the six measurement contracts, the missing IDX corpus does not overturn
+the distribution:
+
+- **A1 (B)** is the one assumption with a real path to change. Its contract asks
+  for TLKM's post-divestment ownership percentage in NeutraDC (`gte 30`), which
+  is exactly what a material-transaction disclosure carries — and
+  *"Transaksi Material Tanpa Persetujuan RUPS"* appears among the live
+  announcement titles. If the re-run reaches it, A1 moves (B) → (A).
+- **That is (B) working as defined, not a falsified finding.** (B) means the
+  source exists but is blocked by a named blocker; this bug *is* that blocker,
+  now named. Identifying it is what the classification predicted.
+- **A2, A5 and A6 (C) are untouched.** Their gaps are at the metric level, not
+  retrieval: competitor MW share for a set of private operators, hyperscaler
+  contracted MW at 1,200, and firm PLN MW at 1,200. TLKM's own IDX filings carry
+  none of those. The A6 counter-argument asserted in the corrected block above
+  does not survive contact with A6's contract.
+- **A3 cannot move meaningfully** — its `resolution` is `not_measurable`, so no
+  document changes what can be computed.
+- **A4** is already (A).
+
+So sign-off is not blocked by this on the evidence available; the open question
+is whether to re-run before signing, which is the user's call and is recorded as
+open in `SESSION_CHECKPOINT.md`.
 
 ## 0. Why this packet exists, and why it is not a relevance milestone
 

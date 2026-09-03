@@ -1,3 +1,110 @@
+# Session Checkpoint - 2026-09-03 (the IDX official path never worked; the parked "governance question" was a phantom)
+
+M013 was left meeting all five criteria and awaiting sign-off. Picking up the
+parked `idx.co.id` item turned it into something else entirely.
+
+## The parked question was mostly my own error
+
+I recorded `idx.co.id` as a governance decision — *"allowlisting an exchange
+widens what counts as official beyond `DEC-0015` Class A, which `DEC-0018`
+forbids doing silently"* — and wrote that into the packet, this file, and
+memory. **It is wrong.**
+
+- **IDX is already the ID market's primary official adapter.**
+  [`factory.ts`](lib/research/adapters/factory.ts) wires `IdxAdapter` as the
+  official adapter for `ID`, with `IssuerAdapter` (telkom.co.id) only as its
+  *fallback*.
+- **`idx.co.id` is already an accepted host** inside
+  [`normalizeIdxAttachmentUrl`](lib/research/adapters/idx.ts) — attachment URLs
+  arrive on `idx.co.id` and are rewritten to `www.idx.id`.
+- The `domain_not_allowlisted` rejections I saw were on the **discovery
+  promotion** path (secondary tier), a different surface from the official one.
+
+Nothing needed widening. Corrected in place in the packet with a `⚠ CORRECTED`
+block rather than deleted.
+
+## The real finding: 67 successful calls, zero documents, ever
+
+| Measure | Value |
+|---|---|
+| Calls to `www.idx.id` since 2026-07-05 | **67, every one HTTP 200** |
+| `source_snapshots` from IDX | **0** |
+| `evidence` rows from IDX | **0** |
+| Official rows on the TLKM thesis | 106 — **all from the fallback** |
+
+**Cause: `Kode_Emiten` comes back fixed-width.** The live API returns
+`"TLKM"` followed by 96 spaces (`CHAR(100)`), and the parser compared it with an
+exact `!==`, so every announcement was discarded before reaching the title-term
+filter. Probed the real endpoint on 2026-09-03: **100 announcements in the
+two-year window, all with attachments, 11 titles matching the adapter's own
+`REPORT_TERMS`** (including *"Penyampaian Laporan Keuangan Interim"* and
+*"Transaksi Material Tanpa Persetujuan RUPS"*), every attachment URL valid —
+**and 100 of 100 dropped at the first gate.** `discover()` then fell through to
+the fallback without surfacing anything, which is why 67 successful calls
+produced no error anywhere.
+
+**Every fixture used an unpadded code and stayed green.** This is the same
+fixture-green/live-failing shape Slice 1 already recorded on this same official
+path, three weeks later.
+
+**Fixed** in `831941e`: one `.trim()`, with a test that fails before the fix
+(returns `[]`) and passes after. Suite **427 passed**, 3 skipped, typecheck and
+lint clean. **The pipeline has not been re-run.**
+
+## Reading it against the contracts changed my recommendation
+
+I first said the classification was "partly a bug artifact" and recommended
+re-running before sign-off. Reading all six measurement contracts weakened that:
+
+| Assumption | Class | Could TLKM's own IDX filings satisfy the contract? |
+|---|---|---|
+| **A1** | (B) | **Yes** — contract asks post-divestment ownership % (`gte 30`), which material-transaction disclosure carries |
+| A2 | (C) | No — needs competitor MW share (DCI, BDx, DayOne, DAMAC) |
+| A3 | (B) | Irrelevant — `not_measurable`, no metric at all |
+| A4 | (A) | Already (A) |
+| A5 | (C) | No — hyperscaler contracted MW at 1,200 |
+| A6 | (C) | No — firm PLN MW at 1,200 |
+
+**Only A1 has a real path to changing class.** I had said "A1 and A3"; A3 was
+wrong, because `not_measurable` makes its class decorative.
+
+**And A1 moving (B) → (A) would not falsify anything.** (B) means *the source
+exists but is blocked by a named blocker* — this bug **is** that blocker, now
+named. Finding it is the classification working, not failing. The three (C)
+assumptions fail at the metric level, which no IDX document touches.
+
+So the corrected recommendation: **sign off M013, then re-run as the first act
+of the follow-on packet** — whose scope (making retrieval failures visible) this
+bug sits squarely inside. If signing while holding an unrun fix is
+uncomfortable, run it first; it costs ~90 seconds plus a backup, and the
+re-examination scopes to A1 alone.
+
+## Housekeeping done
+
+Four one-off scratch scripts deleted from the repository root (`03f786b`) —
+`check_schema.ts`, `fix_db.ts`, `repair_json.js`, `update_row.ts`, recorded as
+known debt on 2026-08-08 and left since. Referenced by nothing. **`fix_db.ts`
+was the reason to act rather than tidy:** it ran
+`UPDATE knowledge_documents SET status='extracted' WHERE status='failed'` with
+no other filter, so an accidental run rewrites state across the table silently.
+`eslint` now reports **zero problems** (was 3 warnings); `tsc --noEmit` clean.
+
+`RESUME_PROMPT.md` was already deleted back in `8e44ce6` — it came up again only
+as a historical analogy for exactly this kind of committed scratch file.
+
+## Open — needs the user, nothing else is blocking
+
+1. **Sign off M013, or re-run `research:refresh` first?** Pros and cons are laid
+   out above; the recommendation is sign off first, and it is genuinely the
+   user's call either way.
+2. **Sign-off itself has never been given explicitly.** The standing governance
+   discrepancy is narrowed but not closed: acceptance was originally given by
+   direction rather than by a statement. Do not infer it from either file.
+3. Still deferred, unchanged: the scheduled task's `StopIfGoingOnBatteries`, and
+   the 8/30 and 8/31 ingestion runs still sitting at status `running`.
+
+---
+
 # Session Checkpoint - 2026-09-02 (Tavily quota theory disproved; ISAT archived; discovery is 0-for-65)
 
 No M013 analysis this session — all infrastructure. Two things changed durably,
