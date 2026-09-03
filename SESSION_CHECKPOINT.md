@@ -1,3 +1,63 @@
+# Session Checkpoint - 2026-09-03 night (roadmap step 2 done — two independent fixes shipped)
+
+Continuing the six-step post-sign-off roadmap in order, per the user's
+explicit instruction ("lakukan urut"). Step 1 (sign off) closed in the prior
+entry. This entry closes step 2.
+
+## Step 2 — both fixes shipped, commit `fe02f81`
+
+**`app/api/chat/route.ts:71`.** The thesis-drafting system prompt's
+`sourceTags` field comment claimed non-US issuers *"publish no XBRL company
+facts"* — the same error the 2026-09-03 review corrected everywhere else,
+but live here and actively shaping every new Indonesian thesis draft, not
+just documented in one file. Reworded to state the real constraint: no
+adapter exists for their disclosure system yet, not an absence of XBRL
+itself.
+
+**`lib/research/adapters/sec-xbrl.ts`'s `PREFERRED_FORMS`.** Was
+`['10-Q', '10-K']` matched by exact string, so a genuine amendment
+(`10-Q/A`, `10-K/A`) was silently dropped from the periodic pool whenever a
+base periodic filing was also eligible for the same period — this is the bug
+GPT surfaced and this assistant verified in the earlier review round. Added a
+fail-first test (`tests/xbrl-facts.test.ts`, "prefers a real amendment over
+the base filing it corrects") that reproduces it: returned the superseded
+value `20` before the fix, `21` after. Fixed by listing the amendment forms
+explicitly; also corrected the function's doc comment, which had called
+amendments "noise" alongside 8-Ks — backwards, since an amendment is exactly
+the correction the recency tie-break exists to prefer.
+
+**Verification:** full suite 428 passed (427 → 428, the one new test), 3
+skipped, 0 failed. `tsc --noEmit` clean. `eslint` clean. `context:check` and
+`status:check` both clean after regenerating the code index.
+
+## Next — step 3, Q6
+
+Give source adequacy a first-class, persisted state (A2/A5/A6 currently sit
+at (C) only inside the M013 packet's prose, not as queryable state), and stop
+retrying research jobs that cannot succeed. Not started. The packet's own §4
+criterion (stated in advance, measured to apply): (C) is the largest class,
+so the smaller-scope remedy is indicated — express "no public source" as a
+state, not build the `PassageCandidate`/`Evidence` split or a relevance
+scorer.
+
+Concretely still to work out, not yet decided: where this state is persisted
+(`assumption_measurements.resolution` already has `not_measurable`; whether
+(C) becomes a sibling value there, or lives elsewhere), what stops a `(C)`
+job from being requeued by `refreshOfficialSources`' unconditional reset
+(`ingestion.ts:44`), and what — if anything — would make a `(C)` assumption
+eligible for reopening (the parked `idx.co.id` question is exactly this case
+in miniature: A6 could move (B)→(C)→? if IDX's per-filing instance documents
+turn out to carry a PLN figure, so "closed" cannot mean "never retried
+again" outright).
+
+## Resume point
+
+Steps 4-6 (bounded IDX spike, vertical slice, assurance axis) unchanged from
+the prior entry — still queued behind Q6. Nothing else outstanding from
+today.
+
+---
+
 # Session Checkpoint - 2026-09-03 evening (M013 signed off; multi-model adversarial review; post-sign-off roadmap agreed)
 
 ## M013 signed off
