@@ -1,3 +1,83 @@
+# Session Checkpoint - 2026-09-03 late night (roadmap step 3 done — Q6 implemented)
+
+Continuing the six-step post-sign-off roadmap in order. Step 3 (Q6) closed.
+Commit `7ceeed6`.
+
+## Step 3 — Q6 shipped
+
+Design settled two turns ago and confirmed by the user: **reopen only when
+the contract is edited** (fingerprint-based, no source-catalog version
+tracking, `research:retry` stays the manual escape hatch — e.g. once the
+parked `idx.co.id` decision lands, since that changes what's retrievable
+without touching any assumption's contract).
+
+**New table** `source_adequacy_assessments` (migration `0014`), 1:1 with
+`assumptions`. Deliberately a third concept, distinct from both
+`assumption_measurements.resolution` (contract well-formedness) and
+`coverage.ts`'s computed `no_source_for_market` (a blanket per-market
+capability fact — confirmed dead for ID today, since it requires
+`sourceTags.length > 0` and `route.ts:71` tells the drafting model to leave
+that empty for non-US issuers, the very line fixed in step 2).
+
+**`contractFingerprint`** hashes the contract's substance (metric,
+definitionVariant, operator, threshold, unit, timeBasis) and is the entire
+reopening mechanism: edit the contract, the fingerprint changes, the row
+stops matching, the assumption is live again — nothing needs to notice the
+edit happened or maintain a second piece of state.
+
+**Wired into:**
+- `ingestion.ts`'s `refreshOfficialSources` — closed, fingerprint-matched
+  assumptions are excluded from the daily unconditional requeue. Verified
+  end-to-end, not just unit-level: reverting this one file made the new test
+  fail (`attemptCount` 2 instead of 1) before confirming the real fix.
+- `coverage.ts` — new `no_source_identified` reason, checked *before* job
+  status (a recorded (C) is the answer regardless of what state the
+  now-frozen job sits in). This is what satisfies Q5's disclosure mandate
+  ("state how many assumptions are permanently untestable and why").
+- `ResearchPanel.tsx` — new label, plus a drive-by fix on the adjacent
+  `no_source_for_market` label, which repeated the exact overstated
+  non-US-XBRL claim corrected twice already this session (`route.ts:71`,
+  `sec-xbrl.ts`).
+
+**CLI**: `npm run source-adequacy:record -- --assumption-id <id>
+--classification A|B|C --reasoning "..."`, following the `research-retry.ts`
+pattern. Never invoked automatically — classification is a human judgment
+(`AGENTS.md` rule 2/4).
+
+**Not yet done — the actual (C) rows for A2/A5/A6 have not been recorded.**
+Q6 built the mechanism; it did not apply it to the live TLKM thesis. That is
+a one-line-per-assumption CLI action away, using the reasoning already
+written in the M013 packet, but it's a separate action from building the
+feature and hasn't happened.
+
+**Verification:** 13 new tests (441 passed, up from 428, 3 skipped, 0
+failed). `tsc --noEmit`, `eslint`, `context:check`, `status:check` all clean.
+The live database (`d:/jp-invest-data/db.sqlite`) has **not** had migration
+`0014` applied yet — it applies automatically (with an automatic pre-migrate
+backup, per `db/client.ts`) the next time anything calls `getDatabase()`
+against it, e.g. the next cron run or CLI script.
+
+## Next — step 4, bounded IDX spike
+
+Not started. Per the agreed roadmap: download 1-2 real TLKM filings from
+IDX's per-filing instance-document path (not a bulk API — confirmed absent
+by direct fetch of IDX's own XBRL page, step-2 entry), confirm transport
+stability and which taxonomy version (2014 vs. 2020) applies, and check
+specifically whether the NeutraDC segment appears before committing to build
+any parser. This is explicitly a spike, not a build.
+
+## Resume point
+
+- Consider recording the actual A2/A5/A6 (C) classifications via the new
+  `source-adequacy:record` script before or alongside the step-4 spike — not
+  part of the roadmap as stated, but the mechanism is idle until it's used on
+  the real thesis it was built for.
+- Steps 4-6 (spike, vertical slice, assurance axis) unchanged from the prior
+  entry.
+- Nothing else outstanding from today.
+
+---
+
 # Session Checkpoint - 2026-09-03 night (roadmap step 2 done — two independent fixes shipped)
 
 Continuing the six-step post-sign-off roadmap in order, per the user's
