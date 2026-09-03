@@ -23,13 +23,21 @@ const OPERATOR_WORD: Record<MeasurementOperator, string> = {
   increases: 'an increase in', decreases: 'a decrease in', none: '',
 };
 
-const UNEVIDENCED_REASON_LABEL: Record<'job_pending' | 'job_failed' | 'no_candidate_passed_gate' | 'no_source_for_market', string> = {
+const UNEVIDENCED_REASON_LABEL: Record<'job_pending' | 'job_failed' | 'no_candidate_passed_gate' | 'no_source_for_market' | 'no_source_identified', string> = {
   job_pending: 'research still running',
   job_failed: 'research failed',
   no_candidate_passed_gate: 'nothing retrieved cleared the verification gate',
-  // A permanent property of the market, not a malfunction — worth saying
-  // plainly so it is not mistaken for one.
-  no_source_for_market: 'no structured filing data is published for this market',
+  // This app has no structured-fact adapter for this market yet — not a
+  // claim that the market itself publishes nothing (2026-09-03 correction:
+  // IDX has required XBRL filings since 2015; what's missing is a bulk
+  // queryable API this app can call, the same distinction route.ts:71 was
+  // corrected on).
+  no_source_for_market: 'this app has no structured-data adapter for this market yet',
+  // M013 Q6. A user classification, not a computed inference — see
+  // `source_adequacy_assessments`. Distinct from the row above: this is
+  // per-assumption ("no one discloses this specific figure"), not a
+  // blanket market-wide capability gap.
+  no_source_identified: 'no public source identified for this claim, after review',
 };
 
 function formatValue(value: number, unit: MeasurementUnit): string {

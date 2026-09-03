@@ -489,7 +489,7 @@ export type CoverageLedgerDTO = {
   unevidencedAssumptions: Array<{
     assumptionId: string;
     statement: string;
-    reason: 'job_pending' | 'job_failed' | 'no_candidate_passed_gate' | 'no_source_for_market';
+    reason: 'job_pending' | 'job_failed' | 'no_candidate_passed_gate' | 'no_source_for_market' | 'no_source_identified';
   }>;
 };
 

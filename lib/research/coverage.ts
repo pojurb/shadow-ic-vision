@@ -25,7 +25,18 @@ export type UnevidencedReason =
   /** Retrieval succeeded but nothing cleared the verification gate. */
   | 'no_candidate_passed_gate'
   /** No structured fact source exists for this market — a permanent gap. */
-  | 'no_source_for_market';
+  | 'no_source_for_market'
+  /**
+   * M013 Q6. The user classified this assumption's *current* contract as
+   * class (C): no public source identified, after actually looking — a
+   * durable judgment (`source_adequacy_assessments`), not a computed
+   * inference like `no_source_for_market`. Distinct because the reasoning
+   * behind it is per-assumption and evidence-based (competitor data no peer
+   * discloses; a bilateral contract that's trade-secret), where
+   * `no_source_for_market` is a blanket system-capability fact true for
+   * every ID-market assumption alike.
+   */
+  | 'no_source_identified';
 
 export type CoverageLedger = {
   totalAssumptions: number;
@@ -60,10 +71,25 @@ export type CoverageAssumptionInput = {
   market: 'US' | 'ID';
   contract: MeasurementContract | null;
   jobStatus: 'queued' | 'running' | 'succeeded' | 'degraded' | 'failed';
+  /**
+   * The live (fingerprint-matched) `source_adequacy_assessments`
+   * classification. Optional so the six pre-M013-Q6 call sites in
+   * `coverage-verdict.test.ts` — none of which exercise this axis — don't
+   * need a mechanical `sourceAdequacy: null` added to stay green; a caller
+   * that omits it is treated identically to one passing `null`.
+   */
+  sourceAdequacy?: 'A' | 'B' | 'C' | null;
   polarities: EvidencePolarity[];
 };
 
 function unevidencedReason(input: CoverageAssumptionInput): UnevidencedReason {
+  /*
+   * Checked first, ahead of job status: a recorded (C) is the answer, not a
+   * transient state the job happens to be in underneath it. The job may sit
+   * at `degraded`, `queued`, or anything else once closed (`ingestion.ts`
+   * simply stops requeuing it) — none of that is what the user should read.
+   */
+  if (input.sourceAdequacy === 'C') return 'no_source_identified';
   if (input.jobStatus === 'queued' || input.jobStatus === 'running') return 'job_pending';
   if (input.jobStatus === 'failed') return 'job_failed';
   /*

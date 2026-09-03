@@ -120,6 +120,21 @@ describe('deriveCoverageLedger', () => {
       // Only when the claim actually wanted structured facts.
       expect(reasonFor({ market: 'ID', contract: { ...THRESHOLD_CONTRACT, sourceTags: [] } })).toBe('no_candidate_passed_gate');
     });
+
+    /**
+     * M013 Q6. A recorded (C) is a durable human judgment
+     * (`source_adequacy_assessments`) about the current contract, not an
+     * inference from job plumbing — it must win regardless of what state the
+     * underlying job happens to be sitting in, since `ingestion.ts` simply
+     * stops touching a closed job rather than moving it to some new status.
+     */
+    it('reports a recorded (C) classification ahead of job status', () => {
+      expect(reasonFor({ sourceAdequacy: 'C', jobStatus: 'degraded' })).toBe('no_source_identified');
+      expect(reasonFor({ sourceAdequacy: 'C', jobStatus: 'queued' })).toBe('no_source_identified');
+      expect(reasonFor({ sourceAdequacy: 'C', jobStatus: 'failed' })).toBe('no_source_identified');
+      // (A) and (B) are not closures — job status still governs.
+      expect(reasonFor({ sourceAdequacy: 'B', jobStatus: 'failed' })).toBe('job_failed');
+    });
   });
 
   it('handles a thesis with no assumptions without dividing by zero', () => {

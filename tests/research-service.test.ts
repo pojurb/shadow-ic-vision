@@ -8,6 +8,7 @@ import { assumptionMeasurements, assumptions, conversations, discoveryCandidates
 import { thesisDraftSchema, type MeasurementContract } from '@/lib/domain/contracts';
 import { acceptSecondaryEvidence, confirmDraft, getResearchPanel, processResearchJobs, retryResearchJob } from '@/lib/research/service';
 import { IngestionAlreadyRunningError, refreshOfficialSources } from '@/lib/research/ingestion';
+import { recordSourceAdequacy } from '@/lib/research/source-adequacy';
 import { OfficialHttpClient } from '@/lib/research/http';
 import type { CitationPipeline } from '@/lib/research/pipeline';
 
@@ -528,6 +529,58 @@ describe('local vertical slice persistence', () => {
     expect(handle.db.select().from(evidence).all()).toHaveLength(1);
     expect(handle.db.select().from(sourceCursors).get()).toMatchObject({ market: 'US', ticker: 'PLTR' });
     expect(handle.db.select().from(assumptions).get()?.status).toBe('untested');
+  });
+
+  // M013 Q6. Proves `ingestion.ts`'s requeue gate, not just `source-adequacy.ts`
+  // in isolation — the failure mode this exists to prevent is A2/A5/A6's real
+  // one: 22-25 attempts each on a contract that can never be satisfied.
+  it('excludes a source-adequacy-closed assumption from the daily requeue', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const process = (id: string) => processResearchJobs(id, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+
+    await refreshOfficialSources('manual', { db: handle.db, process });
+
+    const assumption = handle.db.select().from(assumptions).get()!;
+    const contract = handle.db.select().from(assumptionMeasurements).where(eq(assumptionMeasurements.assumptionId, assumption.id)).get()!;
+    await recordSourceAdequacy({
+      db: handle.db,
+      assumptionId: assumption.id,
+      classification: 'C',
+      reasoning: 'test: no public source identified for this synthetic claim',
+      contract,
+    });
+    const jobBefore = handle.db.select().from(researchJobs).where(eq(researchJobs.assumptionId, assumption.id)).get()!;
+
+    await refreshOfficialSources('cron', { db: handle.db, process });
+
+    const jobAfter = handle.db.select().from(researchJobs).where(eq(researchJobs.assumptionId, assumption.id)).get()!;
+    expect(jobAfter.attemptCount).toBe(jobBefore.attemptCount);
+    expect(jobAfter.updatedAt).toBe(jobBefore.updatedAt);
+  });
+
+  it('reopens a source-adequacy-closed assumption once its contract is edited', async () => {
+    confirmDraft(conversationId, messageId, { db: handle.db });
+    const process = (id: string) => processResearchJobs(id, { db: handle.db, snapshotDirectory: path.join(directory, 'snapshots') });
+
+    await refreshOfficialSources('manual', { db: handle.db, process });
+
+    const assumption = handle.db.select().from(assumptions).get()!;
+    const contractBefore = handle.db.select().from(assumptionMeasurements).where(eq(assumptionMeasurements.assumptionId, assumption.id)).get()!;
+    await recordSourceAdequacy({
+      db: handle.db, assumptionId: assumption.id, classification: 'C',
+      reasoning: 'test: closed before contract edit', contract: contractBefore,
+    });
+
+    // The contract edit a real (C) reopening looks like: same assumption, a
+    // revised threshold — nothing here tells the requeue gate this happened
+    // explicitly, it only ever re-checks the fingerprint.
+    handle.db.update(assumptionMeasurements).set({ threshold: 50 }).where(eq(assumptionMeasurements.assumptionId, assumption.id)).run();
+    const jobBefore = handle.db.select().from(researchJobs).where(eq(researchJobs.assumptionId, assumption.id)).get()!;
+
+    await refreshOfficialSources('cron', { db: handle.db, process });
+
+    const jobAfter = handle.db.select().from(researchJobs).where(eq(researchJobs.assumptionId, assumption.id)).get()!;
+    expect(jobAfter.attemptCount).toBeGreaterThan(jobBefore.attemptCount);
   });
 
   it('rejects an overlapping refresh with the stable already_running code', async () => {

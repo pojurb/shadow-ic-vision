@@ -105,6 +105,38 @@ export const assumptionMeasurements = sqliteTable('assumption_measurements', {
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+/**
+ * M013 Q6 — per-assumption source-adequacy classification, 1:1 with
+ * `assumptions` for the same reason `assumptionMeasurements` is: row
+ * presence is meaningful state, not a nullable-column combination.
+ *
+ * A deliberately separate concept from `assumptionMeasurements.resolution`
+ * (is the contract well-formed?) and from `coverage.ts`'s computed
+ * `no_source_for_market` (does this market have a structured-fact adapter? —
+ * a system-capability fact, always false for the ID market by construction,
+ * independent of any specific assumption). This table answers a third,
+ * different question the M013 packet exists to record: for THIS assumption's
+ * CURRENT contract, has any public source been identified after actually
+ * looking? That is a human judgment (`AGENTS.md` rule 2/4 — the assistant
+ * assembles evidence, the user classifies), never derived automatically.
+ *
+ * `contractFingerprint` is what keeps a `classification: 'C'` row from going
+ * silently stale: it snapshots the exact contract fields the judgment was
+ * made against, so editing the contract (a new threshold, a redefined
+ * `definitionVariant`) invalidates the row without deleting it — the
+ * assumption becomes eligible for research again, and the prior finding
+ * stays in the row as history rather than being overwritten.
+ */
+export const sourceAdequacyAssessments = sqliteTable('source_adequacy_assessments', {
+  assumptionId: text('assumption_id').primaryKey().references(() => assumptions.id, { onDelete: 'cascade' }),
+  classification: text('classification', { enum: ['A', 'B', 'C'] }).notNull(),
+  reasoning: text('reasoning').notNull(),
+  contractFingerprint: text('contract_fingerprint').notNull(),
+  assessedBy: text('assessed_by').notNull().default('user'),
+  assessedAt: text('assessed_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Multimodal Evidence linked to an Assumption
 export const evidence = sqliteTable('evidence', {
   id: text('id').primaryKey(),

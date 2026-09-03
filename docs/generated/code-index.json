@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "96f2c98ed08de960605c868179cfa6aeb1714e18cd3ccb732df6e5392bf4cfab",
+  "sourceDigest": "96f72f8c8b23e86438a0aae50b8221dc54cd299f409ae51846e86025ea4b98e1",
   "roots": [
     "app",
     "components",
@@ -776,6 +776,7 @@
         "portfolioPositions",
         "researchJobSources",
         "researchJobs",
+        "sourceAdequacyAssessments",
         "sourceCursors",
         "sourceDiscoveries",
         "sourceSnapshots",
@@ -2449,6 +2450,10 @@
           "resolved": "lib/research/service.ts"
         },
         {
+          "specifier": "./source-adequacy",
+          "resolved": "lib/research/source-adequacy.ts"
+        },
+        {
           "specifier": "@/db/client",
           "resolved": "db/client.ts"
         },
@@ -2737,6 +2742,10 @@
           "resolved": "lib/research/snapshot-store.ts"
         },
         {
+          "specifier": "./source-adequacy",
+          "resolved": "lib/research/source-adequacy.ts"
+        },
+        {
           "specifier": "./verdict",
           "resolved": "lib/research/verdict.ts"
         },
@@ -2836,6 +2845,41 @@
       ],
       "exports": [
         "persistSourceSnapshot"
+      ]
+    },
+    {
+      "path": "lib/research/source-adequacy.ts",
+      "kind": "module",
+      "imports": [
+        {
+          "specifier": "./verifier",
+          "resolved": "lib/research/verifier.ts"
+        },
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "drizzle-orm",
+          "resolved": null
+        },
+        {
+          "specifier": "server-only",
+          "resolved": null
+        }
+      ],
+      "exports": [
+        "ContractSubstance",
+        "SourceAdequacyAssessment",
+        "SourceAdequacyClassification",
+        "closedAssumptionIds",
+        "computeContractFingerprint",
+        "getLiveSourceAdequacy",
+        "recordSourceAdequacy"
       ]
     },
     {
@@ -3958,6 +4002,10 @@
           "resolved": "lib/research/service.ts"
         },
         {
+          "specifier": "@/lib/research/source-adequacy",
+          "resolved": "lib/research/source-adequacy.ts"
+        },
+        {
           "specifier": "drizzle-orm",
           "resolved": null
         },
@@ -4065,6 +4113,41 @@
         {
           "specifier": "@/lib/research/http",
           "resolved": "lib/research/http.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/source-adequacy.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/lib/research/source-adequacy",
+          "resolved": "lib/research/source-adequacy.ts"
         },
         {
           "specifier": "node:fs",
@@ -4428,6 +4511,11 @@
       "module": "db/schema.ts"
     },
     {
+      "name": "source_adequacy_assessments",
+      "symbol": "sourceAdequacyAssessments",
+      "module": "db/schema.ts"
+    },
+    {
       "name": "source_cursors",
       "symbol": "sourceCursors",
       "module": "db/schema.ts"
@@ -4715,7 +4803,8 @@
         "lib/research/http.ts",
         "lib/research/ingestion.ts",
         "lib/research/pipeline.ts",
-        "lib/research/service.ts"
+        "lib/research/service.ts",
+        "lib/research/source-adequacy.ts"
       ]
     },
     {
@@ -4743,6 +4832,14 @@
         "lib/research/adapters/sec.ts",
         "lib/research/adapters/types.ts",
         "lib/research/http.ts"
+      ]
+    },
+    {
+      "path": "tests/source-adequacy.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts",
+        "lib/research/source-adequacy.ts"
       ]
     },
     {

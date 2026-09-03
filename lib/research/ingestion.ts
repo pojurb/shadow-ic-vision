@@ -4,8 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { AppDatabase } from '@/db/client';
 import { getDatabase } from '@/db/client';
-import { ingestionLeases, ingestionRuns, researchJobs, sourceCursors, sourceSnapshots, theses, assumptions } from '@/db/schema';
+import { assumptionMeasurements, ingestionLeases, ingestionRuns, researchJobs, sourceCursors, sourceSnapshots, theses, assumptions } from '@/db/schema';
 import { getResearchSchedule } from './config';
+import { closedAssumptionIds } from './source-adequacy';
 import { processResearchJobs } from './service';
 
 export type IngestionTrigger = 'cron' | 'manual';
@@ -40,7 +41,30 @@ export async function refreshOfficialSources(trigger: IngestionTrigger, input: D
     const thesisIds = companies.map((company) => company.id);
     if (thesisIds.length) {
       const assumptionRows = db.select({ id: assumptions.id }).from(assumptions).where(inArray(assumptions.thesisId, thesisIds)).all();
-      const assumptionIds = assumptionRows.map((row) => row.id);
+      /*
+       * M013 Q6. An assumption closed `'C'` — no public source identified for
+       * its current contract — is excluded from the daily reset rather than
+       * requeued and burned through again. `closedAssumptionIds` re-checks
+       * the fingerprint against the live contract on every call, so this
+       * exclusion self-heals the moment the user edits the contract; nothing
+       * here needs to know that happened.
+       */
+      const contracts = new Map(
+        db.select({
+          assumptionId: assumptionMeasurements.assumptionId,
+          metric: assumptionMeasurements.metric,
+          definitionVariant: assumptionMeasurements.definitionVariant,
+          operator: assumptionMeasurements.operator,
+          threshold: assumptionMeasurements.threshold,
+          unit: assumptionMeasurements.unit,
+          timeBasis: assumptionMeasurements.timeBasis,
+        }).from(assumptionMeasurements)
+          .where(inArray(assumptionMeasurements.assumptionId, assumptionRows.map((row) => row.id)))
+          .all()
+          .map((row) => [row.assumptionId, row] as const),
+      );
+      const closed = closedAssumptionIds(db, contracts);
+      const assumptionIds = assumptionRows.map((row) => row.id).filter((id) => !closed.has(id));
       if (assumptionIds.length) db.update(researchJobs).set({ status: 'queued', error: null, errorCode: null, leaseExpiresAt: null, updatedAt: started.toISOString() }).where(inArray(researchJobs.assumptionId, assumptionIds)).run();
     }
     for (const company of companies) {

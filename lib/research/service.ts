@@ -14,6 +14,7 @@ import {
   evidence,
   messages,
   researchJobs,
+  sourceAdequacyAssessments,
   sourceSnapshots,
   theses,
 } from '@/db/schema';
@@ -45,6 +46,7 @@ import { persistSourceSnapshot } from './snapshot-store';
 import { createSecondarySourceAdapters, createXbrlFactSources, type SecondarySourceAdapters } from './adapters/factory';
 import type { ResearchMarket, SourceAdapter } from './adapters/types';
 import { selectFact, type XbrlFactSource } from './adapters/sec-xbrl';
+import { computeContractFingerprint } from './source-adequacy';
 import { createXbrlFactCandidate } from './extractors/xbrl';
 import { createHash } from './verifier';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
@@ -355,6 +357,27 @@ export async function getResearchPanel(
     : [];
   const contractsByAssumption = new Map(measurementRows.map((row) => [row.assumptionId, toMeasurementContract(row)]));
 
+  /*
+   * M013 Q6. A row here is only *live* — closed against the assumption's
+   * current contract — when its fingerprint still matches; a stale row (the
+   * contract changed since classification) is treated identically to "never
+   * classified", per `source-adequacy.ts`'s `getLiveSourceAdequacy`
+   * contract. Inlined rather than calling that function per-assumption
+   * because `measurementRows` is already in hand here.
+   */
+  const adequacyRows = assumptionIds.length
+    ? await db.select().from(sourceAdequacyAssessments).where(inArray(sourceAdequacyAssessments.assumptionId, assumptionIds)).all()
+    : [];
+  const measurementByAssumption = new Map(measurementRows.map((row) => [row.assumptionId, row]));
+  const liveAdequacyByAssumption = new Map(
+    adequacyRows
+      .filter((row) => {
+        const measurement = measurementByAssumption.get(row.assumptionId);
+        return measurement && row.contractFingerprint === computeContractFingerprint(measurement);
+      })
+      .map((row) => [row.assumptionId, row.classification]),
+  );
+
   const decisionRows = await db
     .select()
     .from(decisions)
@@ -414,6 +437,7 @@ export async function getResearchPanel(
     market: thesis.market as 'US' | 'ID',
     contract: contractsByAssumption.get(assumption.id) ?? null,
     jobStatus: job.status,
+    sourceAdequacy: liveAdequacyByAssumption.get(assumption.id) ?? null,
     polarities: decisionEligibleEvidence.filter((record) => record.assumptionId === assumption.id).map((record) => record.polarity),
   })));
 
