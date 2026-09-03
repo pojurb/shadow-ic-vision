@@ -68,7 +68,7 @@ Each assumption carries a "measurement" block normalizing it to a checkable quan
   "threshold": number | null,
   "unit": "percent" | "ratio" | "usd" | "idr" | "count" | "unspecified",
   "timeBasis": "instant" | "duration_quarter" | "duration_ytd" | "duration_annual" | "duration_ttm" | "unspecified" (a point-in-time balance versus a flow measured over a period — a deferred-revenue balance is "instant", revenue recognized in a quarter is "duration_quarter"),
-  "sourceTags": string[] (candidate us-gaap XBRL element names, most specific first, bare names with no prefix — e.g. ["GrossProfit"]. Empty for non-US issuers, which publish no XBRL company facts),
+  "sourceTags": string[] (candidate us-gaap XBRL element names, most specific first, bare names with no prefix — e.g. ["GrossProfit"]. Empty for non-US issuers: this app has no structured-fact adapter for their disclosure system yet, not because such issuers lack XBRL — leave empty rather than guessing a tag no adapter can resolve),
   "clarifyingQuestion": string | null,
   "ambiguityReason": "none" | "metric_undefined" | "definition_variant_ambiguous" | "threshold_missing" | "time_basis_ambiguous" | "unit_ambiguous"
 }

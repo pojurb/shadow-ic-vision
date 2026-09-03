@@ -107,14 +107,19 @@ export function factSatisfiesTimeBasis(fact: XbrlUnitFact, timeBasis: Measuremen
   return false;
 }
 
-const PREFERRED_FORMS = ['10-Q', '10-K'];
+// Amendments (`10-Q/A`, `10-K/A`) must be listed explicitly: this used to be
+// `['10-Q', '10-K']` matched by exact-string `.includes()`, so a genuine
+// amendment was excluded from the periodic pool below whenever a base
+// periodic filing was also eligible for the same period — dropped, not
+// merely deprioritized, which is the opposite of what an amendment is for.
+const PREFERRED_FORMS = ['10-Q', '10-Q/A', '10-K', '10-K/A'];
 
 /**
  * Picks the fact to report, among those the time-basis gate admits.
  *
- * Prefers periodic reports over 8-K and amendment noise, then the most recent
- * period, then the most recently filed — so a restatement wins over the
- * original it replaces.
+ * Prefers periodic reports and their amendments over 8-K and other event-
+ * filing noise, then the most recent period, then the most recently filed —
+ * so an amendment or restatement wins over the original it replaces.
  */
 export function selectFact(
   response: XbrlConceptResponse,

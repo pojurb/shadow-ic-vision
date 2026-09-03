@@ -109,6 +109,26 @@ describe('selectFact', () => {
     expect(selected?.fact.val).toBe(21);
   });
 
+  /*
+   * `PREFERRED_FORMS` used to hold only `'10-Q'`/`'10-K'` and matched via
+   * exact-string `.includes()`, so a real amendment (`10-Q/A`, `10-K/A`)
+   * was silently dropped from the periodic pool whenever a base periodic
+   * filing was also eligible for the same period — the opposite of what the
+   * "restatement wins" comment above claims, since that test only ever used
+   * two `10-Q` records, never an actual amendment form. This is the amendment
+   * case the prior test's name promised but didn't cover.
+   */
+  it('prefers a real amendment over the base filing it corrects', () => {
+    const selected = selectFact(response({
+      USD: [
+        { start: '2026-04-01', end: '2026-06-30', val: 20, form: '10-Q', filed: '2026-07-23' },
+        { start: '2026-07-01', end: '2026-09-30', val: 999, form: '8-K', filed: '2026-10-01' },
+        { start: '2026-04-01', end: '2026-06-30', val: 21, form: '10-Q/A', filed: '2026-08-14' },
+      ],
+    }), 'duration_quarter');
+    expect(selected?.fact.val).toBe(21);
+  });
+
   it('ignores facts whose value is not a finite number', () => {
     const selected = selectFact(response({
       USD: [
