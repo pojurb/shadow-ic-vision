@@ -259,9 +259,9 @@ fact, or an automatic investment-conclusion workflow.
 
 ## M013: Source Adequacy & Official-Path Recovery
 
-Status: `scoped` (2026-08-08) — packet at
+Status: `complete` (2026-09-03) — packet at
 [`M013-source-adequacy-and-official-path-recovery.md`](M013-source-adequacy-and-official-path-recovery.md),
-awaiting user acceptance. No new decision record required: it adds no provider,
+signed off by user. No new decision record required: it adds no provider,
 model, data class, trust tier, or product boundary.
 
 M013 exists because of a sequencing constraint discovered after — not before —

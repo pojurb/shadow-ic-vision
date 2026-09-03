@@ -1,12 +1,12 @@
 # M013: Source Adequacy & Official-Path Recovery
 
-Status: `all acceptance criteria met 2026-09-02` — awaiting user sign-off
+Status: `accepted` (2026-09-03) — all five acceptance criteria met; explicit user sign-off recorded
 
 Date drafted: 2026-08-08
 
-Date accepted: pending
+Date accepted: 2026-09-03
 
-Date completed: pending
+Date completed: 2026-09-03
 
 Approval authority: user
 
@@ -1043,8 +1043,8 @@ With Slices 1–4 complete:
 | 04 | Q3 recorded; Q4–Q6 each explicitly closed | **met** | Q3 recorded 8/31; Q5 and Q6 decided 8/31; **Q4 decided 2026-09-02** |
 | 05 | No historical row retroactively relabelled | **met** | All 236 TLKM rows remain `inconclusive` / `interpretation_status = pending`; nothing was ever relabelled |
 
-Sign-off is the user's (**Approval authority: user**); this table records that the
-criteria are satisfied, not that the packet has been accepted.
+Sign-off was given explicitly by the user on 2026-09-03 (**Approval authority: user**);
+the packet is accepted and all five acceptance criteria are satisfied and recorded above.
 
 ## 6. Verification plan
 

@@ -1,3 +1,120 @@
+# Session Checkpoint - 2026-09-03 evening (M013 signed off; multi-model adversarial review; post-sign-off roadmap agreed)
+
+## M013 signed off
+
+**The user gave explicit sign-off:** in response to a numbered next-steps list
+whose item 1 read *"Sign-off M013 — ini di tangan Anda, belum diberikan"*, the
+user replied *"Mulai dari sign off, Go!"*. Treated as the explicit statement
+the standing governance note required — not inferred from silence or from a
+side comment.
+
+**A parallel session recorded this concurrently.** `ListAgents` showed a peer
+interactive session (`jp-invest-3f`) started ~29 minutes earlier; its edits to
+`ACTIVE_MILESTONE.md`, the M013 packet, and `ROADMAP.md` were sitting
+uncommitted with matching timestamps (20:48–20:49, this session noticed at
+20:58). Read in full before touching anything, per this session's own standing
+rule about unfamiliar state. The content was substantively correct — packet
+status, dates, and the acceptance-criteria table all properly updated — with
+one real defect: `ACTIVE_MILESTONE.md` had **both** "Active Packet" and
+"Latest Completed Packet" pointing at M013 simultaneously. Fixed: "Active
+Packet" now reads `none` (M014 stays dormant, not yet started).
+
+That session had no visibility into this one's IDX bug fix (`831941e`) or the
+GPT/Gemini review chain below (`SESSION_CHECKPOINT.md` wasn't part of its
+diff) — both filled in here.
+
+## Post-sign-off roadmap — three-model adversarial review, 2026-09-03
+
+Independent second opinion requested from GPT on this assistant's earlier
+review of a "previous analyst" diagnosis (SEC XBRL working for US, `undefined`
+for ID; 236/238 evidence rows `inconclusive`). Then Gemini reviewed the
+GPT-vs-Claude exchange. Full technical substance lives in the conversation
+transcript; this records the corrections and the agreed order, because none of
+it existed anywhere durable before now.
+
+**Corrections this assistant made to its own earlier review, verified against
+code and one external primary source:**
+
+- **"Permanent property of the ID market" was too strong — GPT was right, and
+  a live fetch of `idx.id/id/perusahaan-tercatat/xbrl/` settled it.** XBRL has
+  been mandatory for all listed companies since 2 November 2015, compliance
+  78%→95% by Q3 2019. Structured facts **do exist**. What doesn't exist is a
+  queryable bulk API equivalent to SEC's `data.sec.gov` — distribution is
+  taxonomy (2014/2020) plus per-filing instance documents, not an endpoint.
+  This assistant had repeated M011's own framing (`factory.ts:126`,
+  *"IDX publishes no company-concept equivalent"*) without re-verifying it —
+  true about the API, false about structured facts generally.
+- **`app/api/chat/route.ts:71`** — the system prompt drafting every new
+  thesis's measurement contract — states *"Empty for non-US issuers, which
+  publish no XBRL company facts."* Same error, but live and actively
+  propagating into every new Indonesian thesis draft, not just documented in
+  one file. **Not yet fixed.** Cheapest, lowest-risk item outstanding.
+- **Audit-reliability hierarchy (interim vs. audited) is live on TLKM today,
+  not US-only as this assistant first claimed.** `issuer.ts`'s
+  `TIER1_PHRASE_PAIRS` includes `['laporan','keuangan']` with no audited
+  qualifier — confirmed by the IDX probe two days ago literally returning a
+  title *"Laporan Keuangan Interim Yang Tidak Diaudit"*, which classifies
+  `tier1`/official and can reach `exact_verified` today.
+- **The "recency tie-break mitigates restatement" claim was overstated — real
+  bug found underneath it.** `sec-xbrl.ts:110`'s `PREFERRED_FORMS = ['10-Q',
+  '10-K']` uses exact-string `.includes()`, so genuine amendments (`10-Q/A`,
+  `10-K/A`) are excluded whenever a base periodic filing is also eligible for
+  the same period — not merely deprioritized, dropped. `tests/xbrl-facts.test.ts:106`'s
+  "restatement" test uses two same-form `10-Q` records, never an actual
+  amendment form, so the comment's claim was never covered by a test that
+  could catch it. **Live in the US path today, independent of any ID
+  decision. Not yet fixed.**
+- **A4's uplift from an eventual IDX parser was too optimistic.** Its contract
+  needs a YoY-growth differential across two metrics (segment vs. consolidated)
+  — confirmed `sec-xbrl.ts` has zero dimension/axis/segment handling anywhere,
+  and `SecCompanyConceptSource` only ever fetches one non-dimensional concept.
+  Nuance added on review: the codebase already has a precedent for hand-written
+  multi-tag derived calculations (`calculateGrossMarginFromFacts` in
+  `extractors/xbrl.ts`), so the right shape is one more bespoke function per
+  metric — not a generalized "formula engine". Flagged explicitly against
+  scope creep: Gemini's summary used the term "Formula Engine" as though
+  already agreed; it is not, and building one prematurely is exactly the kind
+  of abstraction this project's own conventions warn against.
+- **The preflight-warning proposal (`xbrlFactSources[market] === undefined` +
+  threshold operator) cannot distinguish "no adapter built yet" from "no
+  public source exists at all".** It would warn on A4 (public, just
+  unautomated) identically to A2/A6 (privately held, permanently
+  unknowable) — accepted as a real design flaw in the original proposal, not
+  defended.
+
+## Agreed execution order (six steps)
+
+1. ~~Sign off M013~~ — **done, this entry.**
+2. Two independent, zero-dependency fixes — cheap, do whenever, not gated on
+   anything else: `route.ts:71`'s stale claim; `sec-xbrl.ts`'s
+   `PREFERRED_FORMS` amendment exclusion.
+3. **Q6** — source adequacy as a first-class, persisted state; stop retrying
+   jobs that cannot succeed (A2/A5/A6).
+4. **Bounded IDX spike, not a build** — download 1–2 real TLKM filings, confirm
+   transport stability and taxonomy version (2014 vs. 2020), check whether the
+   NeutraDC segment actually appears before committing to a parser.
+5. If the spike succeeds: **one vertical slice** — `FinancialFact`
+   normalization, derived-fact functions per metric (the
+   `calculateGrossMarginFromFacts` pattern, not a generic engine), reporting-
+   context constraints baked into the same slice that activates real ID facts
+   (not a separate `reportingLevel` migration — `definitionVariant` is
+   descriptive-only today; the fact selector never reads it, so nothing
+   currently prevents a wrong-basis substitution once real facts exist).
+6. **Assurance/audit-tier metadata** (audited vs. unaudited) — later, as its
+   own axis, separate from `sourceTier`.
+
+## Exact resume point
+
+- Nothing blocking. Steps 2–6 above are the queue; step 2's two fixes have no
+  dependency on anything and can be picked up first for the cheapest win.
+- The IDX pipeline still has not been re-run since the `831941e` fix — deferred
+  by design to step 4 (the bounded spike), not forgotten.
+- Still deferred, unchanged from earlier entries: the scheduled task's
+  `StopIfGoingOnBatteries`, and the 8/30–8/31 ingestion runs stuck at
+  `running`.
+
+---
+
 # Session Checkpoint - 2026-09-03 (the IDX official path never worked; the parked "governance question" was a phantom)
 
 M013 was left meeting all five criteria and awaiting sign-off. Picking up the

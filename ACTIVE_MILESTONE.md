@@ -1,21 +1,14 @@
 # Active Milestone
 
-Status: `accepted` — **all five acceptance criteria met 2026-09-02, awaiting user sign-off.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar). Next action is the user's sign-off, then the parked `idx.co.id` decision — see `SESSION_CHECKPOINT.md`.
+Status: `accepted` — **completed and signed off by user 2026-09-03.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar). Next action is the parked `idx.co.id` decision and follow-on Q6 scoping — see `SESSION_CHECKPOINT.md`.
 
-Active Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (official-source path repaired and live-validated; per-assumption source adequacy classified — see the packet's Slice 4 section for the reasoning behind each class)
+Active Packet: none. M013 closed 2026-09-03; the next milestone (M014, private-knowledge coverage expansion) is still `accepted`/dormant and has not been started — see `SESSION_CHECKPOINT.md` for the agreed next steps ahead of any new milestone.
 
-**Governance note (opened 2026-08-29, narrowed 2026-09-02):** this file recorded
-M013 as `accepted` while the packet's header read `scoped`, and the two have
-disagreed since. The packet header now reads *"all acceptance criteria met
-2026-09-02 — awaiting user sign-off"*, which states the measurable half without
-resolving the disagreement: **acceptance was given by direction rather than by a
-single statement, and no explicit sign-off exists for either file to cite.** The
-criteria being met is recorded and verifiable; the acceptance is not. Close this
-note only with an explicit user statement, not by inference from either file.
+**Governance note (opened 2026-08-29, closed 2026-09-03):** Closed 2026-09-03: User provided explicit sign-off statement ("sign-off m013 dulu"). Both this file and the packet now record status `accepted` with all criteria met and verified.
 
-Latest Completed Packet: [`docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md`](docs/milestones/M012-private-knowledge-corpus-and-graph-foundation.md) (complete 2026-08-08; local-only private corpus and candidate graph foundation)
+Latest Completed Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (complete 2026-09-03; official-source path repaired and live-validated; per-assumption source adequacy classified)
 
-## Current Phase — M013 complete against its criteria; awaiting sign-off
+## Current Phase — M013 signed off; next is parked idx.co.id decision & Q6 scoping
 
 **Slice 5 completed 2026-09-02.** Two decisions closed it, both the user's.
 **A6 = (C)** — no public source identified for the current measurement contract;
@@ -64,9 +57,14 @@ only **A1** can move, (B) → (A), and that is (B) working as defined — it mea
 "exists but blocked by a named blocker", and this bug is that blocker. A2/A5/A6
 fail at the metric level, which no IDX filing touches; A3 is `not_measurable`.
 
-**Open, and the user's alone:** sign off M013, or re-run `research:refresh`
-first. Recommendation is sign off first and re-run as the follow-on packet's
-opening act — see `SESSION_CHECKPOINT.md` for the pros and cons.
+**Signed off 2026-09-03.** The user chose sign-off first, `research:refresh`
+deferred to the follow-on work, per the recorded recommendation. An
+independent multi-model adversarial review (this assistant, then GPT, then
+Gemini reviewing that exchange) followed the same day and converged on a
+6-step execution order — see `SESSION_CHECKPOINT.md` "Post-sign-off roadmap"
+for the full record, corrections, and two small fixes identified but not yet
+applied (`route.ts:71`'s stale non-US XBRL claim; `sec-xbrl.ts`'s
+`PREFERRED_FORMS` excluding real amendment forms).
 
 ### Superseded — the narrative below predates Slice 5
 
