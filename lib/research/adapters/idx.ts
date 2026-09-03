@@ -63,7 +63,11 @@ export function parseIdxAnnouncements(json: string, ticker: string, discoveryUrl
   return rows.flatMap((row) => {
     const announcement = row.pengumuman ?? {};
     const title = announcement.JudulPengumuman?.toLowerCase() ?? '';
-    if (announcement.Kode_Emiten?.toUpperCase() !== upperTicker || !REPORT_TERMS.some((term) => title.includes(term))) return [];
+    // `Kode_Emiten` arrives fixed-width from the live API (CHAR(100), so
+    // "TLKM" plus 96 spaces). Without the trim the exact comparison below
+    // discards every announcement, and `IdxAdapter.discover` then falls back to
+    // the issuer path without surfacing anything — see the padded-code test.
+    if (announcement.Kode_Emiten?.trim().toUpperCase() !== upperTicker || !REPORT_TERMS.some((term) => title.includes(term))) return [];
     const publishDate = normalizeIdxDate(announcement.TglPengumuman);
     if (!publishDate) return [];
     return (row.attachments ?? []).flatMap((attachment) => {

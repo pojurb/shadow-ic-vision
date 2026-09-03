@@ -86,6 +86,31 @@ describe('official source adapters', () => {
     expect(normalizeIdxAttachmentUrl('https://www.idx.co.id/files/BBRI.pdf')).toBeNull();
   });
 
+  /*
+   * The live IDX API returns `Kode_Emiten` as a fixed-width CHAR(100) — "TLKM"
+   * followed by 96 spaces — so the exact `!==` comparison dropped every row
+   * before it could reach the title-term check. Measured 2026-09-03 against the
+   * real endpoint: 100 announcements returned, 11 titles matching REPORT_TERMS,
+   * every attachment URL valid, and 100/100 discarded at that first gate. The
+   * adapter then fell back to the issuer path silently, so 67 live calls between
+   * 2026-07-05 and 2026-09-03 all returned HTTP 200 and produced zero documents,
+   * zero snapshots and zero evidence. Every fixture above used an unpadded code
+   * and stayed green throughout — the same fixture-green/live-failing shape this
+   * milestone already hit once on the official path.
+   */
+  it('maps an IDX announcement whose Kode_Emiten is space-padded to fixed width', () => {
+    const json = JSON.stringify({ Replies: [{
+      pengumuman: { Id2: 7, Kode_Emiten: 'TLKM'.padEnd(100, ' '), TglPengumuman: '2026-07-31T08:00:00Z', JudulPengumuman: 'Penyampaian Laporan Keuangan Interim Yang Tidak Diaudit' },
+      attachments: [{ FullSavePath: 'https://www.idx.co.id/StaticData/NewsAndAnnouncement/ANNOUNCEMENTSTOCK/From_EREP/202607/9fff6e0435_cb545ee9bf.pdf' }],
+    }] });
+    expect(parseIdxAnnouncements(json, 'TLKM')).toContainEqual(expect.objectContaining({
+      ticker: 'TLKM',
+      publishDate: '2026-07-31',
+      sourceTier: 'official',
+      sourceUrl: 'https://www.idx.id/StaticData/NewsAndAnnouncement/ANNOUNCEMENTSTOCK/From_EREP/202607/9fff6e0435_cb545ee9bf.pdf',
+    }));
+  });
+
   it('keeps issuer discovery on the configured origin and selects report PDFs only', () => {
     const html = '<a href="/reports/financial-20260430.pdf">Financial report 20260430</a><a href="https://tracker.test/go?redirect=https%3A%2F%2Fissuer.test%2Freports%2Fannual-report-2025.pdf">Download report</a><a href="https://evil.test/report.pdf">Report</a><a href="/about.pdf">About</a>';
     expect(discoverIssuerDocuments(html, 'https://issuer.test/investor', { market: 'ID', ticker: 'BBRI', documentTypes: [] }))
