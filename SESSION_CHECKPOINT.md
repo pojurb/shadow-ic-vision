@@ -1,3 +1,118 @@
+# Session Checkpoint - 2026-09-04 (step 6 shipped; M014 verified and found NOT complete)
+
+Two tracks run in parallel at the user's request: step 6 built in the main
+session (repo-only, no live-DB writes while the other track ran), M014
+verification delegated to a subagent with a hard no-commit constraint so all
+writes stayed on one hand. Backup taken first:
+`db-before-m014-verify-20260904T152833.sqlite`.
+
+## Step 6 — the assurance axis, shipped (`a2f766f`)
+
+`lib/research/assurance.ts` answers one question — does this document carry
+an auditor's opinion — as `audited` / `unaudited` / `unknown`, and **never
+defaults to `audited`**. Each adapter supplies the signal it actually has:
+IDX the announcement title (strongest — it says so outright), SEC the form
+code, the issuer crawl a filename falling back to period shape (`TW` vs
+`AR`), XBRL facts the form code `selectFact` already reads.
+
+Ordering inside the classifier is load-bearing, not style:
+`"unaudited".includes("audited")` is true and `"tidak diaudit"` contains
+`"diaudit"`, so negatives are checked first — the same trap `issuer.ts`
+already documents, which is why its TIER1 lists carry no `audited` token.
+
+Carried snapshot → pipeline → evidence row with each hop written explicitly,
+because the column has a default and a missed hop would degrade silently to
+`unknown` with typecheck still green. Panel states it on **every** row: shown
+only-when-unaudited would make "nothing shown" indistinguishable from
+"audited", which is the confusion being removed.
+
+**User's decision: label only — do not let assurance affect the verdict.** So
+step 6 is complete as scoped. It deliberately does not touch `DEC-0018`
+territory ("what counts as support"), which would have needed its own
+decision record rather than being folded in quietly.
+
+450 tests (up from 442), typecheck/lint/context/status clean. Migration
+`0015` applied to the live DB afterwards; **all 270 existing evidence rows
+read `unknown`**, correctly — they were ingested before the column existed
+and backfilling them as audited would assert something nobody checked. Real
+values populate as new documents arrive.
+
+## M014 — verified, and it CANNOT be marked complete
+
+**This corrects what this session said earlier today.** On seeing 54/54
+`graph_ready` and the right extractionMethod counts (22 docx / 2 xlsx / 1
+ocr), the read given to the user was "M014 looks substantively done, just
+never recorded — the work is verify-and-close-out." **That was wrong**, and
+the deeper verification found why.
+
+**What genuinely holds up (Slices 0–3).** The parsers are real and
+deterministic: re-running `extractDocxBytes`/`extractXlsxBytes` in memory
+against the real sources re-derives all 24 Office artifacts **byte-identical**.
+Isolation holds — 0 contamination across every row of `evidence` (270),
+`source_snapshots` (114), `theses`, `assumptions`, `portfolio_positions`.
+Manifest/DB 1:1 on all 7 fields. Idempotence proven by two full re-runs: zero
+row or artifact changes. Provenance gates all pass: 193/193 claims satisfy
+`canonicalText.includes(quote)`, 914/914 edges have valid source claim ids.
+`originals/` byte-unchanged, verified by hashing (note: it is gitignored, so
+`git status` proves nothing there — the subagent caught that and hashed
+instead).
+
+**Three blockers, one serious:**
+
+1. **Slice 0 criterion not implemented.** `knowledge:scan` must "output exact
+   breakdowns of Office formats"; it emits only totals. The MIME map exists
+   in `intake.ts` but is never surfaced.
+2. **OCR provider metadata is clobbered.** §8 requires it in both tables.
+   `extraction.ts` writes it correctly, then `batch.ts:141-150` overwrites the
+   same three columns with digest metadata. The scanned PDF's row now reads
+   `file-backed / fixture-file-v1`; the true values survive only in
+   `knowledge_processing_runs`. A column collision between two stages, not
+   data loss.
+3. **SERIOUS — the 25 M014 documents are `graph_ready` on stub source cards.**
+   `process_slice4.py` (recovered from `d243a7d`) slices the first 500
+   characters of `canonicalText` as the "quote" and emits a fixed template.
+   Measured across all 25: **one distinct claim text** ("The document provides
+   structural financial or economic information."), `documentType: "Document"`
+   for every one, and **0 concepts, 0 mechanisms, 0 definitions, 0 indicators,
+   0 limitations**. Against the 29 M012 PDFs: 168 distinct claims, 212
+   concepts, 75 mechanisms, 96 definitions. Every provenance check passes **by
+   construction** — the quote was cut from the text it is checked against.
+   This is risk **PR-038 ("false confidence from a successful parser run")
+   realized**, and the packet's own §12.8 Slice 4 record ("all 25 claims had
+   exact quotes present") is literally true and materially misleading.
+
+**Untestable against this corpus, and should be recorded as gaps rather than
+left implied-verified:** the live corpus has **0 tables across all 22 DOCX**,
+**0 formula cells and 0 hidden sheets** in both workbooks — so DOCX table-cell
+locators are entirely unverified (and the test named for them only asserts a
+cell *value* appears, not the locator format). Password-protected fail-closed
+and hash-mismatched OCR handoff are both required fixtures in §9 and neither
+exists. Merged cells deviate from §4C: ExcelJS propagates the master value to
+every slave cell and the parser emits each — **1325 of 1462 blocks (90.6%) in
+`Centralbankassestment.xlsx` are merge-duplicates, 1462 cells carrying 70
+distinct values**.
+
+**To close M014 honestly:** fix the scan breakdown, stop `batch` clobbering
+OCR provider metadata, and either regenerate the 25 source cards through a
+real digest path or explicitly downgrade those documents and record Slice 4
+coverage as nominal. Not done here — this was a verification pass, and the
+remedy is the user's call.
+
+**Verification side effects, disclosed:** `knowledge_processing_runs` grew
+280 → 282 (two scan-stage audit rows), `m012-report.json` regenerated twice
+(identical but for `generatedAt`). Nothing else changed.
+
+## Resume point
+
+- Step 6 done and closed by user decision. Nothing outstanding on it.
+- M014's three blockers are open and unstarted. Blocker 3 is the one that
+  matters: 25 documents currently counted as knowledge coverage contain no
+  knowledge.
+- The parallel-work pattern held up well: one hand on git, subagent
+  read-mostly with an explicit no-commit rule, backup first.
+
+---
+
 # Session Checkpoint - 2026-09-04 (Option A: reviewed and committed the VISION/PRODUCT_STRATEGY terminal-agent edit)
 
 Found sitting uncommitted (not from this session): substantial additions to
