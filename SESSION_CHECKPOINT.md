@@ -1,3 +1,50 @@
+# Session Checkpoint - 2026-09-04 (user decision: no vertical slice; roadmap effectively closed at step 4)
+
+**User's decision, given the spike's findings above: do not build the IDX
+XBRL vertical slice.** Chosen over "build anyway for future theses" and "fix
+the two code gates first, then decide" — the recommendation (stop here) was
+accepted as given. `ACTIVE_MILESTONE.md` updated to reflect this as the
+current state, not a pending question.
+
+## What this closes and what it leaves open
+
+Of the six-step roadmap agreed 2026-09-03:
+
+1. Sign off — done
+2. Two independent fixes — done (`fe02f81`)
+3. Q6 — done, built and applied to real data, one live bug found and fixed (`7ceeed6`, `ebe8f98`)
+4. Bounded IDX spike — done (`b9755d2`)
+5. Vertical slice — **declined.** Not deferred, not scoped for later — a
+   considered no, on the evidence the spike produced.
+6. Assurance/audit-tier metadata (audited annual vs. unaudited interim) —
+   **still open, and analytically independent of steps 4–5.** It was
+   sequenced after the vertical slice in the original roadmap because that
+   roadmap assumed XBRL facts would be the trigger for caring about audit
+   status. But the actual finding behind it doesn't depend on XBRL at all:
+   `issuer.ts`'s `TIER1_PHRASE_PAIRS` already lands an unaudited interim
+   report (confirmed live: *"Laporan Keuangan Interim Yang Tidak Diaudit"*)
+   at `tier1`/official today, on the existing PDF path, capable of reaching
+   `exact_verified` with no audit-status signal anywhere downstream. Whether
+   to pursue this is a fresh question, not a resumption of the old one — not
+   decided here.
+
+**Two things found this session and never fixed, left as recorded debt, not
+tracked against any open roadmap step:**
+- `app/api/chat/route.ts` and other prompt/comment text may still have
+  residual "no XBRL for non-US issuers" framing beyond the one instance
+  corrected in step 2 — not swept exhaustively.
+- `normalizeIdxAttachmentUrl`'s `.pdf`-only gate (found during the spike) —
+  irrelevant unless XBRL work is picked up again later, in which case it's
+  the first thing to fix.
+
+## Resume point
+
+No active roadmap item. The one open question is step 6, and it needs its
+own framing (independent of IDX/XBRL) before any work starts — this is a
+natural stopping point for the session, not a mid-task cutoff.
+
+---
+
 # Session Checkpoint - 2026-09-04 (roadmap step 4 done — bounded IDX spike, real XBRL downloaded and inspected)
 
 Continuing the six-step post-sign-off roadmap in order. Step 4 closed —

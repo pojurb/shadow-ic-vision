@@ -1,6 +1,8 @@
 # Active Milestone
 
-Status: `accepted` — **completed and signed off by user 2026-09-03.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar). Next action is the parked `idx.co.id` decision and follow-on Q6 scoping — see `SESSION_CHECKPOINT.md`.
+Status: `accepted` — **completed and signed off by user 2026-09-03.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar).
+
+**Post-sign-off roadmap, 2026-09-03→04, four of six steps done.** (1) sign-off, (2) two independent code fixes (`route.ts:71`'s stale non-US XBRL claim, `sec-xbrl.ts`'s amendment-form exclusion), (3) Q6 shipped and **applied to the live thesis** — A2/A5/A6 recorded `(C)` via `source_adequacy_assessments`, verified end-to-end against a real `research:refresh` run (their jobs untouched while A1/A3/A4 advanced normally), and a real coverage-disclosure bug found and fixed the same session (`ebe8f98`) — the panel now correctly reads **3 of 6 (50%), confidence gate suppressed**, naming all three closed assumptions, where it silently read 100%/open before. (4) Bounded IDX XBRL spike completed — real transport, real 2020-01-01 taxonomy, but **no segment dimension in the data at all** and **zero NeutraDC/divestment mentions** in either quarter checked, so A4's segment metric and A1's ownership specificity are not retrievable from XBRL regardless of adapter work. **User's decision, 2026-09-04: do not build the vertical slice (step 5).** Step 6 (audited/unaudited assurance metadata) is independent of the XBRL chain and still open — see `SESSION_CHECKPOINT.md`.
 
 Active Packet: none. M013 closed 2026-09-03; the next milestone (M014, private-knowledge coverage expansion) is still `accepted`/dormant and has not been started — see `SESSION_CHECKPOINT.md` for the agreed next steps ahead of any new milestone.
 
@@ -8,7 +10,7 @@ Active Packet: none. M013 closed 2026-09-03; the next milestone (M014, private-k
 
 Latest Completed Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (complete 2026-09-03; official-source path repaired and live-validated; per-assumption source adequacy classified)
 
-## Current Phase — M013 signed off; next is parked idx.co.id decision & Q6 scoping
+## Current Phase — M013 signed off and roadmap steps 1–4 complete; step 6 (assurance metadata) is the one open item
 
 **Slice 5 completed 2026-09-02.** Two decisions closed it, both the user's.
 **A6 = (C)** — no public source identified for the current measurement contract;
