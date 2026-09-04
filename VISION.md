@@ -82,6 +82,10 @@ This system is bound by strict rules regarding user trust and data integrity:
   traceable to sources, calculations, or clearly labeled inference.
 - Missing a relevant source, change, or risk is a possible product failure that
   must be visible and reviewable, not hidden behind confidence language.
+- The product may use a terminal-based AI agent as a free-form research
+  interface, but the agent is an external orchestrator, not an evidence
+  provider or decision-maker. Durable thesis state and investment actions
+  remain gated by explicit user interaction in the product.
 
 ## 8. Product Scope and Sequencing
 
@@ -98,6 +102,14 @@ delivered through multiple small vertical slices:
 - review relevant changes on demand before scheduled monitoring is introduced
 - generate a prioritized briefing from tracked assumptions
 - record the user's review and decision without executing it
+
+The preferred interaction model may be terminal-first for exploration and
+research discussion, with the Web App serving as the visual dashboard and
+control surface. A terminal agent may stage work and trigger the product's
+deterministic evidence pipeline, but its own web searches are exploration only:
+they do not become verified evidence. The browser remains the commitment gate
+for durable thesis changes, and the user remains the sole authority for any
+investment action.
 
 ### Horizon 2: The Twelve-Month Product
 **An intelligent tracking engine.**

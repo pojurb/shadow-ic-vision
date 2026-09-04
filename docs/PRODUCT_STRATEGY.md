@@ -77,18 +77,43 @@ separate approved milestones.
 
 ## 4. Core Workflows
 
+### Interaction Model - Terminal Research And Web Control
+
+The product supports a terminal-first research path for users who prefer
+free-form discussion with a terminal-based AI agent. The terminal agent may
+help explore a company, narrow a thesis, stage a draft, trigger research jobs,
+and read the resulting evidence summary. It does not replace jp-invest's
+evidence pipeline, become a provider inside that pipeline, or make the user's
+investment decision.
+
+The Web App remains the dashboard and control surface for dense evidence views,
+verdicts, portfolio status, and explicit confirmation of durable changes. A
+terminal-staged thesis is not tracked until the user opens the staged browser
+view and confirms it. The agent's own web search is discovery or exploration
+only; verified evidence must come through jp-invest's source and verification
+pipeline.
+
+This interaction model is an optional entry path, not a separate product mode:
+
+- terminal exploration and research orchestration are conversational and
+  iterative;
+- the browser is used where visual review or durable confirmation matters;
+- missing, contradictory, or unverified evidence remains visible;
+- investment actions remain user-originated and are never supplied as agent
+  recommendations.
+
 ### Workflow A - Track An Existing Thesis
 
 1. The user identifies an Indonesian or US company and marks it `Owned` or
-   `Watchlist`.
+   `Watchlist`, either in the Web App or through a terminal-assisted draft.
 2. The user provides a thesis in their own words, optionally including links,
    notes, or documents.
 3. The product helps separate the thesis into a summary, assumptions, risks,
    disconfirming conditions, open questions, and evidence candidates.
 4. The product discovers relevant official sources where available and shows
    provenance, period, freshness, and evidence classification.
-5. The user confirms or corrects the drafted thesis and evidence before the
-   company becomes actively tracked.
+5. The user opens the browser confirmation view and confirms or corrects the
+   drafted thesis and evidence before the company becomes actively tracked.
 6. The saved company becomes eligible for on-demand review, the weekly
    briefing, and decision history.
 
@@ -213,6 +238,8 @@ United States:
 ### Evidence Rules
 
 - Web search is a discovery mechanism, not evidence by itself.
+- A terminal agent's own web search is also exploration only; it cannot confer
+  jp-invest verification status on a claim.
 - A material factual claim must include a source title, source location, date or
   reporting period, freshness, market, and evidence class.
 - Secondary or user-provided evidence may be useful but may not be represented
