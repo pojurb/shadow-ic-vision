@@ -1,3 +1,100 @@
+# Session Checkpoint - 2026-09-04 (Q6 applied to real TLKM data; found and fixed a real disclosure bug live)
+
+## A2/A5/A6 classified (C) on the live thesis — mechanism actually used
+
+Ran `npm run source-adequacy:record` three times against the real TLKM
+thesis (`168cd37c-a6ce-473e-9b2a-943f253c0ef6`), reasoning drawn verbatim
+from the M013 packet's own already-established findings, not reworded:
+
+| Assumption | ID | Reasoning source |
+|---|---|---|
+| A2 (competitive position) | `9e75f461-6002-45c8-82c7-dfbaa867aec8` | packet §A2, denominator is private-competitor MW no one publishes |
+| A5 (hyperscaler commitments) | `c21155c9-399a-42a6-96dc-0db4a984daaa` | packet §A5, 43 rows, no named commitment ever appears |
+| A6 (firm PLN power) | `c6eb7d7b-4d3c-48e6-8e18-2268ab147917` | packet §A6, 90+ docs, no MW/MVA/GW firm-PLN figure ever appears |
+
+**Verified live, not just via test:** snapshotted `attempt_count`/`updated_at`
+for all six TLKM jobs, ran a real `RESEARCH_SOURCE_MODE=live npm run
+research:refresh`. A1/A3/A4 advanced normally (attempt +1, `updated_at`
+bumped). **A2/A5/A6 were completely untouched** — identical `attempt_count`
+and `updated_at` before and after. The requeue-exclusion mechanism built
+yesterday works correctly in production, not only in the test suite.
+
+## A real bug found live minutes later, fixed same session
+
+`research:panel` after the classification still read *"retrieval reached 6
+of 6 (100%) — confidence gate: open"* — no disclosure at all, despite three
+assumptions now closed. Not a display quirk; a real defect in what was
+committed yesterday.
+
+**Cause:** the `sourceAdequacy === 'C'` check lived inside
+`unevidencedReason()`, which `deriveCoverageLedger` only ever calls when
+`polarities.length === 0`. A2/A5/A6 are not evidence-empty — they carry
+19–52 rows each, all `inconclusive` (misfiled boilerplate the ranker
+attached to the wrong assumption, not evidence bearing on the claim). So
+they never reached that branch at all and fell straight into
+`inconclusiveOnly`, **silently reproducing the exact R-028/`confidenceGate`
+gap this whole feature exists to close** — `coverageRatio` counting any
+quote of any polarity as "evidenced" regardless of whether it answers the
+contract. Q6 was built to fix that specific, previously-documented hole and,
+as first shipped, didn't.
+
+**Fixed** (`ebe8f98`): moved the `(C)` check out of `unevidencedReason` and
+into `deriveCoverageLedger`'s loop directly, checked ahead of and
+independent of `polarities.length` — so a closed assumption always lands in
+`unevidencedAssumptions` and is excluded from `evidenced`/`inconclusiveOnly`
+regardless of how much irrelevant evidence it accumulated. New fail-first
+test (`reports (C) ahead of a non-empty inconclusive polarity list`)
+reproduces the exact live shape — empty `unevidencedAssumptions` before the
+fix, correct after.
+
+**Re-verified live after the fix:**
+
+| | Before fix | After fix |
+|---|---|---|
+| Coverage line | retrieval reached 6/6 (100%) | retrieval reached 3/6 (50%) |
+| Confidence gate | `open` | `suppressed (low_coverage)` |
+| Disclosure | none | 3 assumptions named, each with `no_source_identified` |
+
+This is the first time the live panel has ever stated, in Q5's own words,
+*how many assumptions are permanently untestable and why* — the mandate Q5
+recorded on 2026-08-31 and nothing implemented until today.
+
+442 tests passed (up from 428 at yesterday's Q6 commit; 441 immediately after
+that commit, 442 after this fix — one more test), 3 skipped, 0 failed.
+`tsc --noEmit`, `eslint`, `context:check`, `status:check` all clean.
+
+## Commits this entry covers
+
+- `7ceeed6` feat(research): add source-adequacy classification (M013 Q6) — from last session
+- `9e286e3` docs(checkpoint): close roadmap step 3 — from last session
+- Three `source-adequacy:record` invocations (data only, no commit — DB writes to the live database, not the repo)
+- `ebe8f98` fix(coverage): make (C) classification override polarity count, not sit behind it
+- `76584df` chore: regenerate code index
+
+## Lesson worth keeping
+
+Building a mechanism and unit-testing it in isolation (yesterday: 13 passing
+tests, all green) is not the same as running it against the real data it was
+built for. The bug here was invisible to every test written yesterday
+because every one of them either used `polarities: []` (matching the
+zero-evidence branch that already worked) or never combined `sourceAdequacy:
+'C'` with non-empty polarities at all — the exact combination the real TLKM
+thesis has for all three closed assumptions. Applying a feature to its real
+target immediately after building it, rather than treating "tests pass" as
+done, is what surfaced this. Worth being the default going forward for
+anything touching the coverage/verdict path specifically, since that path
+has already produced one prior falsified prediction (R-028) from reasoning
+about the code instead of running it.
+
+## Next — step 4, bounded IDX spike
+
+Unchanged from yesterday. Not started. Download 1-2 real TLKM filings from
+IDX's per-filing instance-document path, confirm transport stability and
+taxonomy version (2014 vs 2020), check whether the NeutraDC segment actually
+appears, before committing to any parser build.
+
+---
+
 # Session Checkpoint - 2026-09-03 late night (roadmap step 3 done — Q6 implemented)
 
 Continuing the six-step post-sign-off roadmap in order. Step 3 (Q6) closed.
