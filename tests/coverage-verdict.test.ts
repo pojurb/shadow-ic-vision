@@ -135,6 +135,31 @@ describe('deriveCoverageLedger', () => {
       // (A) and (B) are not closures — job status still governs.
       expect(reasonFor({ sourceAdequacy: 'B', jobStatus: 'failed' })).toBe('job_failed');
     });
+
+    /**
+     * The real TLKM case, found live 2026-09-04 right after recording A2/A5/A6
+     * as (C): each has 19-52 evidence rows, all `inconclusive` — misfiled
+     * boilerplate the ranker retrieved, not evidence bearing on the claim. The
+     * first version of this wiring nested the (C) check inside
+     * `unevidencedReason`, which only ever runs when `polarities.length === 0`
+     * — so a closed assumption *with* retrieved-but-irrelevant rows silently
+     * fell through to `inconclusiveOnly` instead, and the coverage panel
+     * showed "nothing retrieved: 0" while three assumptions sat permanently
+     * closed. This is the exact R-028/`confidenceGate` gap the M013 packet
+     * already named — `coverageRatio` counting any quote of any polarity as
+     * "evidenced" — and Q6 existed specifically to close it, not reproduce it.
+     */
+    it('reports (C) ahead of a non-empty inconclusive polarity list, and does not count it as evidenced', () => {
+      const ledger = deriveCoverageLedger([
+        assumption({ sourceAdequacy: 'C', polarities: ['inconclusive', 'inconclusive', 'inconclusive'] }),
+      ]);
+      expect(ledger.unevidencedAssumptions).toEqual([
+        expect.objectContaining({ reason: 'no_source_identified' }),
+      ]);
+      expect(ledger.evidenced).toBe(0);
+      expect(ledger.inconclusiveOnly).toBe(0);
+      expect(ledger.unevidenced).toBe(1);
+    });
   });
 
   it('handles a thesis with no assumptions without dividing by zero', () => {

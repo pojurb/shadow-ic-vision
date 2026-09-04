@@ -83,13 +83,6 @@ export type CoverageAssumptionInput = {
 };
 
 function unevidencedReason(input: CoverageAssumptionInput): UnevidencedReason {
-  /*
-   * Checked first, ahead of job status: a recorded (C) is the answer, not a
-   * transient state the job happens to be in underneath it. The job may sit
-   * at `degraded`, `queued`, or anything else once closed (`ingestion.ts`
-   * simply stops requeuing it) — none of that is what the user should read.
-   */
-  if (input.sourceAdequacy === 'C') return 'no_source_identified';
   if (input.jobStatus === 'queued' || input.jobStatus === 'running') return 'job_pending';
   if (input.jobStatus === 'failed') return 'job_failed';
   /*
@@ -119,6 +112,28 @@ export function deriveCoverageLedger(assumptions: readonly CoverageAssumptionInp
   for (const assumption of assumptions) {
     const resolution = assumption.contract?.resolution;
     if (resolution !== 'resolved' && resolution !== 'not_measurable') unresolvedContracts += 1;
+
+    /*
+     * Checked ahead of, and independently of, `polarities.length` — this is
+     * the bug found live on the real TLKM thesis 2026-09-04, right after
+     * recording A2/A5/A6 as (C): each has 19-52 retrieved rows, all
+     * `inconclusive`, none of them bearing on the actual claim (misfiled
+     * boilerplate the ranker attached to the wrong assumption). Nesting this
+     * check inside `unevidencedReason` — which only runs when there is *zero*
+     * evidence — let a closed assumption with irrelevant-but-present rows
+     * fall through into `inconclusiveOnly` below, silently reproducing the
+     * exact R-028/`confidenceGate` gap Q6 exists to close: `coverageRatio`
+     * counting any quote of any polarity as "evidenced" regardless of whether
+     * it answers the contract.
+     */
+    if (assumption.sourceAdequacy === 'C') {
+      unevidencedAssumptions.push({
+        assumptionId: assumption.assumptionId,
+        statement: assumption.statement,
+        reason: 'no_source_identified',
+      });
+      continue;
+    }
 
     if (assumption.polarities.length === 0) {
       unevidencedAssumptions.push({
