@@ -1,3 +1,48 @@
+# Session Checkpoint - 2026-09-04 (Option A: reviewed and committed the VISION/PRODUCT_STRATEGY terminal-agent edit)
+
+Found sitting uncommitted (not from this session): substantial additions to
+`VISION.md` §7/§8 and `docs/PRODUCT_STRATEGY.md` §4, formalizing a
+"terminal-first interaction model" — the terminal agent as external
+orchestrator, browser as the sole commitment gate for durable state and
+investment actions, the agent's own web search staying "exploration only"
+same as any other search.
+
+**Provenance checked before touching anything.** Not this session's work.
+Messaged the peer session (`jp-invest-58`, then renamed/reconnected as seen
+in `ListAgents`) to ask whether it was theirs, mid-edit — it replied that
+its session had never touched either file (first turn), and after
+independently pulling and reading the same diff, corroborated it as complete
+and internally coherent. So most likely a direct edit by the user outside
+any Claude session, not another agent's in-progress work.
+
+**Confirmed this isn't new policy — it's the vision/strategy docs catching
+up to `DEC-0017`** (`Terminal-first CLI workflow and concurrency model`,
+already `accepted`), which `docs/CODEBASE_MAP.md:591` already states plainly
+("commitment gate is the browser, not the CLI"). Read every added
+paragraph in full document context (not just diff hunks) in both files —
+no fragments, no contradictions between the two files or with the rest of
+either document.
+
+**Committed** (`03d244e`). `status:check` and `context:check` clean.
+
+## What this closes
+
+This was "Opsi A" from the prior turn's menu — the uncommitted governance
+work found alongside the "what's next" question. It's done. The other three
+options from that menu (step 6/assurance metadata, M014, or stopping here)
+are still open and unchosen.
+
+## Resume point
+
+No active task. Same fork in the road as before this digression:
+- Step 6 (audited vs. unaudited assurance metadata) — independent of the
+  closed IDX/XBRL chain, not started.
+- M014 (private-knowledge coverage expansion) — still dormant.
+- Or stop here; the M013 follow-on roadmap is substantively closed (5 of 6
+  steps resolved, one declined by user decision).
+
+---
+
 # Session Checkpoint - 2026-09-04 (user decision: no vertical slice; roadmap effectively closed at step 4)
 
 **User's decision, given the spike's findings above: do not build the IDX
