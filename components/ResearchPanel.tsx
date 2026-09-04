@@ -54,6 +54,18 @@ function formatDelta(delta: number, unit: MeasurementUnit): string {
   return `${formatValue(Math.abs(delta), unit)} ${delta < 0 ? 'below' : 'above'}`;
 }
 
+/*
+ * M013 follow-on step 6. "Not established" rather than "unknown": the value
+ * describes what the system knows about the document, and a user reading
+ * "unknown" next to a statutory filing would reasonably wonder whether
+ * something failed. Nothing failed — the adapter had no assurance signal.
+ */
+const ASSURANCE_LABEL: Record<'audited' | 'unaudited' | 'unknown', string> = {
+  audited: 'audited',
+  unaudited: 'unaudited (interim — figures may be restated)',
+  unknown: 'not established',
+};
+
 function evidenceBadge(status: ResearchPanelDTO['items'][number]['evidence'][number]['verificationStatus']) {
   if (status === 'ocr_matched') return 'OCR matched';
   if (status === 'derived') return 'Derived';
@@ -542,6 +554,11 @@ export function ResearchPanel({
                   <dl>
                     <div><dt>Source</dt><dd><a href={record.sourceUrl} target="_blank" rel="noreferrer">{record.sourceName}</a></dd></div>
                     <div><dt>Tier</dt><dd>{record.sourceTier}</dd></div>
+                    {/* M013 follow-on step 6. Stated on every row rather than
+                        only when unaudited: "nothing shown" would be
+                        indistinguishable from "audited", which is the
+                        confusion this exists to remove. */}
+                    <div><dt>Assurance</dt><dd>{ASSURANCE_LABEL[record.assuranceLevel]}</dd></div>
                     <div><dt>Published</dt><dd>{record.publishDate ?? 'Not supplied'}</dd></div>
                     <div><dt>Retrieved</dt><dd>{new Date(record.retrievalTimestamp).toLocaleString()}</dd></div>
                     <div><dt>Format</dt><dd>{record.sourceFormat}{record.sourceVariant ? `/${record.sourceVariant}` : ''} · {record.contentKind} · {record.extractionMethod}</dd></div>

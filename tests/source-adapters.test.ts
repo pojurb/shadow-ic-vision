@@ -87,6 +87,26 @@ describe('official source adapters', () => {
   });
 
   /*
+   * M013 follow-on step 6. Types lining up proves nothing about whether the
+   * value actually reaches the row — the column has a default, so a missed
+   * wiring degrades silently to 'unknown'. Both titles are verbatim from
+   * IDX's announcement API for TLKM, and they are the exact pair the
+   * assurance axis exists to tell apart: same issuer, same document class,
+   * same tier1 classification, opposite audit status.
+   */
+  it('carries assurance from the IDX announcement title onto the document ref', () => {
+    const announcement = (title: string) => JSON.stringify({ Replies: [{
+      pengumuman: { Id2: 9, Kode_Emiten: 'TLKM'.padEnd(100, ' '), TglPengumuman: '2026-05-29T00:00:00Z', JudulPengumuman: title },
+      attachments: [{ FullSavePath: 'https://www.idx.co.id/StaticData/NewsAndAnnouncement/FS-2026-I-TLKM.pdf' }],
+    }] });
+
+    expect(parseIdxAnnouncements(announcement('Penyampaian Laporan Keuangan Interim Yang Tidak Diaudit'), 'TLKM')[0])
+      .toMatchObject({ assuranceLevel: 'unaudited', sourceTier: 'official' });
+    expect(parseIdxAnnouncements(announcement('Penyampaian Laporan Keuangan Tahunan'), 'TLKM')[0])
+      .toMatchObject({ assuranceLevel: 'audited', sourceTier: 'official' });
+  });
+
+  /*
    * The live IDX API returns `Kode_Emiten` as a fixed-width CHAR(100) — "TLKM"
    * followed by 96 spaces — so the exact `!==` comparison dropped every row
    * before it could reach the title-term check. Measured 2026-09-03 against the

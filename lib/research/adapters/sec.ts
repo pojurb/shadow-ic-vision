@@ -1,4 +1,5 @@
 import type { OfficialHttpClient } from '../http';
+import { classifyAssurance } from '../assurance';
 import { ResearchSourceError } from '../errors';
 import { unavailableOutcome } from './helpers';
 import type { SourceAdapter, SourceDocumentRef, SourceOutcome, SourceQuery, SourceSnapshot } from './types';
@@ -41,6 +42,10 @@ export class SecAdapter implements SourceAdapter {
         sourceTier: 'official',
         publishDate: filing.filingDate,
         sourceFormat: filing.primaryDocument.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html',
+        // The form code is the cleanest assurance signal anywhere in the
+        // system: a 10-K carries an auditor's opinion by definition, a 10-Q
+        // does not.
+        assuranceLevel: classifyAssurance({ formCode: filing.form }),
       }] };
     } catch (error) {
       return unavailableOutcome(error, 'SEC discovery failed.');

@@ -14,6 +14,7 @@ import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-pers
 import { loadMeasurementContract } from './measurement';
 import type { OfficialHttpClient } from './http';
 import { persistSourceSnapshot } from './snapshot-store';
+import { classifyAssurance } from './assurance';
 import { createHash, verifyExactMatch } from './verifier';
 import type { VerifiedEvidence } from './pipeline';
 
@@ -278,6 +279,13 @@ export async function promoteCandidate(params: {
           impactSummary: candidate.impactSummary,
           sourceName: snapshot.sourceName,
           sourceTier: 'secondary',
+          /*
+           * A web-discovered secondary document is almost never an audited
+           * statutory filing, but the URL occasionally says so outright, so
+           * this asks rather than hardcodes — and answers `'unknown'` when
+           * the URL carries nothing, which is the honest default here.
+           */
+          assuranceLevel: classifyAssurance({ fileName: snapshot.sourceUrl }),
           sourceFormat: snapshot.sourceFormat,
           sourceVariant: candidate.sourceVariant ?? null,
           contentKind: candidate.contentKind ?? 'text',

@@ -309,6 +309,8 @@ export type MessageDTO = {
 export type EvidenceDTO = {
   id: string;
   sourceTier: 'official' | 'secondary';
+  /** M013 follow-on step 6 — audited, unaudited, or not established. */
+  assuranceLevel: 'audited' | 'unaudited' | 'unknown';
   sourceName: string;
   sourceUrl: string;
   publishDate: string | null;

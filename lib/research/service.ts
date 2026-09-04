@@ -47,6 +47,7 @@ import { createSecondarySourceAdapters, createXbrlFactSources, type SecondarySou
 import type { ResearchMarket, SourceAdapter } from './adapters/types';
 import { selectFact, type XbrlFactSource } from './adapters/sec-xbrl';
 import { computeContractFingerprint } from './source-adequacy';
+import { classifyAssurance } from './assurance';
 import { createXbrlFactCandidate } from './extractors/xbrl';
 import { createHash } from './verifier';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
@@ -485,6 +486,7 @@ export async function getResearchPanel(
         .map((record) => ({
           id: record.id,
           sourceTier: record.sourceTier,
+          assuranceLevel: record.assuranceLevel,
           sourceName: record.sourceName,
           sourceUrl: record.sourceUrl,
           publishDate: record.publishDate,
@@ -872,6 +874,12 @@ async function runXbrlFactCall(params: {
         sourceUrl: outcome.value.sourceUrl,
         sourceName: `${outcome.value.response.entityName ?? params.ticker} SEC XBRL us-gaap:${tag}`,
         sourceTier: 'official' as const,
+        /*
+         * The cleanest assurance signal in the system, and it was already
+         * being read for form-preference in `selectFact` — a fact tagged in a
+         * 10-K carries an auditor's opinion, the same fact in a 10-Q does not.
+         */
+        assuranceLevel: classifyAssurance({ formCode: selected.fact.form }),
         publishDate: selected.fact.filed ?? null,
         sourceFormat: 'xbrl' as const,
         rawBytes: outcome.value.rawBytes,
@@ -898,6 +906,7 @@ async function runXbrlFactCall(params: {
       });
       const result: VerifiedEvidence = {
         sourceUrl: snapshot.sourceUrl,
+        assuranceLevel: snapshot.assuranceLevel,
         documentHash,
         // Reserved for `exact_verified` prose. A structured fact has no
         // canonical text to hash.

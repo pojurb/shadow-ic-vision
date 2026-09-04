@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "b4c4800eb64dc10ea9ba529ea7329b5c14c549da624293f50de3276fe5f32608",
+  "sourceDigest": "d2b962518c61474706b0d9a7ced7143f4e780dbffa0131334b6b1f34bd9a65af",
   "roots": [
     "app",
     "components",
@@ -1535,6 +1535,10 @@
       "kind": "module",
       "imports": [
         {
+          "specifier": "../assurance",
+          "resolved": "lib/research/assurance.ts"
+        },
+        {
           "specifier": "../http",
           "resolved": "lib/research/http.ts"
         },
@@ -1617,6 +1621,10 @@
       "path": "lib/research/adapters/issuer.ts",
       "kind": "module",
       "imports": [
+        {
+          "specifier": "../assurance",
+          "resolved": "lib/research/assurance.ts"
+        },
         {
           "specifier": "../http",
           "resolved": "lib/research/http.ts"
@@ -1790,6 +1798,10 @@
       "kind": "module",
       "imports": [
         {
+          "specifier": "../assurance",
+          "resolved": "lib/research/assurance.ts"
+        },
+        {
           "specifier": "../errors",
           "resolved": "lib/research/errors.ts"
         },
@@ -1815,7 +1827,12 @@
     {
       "path": "lib/research/adapters/types.ts",
       "kind": "module",
-      "imports": [],
+      "imports": [
+        {
+          "specifier": "../assurance",
+          "resolved": "lib/research/assurance.ts"
+        }
+      ],
       "exports": [
         "ResearchMarket",
         "ResearchSourceMode",
@@ -1842,6 +1859,15 @@
         "AssumptionStatus",
         "deriveAssumptionStatus",
         "deriveAssumptionStatusAfterEvidenceRemoval"
+      ]
+    },
+    {
+      "path": "lib/research/assurance.ts",
+      "kind": "module",
+      "imports": [],
+      "exports": [
+        "AssuranceLevel",
+        "classifyAssurance"
       ]
     },
     {
@@ -1902,6 +1928,10 @@
         {
           "specifier": "./adapters/types",
           "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "./assurance",
+          "resolved": "lib/research/assurance.ts"
         },
         {
           "specifier": "./config",
@@ -2529,6 +2559,10 @@
           "resolved": "lib/research/adapters/types.ts"
         },
         {
+          "specifier": "./assurance",
+          "resolved": "lib/research/assurance.ts"
+        },
+        {
           "specifier": "./errors",
           "resolved": "lib/research/errors.ts"
         },
@@ -2672,6 +2706,10 @@
         {
           "specifier": "./adapters/types",
           "resolved": "lib/research/adapters/types.ts"
+        },
+        {
+          "specifier": "./assurance",
+          "resolved": "lib/research/assurance.ts"
         },
         {
           "specifier": "./config",
@@ -2943,6 +2981,21 @@
         {
           "specifier": "@/lib/research/assumption-status",
           "resolved": "lib/research/assumption-status.ts"
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
+      "path": "tests/assurance.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/lib/research/assurance",
+          "resolved": "lib/research/assurance.ts"
         },
         {
           "specifier": "vitest",
@@ -4547,6 +4600,12 @@
       "path": "tests/assumption-status.test.ts",
       "productionModules": [
         "lib/research/assumption-status.ts"
+      ]
+    },
+    {
+      "path": "tests/assurance.test.ts",
+      "productionModules": [
+        "lib/research/assurance.ts"
       ]
     },
     {

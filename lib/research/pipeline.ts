@@ -1,5 +1,6 @@
 import type { ResearchMarket, ResearchSourceMode, SourceAdapter, SourceSnapshot } from './adapters/types';
 import { createSourceAdapters } from './adapters/factory';
+import type { AssuranceLevel } from './assurance';
 import { ResearchSourceError } from './errors';
 import { extractDeterministicCandidates, extractSecondaryCandidates, type EvidenceCandidate, type EvidenceContentKind, type EvidenceExtractionMethod, type EvidenceVerificationStatus } from './extractors/candidate';
 import { extractDocument, type VisionTranscriber } from './extractors/document';
@@ -14,6 +15,8 @@ export interface VerifiedEvidence {
   impactSummary: string;
   sourceName: string;
   sourceTier: 'official' | 'secondary';
+  /** M013 follow-on step 6 — carried from the snapshot to the evidence row. */
+  assuranceLevel: AssuranceLevel;
   sourceFormat: 'html' | 'pdf' | 'image' | 'xbrl';
   sourceVariant: 'text_layer' | 'scanned' | 'encrypted' | 'corrupt' | 'unsupported' | null;
   contentKind: EvidenceContentKind;
@@ -181,6 +184,7 @@ export class CitationPipeline {
           sourceUrl: snapshot.sourceUrl,
           sourceName: snapshot.sourceName,
           sourceTier: snapshot.sourceTier,
+          assuranceLevel: snapshot.assuranceLevel ?? 'unknown',
           sourceFormat: snapshot.sourceFormat,
           sourceVariant: verificationStatus === 'exact_verified' && snapshot.sourceFormat === 'pdf' ? 'text_layer' : candidate.sourceVariant ?? null,
           contentKind: candidate.contentKind ?? 'text',

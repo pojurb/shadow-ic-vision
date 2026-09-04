@@ -149,6 +149,15 @@ export const evidence = sqliteTable('evidence', {
   extractionMethod: text('extraction_method').notNull(), // html_parser, pdf_text, ocr, vision, table_parser, xbrl_parser, deterministic_calculation
   verificationStatus: text('verification_status').notNull(), // exact_verified, ocr_matched, derived, secondary_issuer, secondary_news
   sourceTier: text('source_tier', { enum: ['official', 'secondary'] }).notNull().default('official'),
+  /**
+   * M013 follow-on step 6. Whether the document this quote came from carries
+   * an auditor's opinion. Defaults to `'unknown'`, never `'audited'` — every
+   * row written before this column existed is genuinely unestablished, and
+   * backfilling them as audited would assert something no one checked.
+   * Denormalized onto the row like `sourceTier`/`sourceName` above rather
+   * than joined, following the same established pattern.
+   */
+  assuranceLevel: text('assurance_level', { enum: ['audited', 'unaudited', 'unknown'] }).notNull().default('unknown'),
   sourceName: text('source_name').notNull().default('Unknown source'),
   publishDate: text('publish_date'),
   
@@ -224,6 +233,8 @@ export const sourceSnapshots = sqliteTable('source_snapshots', {
   sourceUrl: text('source_url').notNull(),
   sourceName: text('source_name').notNull(),
   sourceTier: text('source_tier', { enum: ['official', 'secondary'] }).notNull(),
+  /** M013 follow-on step 6 — see the same column on `evidence`. */
+  assuranceLevel: text('assurance_level', { enum: ['audited', 'unaudited', 'unknown'] }).notNull().default('unknown'),
   sourceFormat: text('source_format', { enum: ['html', 'pdf', 'image', 'xbrl'] }).notNull(),
   contentType: text('content_type').notNull(),
   httpStatus: integer('http_status').notNull(),

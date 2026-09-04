@@ -56,6 +56,9 @@ export function persistSourceSnapshot(input: {
       sourceUrl: input.snapshot.sourceUrl,
       sourceName: input.snapshot.sourceName,
       sourceTier: input.snapshot.sourceTier,
+      // Absent means the adapter had no signal to derive it from — recorded
+      // as 'unknown', never inferred to 'audited'.
+      assuranceLevel: input.snapshot.assuranceLevel ?? 'unknown',
       sourceFormat: input.snapshot.sourceFormat,
       contentType: input.snapshot.contentType,
       httpStatus: input.snapshot.httpStatus,

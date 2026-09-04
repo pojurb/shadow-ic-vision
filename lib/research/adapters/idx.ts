@@ -1,4 +1,5 @@
 import type { OfficialHttpClient } from '../http';
+import { classifyAssurance } from '../assurance';
 import { unavailableOutcome } from './helpers';
 import type { SourceAdapter, SourceDocumentRef, SourceOutcome, SourceQuery, SourceSnapshot } from './types';
 
@@ -74,7 +75,17 @@ export function parseIdxAnnouncements(json: string, ticker: string, discoveryUrl
       const rawUrl = attachment.FullSavePath || attachment.PDFFilename;
       const sourceUrl = rawUrl ? normalizeIdxAttachmentUrl(rawUrl) : null;
       if (!sourceUrl) return [];
-      return [{ documentId: String(announcement.Id2 ?? announcement.NoPengumuman ?? attachment.OriginalFilename ?? sourceUrl), market: 'ID' as const, ticker: upperTicker, sourceUrl, sourceName: `IDX official disclosure (${upperTicker})`, sourceTier: 'official' as const, publishDate, sourceFormat: 'pdf' as const, discoveryUrl }];
+      /*
+       * IDX carries the strongest assurance signal in the system: the
+       * announcement title states it outright ("...Interim Yang Tidak
+       * Diaudit" vs "...Laporan Keuangan Tahunan"), where the attachment
+       * filename alone (`FinancialStatement-2026-I-TLKM.pdf`) says nothing.
+       */
+      const assuranceLevel = classifyAssurance({
+        title: announcement.JudulPengumuman,
+        fileName: attachment.OriginalFilename ?? attachment.PDFFilename,
+      });
+      return [{ documentId: String(announcement.Id2 ?? announcement.NoPengumuman ?? attachment.OriginalFilename ?? sourceUrl), market: 'ID' as const, ticker: upperTicker, sourceUrl, sourceName: `IDX official disclosure (${upperTicker})`, sourceTier: 'official' as const, publishDate, sourceFormat: 'pdf' as const, discoveryUrl, assuranceLevel }];
     });
   }).sort((a, b) => (b.publishDate ?? '').localeCompare(a.publishDate ?? ''));
 }

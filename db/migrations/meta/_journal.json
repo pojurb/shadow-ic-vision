@@ -106,6 +106,13 @@
       "when": 1788445337816,
       "tag": "0014_add_source_adequacy_assessments",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1788510893225,
+      "tag": "0015_add_assurance_level",
+      "breakpoints": true
     }
   ]
 }

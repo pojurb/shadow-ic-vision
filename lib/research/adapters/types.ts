@@ -1,3 +1,5 @@
+import type { AssuranceLevel } from '../assurance';
+
 export type ResearchMarket = 'US' | 'ID';
 export type SourceFormat = 'html' | 'pdf' | 'image' | 'xbrl';
 export type ResearchSourceMode = 'mock' | 'live';
@@ -79,6 +81,14 @@ export interface SourceDocumentRef {
   publishDate: string | null;
   sourceFormat: SourceFormat;
   discoveryUrl?: string;
+  /**
+   * M013 follow-on step 6. Whether this document carries an auditor's
+   * opinion. Optional because each adapter has a different signal to derive
+   * it from (an IDX announcement title, a SEC form code, a filename) and an
+   * adapter with none should leave it absent rather than guess — `undefined`
+   * and `'unknown'` both mean "not established", never "audited".
+   */
+  assuranceLevel?: AssuranceLevel;
 }
 
 export interface SourceSnapshot extends SourceDocumentRef {

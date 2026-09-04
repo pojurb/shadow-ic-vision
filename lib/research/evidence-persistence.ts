@@ -128,6 +128,7 @@ export function evidenceInsertValues(
     extractionMethod: result.extractionMethod,
     verificationStatus: result.verificationStatus,
     sourceTier: result.sourceTier,
+    assuranceLevel: result.assuranceLevel ?? 'unknown',
     sourceName: result.sourceName,
     publishDate: result.publishDate,
     documentHash: result.documentHash,

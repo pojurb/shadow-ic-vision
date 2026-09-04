@@ -1,5 +1,6 @@
 import { load } from 'cheerio';
 import type { OfficialHttpClient } from '../http';
+import { classifyAssurance } from '../assurance';
 import { unavailableOutcome } from './helpers';
 import type { SourceAdapter, SourceDocumentRef, SourceOutcome, SourceQuery, SourceSnapshot } from './types';
 
@@ -242,7 +243,14 @@ export function discoverIssuerDocuments(html: string, pageUrl: string, query: So
     // comment for why tier2 must never be emitted from this adapter.
     if (classifyIssuerDocument(linkContext) !== 'tier1') return;
     const date = `${linkContext} ${containerText.toLowerCase()}`.match(/(20\d{2})[-_/]?(0[1-9]|1[0-2])[-_/]?([0-2]\d|3[01])/);
-    found.push({ documentId: url.pathname.split('/').at(-1) || url.toString(), market: query.market, ticker: query.ticker.toUpperCase(), sourceUrl: url.toString(), sourceName: `Issuer official (${query.ticker.toUpperCase()})`, sourceTier: 'official', publishDate: date ? `${date[1]}-${date[2]}-${date[3]}` : null, sourceFormat: 'pdf', discoveryUrl: pageUrl });
+    /*
+     * `linkContext` already folds in the link's own text, its title/alt
+     * attributes and the basename — so an issuer that spells out "Audited"
+     * in the link label is caught, and a bare `Telkom-FS-TW-II-2026.pdf`
+     * falls back to period shape. Neither present returns `unknown`.
+     */
+    const assuranceLevel = classifyAssurance({ title: linkContext, fileName: basename });
+    found.push({ documentId: url.pathname.split('/').at(-1) || url.toString(), market: query.market, ticker: query.ticker.toUpperCase(), sourceUrl: url.toString(), sourceName: `Issuer official (${query.ticker.toUpperCase()})`, sourceTier: 'official', publishDate: date ? `${date[1]}-${date[2]}-${date[3]}` : null, sourceFormat: 'pdf', discoveryUrl: pageUrl, assuranceLevel });
   });
   return found;
 }
