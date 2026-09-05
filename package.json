@@ -16,6 +16,7 @@
     "context:generate": "node --import ./node_modules/tsx/dist/loader.mjs scripts/context-index.ts --write",
     "context:check": "node --import ./node_modules/tsx/dist/loader.mjs scripts/context-index.ts --check",
     "status:check": "node --import ./node_modules/tsx/dist/loader.mjs scripts/status-check.ts",
+    "doctor": "node --import ./node_modules/tsx/dist/loader.mjs scripts/doctor.ts",
     "verify": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts",
     "verify:full": "node --import ./node_modules/tsx/dist/loader.mjs scripts/verify.ts --full",
     "eval:m001:multimodal": "node --import ./node_modules/tsx/dist/loader.mjs scripts/eval-m001-multimodal.ts",

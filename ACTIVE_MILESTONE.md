@@ -1,6 +1,6 @@
 # Active Milestone
 
-Status: `accepted` — **M015 opened 2026-09-05, steps 1–3 done.** Three
+Status: `accepted` — **M015 opened 2026-09-05, steps 1–4 done.** Three
 independent reviews of the repository (a full product audit, a CLI-specific
 audit, and a chat summary of the first) were verified directly against code
 and the live database on 2026-09-05; every checked finding held. Two things
@@ -68,7 +68,62 @@ session was a single HTTP 401 from the fail-first run against pre-fix code —
 the defect demonstrating itself, with a stubbed fake key, so no credit was
 spent.
 
-**Step 4 (`jp doctor` preflight) is next.**
+**Step 4 done, 2026-09-05** — `npm run doctor` (`scripts/doctor.ts`), matching
+the packet §4 design. Three tiers so the command is not permanently red:
+integrity assertions and lane liveness hard-fail (exit 1), yield facts are
+reported and fail only on regression against a committed baseline (exit 2).
+The load-bearing rule is **a lane with ≥ 10 attempts and 0 successes fails** —
+a statement of fact rather than a wish, and one that would have caught IDX
+(67 attempts, 0 documents) and discovery (65 candidates, 0 promotions) on the
+day of. The seven accepted zero-byte snapshots are an exception list keyed by
+exact hash, so an eighth occurrence still fails. Opens its own SQLite handle
+read-only (`new Database(dbPath, { readonly: true })`) rather than
+`db/client.ts`'s `getDatabase()`, which runs migrations and a WAL pragma on
+connect — doctor must never write to the database, and the only file it
+writes at all is `docs/generated/doctor-baseline.json`, and only under
+`--update-baseline`.
+
+**Finding while specifying step 4: the IDX lane is working, and the documents
+below say it is not.** The live database holds **9 IDX official disclosure
+snapshots** (all `live`, all HTTP 200, retrieved 2026-09-04 by the unattended
+daily refresh, publish dates to 2026-07-31) which produced **22 evidence
+rows**. The `831941e` `.trim()` fix worked; the superseded narrative below,
+accurate when written, records IDX as never having produced a document and the
+pipeline as never re-run. Nothing reports lane-level yield, so the recovery
+went unrecorded — the inverse of the three misses step 4 targets. This makes
+**A1** the first candidate for step 5: M013 classified it (B), "blocked by a
+named blocker", and that blocker was this defect. Still open: all 22 rows
+remain `inconclusive`, and all 9 snapshots read `assurance_level = 'unknown'`
+despite arriving the day the assurance axis shipped.
+
+**Verified live, 2026-09-05, against real data, not fixtures:** `npm run
+doctor` reproduces all four facts this milestone established by hand — 114/114
+`source_snapshots.storage_path` rows resolve; the 7 zero-byte hashes report as
+accepted exceptions, listed by hash, not a silent pass; IDX official shows 9
+snapshots / 22 evidence rows; non-inconclusive evidence reads 0. Full run
+output is in `SESSION_CHECKPOINT.md`'s 2026-09-05 entry.
+
+**A new finding surfaced by building the tool, not fixed by it: Tier B
+currently fails, and `--update-baseline` correctly refuses as a result.** The
+`XBRL (SEC structured facts)` lane reads 55 attempts / 0 successes — dead by
+the rule's own mechanical definition — but the 55 attempts are not production
+traffic. They are the one-off manual SEC/XBRL probe M011 ran on 2026-07-05,
+07-30, and 08-03 against a real TSLA CIK (`data.sec.gov`/`www.sec.gov`),
+logged to the same shared `logs/outbound.log` per ADR-0006's "log every
+outbound call" rule — there has never been a live US-market thesis, so
+`processResearchJobs` has never actually invoked this lane. The mechanism
+itself is live-verified working (M011: 282 real TSLA facts, correctly
+classified); it has just never been production-exercised, and the log has no
+field distinguishing a manual probe from a pipeline call. **User decision,
+2026-09-05: ship doctor exactly as specified, with no XBRL-specific
+carve-out, and leave `docs/generated/doctor-baseline.json` ungenerated for
+now** rather than add an exception mechanism the packet's step 4 text does not
+specify. AC-M015-05 is met for the tool itself (it exists, reads the live
+database read-only, and reports real-output health); the baseline file is a
+recorded open item, not silently worked around — resolved by a future
+decision (e.g. a real US-market thesis exercising the lane, or an explicit,
+visible Tier B exception mirroring A2/A3's hash list) rather than assumed away
+here.
 
 ### Superseded — the narrative below predates M015
 

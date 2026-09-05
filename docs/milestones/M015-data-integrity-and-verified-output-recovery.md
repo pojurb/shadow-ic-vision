@@ -1,6 +1,6 @@
 # M015: Data Integrity & Verified-Output Recovery
 
-Status: `accepted` (2026-09-05) — steps 1-3 done; step 4 next
+Status: `accepted` (2026-09-05) — steps 1-4 done; step 5 next
 
 Date drafted: 2026-09-05
 
@@ -183,28 +183,196 @@ in `.env` produces zero outbound requests to `api.tavily.com`, verified by
 This overturns a documented M008 Slice 1 decision — recorded here rather than
 edited quietly, per this repository's standing practice.
 
-### Step 4 — `jp doctor` preflight
+### Step 4 — `npm run doctor` preflight
 
-**Not started.** Scope: a single command that reports, from the live database
-and filesystem, not from test status: snapshot directory consistency (no rows
-pointing at a nonexistent or non-canonical path), per-lane outcome counts for
-the most recent run of each research lane (official/secondary/XBRL/discovery),
-and the count of non-`inconclusive` evidence rows. This is the check that
-would have caught the assurance-axis ship (270/270 `unknown`), the IDX adapter
-(67 calls, 0 documents), and discovery (0-for-65) on the day each shipped
-rather than months later.
+**Done, 2026-09-05.** Command name is `npm run doctor` (`scripts/doctor.ts`)
+to match this repository's script convention; the packet's earlier `jp
+doctor` shorthand means the same thing.
 
-**Definition of done:** the command exists, runs against the live database,
-and its output is what step 5 below is verified against — not `verify:full`'s
-test count.
+#### Why a naive version of this would fail
+
+The obvious design — fail whenever the system looks unhealthy — would exit
+non-zero today and every day until step 5 lands, because 0 of 270 evidence
+rows are directional. A check that is always red is a check nobody reads, and
+"nobody was looking" is precisely how the three misses this command exists to
+prevent happened. So the design separates *defects*, which are assertable and
+must fail, from *yield*, which is a fact to report and watch for regression.
+
+#### Tier A — integrity assertions (exit 1)
+
+Definitively broken, actionable immediately, and all currently green except
+where an exception is recorded:
+
+- **A1.** Every `source_snapshots.storage_path` resolves to a file that
+  exists. (Live today: 114/114 pass.)
+- **A2.** No snapshot file is zero-byte while its `research_job_sources`
+  outcome is `verified`. **Seven documented exceptions**, listed by
+  `document_hash` in the script itself — the M013 `pdfjs` buffer-detach
+  defect the user accepted on 2026-09-05 (§7). The exception list is by exact
+  hash, not by a count or a directory, so an *eighth* occurrence fails. An
+  accepted defect must stay visible, not become an invisible pass.
+- **A3.** Every `storage_path` sits under `getSnapshotDirectory()`. Same seven
+  hashes are the recorded exception — they were deliberately left in the old
+  directory.
+
+#### Tier B — lane liveness (exit 1)
+
+Per lane — issuer official, IDX official, issuer press release, news wire,
+issuer info memo, XBRL, discovery→promotion — report attempts, successes, and
+last success. `source_snapshots.sourceName` carries the lane label already
+(verified live: `Issuer official (TLKM)` 38, `Issuer press release (TLKM)` 32,
+`Issuer info memo (TLKM)` 20, `IDX official disclosure (TLKM)` 9, `CNBC
+Indonesia Market` 8, web-discovered 7), and `logs/outbound.log` carries
+attempts per host.
+
+**The rule: a lane with attempts ≥ 10 and successes == 0 fails.** This is the
+one liveness assertion that is a statement of fact rather than a wish — a
+mechanism exercised ten times that has never once worked is broken, not merely
+unlucky. A lane with zero attempts does not trip it, so an unconfigured lane
+stays quiet. Applied historically this rule fails on the day of, not months
+later: IDX at 67 attempts / 0 documents, discovery at 65 candidates / 0
+promotions. The threshold of 10 is the one calibration input here; it is an
+engineering tolerance, not a thesis threshold, and is proposed rather than
+assumed — raise it if a lane legitimately needs more attempts before a first
+success.
+
+#### Tier C — yield facts (exit 2 on regression only)
+
+Reported every run, never failing on their absolute value, compared against a
+committed baseline at `docs/generated/doctor-baseline.json`:
+
+- evidence by `polarity` (live today: 270 inconclusive, 0 supports, 0
+  contradicts)
+- evidence by `assurance_level` (live today: 270 unknown, 0 audited, 0
+  unaudited)
+- snapshots and evidence per lane
+- `decisions` row count (live today: 1)
+
+A drop in any success count, or a lane's last-success timestamp going stale
+past its expected cadence, is a regression and exits 2 — a distinct code from
+Tier A/B so automation can treat "something broke" and "something got worse"
+differently. Baseline is regenerated explicitly with `--update-baseline`,
+never silently, so a regression cannot be laundered into the new normal by a
+routine run.
+
+#### Tier D — warnings (exit 0)
+
+Reported, never failing: snapshot files in the canonical directory that no
+`source_snapshots` row references (live today: 8, pre-existing, no evidence
+depends on them).
+
+#### Flags
+
+- default: human-readable, grouped by tier
+- `--json`: machine-readable, for step 5's before/after comparison
+- `--strict`: additionally fails when non-inconclusive evidence count is 0.
+  Not the default, because that would be permanently red until step 5 lands.
+  Step 5 uses `--strict` as its own acceptance gate.
+- `--update-baseline`: rewrites the Tier C baseline; refuses to run if Tier A
+  or B is failing, so a broken state cannot be baselined as normal.
+
+#### Deliberately not part of `verify:full`
+
+`verify:full` validates the repository — code, types, docs, tests. `doctor`
+validates the live database and filesystem, which a clean checkout does not
+have. Keeping them separate is the point: the three historical misses all
+passed `verify:full` on the day they shipped. Both must be green to close any
+M015 step; neither substitutes for the other.
+
+#### Definition of done — met, 2026-09-05
+
+The command exists, runs against the live database, and reproduces the four
+findings this milestone already established by hand: 114/114 paths resolve,
+the 7 zero-byte exceptions are listed as accepted rather than passing
+silently, IDX shows 9 snapshots / 22 evidence rows, and non-inconclusive
+evidence reads 0. Verified live — actual `npm run doctor` output, not a test
+count — in `SESSION_CHECKPOINT.md`'s 2026-09-05 entry. Step 5 is then verified
+against `doctor --json` output before and after, not against a test count.
+
+Read-only by construction: `computeDoctorReport` opens its own
+`new Database(dbPath, { readonly: true, fileMustExist: true })` rather than
+`db/client.ts`'s `getDatabase()`/`createDatabase()`, which run migrations and
+set a WAL pragma on connect — writes doctor must never perform. `db/client.ts`
+is not imported at all: it (and `lib/research/http.ts`, `service.ts`, and
+every other module in the live pipeline) starts with `import 'server-only'`,
+which throws unless the process carries Node's `--conditions=react-server`
+flag; doctor's own npm script deliberately does not carry it, matching
+`status-check.ts`'s plain invocation, so the database path is resolved by a
+small function mirroring `db/client.ts`'s `resolveDatabasePath` (same
+`DB_PATH` env var, same fallback) rather than importing it.
+
+Lane attribution for Tier B/C is derived, not a new registry: the six
+fetch-based lanes classify `source_snapshots`/`evidence` rows by the same
+`sourceName` prefix (or, for XBRL, `sourceFormat === 'xbrl'`) those tables
+already carry, and attempts come from `logs/outbound.log` grouped by hostname
+against the same host allowlists `lib/research/adapters/factory.ts` already
+hardcodes per lane (`issuer official`/`issuer info memo` necessarily share
+one host set — both fetch `ISSUER_SOURCE_URLS`'s report-listing page and are
+only distinguished after the fact, by which classifier the fetched document
+matches). `discovery → promotion` is the one lane read from
+`discovery_candidates` instead: a candidate hits arbitrary origins (the point
+of web search), so there is no host to attribute attempts to, and
+`status = 'fetched'` — not mere `resulting_document_hash` presence — is the
+genuine-promotion signal, since `cleanup-mislabelled-promotions.ts` can leave
+a document hash on a candidate it has relabelled back to `rejected`.
+
+**A new finding surfaced by building the tool, not fixed by it.** Applied
+honestly, Tier B fails today: the `XBRL (SEC structured facts)` lane reads 55
+attempts / 0 successes. Investigated rather than adjusted away — those 55
+`www.sec.gov`/`data.sec.gov` log lines are the one-off manual SEC/XBRL probe
+M011 ran on 2026-07-05, 07-30, and 08-03 against a real TSLA CIK, logged to
+the shared `logs/outbound.log` per ADR-0006's "log every outbound call" rule.
+There has never been a live US-market thesis, so `processResearchJobs` has
+never actually invoked this lane in production; the mechanism itself is
+live-verified working (M011: 282 real TSLA facts, correctly classified). The
+log carries no field distinguishing a manual probe from a production call, so
+this cannot be filtered out mechanically without adding something step 4's
+text does not specify. Because Tier B fails, `--update-baseline` correctly
+refuses — exactly its documented job, "a broken state must never be
+baselined as normal." **User decision, 2026-09-05: ship doctor exactly as
+specified, with no XBRL-specific carve-out; leave
+`docs/generated/doctor-baseline.json` ungenerated until a follow-up resolves
+it** (a real US-market thesis exercising the lane, or an explicit, visible
+Tier B exception mirroring A2/A3's hash list — not decided here). Recorded as
+an open risk in §7, not silently worked around.
 
 ### Step 5 — One real verified outcome
 
-**Not started.** Take one TLKM assumption through the full live pipeline to
-either `supports` or `contradicts` on a real document — not a fixture. If it
-cannot be done for any assumption after a genuine attempt, that finding is
-recorded as-is; it is more valuable than completing steps 6–8 on a pipeline
-that has not been shown to work end-to-end once.
+**Not started**, but its outlook improved materially on a finding surfaced
+while specifying step 4.
+
+**The IDX official lane is working, and the status documents say it is not.**
+`ACTIVE_MILESTONE.md` records IDX as 67 HTTP 200 calls with zero snapshots and
+zero evidence, the `.trim()` fix committed in `831941e`, and "the pipeline has
+not been re-run." The live database disagrees: **9 IDX official disclosure
+snapshots**, all `source_mode = live`, all HTTP 200, retrieved 2026-09-04 at
+01:00 and 04:24 — the daily scheduled refresh ran them, unattended — carrying
+publish dates from 2025-04-30 through **2026-07-31**, and they produced **22
+evidence rows**. The fix worked. Nobody recorded it, because nothing in the
+system reports lane-level yield; that is step 4's whole purpose, and this is
+the inverse of the three misses it was designed around — not "shipped and
+produced nothing" but "shipped, produced, and no one noticed."
+
+This bears directly on step 5. M013 classified **A1 as (B)** — "exists but
+blocked by a named blocker" — and named the IDX defect as that blocker. The
+blocker is now demonstrably gone, and the lane is returning recent official
+filings. A1 is therefore the first candidate to attempt, not an arbitrary
+choice among six.
+
+Two caveats, both unresolved and neither to be assumed away: all 22 of those
+rows are still `inconclusive` (they are part of the 270), so a working
+retrieval lane has still not produced a directional verdict; and all 9
+snapshots read `assurance_level = 'unknown'` despite arriving the same day the
+assurance axis shipped in `a2f766f`, and despite IDX's announcement title
+being the signal that classifier documents as its strongest. Whether the
+classifier did not run on these rows or ran and could not decide is an open
+question step 4's per-lane reporting should answer.
+
+Take one TLKM assumption through the full live pipeline to either `supports`
+or `contradicts` on a real document — not a fixture. If it cannot be done for
+any assumption after a genuine attempt, that finding is recorded as-is; it is
+more valuable than completing step 6 on a pipeline that has not been shown to
+work end-to-end once.
 
 **Definition of done:** a `jp doctor` (or direct database query) run before
 and after shows the non-`inconclusive` evidence count move from 0, on a
@@ -246,7 +414,10 @@ export and after import, not by field-count alone.
   recorded in step 3 above.
 - **AC-M015-05** — `jp doctor` exists and reports real-output health (snapshot
   consistency, per-lane outcomes, non-inconclusive evidence count) from the
-  live database. **Not met.**
+  live database. **Met**, 2026-09-05 — `npm run doctor` reproduces all four
+  hand-established facts live (§4, §6). The Tier C baseline file is a
+  separately recorded open item (§4, §7), not a condition of this criterion:
+  the criterion is that the tool exists and reports correctly, which it does.
 - **AC-M015-06** — At least one TLKM assumption reaches `supports` or
   `contradicts` from a real document, or the attempt's failure is recorded as
   a finding. **Not met.**
@@ -303,6 +474,22 @@ export and after import, not by field-count alone.
   recording the finding, not a packet failure.
 - The 8 unreferenced files found in `source-snapshots/` during step 2's
   verification are noted, not remediated — no evidence depends on them.
+- **New, surfaced by step 4 itself, 2026-09-05: `doctor`'s Tier B fails on
+  the `XBRL (SEC structured facts)` lane (55 attempts, 0 successes), and this
+  is not a production defect.** The 55 attempts are a one-off manual SEC/XBRL
+  probe M011 ran against a real TSLA CIK on 2026-07-05/07-30/08-03, logged to
+  the shared `logs/outbound.log` (ADR-0006 logs every outbound call
+  regardless of caller); there has never been a live US-market thesis, so the
+  actual pipeline has never invoked this lane, and the log carries no field
+  distinguishing a manual probe from a production call. **Resolved for now,
+  user decision 2026-09-05: ship `doctor` exactly as specified — no
+  XBRL-specific exception — and leave `docs/generated/doctor-baseline.json`
+  ungenerated** rather than baseline a Tier-B-failing state or invent an
+  exception mechanism step 4's text does not specify. Consequence: the
+  Tier C baseline does not yet exist, so Tier C currently always reports "no
+  baseline" rather than comparing for regression, until this is resolved by
+  either a real US-market thesis exercising the XBRL lane or an explicit,
+  future decision to add a Tier B exception analogous to A2/A3's hash list.
 
 ## 8. Reversal
 

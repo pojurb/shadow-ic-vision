@@ -1,3 +1,117 @@
+# Session Checkpoint - 2026-09-05 (M015 step 4: `npm run doctor` implemented and verified live)
+
+Implemented `scripts/doctor.ts` (`npm run doctor`) per the M015 packet §4.
+Read-only by construction: it opens its own
+`new Database(dbPath, { readonly: true, fileMustExist: true })` rather than
+`db/client.ts`'s `getDatabase()`, which runs migrations and sets a WAL pragma
+on connect. `db/client.ts` (and every module in the live research pipeline)
+starts with `import 'server-only'`, which throws unless the process carries
+`--conditions=react-server`; doctor's npm script deliberately does not carry
+that flag, matching `status-check.ts`'s plain invocation, so the database path
+is resolved by a small function mirroring `db/client.ts`'s
+`resolveDatabasePath` (same `DB_PATH` env var and fallback) instead of
+importing it.
+
+## Live verification — actual `npm run doctor` output, 2026-09-05
+
+```
+Tier A — integrity assertions: PASS
+  A1 storage_path resolves to a file: 114/114
+  A2 no zero-byte file for a verified outcome: 0 violation(s), 7 accepted exception(s)
+  A3 storage_path under the canonical snapshot directory: 0 violation(s), 7 accepted exception(s)
+
+Tier B — lane liveness (>= 10 attempts, 0 successes fails): FAIL
+  ok   Issuer official: 238 attempt(s), 38 success(es)
+  ok   IDX official: 78 attempt(s), 9 success(es)
+  ok   Issuer press release: 231 attempt(s), 32 success(es)
+  ok   News wire: 56 attempt(s), 8 success(es)
+  ok   Issuer info memo: 238 attempt(s), 20 success(es)
+  DEAD XBRL (SEC structured facts): 55 attempt(s), 0 success(es)
+  ok   Discovery → promotion: 79 attempt(s), 2 success(es)
+
+Tier C — yield facts vs. baseline: NO BASELINE
+  evidence polarity: supports=0 contradicts=0 inconclusive=270
+  evidence assurance: audited=0 unaudited=0 unknown=270
+  non-inconclusive evidence count: 0
+  decisions: 1
+  IDX official: 9 snapshot(s), 22 evidence row(s)
+
+Tier D — warnings (never failing):
+  unreferenced snapshot files: 8
+
+Exit code: 1
+```
+
+This reproduces, from a live run rather than by hand, all four facts the
+milestone established directly against the database on 2026-09-05: 114/114
+`storage_path` rows resolve; the 7 zero-byte hashes report as accepted
+exceptions, listed by hash, never a silent pass; IDX official shows 9
+snapshots / 22 evidence rows; non-inconclusive evidence reads 0. The 8
+unreferenced-file and 7-accepted-hash counts also match step 2's own
+verification exactly.
+
+## A new finding, surfaced by the tool rather than fixed by it
+
+Tier B genuinely fails today, on `XBRL (SEC structured facts)`: 55 attempts,
+0 successes. Investigated rather than adjusted away: those 55
+`www.sec.gov`/`data.sec.gov` lines in `logs/outbound.log` are the one-off
+manual SEC/XBRL probe M011 ran on 2026-07-05, 07-30, and 08-03 against a real
+TSLA CIK — not production traffic. There has never been a live US-market
+thesis, so `processResearchJobs` has never actually invoked this lane; the
+retrieval mechanism itself is live-verified working (M011: 282 real TSLA
+facts, correctly classified). ADR-0006 logs every outbound call regardless of
+caller, so the log carries no field distinguishing a manual probe from a
+production call — this cannot be filtered out mechanically without adding an
+exception mechanism the packet's step 4 text does not specify.
+
+Because Tier B fails, `--update-baseline` correctly refuses — exactly its
+documented job ("a broken state must never be baselined as normal"), proven
+by a fail-first CLI test (`tests/doctor.test.ts`, "refuses --update-baseline
+while Tier A is failing"). **Put to the user directly; decision, 2026-09-05:
+ship `doctor` exactly as specified, no XBRL-specific carve-out, and leave
+`docs/generated/doctor-baseline.json` ungenerated for now.** Recorded as an
+open item in the M015 packet §4/§7 and `ACTIVE_MILESTONE.md`, not silently
+worked around — resolved later by either a real US-market thesis exercising
+the lane, or an explicit, visible Tier B exception mirroring A2/A3's hash
+list.
+
+## Testing
+
+`tests/doctor.test.ts`: 26 cases against `computeDoctorReport` (Tier A
+missing-file/zero-byte/accepted-hash/outside-directory violations, Tier B
+dead-lane threshold and the discovery `status = 'fetched'` vs.
+`resulting_document_hash` distinction, Tier C regression detection and exit
+codes, `--strict`) plus 3 CLI-subprocess cases for `--update-baseline`
+refusal/success and `--strict --json`. Five of the load-bearing assertions
+were proven fail-first by temporarily reverting the specific line in
+`scripts/doctor.ts` and confirming the test failed, then reverting back and
+confirming it passed: the A2 exact-hash exception predicate, the Tier B
+`successes === 0` half of the dead-lane rule, the discovery
+`status === 'fetched'` success filter, the `<` (not `!==`) baseline
+comparator, and the `--update-baseline` Tier A/B refusal guard.
+
+Full suite: 479 passed, 3 skipped (up from 453 passed at step 3's close —
++26, exactly `tests/doctor.test.ts`'s own case count). `npm run typecheck`,
+`npm run lint`, `npm run context:generate` + `context:check`, `npm run
+status:check` all clean.
+`logs/outbound.log` grew by 7 lines across the full local `npm test` run, all
+`synthetic_fixture` ollama-provider entries from the existing provider-gate
+tests — **zero new `api.tavily.com` lines**, confirming the M015 step 3 mock-
+mode leak fix still holds. Separately, and not caused by this session: the
+log also grew by 10 real lines (`www.telkom.co.id`, `www.idx.id`,
+`www.cnbcindonesia.com`, `api.tavily.com`, all HTTP 200, 2026-09-05T06:40) from
+another concurrent terminal-agent session's live research run against the
+same working tree, per this packet's recorded concurrency risk (§7) —
+observed, not investigated further, since it is that other session's activity
+on its own thesis run.
+
+`npm run doctor` is deliberately **not** added to `verify:full` — see the
+packet §4 "Deliberately not part of verify:full". `verify:full` (typecheck,
+lint, test, build, context:check, status:check[, test:e2e]) was re-run in
+full after this change and is green.
+
+---
+
 # Session Checkpoint - 2026-09-05 (three external reviews audited against live code and data; execution order agreed)
 
 No code changed this session. The live DB was read three times, read-only —

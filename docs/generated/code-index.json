@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "9eead80b5756e72f1fa8ec55743e29337e71577d38c85615cecfe447b27ab84a",
+  "sourceDigest": "83799b37146d10dcdcde94b6cd4b4e1fb99e5f36cab3414f9850aa94be7d4603",
   "roots": [
     "app",
     "components",
@@ -3253,6 +3253,45 @@
       "exports": []
     },
     {
+      "path": "tests/doctor.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "@/scripts/doctor",
+          "resolved": null
+        },
+        {
+          "specifier": "node:child_process",
+          "resolved": null
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/document-extraction.test.ts",
       "kind": "test",
       "imports": [
@@ -4674,6 +4713,13 @@
         "lib/research/discovery-promotion.ts",
         "lib/research/http.ts",
         "lib/research/service.ts"
+      ]
+    },
+    {
+      "path": "tests/doctor.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts"
       ]
     },
     {
