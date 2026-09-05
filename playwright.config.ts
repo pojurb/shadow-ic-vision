@@ -3,6 +3,11 @@ import { defineConfig } from '@playwright/test';
 
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
+const nextCli = path.resolve(process.cwd(), 'node_modules/next/dist/bin/next');
+
+function quoteWindowsPath(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -21,7 +26,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+    command: `${quoteWindowsPath(process.execPath)} ${quoteWindowsPath(nextCli)} dev --hostname 127.0.0.1 --port ${port}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
