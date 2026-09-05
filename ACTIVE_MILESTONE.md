@@ -1,12 +1,14 @@
 # Active Milestone
 
-Status: `accepted` — **M015 opened 2026-09-05, steps 1–4 done.** Three
-independent reviews of the repository (a full product audit, a CLI-specific
-audit, and a chat summary of the first) were verified directly against code
-and the live database on 2026-09-05; every checked finding held. Two things
-surfaced that none of the three reviews said: source bytes had zero backup
-coverage, and the live database has never once produced a directional verdict
-(270/270 evidence rows `inconclusive`). See
+Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open.**
+Three independent reviews of the repository (a full product audit, a
+CLI-specific audit, and a chat summary of the first) were verified directly
+against code and the live database on 2026-09-05; every checked finding held.
+Two things surfaced that none of the three reviews said: source bytes had zero
+backup coverage, and the live database has never once produced a directional
+verdict (276/276 evidence rows `inconclusive` as of 2026-09-05; 270 when first
+measured). **Step 5 attempted to change that and could not — see below; the
+count is still 0 and that is the honest answer.** See
 [`docs/milestones/M015-data-integrity-and-verified-output-recovery.md`](docs/milestones/M015-data-integrity-and-verified-output-recovery.md)
 for the six-step Definition of Done and `SESSION_CHECKPOINT.md`'s 2026-09-05
 entry for the full verification record.
@@ -124,6 +126,41 @@ recorded open item, not silently worked around — resolved by a future
 decision (e.g. a real US-market thesis exercising the lane, or an explicit,
 visible Tier B exception mirroring A2/A3's hash list) rather than assumed away
 here.
+
+**Step 5 done, 2026-09-05 — as a recorded genuine failed attempt, and the
+reason is not the one anything predicted.** A1 was taken as far as the retained
+corpus allows and cannot reach `supports` or `contradicts`. Not retrieval — the
+IDX lane works, and a concurrent session's live run that same morning
+(2026-09-05T06:40) exercised it. Not extraction, and not the relevance gap the
+main review flagged as the likely blocker. **The transaction A1 measures has
+not closed.** Its contract asks for TLKM's direct + indirect economic ownership
+of NeutraDC *after closing*, at `gte 30 percent`, `instant`; the most recent
+official filing in the corpus (IDX Q2-2026, published 2026-07-31, hash
+`ec80a0bdc712…`) still lists `PT Telkom Data Ekosistem … 100.0`, as does every
+one of the 8 IDX filings, and the two most recent issuer releases (2026-08-14,
+2026-09-03) still describe NeutraDC as a Telkom operating company.
+
+All 116 snapshots were re-extracted through the pipeline's own
+`extractDocument` and searched — not just A1's 56 evidence rows. 48 documents
+mention NeutraDC; **none states a post-closing ownership percentage and none
+says the transaction closed.** The closest passage in the entire corpus is the
+2024 annual report's *"PT Telkom Data Ekosistem 79,93% dimiliki oleh PT Telkom
+Indonesia (Persero) Tbk; dan 20,07% dimiliki oleh PT Sigma Cipta Caraka"* —
+right entity, right direct + indirect decomposition, and still unusable,
+because it describes ownership as at **10 December 2024**, disclosed to
+establish an affiliate relationship for a land-and-building purchase. Using it
+would mean reporting pre-closing ownership as post-closing ownership.
+
+Non-inconclusive evidence is **0 before and 0 after**, and honestly so. Nothing
+was written: the live database is byte-identical (all 11 tables fingerprinted
+before and after), `logs/outbound.log` unchanged, no network call spent. A1 is
+no longer the best next candidate — its blocker is a calendar, not a defect;
+**A4** (class (A), a segment YoY differential TLKM does publish) is. A second
+blocker was surfaced and deliberately left: `IdxAdapter.REPORT_TERMS` admits
+only periodic financial reports, so the *"Transaksi Material"* announcement
+M013 named as A1's source is filtered out before its attachment is seen —
+load-bearing on the day the transaction closes, irrelevant before it. Full
+candidate matrix and hashes in the packet §4 step 5.
 
 ### Superseded — the narrative below predates M015
 

@@ -1,6 +1,8 @@
 # M015: Data Integrity & Verified-Output Recovery
 
-Status: `accepted` (2026-09-05) — steps 1-4 done; step 5 next
+Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 next. Step 5 is done
+as a recorded failed attempt: A1 cannot be settled because the transaction it
+measures has not closed. Non-inconclusive evidence remains 0.
 
 Date drafted: 2026-09-05
 
@@ -338,45 +340,135 @@ an open risk in §7, not silently worked around.
 
 ### Step 5 — One real verified outcome
 
-**Not started**, but its outlook improved materially on a finding surfaced
-while specifying step 4.
+**Done, 2026-09-05 — as a recorded genuine failed attempt.** A1 was attempted
+and cannot be settled. Not because retrieval failed, not because extraction
+failed, but because **the transaction A1 measures has not closed**, so the
+number its contract asks for does not yet exist in any document. No code was
+written; writing any would have meant manufacturing the verdict.
 
-**The IDX official lane is working, and the status documents say it is not.**
-`ACTIVE_MILESTONE.md` records IDX as 67 HTTP 200 calls with zero snapshots and
-zero evidence, the `.trim()` fix committed in `831941e`, and "the pipeline has
-not been re-run." The live database disagrees: **9 IDX official disclosure
-snapshots**, all `source_mode = live`, all HTTP 200, retrieved 2026-09-04 at
-01:00 and 04:24 — the daily scheduled refresh ran them, unattended — carrying
-publish dates from 2025-04-30 through **2026-07-31**, and they produced **22
-evidence rows**. The fix worked. Nobody recorded it, because nothing in the
-system reports lane-level yield; that is step 4's whole purpose, and this is
-the inverse of the three misses it was designed around — not "shipped and
-produced nothing" but "shipped, produced, and no one noticed."
+#### The contract, read from the live database rather than paraphrased
 
-This bears directly on step 5. M013 classified **A1 as (B)** — "exists but
-blocked by a named blocker" — and named the IDX defect as that blocker. The
-blocker is now demonstrably gone, and the lane is returning recent official
-filings. A1 is therefore the first candidate to attempt, not an arbitrary
-choice among six.
+`assumption_measurements` for `42333c4e-6602-49a6-877f-9f7ec663fc79`:
 
-Two caveats, both unresolved and neither to be assumed away: all 22 of those
-rows are still `inconclusive` (they are part of the 270), so a working
-retrieval lane has still not produced a directional verdict; and all 9
-snapshots read `assurance_level = 'unknown'` despite arriving the same day the
-assurance axis shipped in `a2f766f`, and despite IDX's announcement title
-being the signal that classifier documents as its strongest. Whether the
-classifier did not run on these rows or ran and could not decide is an open
-question step 4's per-lane reporting should answer.
+| field | value |
+|---|---|
+| `resolution` | `resolved` |
+| `metric` | Persentase kepemilikan TLKM di PT Telkom Data Ekosistem (NeutraDC) pasca-transaksi |
+| `definition_variant` | Kepemilikan ekonomi langsung + tidak langsung TLKM, diukur setelah closing transaksi pelepasan ~70% saham yang sedang diproses |
+| `operator` / `threshold` / `unit` / `time_basis` | `gte` / `30` / `percent` / `instant` |
 
-Take one TLKM assumption through the full live pipeline to either `supports`
-or `contradicts` on a real document — not a fixture. If it cannot be done for
-any assumption after a genuine attempt, that finding is recorded as-is; it is
-more valuable than completing step 6 on a pipeline that has not been shown to
-work end-to-end once.
+Three requirements, each independently binding: **after closing**, **economic**
+ownership, **direct + indirect**. A figure missing any one of them is not a
+near-miss; it measures something else.
 
-**Definition of done:** a `jp doctor` (or direct database query) run before
-and after shows the non-`inconclusive` evidence count move from 0, on a
-document that is not a test fixture.
+#### What was inspected
+
+Every one of A1's 56 evidence rows and all 25 distinct documents behind them,
+each file re-hashed against its `document_hash` — 24 of 25 verified byte-exact,
+the 25th being `7c37e117…`, one of the seven accepted zero-byte snapshots (§7).
+Ten of the 25 are `source_tier = 'official'`: 3 IDX official disclosures (one
+`assurance_level = 'audited'`) and 7 issuer official filings.
+
+Because A1's *extracted* evidence is not the same thing as A1's *retained
+bytes*, the search was then widened past the evidence rows: all 116
+`source_snapshots` were re-extracted through the pipeline's own
+`extractDocument`, 109 yielding text (the 7 zero-byte defects skipped). **48
+documents mention NeutraDC or PT Telkom Data Ekosistem. None states a
+post-closing TLKM ownership percentage. None states that the transaction
+closed.**
+
+#### Candidate matrix
+
+| document | hash | published | closed? | states a % ? | blocker |
+|---|---|---|---|---|---|
+| IDX Q2-2026 financial statement | `ec80a0bdc712…` | 2026-07-31 | **no** | yes — `PT Telkom Data Ekosistem … 100.0` | pre-closing consolidated ownership, not post-closing |
+| IDX FY2025 annual financial statement | `9b766bb9f05d…` | 2026-05-11 | no | yes — `TDE … 100.0` | same |
+| IDX Q1-2026 financial statement | `fbbe1b6d0c3d…` | 2026-05-29 | no | yes — `TDE … 100.0` | same |
+| IDX FY2024 + 2025 Q1/Q2/Q3 statements | `f425eebc9ade…`, `dfa170de1e23…`, `57f83d9256ea…`, `78832be2c8e1…` | 2025-04-17 → 2025-10-30 | no | yes — `TDE … 100.0` | same, and older |
+| IDX sustainability report (`assurance_level = audited`) | `c51b7770d952…` | 2025-04-21 | no | no | NeutraDC named only for green-DC development |
+| Issuer AR 2024 (Bahasa) | `021cd384b94f…` | — | no | **yes — 79,93% direct + 20,07% via Sigma Cipta Caraka** | disclosed to establish an affiliate relationship for a **10 Dec 2024 land-and-building purchase**; pre-transaction, and the closest passage in the corpus |
+| Issuer AR 2024 (English) | `1a4c1666082d…` | — | no | yes — `TDE … 100%` subsidiary list | pre-closing consolidated ownership |
+| Issuer AR 2025 | `c0294f44e842…`, `6834daad5d92…` | 2026-05-12 | no | yes — `TDE … 100%` | pre-closing; the *unlocK value* pillar states intent to monetise DC assets via partnership, no transaction |
+| Issuer press release | `9244428b1531…` | 2026-07-31 | no | no | describes a **consolidation** making NeutraDC the group's central DC manager — future tense, and a different transaction |
+| Issuer press release (NeutraDC × PLN MoU) | `5adc8a8f1ffa…` | 2026-08-14 | no | no | NeutraDC still "operating company dari PT Telkom Indonesia (Persero) Tbk"; its 200 MW figure is power capacity |
+| Issuer press release | `619e445e26d9…` | 2026-09-03 | no | no | most recent document in the corpus; NeutraDC mentioned only as an AI-ready DC capability |
+
+The closest passage found anywhere, quoted verbatim from `021cd384b94f…`:
+
+> "1. PT Telkom Data Ekosistem 79,93% dimiliki oleh PT Telkom Indonesia
+> (Persero) Tbk; dan 20,07% dimiliki oleh PT Sigma Cipta Caraka (dimiliki
+> 99,99% oleh PT Telkom Indonesia (Persero) Tbk."
+
+It is the right entity, the right ownership concept, and even the right
+direct + indirect decomposition — and it is still unusable, because it
+describes ownership **as at 10 December 2024**, before the divestment began.
+Reading it as A1's answer would mean reporting pre-closing ownership as
+post-closing ownership.
+
+#### The blocker, named
+
+**The transaction has not closed.** This is source absence downstream of a
+real-world event that has not happened — not a retrieval failure, not an
+extraction limitation, and not a direct/indirect definition mismatch.
+
+Producing an `observedValue` from this corpus would require asserting that a
+pre-closing figure survives a closing that has not occurred. That is not
+arithmetic over clearly labelled source values; it is a prediction.
+`classifyPolarity` already answers this correctly — all 56 A1 rows read
+`no_observed_value`, which is the accurate reason, not a degraded one.
+
+#### One question this step's earlier text left open, now answered
+
+The superseded step-5 outlook asked, of the IDX snapshots reading
+`assurance_level = 'unknown'` despite arriving the day the assurance axis
+shipped: *"Whether the classifier did not run on these rows or ran and could
+not decide is an open question."* **It did not run.** `a2f766f` was committed
+2026-09-04 at 15:44 +0700; all 9 of those snapshots were written earlier the
+same day, at 01:00 and 04:24, by the scheduled refresh — before the classifier
+existed. The two IDX documents retrieved *after* it shipped, on 2026-09-05 at
+06:40 (`c51b7770d952…`, `f425eebc9ade…`), both classify **`audited`**, and are
+the source of the 6 `audited` evidence rows now in the database — the only
+non-`unknown` assurance values in the whole corpus. The classifier works;
+those 9 rows are simply older than it. No backfill is proposed here: the
+column's own contract is that `'unknown'` means *not established*, and
+re-deriving it retroactively is a separate decision.
+
+The IDX lane's live counts have also moved since step 4 was written: **11
+snapshots / 28 evidence rows**, up from 9 / 22.
+
+#### Two secondary findings, neither fixed here
+
+**A refresh would not have helped, and the live data shows it rather than
+argues it.** A1's job is `succeeded` at 31 attempts, last updated
+2026-09-05T06:40:08Z — a live run made by a concurrent session that morning. It
+retrieved two documents, both from **2025** (`c51b7770d952…`, `f425eebc9ade…`),
+sweeping backwards through the already-known set. The newest IDX document
+remains the 2026-07-31 filing. Re-running `research:refresh` would have
+repeated the same calls against the same corpus, so no live run was made and no
+network call was spent on this step.
+
+**`IdxAdapter` structurally cannot retrieve a material-transaction
+disclosure.** `REPORT_TERMS` (`lib/research/adapters/idx.ts:7`) admits only
+`laporan keuangan`, `financial statement`, `annual report`, `laporan tahunan`
+and `audited` — so *"Transaksi Material Tanpa Persetujuan RUPS"*, the
+announcement type M013 named as A1's likely source, is filtered out before its
+attachment is ever seen. This matters for the day the transaction *does* close,
+and it is a second named blocker sitting behind the first. **Not changed
+here**: widening a live adapter's discovery filter is a retrieval-behaviour
+change needing its own fail-first proof and a live run, and it would not have
+moved A1 today, because the disclosure it would admit does not exist yet.
+
+#### Definition of done — met, under the failure-recording clause
+
+This step's own text: *"If it cannot be done for any assumption after a genuine
+attempt, that finding is recorded as-is."* The attempt was genuine and this is
+the record. `tierC.current.nonInconclusiveEvidenceCount` reads **0 before and 0
+after**, and honestly so.
+
+Nothing was written. The live database is byte-identical across the whole
+investigation — all 11 tables fingerprinted before and after, `db.sqlite` mtime
+unchanged — and `logs/outbound.log` is unchanged at 5,209 lines / 3,155 Tavily
+calls. No backup was required because no mutation was attempted.
 
 ### Step 6 — Backup, export/import, and the CLI slice
 
@@ -420,7 +512,13 @@ export and after import, not by field-count alone.
   the criterion is that the tool exists and reports correctly, which it does.
 - **AC-M015-06** — At least one TLKM assumption reaches `supports` or
   `contradicts` from a real document, or the attempt's failure is recorded as
-  a finding. **Not met.**
+  a finding. **Met, 2026-09-05, under the failure-recording clause.** A1 was
+  attempted against the full retained corpus and cannot be settled: the
+  transaction its contract measures has not closed, so no document states the
+  post-closing figure. Candidate matrix, verified hashes, the closest passage
+  found, and the named blocker are in step 5 above. Non-inconclusive evidence
+  stays at **0**, which is the honest count — no directional row was
+  manufactured, and no code was written to force one.
 - **AC-M015-07** — Backup survives a WAL-active restore, verified by restoring
   to a separate path; export → import round-trips adequacy, assurance, and
   decision-evidence linkage, verified by before/after coverage-ledger and
@@ -472,6 +570,24 @@ export and after import, not by field-count alone.
   to be the relevance/entailment gap the main review flags as P1, needing its
   own methodology decision). That outcome is an acceptance criterion met by
   recording the finding, not a packet failure.
+  **This is what happened, 2026-09-05, and the binding constraint was neither
+  of the two anticipated ones.** It was not retrieval and not relevance: the
+  transaction A1 measures has not closed, so the figure does not exist yet in
+  any document, anywhere. The corpus is not inadequate — the event has not
+  happened. Step 5 above carries the full record. Consequence for the packet:
+  the pipeline still has not been shown to reach `supports`/`contradicts`
+  end-to-end once on real data, and A1 is no longer the best candidate for the
+  next attempt — its blocker is a calendar, not a defect. A future attempt
+  should start from **A4**, the one assumption M013 classified (A), whose
+  contract asks for a segment YoY differential that TLKM's filings do publish.
+- **Surfaced by step 5, not fixed by it: `IdxAdapter.REPORT_TERMS`
+  (`lib/research/adapters/idx.ts:7`) admits only periodic financial reports.**
+  A material-transaction disclosure — *"Transaksi Material Tanpa Persetujuan
+  RUPS"*, exactly the announcement type M013 named as A1's likely source — is
+  filtered out before its attachment is ever seen. Deliberately not changed
+  here: widening a live adapter's discovery filter is a retrieval-behaviour
+  change needing its own fail-first proof and a live run, and it would not have
+  moved A1 today. It becomes load-bearing on the day the transaction closes.
 - The 8 unreferenced files found in `source-snapshots/` during step 2's
   verification are noted, not remediated — no evidence depends on them.
 - **New, surfaced by step 4 itself, 2026-09-05: `doctor`'s Tier B fails on

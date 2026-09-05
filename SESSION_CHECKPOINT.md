@@ -1,3 +1,146 @@
+# Session Checkpoint - 2026-09-05 (M015 step 5: A1 attempted, recorded as a genuine failed attempt)
+
+No code changed. No database write. No network call. The live database is
+byte-identical across the whole session — all 11 tables fingerprinted before
+and after (`theses`, `assumptions`, `assumption_measurements`,
+`source_adequacy_assessments`, `evidence`, `research_jobs`, `source_snapshots`,
+`research_job_sources`, `decisions`, `discovery_candidates`,
+`source_discoveries`), `db.sqlite` mtime unchanged at `2026-09-05 13:40`,
+`logs/outbound.log` unchanged at 5,209 lines / 3,155 Tavily. Everything below
+was re-derived from the live database and the retained source bytes rather than
+taken from the packet's own prose.
+
+## Before-state, re-derived rather than trusted
+
+`npm run doctor --json`, exit 1 (the accepted XBRL Tier B failure, untouched):
+116 `storage_path` rows checked, 0 violations; 7 accepted zero-byte hashes; IDX
+official 81 attempts / 11 snapshots / 28 evidence; evidence polarity
+supports=0 contradicts=0 inconclusive=**276**; assurance audited=6 unaudited=0
+unknown=270; `nonInconclusiveEvidenceCount` **0**; decisions 1; Tier D 8
+unreferenced files. Every figure the session was briefed with reproduced.
+
+## The A1 contract, printed from the live row
+
+`assumption_measurements` for `42333c4e-6602-49a6-877f-9f7ec663fc79`
+(`resolution = resolved`):
+
+- metric — *Persentase kepemilikan TLKM di PT Telkom Data Ekosistem (NeutraDC)
+  pasca-transaksi*
+- definitionVariant — *Kepemilikan ekonomi langsung + tidak langsung TLKM,
+  diukur setelah closing transaksi pelepasan ~70% saham yang sedang diproses*
+- `gte` / `30` / `percent` / `instant`
+
+Three independently binding requirements: **after closing**, **economic**
+ownership, **direct + indirect**.
+
+## Branch B — the corpus cannot settle A1, and no code would change that
+
+A1 carries 56 evidence rows across 25 distinct documents, all `inconclusive` /
+`no_observed_value`. Every document was re-hashed against its `document_hash`:
+24 of 25 byte-exact, the 25th being `7c37e117…`, one of the seven accepted
+zero-byte snapshots. Ten are `source_tier = 'official'` — 3 IDX disclosures
+(one `assurance_level = 'audited'`) and 7 issuer filings.
+
+Extracted evidence is not the same thing as retained bytes, so the search was
+widened past the evidence rows: **all 116 snapshots were re-extracted through
+the pipeline's own `extractDocument`** (109 yielded text; the 7 zero-byte
+defects skipped) and searched for NeutraDC / PT Telkom Data Ekosistem / TDE.
+
+**48 documents mention NeutraDC. None states a post-closing TLKM ownership
+percentage. None states that the transaction closed.**
+
+| document | hash | published | states a % | why it fails the contract |
+|---|---|---|---|---|
+| IDX Q2-2026 financial statement | `ec80a0bdc712…` | 2026-07-31 | `PT Telkom Data Ekosistem … 100.0` | pre-closing consolidated ownership |
+| IDX FY2025 / Q1-2026 / FY2024 / 2025 Q1–Q3 | `9b766bb9f05d…`, `fbbe1b6d0c3d…`, `f425eebc9ade…`, `dfa170de1e23…`, `57f83d9256ea…`, `78832be2c8e1…` | 2025-04-17 → 2026-05-29 | `TDE … 100.0` | same, and older |
+| IDX sustainability report (audited) | `c51b7770d952…` | 2025-04-21 | — | NeutraDC named only for green-DC development |
+| Issuer AR 2024 (Bahasa) | `021cd384b94f…` | — | **79,93% + 20,07%** | ownership as at **10 Dec 2024**, disclosed for a land-and-building affiliate transaction |
+| Issuer AR 2024 (EN) / AR 2025 | `1a4c1666082d…`, `c0294f44e842…`, `6834daad5d92…` | — / 2026-05-12 | `TDE … 100%` | pre-closing; *unlocK value* states intent to monetise DC assets, no transaction |
+| Issuer PR — group DC consolidation | `9244428b1531…` | 2026-07-31 | — | future tense, and a *different* transaction |
+| Issuer PR — NeutraDC × PLN MoU | `5adc8a8f1ffa…` | 2026-08-14 | — | NeutraDC still "operating company dari PT Telkom Indonesia (Persero) Tbk"; 200 MW is power, not ownership |
+| Issuer PR (most recent in corpus) | `619e445e26d9…` | 2026-09-03 | — | NeutraDC mentioned only as an AI-ready DC capability |
+
+The closest passage anywhere, verbatim from `021cd384b94f…`:
+
+> "1. PT Telkom Data Ekosistem 79,93% dimiliki oleh PT Telkom Indonesia
+> (Persero) Tbk; dan 20,07% dimiliki oleh PT Sigma Cipta Caraka (dimiliki
+> 99,99% oleh PT Telkom Indonesia (Persero) Tbk."
+
+Right entity, right ownership concept, right direct + indirect decomposition —
+and unusable, because it is pre-transaction. Reading it as A1's answer would
+mean reporting pre-closing ownership as post-closing ownership.
+
+**The blocker: the transaction has not closed.** Source absence downstream of
+an event that has not happened — not retrieval, not extraction, not a
+definition mismatch. An `observedValue` here would require asserting that a
+pre-closing figure survives a closing that has not occurred; that is a
+prediction, not arithmetic over labelled source values. `classifyPolarity`
+already answers correctly: all 56 rows read `no_observed_value`.
+
+## Why no live run was made
+
+A1's job is `succeeded`, 31 attempts, last updated **2026-09-05T06:40:08Z** —
+a live run by a concurrent terminal-agent session that morning. It retrieved
+exactly two documents, both from **2025** (`c51b7770d952…`, `f425eebc9ade…`),
+sweeping backwards through the already-known set; the newest IDX document is
+still the 2026-07-31 filing. `research:refresh` would have repeated the same
+calls against the same corpus with no path to a figure that does not exist, so
+it was not run and no network call was spent. Tavily delta **0**.
+
+## An open question in the packet, now answered
+
+Step 5's superseded text asked whether the IDX snapshots reading
+`assurance_level = 'unknown'` meant the classifier did not run or ran and could
+not decide. **It did not run.** `a2f766f` was committed 2026-09-04 15:44 +0700;
+all 9 of those snapshots were written earlier that day (01:00 and 04:24) by the
+scheduled refresh, before the classifier existed. The two IDX documents
+retrieved after it shipped — 2026-09-05 06:40, `c51b7770d952…` and
+`f425eebc9ade…` — both classify **`audited`**, and are the source of all 6
+`audited` evidence rows, the only non-`unknown` assurance values in the corpus.
+The classifier works; those rows are older than it. No backfill proposed:
+`'unknown'` means *not established* by contract, and re-deriving it
+retroactively is its own decision. IDX live counts have also moved since step 4
+was written — **11 snapshots / 28 evidence rows**, up from 9 / 22.
+
+## Two findings surfaced, neither acted on
+
+**A documentation/data discrepancy: M013's A1 = (B) classification was never
+persisted.** M013 records *"A = 1 (A4); B = 2 (A1, A3); C = 3 (A2, A5, A6)"*,
+but `source_adequacy_assessments` holds exactly **3 rows**, all `classification
+= 'C'` — A2 (`9e75f461`), A5 (`c21155c9`), A6 (`c6eb7d7b`), all `assessed_by =
+'user'` on 2026-09-04. **A1, A3 and A4 have no row at all.** So A1's "(B)"
+lives only in the packet's prose; the durable table cannot distinguish "class
+B" from "never assessed". Reported, deliberately **not repaired** — the table's
+own doc comment says the classification is the user's judgment, never derived,
+so writing an A1 row would be exactly the thing that column exists to prevent.
+
+**`IdxAdapter` structurally cannot retrieve a material-transaction
+disclosure.** `REPORT_TERMS` (`lib/research/adapters/idx.ts:7`) admits only
+`laporan keuangan`, `financial statement`, `annual report`, `laporan tahunan`,
+`audited`. *"Transaksi Material Tanpa Persetujuan RUPS"* — the announcement
+type M013 named as A1's likely source — is filtered out before its attachment
+is ever seen. Left alone: widening a live adapter's discovery filter is a
+retrieval-behaviour change needing its own fail-first proof and a live run, and
+it would not have moved A1 today because the disclosure it would admit does not
+exist yet. It becomes load-bearing the day the transaction closes.
+
+## After-state and closure
+
+`npm run doctor --json` re-run after the investigation: identical, exit 1,
+`nonInconclusiveEvidenceCount` **0 → 0**. That is step 5's own before/after
+gate, and it did not move — correctly.
+
+AC-M015-06 is **met under its explicit failure-recording clause**, not by
+producing a verdict. Step 6 remains open, M014 untouched,
+`docs/generated/doctor-baseline.json` still ungenerated, no XBRL exception
+added, `doctor` behaviour unchanged and still outside `verify:full`.
+
+**A1 is no longer the best next candidate** — its blocker is a calendar, not a
+defect. **A4** is: the one assumption M013 classified (A), whose contract asks
+for a segment YoY differential TLKM's filings do publish.
+
+---
+
 # Session Checkpoint - 2026-09-05 (M015 step 4: `npm run doctor` implemented and verified live)
 
 Implemented `scripts/doctor.ts` (`npm run doctor`) per the M015 packet §4.
