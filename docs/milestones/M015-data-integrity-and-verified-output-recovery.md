@@ -1,9 +1,10 @@
 # M015: Data Integrity & Verified-Output Recovery
 
-Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 open (6a done, 6b/6c
-not started). Step 5 is done as a recorded failed attempt: A1 cannot be
-settled because the transaction it measures has not closed. Non-inconclusive
-evidence remains 0.
+Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 open. 6a done and
+committed (`30c36c0`), 6b specified and ready (`4baf2f9`), 6b/6c not started.
+Step 5 is done as a recorded failed attempt: A1 cannot be settled because the
+transaction it measures has not closed. Non-inconclusive evidence remains 0.
+AC-M015-07 is half met (backup yes, export/import no).
 
 Date drafted: 2026-09-05
 
@@ -547,7 +548,43 @@ against an `fs.mkdtempSync` temp directory.
 
 #### 6b — export/import round-trip
 
-**Not started.**
+**Not started; specified and ready.** Execution prompt:
+[`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](../drafts/m015-step6b-export-import-roundtrip-prompt.md)
+(`4baf2f9`). Three defects, re-derived from the working tree 2026-09-05 because
+every line reference in the original audit had drifted:
+
+1. **`assuranceLevel` is dropped.** The exported evidence field map
+   (`lib/research/service.ts:1220-1245`) omits it, and the import counterpart
+   (`:1368-1394`) does not set it, so every re-imported row falls to the column
+   default `'unknown'`. An audited filing and an unestablished one become
+   indistinguishable — the exact distinction `a2f766f` shipped to create.
+2. **`sourceAdequacyAssessments` is never exported.** `exportThesisData`
+   selects theses, assumptions, evidence, decisions and measurements, and
+   nothing else. `classification`, `reasoning`, `contractFingerprint` and
+   `assessedBy` must all survive, not just the class letter — adequacy is a
+   *user judgment* by that table's own contract, and `contractFingerprint` is
+   what stops a stale judgment silently applying.
+3. **Decision→evidence linkage breaks — and the obvious fix is not
+   implementable as written.** `:1368` mints a fresh `randomUUID()` per
+   imported evidence row while `:1406` writes `evidenceIds` verbatim. But the
+   exported evidence object **carries no `id` field at all**, and
+   `thesisExportSchema` (`lib/domain/contracts.ts:400-432`) defines none — so
+   "remap on import" has nothing to map *from*. Any fix must first give each
+   exported evidence row a stable key. Three approaches with costs are in the
+   prompt; exporting the real `evidence.id` is the candidate to evaluate first,
+   and matching on `documentHash` + quote is flagged as likely ambiguous, since
+   the live corpus holds multiple evidence rows per document hash.
+
+Two traps the prompt pins down so 6b cannot invert them. A **dangling
+`evidenceId` is by design** — `docs/CODEBASE_MAP.md` records
+`Decision.evidenceIds` as a point-in-time snapshot, not a foreign key, which
+deliberately survives its evidence being superseded or deleted; a remap must
+translate what it can resolve and leave the rest unchanged, because silently
+dropping unresolvable entries would erase the record of what the user was
+looking at when they decided. And **`version` stays `z.literal(1)`**: the
+schema's documented posture is to add later fields as `.optional()` so export
+files written before a field existed still import (`contracts.ts:396-399` says
+so about M011's `measurement`); a bump would break every existing package.
 
 #### 6c — CLI slice
 

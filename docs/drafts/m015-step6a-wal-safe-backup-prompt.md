@@ -1,5 +1,18 @@
 # Execution prompt — M015 step 6a: WAL-safe database backup
 
+> **COMPLETED 2026-09-05 — shipped in `30c36c0`.** Retained as the record of
+> what was asked for, against which the delivered work was checked. Do not
+> re-execute it. The outcome, the mechanism chosen (`VACUUM INTO` from a
+> dedicated read-only connection), and why the two alternatives were rejected
+> are in the M015 packet §4 step 6a. The next prompt is
+> [`m015-step6b-export-import-roundtrip-prompt.md`](m015-step6b-export-import-roundtrip-prompt.md).
+>
+> One thing this prompt got wrong, worth carrying forward: it framed
+> `VACUUM INTO` as needing verification that the installed SQLite cleared 3.27.
+> That was right, but it understated the failure it was fixing — the old
+> `copyFileSync` did not merely lose recent rows, it lost the **schema**, so
+> the restored copy could not be queried at all.
+
 Prepared 2026-09-05, immediately after step 5 closed. Hand this to a fresh
 session as its opening instruction. It is scoped to **6a only** — not 6b
 (export/import) and not 6c (CLI slice).

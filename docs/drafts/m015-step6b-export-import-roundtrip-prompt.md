@@ -16,31 +16,44 @@ what it cost. Derive the sequence yourself and present it — never hand back a
 bare menu. State explicitly what you are **not** doing and where the cheap
 exits are.
 
-## Do this first: 6a is finished but uncommitted
+## Starting state — 6a is committed, the tree is clean
 
-At the time of writing, the working tree carries **6a's completed work,
-uncommitted**: `db/client.ts`, `tests/db-client-backup.test.ts` (new),
-`docs/generated/code-index.json`, `ACTIVE_MILESTONE.md`,
-`SESSION_CHECKPOINT.md`, and the M015 packet.
+**6a landed in `30c36c0`** (`feat(db): make the database backup
+WAL-consistent`), and this prompt itself in `4baf2f9`. Working tree clean at
+that point. 6a was independently re-verified before being committed, not taken
+on the completing session's word: full suite **481 passed / 3 skipped**,
+`tsc --noEmit` clean, `lint` 0 errors, `context:check` and `status:check`
+clean, `git diff --check` clean, live database untouched (`db.sqlite` mtime
+unchanged), and the newest file in `../jp-invest-data/backups/` predating 6a's
+work — so 6a wrote nothing to live data.
 
-**Commit 6a on its own before starting 6b.** This repo's standing practice is
-one `git revert`-able commit per behavioral change (M015 §8), and 6b will touch
-`lib/research/service.ts` and `lib/domain/contracts.ts` — different files, a
-different acceptance criterion half, and a different failure mode. Bundling
-them makes neither revertable alone.
-
-Re-verify before committing rather than trusting this paragraph: `npm test`,
-`npm run typecheck`, `npm run lint`, `npm run context:check`,
-`npm run status:check`, `git diff --check`. Independently confirmed 2026-09-05:
-`tests/db-client-backup.test.ts` passes (2 tests), `tsc --noEmit` clean, the
-live database untouched (`db.sqlite` mtime unchanged), and the newest file in
-`../jp-invest-data/backups/` predates 6a's work — so 6a wrote nothing to live
-data.
+6b gets its **own commit**, separate from 6a. This repo's standing practice is
+one `git revert`-able commit per behavioral change (M015 §8), and 6b touches
+`lib/research/service.ts` and `lib/domain/contracts.ts` — different files, the
+other half of the acceptance criterion, a different failure mode.
 
 Also outstanding, unrelated to 6b: **`git push origin main` was denied by the
-auto-mode permission classifier** on 2026-09-05, so 4 commits sit ahead of
+auto-mode permission classifier** on 2026-09-05, so **6 commits** sit ahead of
 `origin/main`. Do not work around it. Report it and let the user push or grant
 the permission.
+
+## Two environment gotchas that will otherwise cost you a session
+
+**Do not run `npm test` in parallel with `lint`/`context:check`/`build`.** On
+Windows this reliably produces a spurious **42-of-42 test-file failure** —
+`TypeError: Cannot read properties of undefined (reading 'config')`, with
+`Test Files 42 failed` and `Tests no tests`, failing at the transform/collect
+stage (`import 0ms`). It is esbuild contention between two concurrent Node
+toolchains on the same tree, not a regression. Observed and diagnosed
+2026-09-05; re-running `npm test` alone passed immediately. Run the suite on
+its own.
+
+**`.tmp-review/` is not yours.** A concurrent session left a gitignored
+`.tmp-review/` directory (containing `audit.test.ts`, `vitest.config.ts` and
+`wal-*` temp dirs) in the working tree. It is the sole source of `lint`'s one
+remaining warning (`import/no-anonymous-default-export`). Do not attribute that
+warning to your own work, and do not delete the directory — it belongs to
+another session, the same reasoning that left `stash@{0}` alone in M015 step 2.
 
 ## Objective
 

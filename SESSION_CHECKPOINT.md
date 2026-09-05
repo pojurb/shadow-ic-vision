@@ -1,3 +1,121 @@
+# Session Checkpoint - 2026-09-05 (6a independently re-verified and committed; 6b prompt prepared)
+
+A review-and-commit session, not an implementation one. No code was written
+here: 6a's implementation arrived from a separate session as a completion
+report, and this session's job was to check it against reality rather than
+accept it, then commit it and prepare what comes next.
+
+## Why the report was re-derived rather than trusted
+
+Parts of the incoming 6a report arrived corrupted mid-sentence, and this
+project's standing rule is that another session's stated results are not
+evidence until re-checked. Everything below was verified directly.
+
+| Claim in the report | Result |
+|---|---|
+| `VACUUM INTO` from a `{ readonly: true }` connection | Confirmed, `db/client.ts:47-53` |
+| New test file exists and passes | Confirmed, `tests/db-client-backup.test.ts`, 2 cases |
+| Full suite 481 passed / 3 skipped | **Confirmed independently** |
+| `typecheck` / `lint` / `context:check` / `status:check` clean | Confirmed (`lint`: 0 errors, 1 warning — see below, not ours) |
+| No live-database access | Confirmed: `db.sqlite` mtime unchanged, and the newest file in `../jp-invest-data/backups/` predates 6a's work |
+| `backupExistingDatabase` exported for tests | Confirmed |
+
+The two test cases are the right two, and the second is the one that matters:
+it holds an uncommitted `BEGIN IMMEDIATE` open on a live connection while the
+backup runs, and asserts the uncommitted row is **absent** from the restore.
+That is AC-M015-07's "in-flight" distinction made concrete — committed but
+uncheckpointed must survive, uncommitted must not.
+
+## A process failure worth recording, because the symptom is alarming
+
+The **first** `npm test` run reported **42 of 42 test files failed**,
+`TypeError: Cannot read properties of undefined (reading 'config')`,
+`Tests: no tests`, everything dying at the transform/collect stage
+(`import 0ms`). Nothing was wrong with the code. The cause was this session
+running `npm test` **in parallel** with `lint`/`context:check`/`status:check`
+in a single batch — two Node toolchains contending over esbuild on the same
+Windows working tree. Re-run alone, the suite passed immediately with 481/3.
+
+Recorded because the symptom looks exactly like a catastrophic regression and
+would plausibly send the next session hunting a bug that does not exist. Both
+execution prompts in `docs/drafts/` now carry the warning: **run the suite on
+its own.**
+
+## Committed
+
+- **`30c36c0`** — `feat(db): make the database backup WAL-consistent`. 6 files,
+  +419/−23, including the new `tests/db-client-backup.test.ts`.
+- **`4baf2f9`** — `docs(m015): prepare the 6b export/import execution prompt`.
+
+Split deliberately: 6a is a behavioural change to `db/client.ts`, the prompt is
+a document. One `git revert`-able commit per behavioural change (M015 §8).
+
+## The 6b prompt corrects the incoming report on a point that changes the fix
+
+The report described 6b as "not remapping decision evidence IDs on import."
+Accurate as a symptom, wrong as a specification: **that fix cannot be written
+against current code.** The exported evidence object
+(`lib/research/service.ts:1220-1245`) carries **no `id` field**, and
+`thesisExportSchema` (`lib/domain/contracts.ts:400-432`) does not define one —
+so there is nothing to map *from*. Any fix must first give each exported
+evidence row a stable key. Three approaches with their real costs are in the
+prompt; exporting the real `evidence.id` is the candidate to evaluate first,
+and matching on `documentHash` + quote is flagged as likely ambiguous, since
+the live corpus holds multiple evidence rows per document hash.
+
+Every line reference in the earlier audit had drifted and was re-derived from
+the working tree: the evidence field map is at `service.ts:1220-1245` (audit
+said 1226-1246), the per-row `randomUUID()` at `:1368` (said 1367), the
+verbatim `evidenceIds` write at `:1406` (said 1405).
+
+Two correctness traps are pinned down in the prompt so 6b cannot get them
+backwards. A **dangling `evidenceId` is by design** — `CODEBASE_MAP.md` records
+`Decision.evidenceIds` as a point-in-time snapshot, not a foreign key, which
+deliberately survives its evidence being deleted; a remap must translate what
+it can resolve and leave the rest untouched, because silently dropping
+unresolvable entries would erase the record of what the user was actually
+looking at when they decided. And **`version` must stay `z.literal(1)`**: the
+schema has an explicit documented posture of adding later fields as
+`.optional()` so older export files still import, and a bump would break every
+existing package.
+
+## Housekeeping
+
+`docs/drafts/m015-step6a-wal-safe-backup-prompt.md` now carries a **COMPLETED**
+banner pointing at `30c36c0` and at the 6b prompt, so it is not mistaken for
+pending work. It also records the one thing it got wrong: it treated the old
+`copyFileSync` as losing recent rows, when the reproduction showed it losing
+the **schema** — a restored copy that cannot be queried at all.
+
+**`.tmp-review/` is a concurrent session's leftovers** — gitignored, holding
+`audit.test.ts`, `vitest.config.ts` and three `wal-*` temp directories. It is
+the sole source of `lint`'s one remaining warning. Left in place, not deleted:
+it belongs to another session, the same reasoning that left `stash@{0}` alone
+in step 2. Both prompts now say so, so the warning is not misattributed.
+
+`docs/RISK_REGISTER.md` was checked and needs no edit — no register row covers
+backup or source-byte preservation; those findings live in the M015 packet §7.
+Worth noting as an open suggestion rather than acted on unilaterally: **source
+*bytes* still have no automated backup.** 6a made the *database* backup
+WAL-safe; the 306 MB across `snapshots/` and `source-snapshots/` was copied
+once by hand in step 1 and nothing keeps it current. That is the finding §1
+opened this packet with, and it is still true.
+
+## State
+
+- **6 commits ahead of `origin/main`.** `git push origin main` remains **denied
+  by the auto-mode permission classifier** — not a git failure. No workaround
+  attempted; the user pushes or grants the permission.
+- **AC-M015-07 half met**: backup done, export/import (6b) not started.
+- Live database untouched this session: `db.sqlite` mtime `2026-09-05 13:40`.
+- `logs/outbound.log` unchanged — 5,209 lines / 3,155 Tavily. Nothing here
+  touches a network path.
+- Next: **6b**, via
+  [`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](docs/drafts/m015-step6b-export-import-roundtrip-prompt.md).
+  Then 6c is all that separates M015 from closure.
+
+---
+
 # Session Checkpoint - 2026-09-05 (M015 step 6a: WAL-safe backup implemented and verified)
 
 Executed the prompt in `docs/drafts/m015-step6a-wal-safe-backup-prompt.md`

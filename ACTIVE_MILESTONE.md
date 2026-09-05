@@ -1,6 +1,9 @@
 # Active Milestone
 
-Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open (6a done, 6b/6c not started).**
+Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open —
+6a done and committed (`30c36c0`), 6b prompt ready (`4baf2f9`), 6b/6c not
+started.** 6 commits sit ahead of `origin/main`; `git push` is blocked by the
+auto-mode permission classifier, awaiting the user.
 Three independent reviews of the repository (a full product audit, a
 CLI-specific audit, and a chat summary of the first) were verified directly
 against code and the live database on 2026-09-05; every checked finding held.
@@ -193,6 +196,34 @@ access anywhere in this work; every test runs against a `fs.mkdtempSync` temp
 directory. **AC-M015-07 stays partially met**: the backup half is done; 6b
 (export/import round-trip: `sourceAdequacyAssessments`, `assuranceLevel`, and
 decision-evidence-ID remapping) has not been started.
+
+**6a was re-verified independently before being committed as `30c36c0`**,
+rather than accepted on the completing session's report — the report itself
+arrived partly corrupted, and this project's standing rule is that another
+session's stated results are not evidence until re-checked. The 481/3 suite
+result, typecheck, lint, `context:check`, `status:check`, the untouched live
+database, and the two test cases were all confirmed directly.
+
+**6b is specified and ready** in
+[`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](docs/drafts/m015-step6b-export-import-roundtrip-prompt.md)
+(`4baf2f9`), and it corrects the incoming report on a point that changes the
+fix. "Remap decision evidence IDs on import" cannot be written against current
+code: the exported evidence object (`lib/research/service.ts:1220-1245`)
+carries **no `id` field** and `thesisExportSchema` defines none, so there is
+nothing to map from — any fix must first give each exported evidence row a
+stable key. Every line reference in the earlier audit had drifted and was
+re-derived from the working tree. Two traps are pinned down so 6b cannot invert
+them: a dangling `evidenceId` is **by design** (`CODEBASE_MAP.md` — a
+point-in-time snapshot, not a foreign key), so a remap must preserve what it
+cannot resolve rather than drop it; and `version` must stay `z.literal(1)`,
+since the schema's documented posture is to add later fields as `.optional()`
+so older export files still import.
+
+**Still true, and still the finding this packet opened with: source *bytes*
+have no automated backup.** 6a made the *database* backup WAL-safe. The 306 MB
+across `snapshots/` and `source-snapshots/` was copied once by hand in step 1
+and nothing keeps it current. Not in 6b's or 6c's scope; raised here so it is
+not lost when M015 closes.
 
 ### Superseded — the narrative below predates M015
 
