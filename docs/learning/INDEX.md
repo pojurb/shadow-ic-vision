@@ -22,6 +22,10 @@ with a current authoritative target may guide future work.
 | LC-20260730-001 | `promoted` | `security` | cross-cutting | A default-on provider-calling change must be checked against every mode axis the codebase uses to distinguish deterministic/local from live/external behavior, not just the one the change is about | [LC-20260730-001](candidates/LC-20260730-001-security-default-change-needs-mode-parity-check.md) | 2026-08-04 |
 | LC-20260804-001 | `promoted` | `process` | cross-cutting | When resolving a user-owned calibration value (e.g. a measurement contract), an assisting agent should propose methodology/conventions with reasoning but never the final calibrated number | [LC-20260804-001](candidates/LC-20260804-001-ai-proposes-methodology-not-final-thresholds.md) | 2026-08-04 |
 | LC-20260804-002 | `promoted` | `quality` | cross-cutting | An AI reviewer fabricated a specific measurement-contract example ("Operating Margin ≥22%") and presented it as read from a real ISAT thesis during a verification task; caught by a second reviewer and confirmed false by direct database query | [LC-20260804-002](candidates/LC-20260804-002-ai-reviewer-fabricated-example-during-verification-task.md) | 2026-08-04 |
+| LC-20260905-001 | `promoted` | `quality` | cross-cutting | SQLite backups under WAL require a database-aware snapshot and a clean restore check that proves committed data is present | [LC-20260905-001](candidates/LC-20260905-001-sqlite-wal-backup-requires-restore-proof.md) | 2026-09-05 |
+| LC-20260905-002 | `promoted` | `quality` | cross-cutting | Round-trip verification must preserve domain meaning, relationships, and material derived results rather than only schema and row counts | [LC-20260905-002](candidates/LC-20260905-002-round-trip-tests-require-semantic-equivalence.md) | 2026-09-05 |
+| LC-20260905-003 | `promoted` | `quality` | cross-cutting | Multi-lane orchestration needs explicit per-lane outcomes and an aggregate status that cannot hide soft failures | [LC-20260905-003](candidates/LC-20260905-003-multi-lane-runs-need-explicit-outcomes.md) | 2026-09-05 |
+| LC-20260905-004 | `promoted` | `process` | cross-cutting | Cross-surface workflows need a stable handle or deterministic resolver that connects every user-visible stage | [LC-20260905-004](candidates/LC-20260905-004-cross-surface-workflows-need-a-stable-handle.md) | 2026-09-05 |
 
 ## Current Promoted Knowledge
 
@@ -41,6 +45,10 @@ The authoritative promotion history is maintained in
 | LC-20260804-001 | [AGENTS.md](../../AGENTS.md) | CLI agent product-constitution rule | user | 2026-08-04 |
 | LC-20260730-001 | [.agents/SECURITY.md](../../.agents/SECURITY.md) | mode-parity check for default-on provider changes | user | 2026-08-04 |
 | LC-20260804-002 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | verifying AI-reported examples against primary sources | user | 2026-08-04 |
+| LC-20260905-001 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | SQLite WAL backup and restore verification | user | 2026-09-05 |
+| LC-20260905-002 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | semantic round-trip verification | user | 2026-09-05 |
+| LC-20260905-003 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | multi-lane run outcomes | user | 2026-09-05 |
+| LC-20260905-004 | [.agents/QUALITY.md](../../.agents/QUALITY.md) | cross-surface workflow handles | user | 2026-09-05 |
 
 ## Retrieval Rules
 

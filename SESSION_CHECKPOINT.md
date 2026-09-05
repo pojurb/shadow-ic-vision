@@ -1,3 +1,167 @@
+# Session Checkpoint - 2026-09-05 (three external reviews audited against live code and data; execution order agreed)
+
+No code changed this session. The live DB was read three times, read-only —
+`db.sqlite` mtime is still `2026-09-04 16:05:29`, unchanged. Everything below
+was re-derived from the repository and from the live database rather than
+accepted as reported, per the standing rule that another agent's stated
+results are not evidence until re-checked.
+
+## What arrived, and what it actually is
+
+Three review documents:
+
+- `outputs/reviews/project-review-2026-09-05.md` (159 lines) — full product,
+  method, implementation and roadmap audit against commit `0ab9295`.
+- An "Astra" chat summary — **the same audit**, not a second opinion. Same 7
+  reproductions, same 61 Tavily calls, same commit, and it links to the same
+  report file. It must not be counted as corroboration; two documents agreeing
+  adds nothing when one is a rendering of the other.
+- `outputs/reviews/cli-workflow-review-2026-09-05.md` (242 lines, "Sol") —
+  genuinely separate in scope: the CLI surface and `docs/CLI_WORKFLOW.md`.
+
+**Astra's summary drops five findings from the report it summarizes**, and
+they skew cheap: the ACTIVE_MILESTONE/SESSION_CHECKPOINT drift (~10 minutes),
+per-lane observability, the per-assumption document-caching gap
+(`service.ts:621`), the OCR/XLSX metadata items, and the `service.ts` size
+note. Net effect: the summary reads as five heavy problems where the report
+held a mix including several one-hour wins. Work from the report, not the
+summary.
+
+## Verification result: the findings hold
+
+Every claim spot-checked was accurate. Re-verified directly:
+
+| Claim | Location confirmed |
+| --- | --- |
+| Backup copies only the main SQLite file under WAL | `db/client.ts:38` copy, `db/client.ts:49` sets `journal_mode = WAL` |
+| Export drops source adequacy and assurance | `exportThesisData` never reads `sourceAdequacyAssessments`; the evidence field list at `service.ts:1226-1246` has no `assuranceLevel` |
+| Decision evidence refs are not remapped on import | new `randomUUID()` per evidence row at `service.ts:1367`, `evidenceIds` stringified verbatim at `service.ts:1405` |
+| Mock mode still calls Tavily | `discovery/factory.ts:18` has no mode branch at all; `runDiscoveryAndPromotion` is called unconditionally at `service.ts:679` — `sourceMode` only reaches promotion |
+| 1 supported + 5 inconclusive yields `holding` | `coverage.ts:145` increments `evidenced` for any polarity; `verdict.ts:158` needs only `supported > 0` |
+| Archive does not change `theses.status` | `recordDecision` inserts only; `app/api/theses/[id]/decision/route.ts` adds no transition |
+| Priority score is blind to verdict | `calculatePriorityScore` takes three arguments: alerts, staleness, challenged |
+| Graph hangs everything off the first claim | `graph.ts:111` `primaryClaimId = claimIds[0]` |
+| Exploration citation is an unverified model string | `contracts.ts:264`, `z.string().trim().min(1).max(500)` |
+| 25 of 54 source cards are generic | live DB: 54 documents, 193 claims, and the string "The document provides structural financial or economic information." appears exactly **25 times**; the other 168 are unique |
+| The audit spent 61 real Tavily calls | `logs/outbound.log`: 61 POSTs to `api.tavily.com`, all HTTP 200, all dated 2026-09-05 — ~18% of September's 348 |
+| CLI/web snapshot directories diverge | `research-queue.ts:38` and `research-retry.ts:79` hardcode `<dbdir>/snapshots`; `lib/research/config.ts:15` uses `SOURCE_SNAPSHOT_DIR` or `<dbdir>/source-snapshots` |
+| `thesis:stage` handoff is broken | it prints `{conversationId, url, clarificationNeeded, questions}` — no thesis id; `research-queue.ts:23` requires `--thesis-id` and accepts nothing else |
+| `source-adequacy:record` writes durable state from flags | calls `recordSourceAdequacy` with no browser gate, and prints "will no longer be requeued by the daily refresh" itself |
+| `CLI_WORKFLOW.md` understates `research:queue` | doc lines 61-63 say "the deterministic CitationPipeline"; `service.ts:640-684` runs secondary, XBRL, discovery and promotion first |
+| Staging is not atomic | two separate `.run()` calls, no `db.transaction()` — while `importThesisData` in the same file does use one |
+| Scheduled refresh contradicts V1 | `PRODUCT_STRATEGY.md:74` and `:276` defer background monitoring; `research:refresh` and `install-research-task.ps1` exist |
+| No CLI contract tests | 41 test files, none spawns a script subprocess |
+
+Astra's "data investasi asli tidak diubah" also holds: `db.sqlite` was last
+written `2026-09-04 16:05`, untouched by the audit.
+
+## Two findings none of the three reviews made
+
+**1. The snapshot split is not a risk. It already happened.**
+
+```
+../jp-invest-data/snapshots/          15 files    36 MB   <- CLI hardcodes here
+../jp-invest-data/source-snapshots/  107 files   270 MB   <- .env + web read here
+```
+
+`.env` sets `SOURCE_SNAPSHOT_DIR=../jp-invest-data/source-snapshots`, and the
+two CLI scripts ignore it. Fifteen documents' raw bytes have been stranded in
+an unread directory since 2026-08-08.
+
+**2. Source bytes have zero backup coverage.**
+
+A grep across `scripts/`, `db/` and `lib/` finds nothing that backs up either
+snapshot directory. `backupExistingDatabase` copies `db.sqlite` only. So
+**306 MB of source bytes across two directories has no backup at all** — not
+"a backup that loses the WAL tail", no backup.
+
+This lands on the one asset all three reviews praise as real: the immutable,
+content-addressed SourceSnapshot store. Immutability is worthless if the bytes
+are not preserved; the hashes in the DB would point at files that are gone,
+and every provenance claim in the product rests on those files. **This is now
+the most urgent item in the combined audit**, ahead of the WAL backup defect —
+the WAL bug loses the last transaction, this loses the entire evidence base.
+
+## One correction to Sol
+
+Sol writes that `research:queue` calling Tavily "explains the 61 requests from
+the earlier audit." The first half is right, the attribution is wrong: the
+project review states the source explicitly — the vitest suite and the
+Playwright E2E run, not `research:queue`, and there is no trace of
+`research:queue` having run on 2026-09-05. Same root cause
+(`discovery/factory.ts` ignores mode), different vector. **The patch belongs in
+the factory, not in the CLI script** — patching the script leaves the test
+suite leaking.
+
+## Three systemic patterns, none named by the reviews
+
+**1. Ship, green tests, zero real output.** Step 6 shipped in `a2f766f` with
+450 tests passing — and all 270 evidence rows read `assurance_level =
+unknown`. The IDX adapter made 67 HTTP 200 calls over two months and produced
+0 documents. Discovery is 0-for-65. One cause: `verify:full` validates code and
+`status:check` validates documents, and **nothing validates that a shipped
+feature produced any real output**. Cheaper to fix than 13 of the 14 findings.
+
+**2. Governing documents drift from code.** `ACTIVE_MILESTONE.md:5` and `:13`
+still say step 6 is open; `PRODUCT_STRATEGY.md:74` still defers background
+monitoring that ships today; `CLI_WORKFLOW.md:61` describes one lane where
+five run. For a project whose whole method is document-based governance, this
+is the method losing accuracy, not untidiness.
+
+**3. All three reviews propose a next priority that presumes the core works.**
+The report picks integrity hardening, Astra picks "one complete weekly review
+cycle", Sol picks the CLI vertical slice. Each is defensible in isolation and
+each runs on top of the same fact below.
+
+## The number that reframes all three reviews
+
+Live DB, read-only:
+
+```
+evidence polarity : inconclusive 270   (supports 0, contradicts 0)
+assurance_level   : unknown      270
+decisions         : 1 row, project lifetime
+research_jobs     : degraded 8, succeeded 6
+theses            : TLKM active, ISAT archived
+```
+
+Zero of 270. After thirteen milestones and two months of live operation the
+system has never once produced a directional judgment on a real thesis. Every
+other finding is scaffolding around a core that has not yet fired. A weekly
+cycle over this data reports "nothing evaluable" 100% of the time; a coherent
+CLI slice over it stays coherent and useless.
+
+## Agreed execution order (user approved 2026-09-05)
+
+1. **Copy both snapshot directories somewhere safe.** 306 MB, currently
+   unbacked. Before anything else.
+2. **Unify the snapshot directory.** Honour `SOURCE_SNAPSHOT_DIR` in
+   `research-queue.ts:38` and `research-retry.ts:79`; relocate the 15 orphans.
+3. **Close the mock leak in `discovery/factory.ts`** (not in the scripts), and
+   sync the three drifted documents.
+4. **`jp doctor`** — a preflight that also checks real output: snapshot
+   directory consistency, count of non-inconclusive rows, per-lane success.
+   Closes patterns 1 and 3.
+5. **Drive one TLKM assumption to `supports` or `contradicts` on real
+   documents.** If it cannot be done, that is a more valuable product finding
+   than the remaining thirteen items combined.
+6. Then backup/export/import, the CLI slice, and the weekly loop.
+
+Note on step 3: `discovery/factory.ts`'s doc comment argues that an empty key
+*is* the safe default in every environment including tests. That reasoning is
+now disproved by the 61 calls, so the fix overturns a documented M008 Slice 1
+decision — record it rather than editing quietly.
+
+## Open decision, not taken
+
+**Which categories of durable state the CLI may write without browser
+confirmation.** `AGENTS.md` rule 3 says all of it needs the browser;
+`source-adequacy:record` has been writing user calibration from flags since
+M013. In practice the gate held socially — the user chose the classes after
+reading three analyses — but not technically. Either tighten the code or widen
+the constitution explicitly. Both drifting apart unrecorded is the one option
+that is not acceptable. Options were offered and not yet requested.
+
 # Session Checkpoint - 2026-09-04 (step 6 shipped; M014 verified and found NOT complete)
 
 Two tracks run in parallel at the user's request: step 6 built in the main

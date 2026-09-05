@@ -8,8 +8,8 @@
 import './dotenv-quiet';
 import 'dotenv/config';
 
-import path from 'node:path';
 import { getDatabase } from '../db/client';
+import { getSnapshotDirectory } from '../lib/research/config';
 import { processResearchJobs } from '../lib/research/service';
 
 function parseArgs(args: string[]): { thesisId: string } {
@@ -26,7 +26,7 @@ function parseArgs(args: string[]): { thesisId: string } {
 
 async function main() {
   const { thesisId } = parseArgs(process.argv.slice(2));
-  const { db, dbPath } = getDatabase();
+  const { db } = getDatabase();
 
   const thesis = await db.query.theses.findFirst({
     where: (theses, { eq }) => eq(theses.id, thesisId),
@@ -35,7 +35,7 @@ async function main() {
   if (!thesis) throw new Error(`No thesis found with ID: ${thesisId}`);
   if (!thesis.conversationId) throw new Error('Thesis has no conversationId');
 
-  const snapshotDirectory = path.join(path.dirname(dbPath), 'snapshots');
+  const snapshotDirectory = getSnapshotDirectory();
   const result = await processResearchJobs(thesis.conversationId, { db, snapshotDirectory });
 
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

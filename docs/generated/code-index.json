@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "d2b962518c61474706b0d9a7ced7143f4e780dbffa0131334b6b1f34bd9a65af",
+  "sourceDigest": "9eead80b5756e72f1fa8ec55743e29337e71577d38c85615cecfe447b27ab84a",
   "roots": [
     "app",
     "components",
@@ -3155,6 +3155,14 @@
       "kind": "test",
       "imports": [
         {
+          "specifier": "@/lib/research/discovery-promotion",
+          "resolved": "lib/research/discovery-promotion.ts"
+        },
+        {
+          "specifier": "@/lib/research/discovery/factory",
+          "resolved": "lib/research/discovery/factory.ts"
+        },
+        {
           "specifier": "@/lib/research/discovery/google-news-rss",
           "resolved": "lib/research/discovery/google-news-rss.ts"
         },
@@ -4649,6 +4657,8 @@
     {
       "path": "tests/discovery-eval.test.ts",
       "productionModules": [
+        "lib/research/discovery-promotion.ts",
+        "lib/research/discovery/factory.ts",
         "lib/research/discovery/google-news-rss.ts",
         "lib/research/discovery/serper.ts",
         "lib/research/discovery/tavily.ts",

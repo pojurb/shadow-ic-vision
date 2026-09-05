@@ -22,10 +22,10 @@
 import './dotenv-quiet';
 import 'dotenv/config';
 
-import path from 'node:path';
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDatabase } from '../db/client';
 import { assumptions, researchJobs } from '../db/schema';
+import { getSnapshotDirectory } from '../lib/research/config';
 import { processResearchJobs, retryResearchJob } from '../lib/research/service';
 
 function parseArgs(args: string[]): { thesisId: string; jobId: string | null } {
@@ -46,7 +46,7 @@ function parseArgs(args: string[]): { thesisId: string; jobId: string | null } {
 
 async function main() {
   const { thesisId, jobId } = parseArgs(process.argv.slice(2));
-  const { db, dbPath } = getDatabase();
+  const { db } = getDatabase();
 
   const thesis = await db.query.theses.findFirst({
     where: (theses, { eq: equals }) => equals(theses.id, thesisId),
@@ -76,7 +76,7 @@ async function main() {
   }
 
   process.stdout.write(`\nProcessing ${eligible.length} job(s)…\n`);
-  const snapshotDirectory = path.join(path.dirname(dbPath), 'snapshots');
+  const snapshotDirectory = getSnapshotDirectory();
   const panel = await processResearchJobs(thesis.conversationId, { db, snapshotDirectory });
 
   process.stdout.write('\nResult:\n');

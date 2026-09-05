@@ -35,6 +35,14 @@ export type DiscoveryQuery = {
 
 export type DiscoveryErrorCode =
   | 'discovery_not_configured'
+  /**
+   * M015 step 3. Distinct from `discovery_not_configured` on purpose: "no key
+   * is set" and "mode says do not search" are different states, and collapsing
+   * them would hide exactly the off-vs-empty-vs-failed distinction the
+   * coverage/observability work depends on. A lane that is deliberately off
+   * must not read as a lane that found nothing.
+   */
+  | 'discovery_disabled_by_mode'
   | 'discovery_http_error'
   | 'discovery_rate_limited'
   | 'discovery_quota_exhausted'

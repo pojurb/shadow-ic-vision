@@ -7,7 +7,7 @@ import { buildClientsByOrigin } from './adapters/factory';
 import { isIssuerReleaseUrl } from './adapters/issuer-press';
 import { classifySecondaryDocument } from './secondary-document';
 import type { ResearchMarket, ResearchSourceMode, SourceSnapshot } from './adapters/types';
-import { getIssuerPressReleaseUrls, getNewsWireFeedUrls } from './config';
+import { getIssuerPressReleaseUrls, getNewsWireFeedUrls, getResearchSourceMode } from './config';
 import { extractSecondaryCandidates } from './extractors/candidate';
 import { extractDocument } from './extractors/document';
 import { applyAssumptionStatusGate, evidenceInsertValues } from './evidence-persistence';
@@ -29,8 +29,32 @@ export type PromotionClients = Record<string, PromotionClient>;
  * correctly. Built from the exact same `buildClientsByOrigin` helper (now
  * exported from `adapters/factory.ts`) Class A/B already use — not a
  * reimplementation of the domain-matching logic.
+ *
+ * **M015 step 3.** Mock mode builds no clients at all. Promotion's fetch is
+ * driven by `pending` rows read from the database, not by the discovery call
+ * that precedes it, so switching discovery off in mock mode did not switch
+ * this off: a candidate left pending by an earlier live run would still be
+ * fetched over the real network by a nominally offline run, against whatever
+ * origins `.env` allowlists. `sourceMode` was already threaded all the way
+ * down here but only ever recorded as snapshot metadata
+ * (`persistSourceSnapshot`) — never consulted as a control, the same mistake
+ * the discovery factory made with its API key.
+ *
+ * The gate belongs here rather than inside `promotePendingForAssumption`,
+ * because the hazard is *constructing a real network client*, not promoting
+ * as such: callers that inject their own offline `promotionClients` (every
+ * promotion test does) must keep exercising the full promote-and-classify
+ * path in mock mode. An empty map is also the behaviour this module already
+ * treats as the safe default — see `ServiceDependencies`' note that an empty
+ * allowlist "already exercises the 'everything gets rejected' path for free".
+ *
+ * The live database held zero pending candidates when this was found (2
+ * fetched, 77 rejected), so the leak had never actually fired — latent, not
+ * harmless.
  */
 export function buildPromotionClients(logPath: string): PromotionClients {
+  if (getResearchSourceMode() === 'mock') return {};
+
   const merged: PromotionClients = {};
   for (const [origin, client] of Object.entries(buildClientsByOrigin(getIssuerPressReleaseUrls(), logPath))) {
     merged[origin] = { client, sourceClass: 'issuer' };

@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { buildPromotionClients } from '@/lib/research/discovery-promotion';
+import { createDiscoveryProvider } from '@/lib/research/discovery/factory';
 import { GoogleNewsRssDiscoveryProvider } from '@/lib/research/discovery/google-news-rss';
 import { SerperDiscoveryProvider } from '@/lib/research/discovery/serper';
 import { TavilyDiscoveryProvider, toDiscoveryCandidateUrls } from '@/lib/research/discovery/tavily';
@@ -367,3 +369,54 @@ describe('Serper provider', () => {
   });
 });
 
+
+/*
+ * M015 step 3. The regression that made the 2026-09-05 audit spend 61 live
+ * Tavily calls from a suite that believed it was offline. The pre-fix factory
+ * treated an empty API key as the safety control, so a configured key — which
+ * `.env` supplies on the developer machine — defeated it regardless of
+ * `RESEARCH_SOURCE_MODE`. These assert the control is the mode, not the key.
+ */
+describe('M015: discovery honours source mode, not key presence', () => {
+  it('returns a disabled provider in mock mode even when a real key is configured', async () => {
+    vi.stubEnv('RESEARCH_SOURCE_MODE', 'mock');
+    vi.stubEnv('SEARCH_DISCOVERY_API_KEY', 'tvly-a-real-looking-key');
+
+    const provider = createDiscoveryProvider();
+    const result = await provider.search({ market: 'ID', ticker: 'TLKM', query: 'TLKM' });
+
+    expect(provider.providerId).toBe('disabled');
+    expect(result).toEqual({
+      kind: 'unavailable',
+      code: 'discovery_disabled_by_mode',
+      message: 'Discovery is disabled because RESEARCH_SOURCE_MODE is not live.',
+    });
+  });
+
+  it('still builds the live Tavily provider when mode is live', () => {
+    vi.stubEnv('RESEARCH_SOURCE_MODE', 'live');
+    vi.stubEnv('SEARCH_DISCOVERY_API_KEY', 'tvly-a-real-looking-key');
+
+    expect(createDiscoveryProvider().providerId).toBe('tavily');
+  });
+
+  /*
+   * The second, latent half. Promotion fetches `pending` rows read from the
+   * database, so switching discovery off does not switch promotion off — a
+   * candidate left pending by an earlier live run would still be fetched over
+   * the real network. The control is at client construction, not at promotion
+   * behaviour: callers injecting offline clients must keep working in mock
+   * mode, which is why the two `research-service` promotion tests still
+   * exercise the full path with `promotionClients` of their own.
+   */
+  it('builds no promotion HTTP clients in mock mode even when allowlists are configured', () => {
+    vi.stubEnv('ISSUER_PRESS_RELEASE_URLS', JSON.stringify({ TLKM: 'https://www.telkom.co.id/ir' }));
+    vi.stubEnv('NEWS_WIRE_FEED_URLS', JSON.stringify({ Reuters: 'https://feeds.reuters.com/business' }));
+
+    vi.stubEnv('RESEARCH_SOURCE_MODE', 'live');
+    expect(Object.keys(buildPromotionClients('logs/test.log')).length).toBeGreaterThan(0);
+
+    vi.stubEnv('RESEARCH_SOURCE_MODE', 'mock');
+    expect(buildPromotionClients('logs/test.log')).toEqual({});
+  });
+});

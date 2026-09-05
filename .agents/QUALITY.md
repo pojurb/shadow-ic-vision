@@ -120,6 +120,60 @@ When adding visual or multimodal document capabilities to an ingestion pipeline,
 
 Before placing production security, compliance, or provider sign-off tasks on a milestone roadmap, verify that the underlying deployment and persistence architecture (ADRs) already supports that deployment model. If the application is bound to a local-only contract, cloud/production compliance sign-offs must be preceded by a formal architecture amendment rather than scoped as standalone approvals.
 
+## SQLite WAL Backup And Restore Proof
+
+When SQLite may run in WAL mode, create backups through a database-aware
+snapshot mechanism such as SQLite's Online Backup API, or through an explicitly
+controlled checkpoint and copy procedure whose concurrency guarantees are
+known. A backup is not verified until a clean restore opens successfully and
+deterministic sentinel data committed before the backup is readable with its
+relationships intact.
+
+Do not infer backup completeness from file existence, copy success, file size,
+or the ability to open the copied main file. Apply this check to migration,
+maintenance, cleanup, restore, and disaster-recovery procedures. Logical
+exports with a deliberately narrower contract must be tested against their
+named contract instead.
+
+## Semantic Round-Trip Verification
+
+For logical export/import, schema migration, synchronization, and entity
+cloning, verify semantic equivalence at the domain boundary. Compare the
+relationships, provenance, user-owned classifications, version fields, and
+material derived results that the application shows or uses after restoration.
+When IDs are regenerated, remap and test every internal reference.
+
+Schema validity and row counts remain structural checks; they do not prove that
+the restored object retains the same coverage, assessment, or history. WAL
+specific database backup safety is governed by the SQLite backup guidance above.
+
+## Multi-Lane Run Outcomes
+
+When one command or worker orchestrates multiple independently failing lanes,
+record an explicit outcome for every enabled lane and define how those
+outcomes form the aggregate run state. Machine-readable and user-facing output
+must make partial execution diagnosable, including the distinction between
+attempted, succeeded, degraded, failed, unavailable, and skipped where those
+states have materially different meaning.
+
+Do not present a primary lane's `succeeded` status as proof that the entire
+orchestration succeeded. Retain a run identifier and enough per-lane metadata
+to diagnose partial results and retry only affected work. This guidance does
+not prescribe product-facing status vocabulary or require a soft-failure lane
+to change the primary job status without an explicit product decision.
+
+## Cross-Surface Workflow Handles
+
+Before accepting a workflow that crosses CLI, browser, API, or worker
+boundaries, prove that the artifact returned by each stage is directly accepted
+by the next stage. Prefer one stable user-facing handle. If entity creation
+changes the canonical internal ID, provide a deterministic resolver from the
+original handle and expose the relationship in human and machine-readable
+output.
+
+Verify the complete handoff with real surface boundaries. Service-level tests
+of individual stages do not establish that a user can complete the workflow.
+
 ## Document Extractor Threshold Isolation Across Web Sources
 
 When expanding document extraction from formal, dense report documents (SEC/IDX filings) to raw web HTML (press releases, news articles, search results), isolate extraction thresholds and HTML DOM cleaning:

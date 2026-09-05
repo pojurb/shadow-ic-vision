@@ -1,16 +1,76 @@
 # Active Milestone
 
-Status: `accepted` — **completed and signed off by user 2026-09-03.** Slice 5 completed: A6 settled as **(C)** and **Q4 closed**, so Q3–Q6 all carry explicit decisions and `AC-M013-04` is satisfied. A6's 8/31 reopening was resolved by reading the contract rather than the topic — the bar is **1,200 MW of firm PLN power**, and no MW figure in the corpus measures that (all nine are data-centre IT capacity or solar).
+Status: `accepted` — **M015 opened 2026-09-05, steps 1–3 done.** Three
+independent reviews of the repository (a full product audit, a CLI-specific
+audit, and a chat summary of the first) were verified directly against code
+and the live database on 2026-09-05; every checked finding held. Two things
+surfaced that none of the three reviews said: source bytes had zero backup
+coverage, and the live database has never once produced a directional verdict
+(270/270 evidence rows `inconclusive`). See
+[`docs/milestones/M015-data-integrity-and-verified-output-recovery.md`](docs/milestones/M015-data-integrity-and-verified-output-recovery.md)
+for the six-step Definition of Done and `SESSION_CHECKPOINT.md`'s 2026-09-05
+entry for the full verification record.
 
-**Post-sign-off roadmap, 2026-09-03→04, four of six steps done.** (1) sign-off, (2) two independent code fixes (`route.ts:71`'s stale non-US XBRL claim, `sec-xbrl.ts`'s amendment-form exclusion), (3) Q6 shipped and **applied to the live thesis** — A2/A5/A6 recorded `(C)` via `source_adequacy_assessments`, verified end-to-end against a real `research:refresh` run (their jobs untouched while A1/A3/A4 advanced normally), and a real coverage-disclosure bug found and fixed the same session (`ebe8f98`) — the panel now correctly reads **3 of 6 (50%), confidence gate suppressed**, naming all three closed assumptions, where it silently read 100%/open before. (4) Bounded IDX XBRL spike completed — real transport, real 2020-01-01 taxonomy, but **no segment dimension in the data at all** and **zero NeutraDC/divestment mentions** in either quarter checked, so A4's segment metric and A1's ownership specificity are not retrievable from XBRL regardless of adapter work. **User's decision, 2026-09-04: do not build the vertical slice (step 5).** Step 6 (audited/unaudited assurance metadata) is independent of the XBRL chain and still open — see `SESSION_CHECKPOINT.md`.
+**M013's post-sign-off roadmap (steps 1–4, 2026-09-03→04) is complete and
+superseded by M015** — its step 6 (assurance metadata) shipped 2026-09-04
+(`a2f766f`); its step 5 (IDX vertical slice) was declined by the user
+2026-09-04. Both are closed; M015 is the active packet.
 
-Active Packet: none. M013 closed 2026-09-03; the next milestone (M014, private-knowledge coverage expansion) is still `accepted`/dormant and has not been started — see `SESSION_CHECKPOINT.md` for the agreed next steps ahead of any new milestone.
+Active Packet: [`docs/milestones/M015-data-integrity-and-verified-output-recovery.md`](docs/milestones/M015-data-integrity-and-verified-output-recovery.md).
+M014 (private-knowledge coverage expansion) remains `accepted`/dormant,
+unchanged, and out of M015's scope — it resumes only after M015 closes.
 
 **Governance note (opened 2026-08-29, closed 2026-09-03):** Closed 2026-09-03: User provided explicit sign-off statement ("sign-off m013 dulu"). Both this file and the packet now record status `accepted` with all criteria met and verified.
 
 Latest Completed Packet: [`docs/milestones/M013-source-adequacy-and-official-path-recovery.md`](docs/milestones/M013-source-adequacy-and-official-path-recovery.md) (complete 2026-09-03; official-source path repaired and live-validated; per-assumption source adequacy classified)
 
-## Current Phase — M013 signed off and roadmap steps 1–4 complete; step 6 (assurance metadata) is the one open item
+## Current Phase — M015: data integrity and a first real verified outcome
+
+**Step 1 done**: both snapshot directories backed up and count-verified
+before any other change (`../jp-invest-data/backups/snapshots-backup-20260905T052656Z/`).
+
+**Step 2 done**: of 15 files in the stray `snapshots/` directory, 8 were
+migrated to the canonical `source-snapshots/` path with SHA-256 verified
+before move, after move, and against the updated `source_snapshots.storage_path`
+row, all inside one transaction per file. The remaining 7 are not misplaced —
+they are zero-byte files, the pre-existing M013 `pdfjs` buffer-detach defect,
+and carry **21 evidence rows on the live TLKM thesis** whose snapshot can no
+longer be re-verified against source bytes. **User decision, 2026-09-05: leave
+as-is** — a permanent, recorded gap in those 21 rows' re-verifiability, not a
+defect this packet leaves half-fixed. `research-queue.ts` and
+`research-retry.ts` now both resolve the snapshot directory through
+`getSnapshotDirectory()`, typechecked clean — the edit was briefly reverted
+mid-session by a concurrent terminal-agent session's `git stash` acting on the
+same working tree (confirmed by the user as their own session, now finished)
+and was re-applied from scratch once that session was done. `stash@{0}`
+("sync main before pull") is still present on disk and is deliberately not
+this packet's to touch.
+
+**Step 3 done**: the leak was two leaks. `createDiscoveryProvider()` now
+branches on `getResearchSourceMode()` before reading any credential — the same
+guard its three sibling factories already had, making discovery no longer the
+lone outlier — and returns an *off* provider reporting a new
+`discovery_disabled_by_mode` code, deliberately distinct from
+`discovery_not_configured` so "switched off" never reads as "found nothing".
+The second, previously unnamed leak: `buildPromotionClients()` built real HTTP
+clients in mock mode, and promotion fetches `pending` rows from the database
+rather than from the discovery call, so switching discovery off did not switch
+that off. Gated at client construction rather than at promotion behaviour, so
+callers injecting offline clients keep exercising the full path. That leak was
+latent — 0 pending candidates live — but the fail-first test proved it real:
+pre-fix, mock mode built **4 real HTTP clients** from configured allowlists.
+
+Verified against the real bar: full suite **and** the Playwright E2E run —
+both original leak sources — with the real key still in `.env` produced
+**zero `api.tavily.com` requests**. 453 tests pass (up from 450), typecheck /
+lint / build / E2E / context / status clean. The one Tavily line added all
+session was a single HTTP 401 from the fail-first run against pre-fix code —
+the defect demonstrating itself, with a stubbed fake key, so no credit was
+spent.
+
+**Step 4 (`jp doctor` preflight) is next.**
+
+### Superseded — the narrative below predates M015
 
 **Slice 5 completed 2026-09-02.** Two decisions closed it, both the user's.
 **A6 = (C)** — no public source identified for the current measurement contract;

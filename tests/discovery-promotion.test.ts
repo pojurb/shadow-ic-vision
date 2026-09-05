@@ -324,8 +324,17 @@ describe('M008 discovery-candidate promotion (DEC-0015 §3.2 domain gate)', () =
   it('buildPromotionClients tags issuer vs. news origins from their respective env-configured allowlists', () => {
     const previousIssuer = process.env.ISSUER_PRESS_RELEASE_URLS;
     const previousNews = process.env.NEWS_WIRE_FEED_URLS;
+    const previousMode = process.env.RESEARCH_SOURCE_MODE;
     process.env.ISSUER_PRESS_RELEASE_URLS = JSON.stringify({ BBRI: 'https://ir.bri.co.id/press' });
     process.env.NEWS_WIRE_FEED_URLS = JSON.stringify({ Reuters: 'https://www.reuters.com/feed' });
+    /*
+     * M015 step 3. This asserts how clients are *tagged* once built, which is
+     * a live-mode concern: `buildPromotionClients` now returns an empty map in
+     * mock mode so a nominally offline run can never construct a real network
+     * client. The suite runs in mock mode by default, so the live intent has
+     * to be stated here rather than inherited.
+     */
+    process.env.RESEARCH_SOURCE_MODE = 'live';
     try {
       const clients = buildPromotionClients(path.join(directory, 'outbound.log'));
       expect(clients['https://ir.bri.co.id']?.sourceClass).toBe('issuer');
@@ -333,6 +342,7 @@ describe('M008 discovery-candidate promotion (DEC-0015 §3.2 domain gate)', () =
     } finally {
       process.env.ISSUER_PRESS_RELEASE_URLS = previousIssuer;
       process.env.NEWS_WIRE_FEED_URLS = previousNews;
+      process.env.RESEARCH_SOURCE_MODE = previousMode;
     }
   });
 });
