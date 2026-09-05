@@ -139,6 +139,59 @@ added, `doctor` behaviour unchanged and still outside `verify:full`.
 defect. **A4** is: the one assumption M013 classified (A), whose contract asks
 for a segment YoY differential TLKM's filings do publish.
 
+## New standing workflow rule, same day
+
+**"mulai detik ini sampai seterusnya gw mau ada rules harus bikin plan dulu,
+sebelum eksekusi, karena gw mau ngejar efisiensi model."** From 2026-09-05
+onward: present a plan and wait for the user's go-ahead before executing. The
+motivation is model/token efficiency — a plan reviewed before execution is the
+cheapest place to cut scope. Read-only investigation needed to *build* a sound
+plan is fine without approval, kept proportionate. This amends the earlier
+"derive the sequence and start" rule rather than reversing it: deriving the
+order is still the assistant's job and a bare menu is still not an acceptable
+hand-back, but execution now waits. Recorded in the assistant's persistent
+memory, not in this repository's governance documents, since it is a working
+preference rather than a product contract.
+
+## Step 6 planned; 6a prepared, not started
+
+Step 6 was broken into three independently committable chunks, ordered by
+dependency rather than by size:
+
+- **6a — WAL-safe backup** (`db/client.ts:32-39`). First, because 6b and 6c
+  both write to the live database and a correct backup is their prerequisite.
+- **6b — export/import round-trip.** Three leaks re-verified this session:
+  `exportThesisData` never reads `sourceAdequacyAssessments`; the evidence field
+  list at `service.ts:1226-1246` omits `assuranceLevel`; `service.ts:1367` mints
+  a fresh `randomUUID()` per evidence row while `service.ts:1405` writes
+  `evidenceIds` verbatim, so decision→evidence linkage breaks on import.
+- **6c — CLI slice.** `thesis:stage` prints no thesis id but `research:queue`
+  requires `--thesis-id`; staging is two `.run()` calls with no transaction;
+  `CLI_WORKFLOW.md` describes one lane where five run.
+
+**6a's execution prompt is written and committed** at
+[`docs/drafts/m015-step6a-wal-safe-backup-prompt.md`](docs/drafts/m015-step6a-wal-safe-backup-prompt.md).
+It carries the constraint that decides the fix: `backupExistingDatabase` is
+synchronous and runs *before* the connection is opened, so
+`better-sqlite3`'s `db.backup()` — the obvious choice — is async and would
+force `getDatabase()` async across every server caller. `VACUUM INTO` is put
+forward as the candidate to evaluate (synchronous, consistent, read-only with
+respect to the source), explicitly to verify rather than assume. The prompt
+also fixes a reading that would otherwise invert the fix: AC-M015-07's
+"in-flight transaction" means **committed but not yet checkpointed** — an
+uncommitted transaction must *not* survive into the restored copy.
+
+**Not started, by the new rule.** Awaiting go-ahead.
+
+## Push blocked, not failed
+
+`git push origin main` was **denied by the auto-mode permission classifier**,
+not by git. Three commits remain unpushed: `e1e87c1`, `9375a66`, `d184f70`.
+Contents were verified safe to publish first — 8 files, all docs plus
+`scripts/doctor.ts`, `tests/doctor.test.ts` and `playwright.config.ts`, with no
+`.env`, `.sqlite`, snapshot, `private/` or `logs/` path among them. No
+workaround was attempted; the user runs the push or grants the permission.
+
 ---
 
 # Session Checkpoint - 2026-09-05 (M015 step 4: `npm run doctor` implemented and verified live)
