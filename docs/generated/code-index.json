@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "83799b37146d10dcdcde94b6cd4b4e1fb99e5f36cab3414f9850aa94be7d4603",
+  "sourceDigest": "f5e0a7d241f07448f8030f3b813c50781bfcdcefa45c9681bad62af3bef8078d",
   "roots": [
     "app",
     "components",
@@ -669,6 +669,7 @@
       "exports": [
         "AppDatabase",
         "DatabaseHandle",
+        "backupExistingDatabase",
         "createDatabase",
         "getDatabase",
         "resolveDatabasePath"
@@ -3085,6 +3086,37 @@
       "exports": []
     },
     {
+      "path": "tests/db-client-backup.test.ts",
+      "kind": "test",
+      "imports": [
+        {
+          "specifier": "@/db/client",
+          "resolved": "db/client.ts"
+        },
+        {
+          "specifier": "@/db/schema",
+          "resolved": "db/schema.ts"
+        },
+        {
+          "specifier": "node:fs",
+          "resolved": null
+        },
+        {
+          "specifier": "node:os",
+          "resolved": null
+        },
+        {
+          "specifier": "node:path",
+          "resolved": null
+        },
+        {
+          "specifier": "vitest",
+          "resolved": null
+        }
+      ],
+      "exports": []
+    },
+    {
       "path": "tests/decisions.test.ts",
       "kind": "test",
       "imports": [
@@ -4677,6 +4709,13 @@
       "path": "tests/cron-auth.test.ts",
       "productionModules": [
         "app/api/internal/research/cron/route.ts"
+      ]
+    },
+    {
+      "path": "tests/db-client-backup.test.ts",
+      "productionModules": [
+        "db/client.ts",
+        "db/schema.ts"
       ]
     },
     {

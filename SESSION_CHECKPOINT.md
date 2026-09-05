@@ -1,3 +1,112 @@
+# Session Checkpoint - 2026-09-05 (M015 step 6a: WAL-safe backup implemented and verified)
+
+Executed the prompt in `docs/drafts/m015-step6a-wal-safe-backup-prompt.md`
+after the user's explicit go-ahead (the standing plan-first rule below was
+followed: investigation and a plan were presented first, execution began only
+after the user answered "Implement 6a now").
+
+## The defect, reproduced live before any code changed
+
+With a fresh temp-directory database, `journal_mode = WAL` and
+`wal_autocheckpoint = 0`, a `CREATE TABLE` + a committed `INSERT` left
+`<db>-wal` non-empty (12,392 bytes measured directly). Copying only the main
+file — the old `backupExistingDatabase`'s `fs.copyFileSync` — produced a
+backup where `SELECT * FROM t` failed with `no such table: theses`: the
+schema itself existed only in the WAL. This is worse than "loses the most
+recent rows" — it can lose the whole database.
+
+## The fix and why the other two candidates were rejected
+
+`VACUUM INTO`, run from a dedicated connection opened `{ readonly: true }`,
+at the existing call site in `db/client.ts` (before the app's own connection
+is created). Verified directly, not assumed:
+
+- SQLite 3.53.2 (via better-sqlite3 12.11.1) — comfortably above the 3.27
+  minimum `VACUUM INTO` requires.
+- Captures committed-but-not-yet-checkpointed rows (the WAL-loss case above).
+- **Correctly excludes a still-open, uncommitted write transaction** held by
+  a *different* live connection — proven with two concurrent connections: one
+  holds `BEGIN IMMEDIATE` with an uncommitted insert, the other runs
+  `VACUUM INTO`, and the uncommitted row is absent from the result. This is
+  the exact committed-vs-uncommitted distinction the packet's AC-M015-07 text
+  requires and warns against inverting.
+- Passes `PRAGMA integrity_check` on the output.
+- Leaves the source's WAL file and `journal_mode` completely unchanged
+  afterward — confirmed by measuring both before and after.
+- Succeeds even when the connection running it is opened `readonly: true` —
+  so the fix is structurally read-only with respect to the source, not
+  merely "shouldn't write to it" by convention.
+- Fully synchronous — no ripple to `getDatabase()`/`createDatabase()`.
+
+`db.backup()` was rejected because it returns a `Promise` and
+`backupExistingDatabase` runs inside the synchronous `createDatabase` that
+`getDatabase()` — used throughout the server — depends on; making it async
+would force every caller to become async. `wal_checkpoint(TRUNCATE)` +
+`copyFileSync` was rejected because it writes to the source database before
+copying it, which is a backup routine mutating the thing it backs up — the
+opposite of what `VACUUM INTO` proved capable of.
+
+## Fail-first proof, `tests/db-client-backup.test.ts`
+
+Two cases, both run against the old `copyFileSync` code first (both failed —
+`no such table: theses` in case 1, `backupExistingDatabase is not a function`
+in case 2 until it was exported) and again after the fix (both passed):
+
+1. Committed rows across `theses`/`assumptions`/`assumption_measurements`/
+   `source_snapshots`/`evidence`, present only in a forced non-empty WAL,
+   restore with row counts matching the source and a clean
+   `integrity_check`.
+2. A row inserted inside a still-open, uncommitted transaction on the live
+   connection is excluded from a backup taken concurrently by a second
+   connection.
+
+`backupExistingDatabase` was module-private; exported so tests can call it
+directly rather than going through the full `createDatabase`/migration path.
+No other export or signature changed.
+
+## Verification
+
+- `npm run typecheck` / `npm run lint`: clean.
+- `npm test`: **481 passed, 3 skipped** (up from 453 at step 3's close — the
+  delta also includes step 4's `doctor` tests, committed by a concurrent
+  session between this session's start and this work).
+- `npm run build`: clean. `npm run test:e2e`: **7/7** pass.
+- `npm run context:check` initially reported the generated index stale (the
+  new `backupExistingDatabase` export); `npm run context:generate` then
+  `context:check`/`status:check`: clean.
+- `npm run doctor -- --json` before and after this work: identical except
+  `generatedAt` — exit 1 (the accepted XBRL Tier B failure, unchanged),
+  Tier A/B/C figures unchanged.
+- `logs/outbound.log`: `api.tavily.com` count unchanged at **3,155** before
+  and after (this step touches no network path). Total line count grew from
+  5,209 to 5,223 over the session from pre-existing, unrelated
+  `tests/ollama-provider.test.ts` synthetic-fixture logging that occurs on
+  every full-suite run — confirmed by inspecting the new lines directly
+  (`dataClass: synthetic_fixture`, `route: tests.ollama-provider`), not
+  caused by this change.
+- No live-database access anywhere in this work: every test runs against an
+  `fs.mkdtempSync` temp directory. `next-env.d.ts`'s build-regenerated diff
+  was restored to HEAD (`git restore --worktree`), not committed.
+
+## State left uncommitted, by instruction
+
+Per this repository's "only commit when the user asks" rule, three files are
+modified/added and **not committed**: `db/client.ts`, regenerated
+`docs/generated/code-index.json`, and new `tests/db-client-backup.test.ts`.
+`git push origin main` also remains pending from earlier this session (4
+local commits ahead of `origin/main`; the user was asked for go-ahead and the
+conversation moved to this prompt instead of answering) — unrelated to this
+work and still the user's call.
+
+## AC-M015-07, updated
+
+**Partially met.** The backup half (6a) is done, verified as above. The
+export/import half (6b — `sourceAdequacyAssessments`, `assuranceLevel`, and
+decision-evidence-ID remapping on import) has not been started. 6c (CLI
+slice) has not been started either.
+
+---
+
 # Session Checkpoint - 2026-09-05 (M015 step 5: A1 attempted, recorded as a genuine failed attempt)
 
 No code changed. No database write. No network call. The live database is

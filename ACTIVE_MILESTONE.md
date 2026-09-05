@@ -1,6 +1,6 @@
 # Active Milestone
 
-Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open.**
+Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open (6a done, 6b/6c not started).**
 Three independent reviews of the repository (a full product audit, a
 CLI-specific audit, and a chat summary of the first) were verified directly
 against code and the live database on 2026-09-05; every checked finding held.
@@ -161,6 +161,38 @@ only periodic financial reports, so the *"Transaksi Material"* announcement
 M013 named as A1's source is filtered out before its attachment is seen —
 load-bearing on the day the transaction closes, irrelevant before it. Full
 candidate matrix and hashes in the packet §4 step 5.
+
+**Step 6a done, 2026-09-05 — `backupExistingDatabase` (`db/client.ts`) is now
+WAL-consistent.** The defect was reproduced live before any code changed:
+under WAL with auto-checkpoint disabled, a `CREATE TABLE` + committed `INSERT`
+left the WAL file non-empty (12,392 bytes), and copying only the main file
+(the old `fs.copyFileSync`) produced a backup that could not even run
+`SELECT * FROM t` — the schema itself existed only in the WAL. The fix is
+`VACUUM INTO`, run from a dedicated `{ readonly: true }` connection opened at
+the same call site, before the app's own connection exists. Verified directly,
+not assumed: it captures committed-but-uncheckpointed rows; it correctly
+*excludes* a still-open, uncommitted write transaction on a separate live
+connection (proven with two concurrent connections, one holding an open
+`BEGIN IMMEDIATE`); it passes `PRAGMA integrity_check`; and it leaves the
+source's WAL file and `journal_mode` completely untouched. SQLite 3.53.2
+(via better-sqlite3 12.11.1) comfortably clears the 3.27 minimum `VACUUM INTO`
+requires. `db.backup()` (async — would force `getDatabase()` async across
+every server caller) and `wal_checkpoint(TRUNCATE)` + `copyFileSync` (writes
+to the source being backed up) were both rejected on the same evidence. No
+signature change to `getDatabase()`/`createDatabase()`. Fail-first proof in
+`tests/db-client-backup.test.ts`: both new cases fail against the old
+`copyFileSync` code (`no such table: theses` — total data loss, not partial)
+and pass against `VACUUM INTO`. Full suite 481 passed / 3 skipped (up from
+453 at step 3's close), typecheck/lint/build/`test:e2e` (7/7) clean,
+`context:check`/`status:check` clean after regenerating the stale index for
+the new `backupExistingDatabase` export. `npm run doctor --json` before and
+after is identical except `generatedAt` (exit 1, the accepted XBRL Tier B
+failure, unchanged) and `logs/outbound.log`'s `api.tavily.com` count is
+unchanged at 3,155 — this step touches no network path. No live-database
+access anywhere in this work; every test runs against a `fs.mkdtempSync` temp
+directory. **AC-M015-07 stays partially met**: the backup half is done; 6b
+(export/import round-trip: `sourceAdequacyAssessments`, `assuranceLevel`, and
+decision-evidence-ID remapping) has not been started.
 
 ### Superseded — the narrative below predates M015
 

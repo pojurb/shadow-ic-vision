@@ -29,13 +29,28 @@ export function resolveDatabasePath() {
   );
 }
 
-function backupExistingDatabase(dbPath: string) {
+export function backupExistingDatabase(dbPath: string) {
   if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) return;
 
   const backupDirectory = path.join(path.dirname(dbPath), 'backups');
   fs.mkdirSync(backupDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  fs.copyFileSync(dbPath, path.join(backupDirectory, `db-before-migrate-${timestamp}.sqlite`));
+  const backupPath = path.join(backupDirectory, `db-before-migrate-${timestamp}.sqlite`);
+
+  // `fs.copyFileSync` only ever copied the main file. In WAL mode (set below,
+  // on every connection this module opens), committed-but-not-yet-checkpointed
+  // data lives in `<dbPath>-wal` and such a copy silently lost it — up to and
+  // including the schema itself. `VACUUM INTO`, run from a dedicated read-only
+  // connection, reads the current committed snapshot (correctly excluding any
+  // other connection's still-open, uncommitted transaction) and writes a
+  // complete, checkpointed copy without touching the source at all.
+  const source = new Database(dbPath, { readonly: true, fileMustExist: true });
+  try {
+    source.pragma('busy_timeout = 5000');
+    source.prepare('VACUUM INTO ?').run(backupPath);
+  } finally {
+    source.close();
+  }
 }
 
 export function createDatabase(dbPath: string, runMigrations = true): DatabaseHandle {

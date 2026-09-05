@@ -1,8 +1,9 @@
 # M015: Data Integrity & Verified-Output Recovery
 
-Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 next. Step 5 is done
-as a recorded failed attempt: A1 cannot be settled because the transaction it
-measures has not closed. Non-inconclusive evidence remains 0.
+Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 open (6a done, 6b/6c
+not started). Step 5 is done as a recorded failed attempt: A1 cannot be
+settled because the transaction it measures has not closed. Non-inconclusive
+evidence remains 0.
 
 Date drafted: 2026-09-05
 
@@ -472,21 +473,96 @@ calls. No backup was required because no mutation was attempted.
 
 ### Step 6 — Backup, export/import, and the CLI slice
 
-**Not started**, and deliberately last. Covers the WAL-unsafe backup
-(`db/client.ts`), export/import losing `source_adequacy_assessments` and
-`assuranceLevel` and not remapping decision evidence IDs on import, and Sol's
-CLI findings not already covered above: the broken `thesis:stage` →
-`research:queue` handoff (no thesis ID printed — use the conversation URL as
-the stable handle, per Sol's recommendation), `source-adequacy:record`
-writing durable state from CLI flags with no browser gate, non-atomic
-staging, and `CLI_WORKFLOW.md`'s understated description of `research:queue`.
+Covers the WAL-unsafe backup (`db/client.ts`), export/import losing
+`source_adequacy_assessments` and `assuranceLevel` and not remapping decision
+evidence IDs on import, and Sol's CLI findings not already covered above: the
+broken `thesis:stage` → `research:queue` handoff (no thesis ID printed — use
+the conversation URL as the stable handle, per Sol's recommendation),
+`source-adequacy:record` writing durable state from CLI flags with no browser
+gate, non-atomic staging, and `CLI_WORKFLOW.md`'s understated description of
+`research:queue`. Split into three independently committable chunks; 6a is
+done, 6b/6c are not started.
 
-**Definition of done:** a database backed up mid-write (WAL non-empty)
-restores with the in-flight transaction intact, verified by restoring to a
-separate path and reading it — not by inspecting the backup file's existence.
-An exported-then-imported thesis preserves adequacy, assurance, and decision-
-evidence linkage, verified by comparing the coverage ledger and verdict before
-export and after import, not by field-count alone.
+#### 6a — WAL-safe backup
+
+**Done, 2026-09-05.** `backupExistingDatabase` (`db/client.ts`) previously
+used `fs.copyFileSync`, which copies only the main database file. Reproduced
+live before any change: with `journal_mode = WAL` and `wal_autocheckpoint = 0`,
+a `CREATE TABLE` + committed `INSERT` left `<db>-wal` non-empty (12,392 bytes),
+and copying only the main file produced a backup where `SELECT * FROM t`
+failed outright — the schema itself lived only in the WAL. This is a stronger
+failure than "loses recent rows": it can lose the whole database.
+
+**Fix: `VACUUM INTO`, run from a dedicated `{ readonly: true }` connection**,
+opened at the same call site (`db/client.ts`, before the app's own connection
+is created). Chosen over the other two candidates the prompt named, on
+measured evidence rather than the prompt's own reasoning alone:
+
+- `better-sqlite3`'s `db.backup()` — rejected: it returns a `Promise`, and
+  `backupExistingDatabase` runs inside the synchronous `createDatabase` that
+  `getDatabase()` (used throughout the server) depends on; making it async
+  would ripple across every caller.
+- `wal_checkpoint(TRUNCATE)` + `copyFileSync` — rejected: it writes to the
+  *source* database before copying it, which is a backup routine mutating the
+  thing it backs up.
+- `VACUUM INTO` — verified live, not assumed: SQLite 3.53.2 (via
+  better-sqlite3 12.11.1) clears the 3.27 minimum comfortably; run from a
+  second, independent connection it captures committed-but-uncheckpointed
+  rows and correctly **excludes** a still-open, uncommitted write transaction
+  held by a different live connection (proven with two concurrent
+  connections — one holds `BEGIN IMMEDIATE` with an uncommitted insert while
+  the other runs `VACUUM INTO`, and the uncommitted row is absent from the
+  result); the output passes `PRAGMA integrity_check`; the source's WAL file
+  and `journal_mode` are unchanged afterward; and it works even when the
+  connection performing it is opened `readonly: true`, so the fix is
+  structurally read-only with respect to the source, not merely read-only by
+  convention. Fully synchronous — no signature change to
+  `getDatabase()`/`createDatabase()`.
+
+**Fail-first proof**, `tests/db-client-backup.test.ts` (two cases): (1) a
+committed row across `theses`/`assumptions`/`assumption_measurements`/
+`source_snapshots`/`evidence`, present only in a forced non-empty WAL,
+restores with matching row counts and a clean `integrity_check` — fails
+against the old `copyFileSync` code with `no such table: theses` (confirming
+the live reproduction above, not merely a partial-loss case), passes against
+`VACUUM INTO`. (2) a row inserted inside a still-open `BEGIN IMMEDIATE` on the
+live connection is absent from a backup taken concurrently by a second
+connection — this is a correctness property of the new mechanism (MVCC/
+snapshot isolation), not a second regression case, since the old
+`copyFileSync` code loses everything in this scenario regardless.
+
+**Verified**: full suite 481 passed / 3 skipped (up from 453 at step 3's
+close — the delta also includes step 4's `doctor` tests), typecheck/lint/
+build/`test:e2e` (7/7) clean, `context:check`/`status:check` clean after
+regenerating the code index for the new `backupExistingDatabase` export (it
+was module-private; now exported so tests can call it directly rather than
+going through the whole migration path). `npm run doctor --json` before and
+after this work is identical except `generatedAt` — exit 1 (the accepted XBRL
+Tier B failure), Tier A/B/C figures unchanged. `logs/outbound.log`'s
+`api.tavily.com` count is unchanged at 3,155 (this step touches no network
+path; the log's total line count grew from pre-existing, unrelated
+`tests/ollama-provider.test.ts` synthetic-fixture logging that occurs on
+every full-suite run). No live-database access anywhere: every test runs
+against an `fs.mkdtempSync` temp directory.
+
+#### 6b — export/import round-trip
+
+**Not started.**
+
+#### 6c — CLI slice
+
+**Not started.**
+
+**Definition of done for the whole step:** a database backed up mid-write
+(WAL non-empty) restores with the in-flight transaction intact, verified by
+restoring to a separate path and reading it — not by inspecting the backup
+file's existence. **Met by 6a, 2026-09-05**, with the added, deliberate
+clarification that "in-flight" means *committed but not yet checkpointed*; a
+genuinely uncommitted transaction must not (and does not) survive into the
+restored copy. An exported-then-imported thesis preserves adequacy,
+assurance, and decision-evidence linkage, verified by comparing the coverage
+ledger and verdict before export and after import, not by field-count alone —
+**not yet met**, this is 6b.
 
 ## 5. Acceptance criteria
 
@@ -522,7 +598,10 @@ export and after import, not by field-count alone.
 - **AC-M015-07** — Backup survives a WAL-active restore, verified by restoring
   to a separate path; export → import round-trips adequacy, assurance, and
   decision-evidence linkage, verified by before/after coverage-ledger and
-  verdict comparison. **Not met.**
+  verdict comparison. **Partially met, 2026-09-05** — the backup half (6a) is
+  met: `backupExistingDatabase` now uses `VACUUM INTO`, verified by restoring
+  to a separate path and reading it, including the committed-vs-uncommitted
+  distinction (§4 step 6a). The export/import half (6b) is **not met**.
 - **AC-M015-08** — `CLI_WORKFLOW.md` accurately describes what `research:queue`
   runs, and the `thesis:stage` → `research:queue` handoff does not require a
   value the first command never prints. **Not met.**
