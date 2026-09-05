@@ -3,8 +3,20 @@
 Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open —
 6a and 6b done and committed (`30c36c0`, `0b69574`), 6c not started.
 AC-M015-07 is now fully met; only 6c stands between M015 and closure.**
-`0b69574` is local, not yet pushed — `origin/main` is still at `daa54b9`
-(2026-09-05), which carries steps 1–5 and 6a.
+**6c is specified and ready** in
+[`docs/drafts/m015-step6c-cli-slice-prompt.md`](docs/drafts/m015-step6c-cli-slice-prompt.md),
+and it carries a **user decision made 2026-09-05**: `source-adequacy:record`
+keeps its CLI write, but the row is marked **not yet confirmed** until the
+user confirms it in the browser — Constitution rule 3 honoured without
+losing the terminal flow. That needs a migration, and every adequacy reader
+must distinguish the two states, or the violation simply moves one layer
+down while looking fixed. The prompt also flags the interaction that is easy
+to miss: 6b just added `sourceAdequacy` to the export schema, so a new
+confirmation column that is not added there too would be silently dropped on
+every round trip — reintroducing the exact class of bug 6b existed to fix,
+in the same table 6b just repaired.
+Pushed — `origin/main` is at `8739da3` (2026-09-05), carrying steps 1–5,
+6a and 6b.
 Three independent reviews of the repository (a full product audit, a
 CLI-specific audit, and a chat summary of the first) were verified directly
 against code and the live database on 2026-09-05; every checked finding held.
@@ -205,7 +217,7 @@ session's stated results are not evidence until re-checked. The 481/3 suite
 result, typecheck, lint, `context:check`, `status:check`, the untouched live
 database, and the two test cases were all confirmed directly.
 
-**6b done, 2026-09-05 (`0b69574`, local, not yet pushed).** The prompt
+**6b done, 2026-09-05 (`0b69574`, pushed).** The prompt
 ([`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](docs/drafts/m015-step6b-export-import-roundtrip-prompt.md),
 `4baf2f9`) corrected the incoming report on a point that changed the fix:
 "remap decision evidence IDs on import" could not be written against the code

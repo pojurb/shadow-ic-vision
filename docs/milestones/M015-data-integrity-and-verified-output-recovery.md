@@ -669,7 +669,30 @@ change runs against an `fs.mkdtempSync` temp SQLite file.
 
 #### 6c — CLI slice
 
-**Not started.**
+**Not started; specified and ready.** Execution prompt:
+[`docs/drafts/m015-step6c-cli-slice-prompt.md`](../drafts/m015-step6c-cli-slice-prompt.md).
+Four items: the `thesis:stage` → `research:queue` handoff (stage prints no
+thesis id because no thesis exists until the browser confirm, which is the
+real constraint any fix must respect); non-atomic staging; the
+`source-adequacy:record` browser gate; and `CLI_WORKFLOW.md` describing one
+lane where `processResearchJobs` runs five.
+
+**User decision, 2026-09-05, on the rule-3 gate:** `source-adequacy:record`
+keeps writing from the CLI, but the row is marked **not yet confirmed**
+until confirmed in the browser. The two rejected options were a
+browser-confirm URL like `thesis:stage` (most literal compliance, one manual
+step per record) and recording a deliberate permanent exception (zero
+effort, a written hole in the constitution). Consequences the prompt carries
+into implementation: a migration is required; every adequacy reader must
+distinguish confirmed from unconfirmed or the violation moves one layer down
+while appearing fixed; rows predating the column have never passed a browser
+gate, so the default should fail toward *less* confirmation, mirroring
+`assurance_level`'s `'unknown'`-never-`'audited'` posture; and the new field
+must join the export/import path 6b just built, or it is silently dropped on
+every round trip.
+
+AC-M015-08 is the criterion 6c closes; with it, all eight are addressed and
+M015 can be put to the user for sign-off.
 
 **Definition of done for the whole step:** a database backed up mid-write
 (WAL non-empty) restores with the in-flight transaction intact, verified by

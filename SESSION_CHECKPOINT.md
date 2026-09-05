@@ -1,3 +1,96 @@
+# Session Checkpoint - 2026-09-05 (6b independently verified; 6c specified with the rule-3 decision made)
+
+A verification-and-planning session. No implementation: 6b arrived from another
+session as a completion report, and this session's job was to check it against
+reality, correct what did not hold, and specify 6c.
+
+## 6b verified — every technical claim held
+
+| Claim | Result |
+|---|---|
+| 485 passed / 3 skipped (up from 481/3) | **Confirmed independently** |
+| 276 evidence rows / 108 distinct `document_hash` | Confirmed exactly |
+| 269 distinct `(document_hash, content)` pairs, one quote 4× | Confirmed exactly |
+| doctor `tierA` + `tierC` | **Byte-identical** to the post-step-5 baseline |
+| `api.tavily.com` count unchanged | Confirmed, 3,155 |
+| Live database untouched | Confirmed, `db.sqlite` mtime `2026-09-05 13:40` |
+
+The corpus figures matter because they are what justified rejecting the
+alternatives: matching evidence on `documentHash` alone collapses 276 rows onto
+108 hashes, and even `documentHash` + quote yields only 269 distinct pairs with
+one quote repeated four times. The 6b prompt had flagged that approach as
+"likely ambiguous"; the implementing session measured it and proved it.
+
+The implementation honours both traps the prompt pinned down — unresolvable
+`evidenceIds` are preserved via `?? id` rather than dropped, and `version`
+stays `z.literal(1)` with `.optional()`/`.default()` for the new fields. It
+also caught something the prompt did **not** anticipate: the exported
+`evidence.id` is deliberately *not* reused verbatim on import, because that
+collides when importing into the same database the export came from — which is
+exactly what the round-trip tests do. A fresh id is minted and
+`oldToNewEvidenceId` carries the linkage.
+
+## One claim that did not hold: "local, not pushed"
+
+Both 6b commits were **already on the remote**. Verified against the real
+remote with `git fetch`, not the local tracking ref: `origin/main` ==
+`HEAD` == `8739da3`.
+
+The claim had also been written into three places in the committed
+documentation — `ACTIVE_MILESTONE.md` twice and this file's previous entry once
+— so `8739da3`, the docs commit asserting "not yet pushed", was itself pushed.
+Corrected in all three, with the previous entry's correction left visible
+rather than silently rewritten. This is the "governing documents drift from
+code" pattern this project named in its own 2026-09-05 review, caught one
+session later.
+
+## 6c specified, and its one reserved decision is now made
+
+Prompt: [`docs/drafts/m015-step6c-cli-slice-prompt.md`](docs/drafts/m015-step6c-cli-slice-prompt.md).
+
+**User decision, 2026-09-05:** `source-adequacy:record` keeps writing from the
+CLI, but the row is marked **not yet confirmed** until confirmed in the
+browser. Rejected: a browser-confirm URL like `thesis:stage` (most literal
+rule-3 compliance, but one manual step per record), and recording a permanent
+written exception (zero effort, a hole in the constitution).
+
+Put to the user before writing the prompt rather than mid-implementation,
+specifically so the 6c session is not blocked halfway through by a decision
+that is not its to make.
+
+Three consequences the prompt carries into implementation, none of them
+optional:
+
+- A migration is required, and migrations here are preceded by a database
+  backup — now WAL-safe thanks to 6a.
+- **Every** adequacy reader must distinguish confirmed from unconfirmed. If any
+  reader treats them alike, rule 3's violation simply moves one layer down
+  while appearing fixed.
+- **The new field must join the export/import path 6b just built.** Adding a
+  confirmation column to `source_adequacy_assessments` without adding it to
+  `thesisExportSchema` would silently drop it on every round trip —
+  reintroducing the exact class of bug 6b existed to fix, in the same table 6b
+  just repaired. This is the easiest thing in 6c to miss and the most expensive
+  to miss.
+
+## State
+
+- `origin/main` at `8739da3` before this session's own docs commit; working
+  tree otherwise clean.
+- **AC-M015-07 fully met.** AC-M015-08 is the last one open; 6c closes it.
+- Live database untouched this session. `logs/outbound.log`: Tavily unchanged
+  at 3,155 (total line count grew only from the full-suite run's pre-existing
+  `ollama-provider` synthetic-fixture logging).
+- After 6c, M015 is complete — but **closing it is a governance act**, to be put
+  to the user for sign-off the way M013 was, not declared unilaterally.
+- Two things must outlive the packet: **source bytes still have no automated
+  backup** (6a fixed the *database* backup only; the 306 MB snapshot corpus was
+  copied by hand once in step 1), and **the pipeline has still never produced a
+  directional verdict** — next real attempt starts from **A4**, not A1, whose
+  blocker is a calendar.
+
+---
+
 # Session Checkpoint - 2026-09-05 (M015 step 6b implemented and verified: export/import round-trip closes AC-M015-07)
 
 An implementation session, following the plan-first standing rule agreed at
@@ -66,15 +159,22 @@ The live database is byte-identical before and after (row count + SHA-256 of
 serialized rows, per table, all 21 tables) — every test runs against an
 `fs.mkdtempSync` temp SQLite file, never the live one.
 
-## Committed, not pushed
+## Committed and pushed
 
 **`0b69574`** — `feat(research): close the export/import round trip for
 adequacy, assurance, and evidence links`. 4 files (`lib/domain/contracts.ts`,
 `lib/research/service.ts`, `tests/decisions.test.ts`,
 `docs/generated/code-index.json`), +368/−5. `next-env.d.ts`'s routine
 dev/build regeneration diff was restored (`git restore --worktree`), not
-committed, per this project's standing rule. Not pushed — no instruction to
-push was given this session; `origin/main` remains at `daa54b9`.
+committed, per this project's standing rule.
+
+**Correction, made the same day by the following session.** This entry
+originally recorded both 6b commits as unpushed, and the docs commit carrying
+that claim was itself already on the remote. Verified against the real remote
+with `git fetch`, not the local tracking ref: `origin/main` is at
+`8739da3`, equal to `HEAD`. Both 6b commits are pushed. Left visible rather
+than silently rewritten — this is the "governing documents drift from code"
+pattern this project named in its own review, caught one session later.
 
 **AC-M015-07 is now fully met.** Only 6c (the CLI slice) remains before M015
 can close. Deliberately not touched this session, per the draft prompt's
