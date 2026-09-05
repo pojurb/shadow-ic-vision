@@ -103,9 +103,11 @@ opened this packet with, and it is still true.
 
 ## State
 
-- **6 commits ahead of `origin/main`.** `git push origin main` remains **denied
-  by the auto-mode permission classifier** — not a git failure. No workaround
-  attempted; the user pushes or grants the permission.
+- **Pushed on the user's instruction: `origin/main` is at `9c950fc`**
+  (`7583295..9c950fc`), carrying steps 1–5, 6a, both execution prompts, and
+  this sync. The earlier attempt the same day was **denied by the auto-mode
+  permission classifier** — not a git failure — and went through once that mode
+  was exited. No workaround was attempted in between.
 - **AC-M015-07 half met**: backup done, export/import (6b) not started.
 - Live database untouched this session: `db.sqlite` mtime `2026-09-05 13:40`.
 - `logs/outbound.log` unchanged — 5,209 lines / 3,155 Tavily. Nothing here

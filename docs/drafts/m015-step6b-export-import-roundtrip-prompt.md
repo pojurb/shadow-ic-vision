@@ -32,10 +32,12 @@ one `git revert`-able commit per behavioral change (M015 §8), and 6b touches
 `lib/research/service.ts` and `lib/domain/contracts.ts` — different files, the
 other half of the acceptance criterion, a different failure mode.
 
-Also outstanding, unrelated to 6b: **`git push origin main` was denied by the
-auto-mode permission classifier** on 2026-09-05, so **6 commits** sit ahead of
-`origin/main`. Do not work around it. Report it and let the user push or grant
-the permission.
+**Pushed.** `origin/main` is at `9c950fc` as of 2026-09-05
+(`7583295..9c950fc`), so the remote carries steps 1–5, 6a, and both execution
+prompts. An earlier push attempt this same day was denied by the auto-mode
+permission classifier and succeeded once that mode was exited — if a push is
+blocked again, report it rather than working around it, and do not push at all
+without an explicit instruction.
 
 ## Two environment gotchas that will otherwise cost you a session
 

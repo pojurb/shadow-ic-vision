@@ -2,8 +2,7 @@
 
 Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open —
 6a done and committed (`30c36c0`), 6b prompt ready (`4baf2f9`), 6b/6c not
-started.** 6 commits sit ahead of `origin/main`; `git push` is blocked by the
-auto-mode permission classifier, awaiting the user.
+started.** Pushed — `origin/main` is at `9c950fc` (2026-09-05).
 Three independent reviews of the repository (a full product audit, a
 CLI-specific audit, and a chat summary of the first) were verified directly
 against code and the live database on 2026-09-05; every checked finding held.
