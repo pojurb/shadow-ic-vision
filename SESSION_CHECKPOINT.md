@@ -1,3 +1,86 @@
+# Session Checkpoint - 2026-09-05 (M015 step 6b implemented and verified: export/import round-trip closes AC-M015-07)
+
+An implementation session, following the plan-first standing rule agreed at
+its start: required reading first, the draft prompt's claims independently
+verified (not taken on trust), a plan presented and approved, then execution.
+
+## What was verified before writing any code
+
+The git status shown at the session's start (`db/client.ts` modified,
+`tests/db-client-backup.test.ts` untracked) contradicted the draft prompt's
+claim that 6a was already committed and pushed. Resolved, not assumed: it was
+a stale snapshot — two more commits (`9c950fc`, `daa54b9`) had landed after it
+was taken. `git log` confirmed `30c36c0`/`4baf2f9`/`9c950fc`/`daa54b9` all
+present and the tree clean.
+
+Line numbers in the draft were re-checked against the working tree rather than
+trusted: `service.ts:1368` (`randomUUID()` per evidence row) and `:1406`
+(verbatim `evidenceIds` write) matched exactly. The draft's claim that
+matching on `documentHash` + quote text (rejected approach (c)) is "likely
+ambiguous" was checked directly against the live database (read-only queries
+only): 276 evidence rows span only 108 distinct `document_hash` values, and
+even `(document_hash, quote)` pairs are not unique — 269 distinct pairs across
+276 rows, with one identical quote appearing under one hash 4 times. (c) is
+worse than the draft stated, not merely as claimed.
+
+## What was built
+
+`exportThesisData`/`importThesisData` (`lib/research/service.ts`) and
+`thesisExportSchema` (`lib/domain/contracts.ts`) now round-trip
+`evidence.assuranceLevel`, the whole `sourceAdequacyAssessments` row per
+assumption, and `decisions.evidenceIds` resolved against the *imported*
+evidence rows. Chosen fix: export the real `evidence.id` (`.optional()`, so a
+pre-6b export still imports); import mints a fresh `randomUUID()` per
+evidence row regardless (reusing the exported id would collide when importing
+into the same database it exported from, which every round-trip test here
+does) but records `oldId → newId` while inserting, then rewrites
+`decisions.evidenceIds` through that map — an id it cannot resolve, including
+every id from a pre-6b export, passes through completely unchanged, which is
+the documented dangling-by-design behavior for `Decision.evidenceIds`, not a
+special case added for it. Full reasoning, both rejected alternatives, and
+the exact code is in the M015 packet's §4 step 6b.
+
+Four new tests in `tests/decisions.test.ts`, plus the existing round-trip test
+extended: three fail-first cases (one per defect), a pre-6b-shaped fixture
+test, and a `getResearchPanel` coverage-ledger-and-verdict before/after
+comparison (classifying the assumption `'C'`, the one value
+`deriveCoverageLedger` treats specially, so the comparison exercises real
+behavior, not just copied columns). Fail-first was proven by actually
+reverting the fix (`git stash` on the two source files, tests left in place),
+watching the three new tests fail for exactly the stated reason, then
+restoring the stash and watching them pass.
+
+## Verified
+
+`tests/decisions.test.ts` 14/14; `tests/research-service.test.ts` +
+`tests/coverage-verdict.test.ts` + `tests/migrations.test.ts` unaffected (68
+passed). Full suite **485 passed / 3 skipped** (up from 481/3 at 6a's close),
+typecheck clean, lint 0 errors (1 pre-existing `.tmp-review/` warning, not
+ours), `context:check`/`status:check` clean after regenerating the index,
+build clean, `test:e2e` 7/7. `npm run doctor --json` before/after:
+`tierA`/`tierC.current` byte-identical. `logs/outbound.log`'s `api.tavily.com`
+count unchanged at 3,155; total lines grew by 14 from the same pre-existing,
+unrelated `tests/ollama-provider.test.ts` synthetic-fixture logging 6a's
+verification already recorded — not this step's traffic, since it has none.
+The live database is byte-identical before and after (row count + SHA-256 of
+serialized rows, per table, all 21 tables) — every test runs against an
+`fs.mkdtempSync` temp SQLite file, never the live one.
+
+## Committed, not pushed
+
+**`0b69574`** — `feat(research): close the export/import round trip for
+adequacy, assurance, and evidence links`. 4 files (`lib/domain/contracts.ts`,
+`lib/research/service.ts`, `tests/decisions.test.ts`,
+`docs/generated/code-index.json`), +368/−5. `next-env.d.ts`'s routine
+dev/build regeneration diff was restored (`git restore --worktree`), not
+committed, per this project's standing rule. Not pushed — no instruction to
+push was given this session; `origin/main` remains at `daa54b9`.
+
+**AC-M015-07 is now fully met.** Only 6c (the CLI slice) remains before M015
+can close. Deliberately not touched this session, per the draft prompt's
+scope: 6c itself, M014, snapshot-byte backup, `IdxAdapter.REPORT_TERMS`, A4,
+and any `doctor`/XBRL change.
+
 # Session Checkpoint - 2026-09-05 (6a independently re-verified and committed; 6b prompt prepared)
 
 A review-and-commit session, not an implementation one. No code was written

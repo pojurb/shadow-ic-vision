@@ -1,8 +1,10 @@
 # Active Milestone
 
 Status: `accepted` — **M015 opened 2026-09-05, steps 1–5 done; step 6 open —
-6a done and committed (`30c36c0`), 6b prompt ready (`4baf2f9`), 6b/6c not
-started.** Pushed — `origin/main` is at `9c950fc` (2026-09-05).
+6a and 6b done and committed (`30c36c0`, `0b69574`), 6c not started.
+AC-M015-07 is now fully met; only 6c stands between M015 and closure.**
+`0b69574` is local, not yet pushed — `origin/main` is still at `daa54b9`
+(2026-09-05), which carries steps 1–5 and 6a.
 Three independent reviews of the repository (a full product audit, a
 CLI-specific audit, and a chat summary of the first) were verified directly
 against code and the live database on 2026-09-05; every checked finding held.
@@ -203,20 +205,47 @@ session's stated results are not evidence until re-checked. The 481/3 suite
 result, typecheck, lint, `context:check`, `status:check`, the untouched live
 database, and the two test cases were all confirmed directly.
 
-**6b is specified and ready** in
-[`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](docs/drafts/m015-step6b-export-import-roundtrip-prompt.md)
-(`4baf2f9`), and it corrects the incoming report on a point that changes the
-fix. "Remap decision evidence IDs on import" cannot be written against current
-code: the exported evidence object (`lib/research/service.ts:1220-1245`)
-carries **no `id` field** and `thesisExportSchema` defines none, so there is
-nothing to map from — any fix must first give each exported evidence row a
-stable key. Every line reference in the earlier audit had drifted and was
-re-derived from the working tree. Two traps are pinned down so 6b cannot invert
-them: a dangling `evidenceId` is **by design** (`CODEBASE_MAP.md` — a
-point-in-time snapshot, not a foreign key), so a remap must preserve what it
-cannot resolve rather than drop it; and `version` must stay `z.literal(1)`,
-since the schema's documented posture is to add later fields as `.optional()`
-so older export files still import.
+**6b done, 2026-09-05 (`0b69574`, local, not yet pushed).** The prompt
+([`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](docs/drafts/m015-step6b-export-import-roundtrip-prompt.md),
+`4baf2f9`) corrected the incoming report on a point that changed the fix:
+"remap decision evidence IDs on import" could not be written against the code
+as it stood, because the exported evidence object carried **no `id` field**
+and `thesisExportSchema` defined none — nothing to map from. Fix: export the
+real `evidence.id` (`.optional()`, so a pre-6b export still imports); import
+still mints a fresh `randomUUID()` per row (reusing the exported id would
+collide when importing into the same database it came from) but records
+`oldId → newId` while inserting, then rewrites `decisions.evidenceIds` through
+that map, leaving anything unresolvable — including every id from a pre-6b
+export — unchanged. The two rejected alternatives were checked against the
+live corpus, not just reasoned about: matching on `documentHash` alone
+collides (276 evidence rows span only 108 distinct hashes); adding the quote
+text still collides (269 distinct `(hash, quote)` pairs across 276 rows — one
+quote repeats identically 4 times under one hash). `sourceAdequacyAssessments`
+(`classification`, `reasoning`, `contractFingerprint`, `assessedBy`) is now
+exported per-assumption, mirroring `measurement`'s existing shape and
+optionality, and re-inserted keyed to the assumption's new id; `assuranceLevel`
+now round-trips instead of falling back to the column default. Both traps the
+prompt pinned down held: a dangling `evidenceId` passes through unchanged
+rather than being dropped, and `version` stayed `z.literal(1)`.
+
+Proven fail-first: three new tests (one per defect) shown failing against
+pre-fix code (`git stash` on the two source files, tests left in place) for
+exactly the stated reason, then passing once restored — plus a pre-6b-shaped
+fixture test (no `id`/`assuranceLevel`/`sourceAdequacy` at all) proving old
+export files still import, and the existing round-trip test extended to
+compare `getResearchPanel`'s coverage ledger and verdict before export against
+after import (classifying the assumption `'C'`, the one value
+`deriveCoverageLedger` treats specially, so the comparison is a real
+behavioral check, not a field-count one). Full suite **485 passed / 3
+skipped** (up from 481/3 at 6a's close), typecheck/lint/build/`test:e2e` (7/7)
+clean, `context:check`/`status:check` clean. `npm run doctor --json`
+before/after: `tierA` and `tierC.current` byte-identical. `logs/outbound.log`'s
+`api.tavily.com` count unchanged at 3,155 (this step touches no network path);
+total lines grew by 14 from the same pre-existing, unrelated
+`tests/ollama-provider.test.ts` synthetic-fixture logging 6a's verification
+already recorded. The live database is byte-identical before and after
+(row count + SHA-256 per table, all 21 tables) — every test runs against an
+`fs.mkdtempSync` temp SQLite file. **AC-M015-07 is now fully met.**
 
 **Still true, and still the finding this packet opened with: source *bytes*
 have no automated backup.** 6a made the *database* backup WAL-safe. The 306 MB

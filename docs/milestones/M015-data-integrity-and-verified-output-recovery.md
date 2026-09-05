@@ -1,10 +1,10 @@
 # M015: Data Integrity & Verified-Output Recovery
 
 Status: `accepted` (2026-09-05) — steps 1-5 done; step 6 open. 6a done and
-committed (`30c36c0`), 6b specified and ready (`4baf2f9`), 6b/6c not started.
+committed (`30c36c0`), 6b done and committed (`0b69574`), 6c not started.
+AC-M015-07 is fully met — only 6c (CLI slice) stands between M015 and closure.
 Step 5 is done as a recorded failed attempt: A1 cannot be settled because the
 transaction it measures has not closed. Non-inconclusive evidence remains 0.
-AC-M015-07 is half met (backup yes, export/import no).
 
 Date drafted: 2026-09-05
 
@@ -481,8 +481,8 @@ broken `thesis:stage` → `research:queue` handoff (no thesis ID printed — use
 the conversation URL as the stable handle, per Sol's recommendation),
 `source-adequacy:record` writing durable state from CLI flags with no browser
 gate, non-atomic staging, and `CLI_WORKFLOW.md`'s understated description of
-`research:queue`. Split into three independently committable chunks; 6a is
-done, 6b/6c are not started.
+`research:queue`. Split into three independently committable chunks; 6a and 6b
+are done, 6c is not started.
 
 #### 6a — WAL-safe backup
 
@@ -548,7 +548,7 @@ against an `fs.mkdtempSync` temp directory.
 
 #### 6b — export/import round-trip
 
-**Not started; specified and ready.** Execution prompt:
+**Done, 2026-09-05 (`0b69574`).** Execution prompt:
 [`docs/drafts/m015-step6b-export-import-roundtrip-prompt.md`](../drafts/m015-step6b-export-import-roundtrip-prompt.md)
 (`4baf2f9`). Three defects, re-derived from the working tree 2026-09-05 because
 every line reference in the original audit had drifted:
@@ -586,6 +586,87 @@ schema's documented posture is to add later fields as `.optional()` so export
 files written before a field existed still import (`contracts.ts:396-399` says
 so about M011's `measurement`); a bump would break every existing package.
 
+**Fix chosen: (a), export the real `evidence.id`.** Re-verified live against
+the corpus before picking it, not assumed from the prompt: (c) — matching on
+`documentHash` + quote — was flagged as "likely ambiguous"; it is worse than
+that. 276 evidence rows span only 108 distinct `document_hash` values (one
+hash carries 13 rows), and even `(document_hash, quote)` pairs are not
+unique — 269 distinct pairs across 276 rows, with one identical quote
+appearing under one hash **4 times** (multiple assumptions citing the same
+market-recap article). (b) — a package-local synthesized key — was rejected
+without needing to build it: it requires export and import to agree on the
+same key scheme and forces `decisions.evidenceIds` to be rewritten into that
+key space *at export time*, more surface for the same result (a) gives
+directly. `id` is `.optional()` on the evidence schema, so a pre-6b export
+(no `id` field) still imports — see the DoD-4 fixture test below.
+
+Reusing the exported id verbatim on insert was rejected too: every round-trip
+test here imports into the *same* database it exported from, so re-using
+`'evidence-1'` as a primary key would collide with the still-live source row.
+Import instead still mints a fresh `randomUUID()` per evidence row, and
+records `oldId → newId` in a map built while inserting; `decisions.evidenceIds`
+is then rewritten through `id => map.get(id) ?? id` — an id the map cannot
+resolve (including every id from a pre-6b export, whose map is empty) passes
+through completely unchanged, which is the dangling-by-design behavior the
+trap above requires, not a special case bolted on for it.
+`sourceAdequacyAssessments` is exported per-assumption (mirroring the existing
+`measurement` field's shape and optionality exactly, since both are 1:1 with
+an assumption) and re-inserted keyed to the assumption's *new* id, with
+`contractFingerprint` carried through verbatim rather than recomputed — the
+same "don't silently rewrite history" reasoning the existing `evidence.polarity`
+import comment already states (`service.ts:1435-1438`).
+
+**Fail-first proof**, `tests/decisions.test.ts` (three new cases, one per
+defect, plus the existing round-trip test extended and one new pre-6b-shaped
+fixture test): each of the three was run against pre-fix code (`git stash` on
+just `contracts.ts`/`service.ts`, tests left in place) and shown failing for
+exactly the stated reason — `assuranceLevel` reads back `undefined` instead of
+`'audited'`; `sourceAdequacy` reads back `undefined` instead of the recorded
+classification; the remapped decision evidence id is not among the imported
+evidence rows' actual ids (`expected false to be true`) — then passing again
+once the stash was restored. The existing round-trip test's own prior
+assertion (`evidenceIds` equals the stale exported `'evidence-1'`) also failed
+pre-fix, because it had been silently asserting the bug; it's corrected in
+place to assert the *new* evidence row's id instead of removed.
+
+The round-trip test extends past field-count, per AC-M015-07's own definition
+of done: it classifies the assumption `'C'` (the one value
+`deriveCoverageLedger` treats specially — it short-circuits a `'C'`-classified
+assumption straight into `unevidencedAssumptions` regardless of any evidence
+present), captures `getResearchPanel`'s coverage ledger and verdict *before*
+export, does the same *after* import against the new conversation, and asserts
+`totalAssumptions`/`evidenced`/`unevidenced`/`confidenceGate`, the
+`unevidencedAssumptions` reason (`'no_source_identified'`), and
+`verdict.level` are identical — a real downstream computation producing the
+same output from the imported (new-id) rows, not an assertion that the raw
+columns copied over.
+
+A dedicated fixture test (DoD 4) builds a literal export object with no `id`,
+no `assuranceLevel`, and no `sourceAdequacy` field anywhere — the exact shape
+a file written before this change has — and confirms it still imports:
+`assuranceLevel` defaults to `'unknown'`, no adequacy row is invented, and the
+decision's opaque, unresolvable `evidenceId` survives verbatim. The existing
+`legacy_unspecified`-contract import test (the real ISAT dogfood shape) was
+not touched and still passes.
+
+**Verified**: `tests/decisions.test.ts` 14/14 (up from 3 — 4 new cases, the
+round-trip test extended), `tests/research-service.test.ts` +
+`tests/coverage-verdict.test.ts` + `tests/migrations.test.ts` unaffected (68
+passed). Full suite **485 passed / 3 skipped** (up from 481/3 at 6a's close),
+typecheck clean, lint 0 errors (the one warning is the pre-existing,
+not-ours `.tmp-review/vitest.config.ts`), `context:check`/`status:check` clean
+after regenerating the index for the new `source-adequacy` import in the test
+file, build clean, `test:e2e` 7/7. `npm run doctor --json` before/after: `tierA`
+unchanged (0 violations, passed) and `tierC.current` byte-identical, including
+`nonInconclusiveEvidenceCount: 0` and `decisions: 1` — this step writes no
+evidence and records no decision. `logs/outbound.log`'s `api.tavily.com` count
+is unchanged at 3,155; total line count grew by 14 from the same pre-existing,
+unrelated `tests/ollama-provider.test.ts` synthetic-fixture logging 6a's
+verification already recorded — not this step's network path, since it has
+none. The live database is **byte-identical** before and after (row count +
+SHA-256 of serialized rows, per table, all 21 tables) — every test in this
+change runs against an `fs.mkdtempSync` temp SQLite file.
+
 #### 6c — CLI slice
 
 **Not started.**
@@ -599,7 +680,7 @@ genuinely uncommitted transaction must not (and does not) survive into the
 restored copy. An exported-then-imported thesis preserves adequacy,
 assurance, and decision-evidence linkage, verified by comparing the coverage
 ledger and verdict before export and after import, not by field-count alone —
-**not yet met**, this is 6b.
+**met by 6b, 2026-09-05** (`0b69574`).
 
 ## 5. Acceptance criteria
 
@@ -635,10 +716,14 @@ ledger and verdict before export and after import, not by field-count alone —
 - **AC-M015-07** — Backup survives a WAL-active restore, verified by restoring
   to a separate path; export → import round-trips adequacy, assurance, and
   decision-evidence linkage, verified by before/after coverage-ledger and
-  verdict comparison. **Partially met, 2026-09-05** — the backup half (6a) is
-  met: `backupExistingDatabase` now uses `VACUUM INTO`, verified by restoring
-  to a separate path and reading it, including the committed-vs-uncommitted
-  distinction (§4 step 6a). The export/import half (6b) is **not met**.
+  verdict comparison. **Fully met, 2026-09-05.** The backup half (6a) is met:
+  `backupExistingDatabase` now uses `VACUUM INTO`, verified by restoring to a
+  separate path and reading it, including the committed-vs-uncommitted
+  distinction (§4 step 6a). The export/import half (6b) is now also met
+  (`0b69574`): `assuranceLevel`, `sourceAdequacyAssessments`, and
+  decision→evidence linkage all survive a round trip, verified by a
+  before/after `getResearchPanel` coverage-ledger and verdict comparison, not
+  by field-count (§4 step 6b).
 - **AC-M015-08** — `CLI_WORKFLOW.md` accurately describes what `research:queue`
   runs, and the `thesis:stage` → `research:queue` handoff does not require a
   value the first command never prints. **Not met.**
