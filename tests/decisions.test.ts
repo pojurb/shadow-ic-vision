@@ -12,6 +12,7 @@ import {
   decisions,
   evidence,
   messages,
+  sourceAdequacyAssessments,
   theses,
 } from '@/db/schema';
 import { thesisDraftSchema, thesisExportSchema, type ThesisExport } from '@/lib/domain/contracts';
@@ -24,6 +25,7 @@ import {
   generateDecisionRecommendation,
   processResearchJobs,
 } from '@/lib/research/service';
+import { recordSourceAdequacy, type ContractSubstance } from '@/lib/research/source-adequacy';
 
 const draft = thesisDraftSchema.parse({
   ticker: 'PLTR',
@@ -46,6 +48,17 @@ const draft = thesisDraftSchema.parse({
   }],
   requiresChallenge: false,
 });
+
+// Matches `draft`'s single assumption's measurement contract exactly —
+// `computeContractFingerprint` only reads these six substance fields.
+const PLTR_CONTRACT_SUBSTANCE: ContractSubstance = {
+  metric: 'gross margin',
+  definitionVariant: 'total company GAAP gross margin',
+  operator: 'gte',
+  threshold: 80,
+  unit: 'percent',
+  timeBasis: 'duration_quarter',
+};
 
 describe('Decision Library & Import/Export persistence', () => {
   let directory: string;
@@ -134,6 +147,8 @@ describe('Decision Library & Import/Export persistence', () => {
       impactSummary: 'Supports target margin',
       interpretationStatus: 'pending',
       metadata: JSON.stringify({ parserVersion: 'test-parser' }),
+      // M015 6b.
+      assuranceLevel: 'audited',
     }).run();
 
     await recordDecision(
@@ -142,17 +157,40 @@ describe('Decision Library & Import/Export persistence', () => {
       { db: handle.db },
     );
 
+    // M015 6b. Classification 'C' is the one value `deriveCoverageLedger`
+    // treats specially (it short-circuits the assumption into
+    // `unevidencedAssumptions` regardless of polarities present), so it is
+    // the classification that actually exercises whether the coverage ledger
+    // and verdict come out identical before export and after import — not
+    // just whether the raw row round-trips.
+    await recordSourceAdequacy({
+      db: handle.db,
+      assumptionId: assumption!.id,
+      classification: 'C',
+      reasoning: 'No public source discloses GAAP gross margin at this granularity.',
+      contract: PLTR_CONTRACT_SUBSTANCE,
+    });
+
+    const panelBeforeExport = await getResearchPanel(conversationId, { db: handle.db });
+
     const exportPayload = await exportThesisData(thesisId, { db: handle.db });
     const parsed = thesisExportSchema.safeParse(exportPayload);
     expect(parsed.success).toBe(true);
     expect(exportPayload.thesis.ticker).toBe('PLTR');
     expect(exportPayload.assumptions[0].evidence).toHaveLength(1);
     expect(exportPayload.assumptions[0].evidence[0]).toMatchObject({
+      id: 'evidence-1',
       contentKind: 'text',
       sourceVariant: 'text_layer',
       documentHash: 'dochash123',
       canonicalTextHash: 'texthash123',
       boundingBox: '[0.1,0.2,0.3,0.4]',
+      assuranceLevel: 'audited',
+    });
+    expect(exportPayload.assumptions[0].sourceAdequacy).toMatchObject({
+      classification: 'C',
+      reasoning: 'No public source discloses GAAP gross margin at this granularity.',
+      assessedBy: 'user',
     });
     expect(exportPayload.decisions).toHaveLength(1);
     expect(exportPayload.decisions[0]).toMatchObject({
@@ -181,6 +219,22 @@ describe('Decision Library & Import/Export persistence', () => {
       documentHash: 'dochash123',
       canonicalTextHash: 'texthash123',
       boundingBox: '[0.1,0.2,0.3,0.4]',
+      assuranceLevel: 'audited',
+    });
+    // M015 6b. The imported row gets a fresh id (reusing 'evidence-1' would
+    // collide — this test imports into the same database it exported from),
+    // so proving the linkage means proving the *new* id, not the stale one.
+    expect(importedEvidence[0].id).not.toBe('evidence-1');
+
+    const importedAdequacy = handle.db
+      .select().from(sourceAdequacyAssessments)
+      .where(eq(sourceAdequacyAssessments.assumptionId, importedAssumptions[0].id))
+      .get();
+    expect(importedAdequacy).toMatchObject({
+      classification: 'C',
+      reasoning: 'No public source discloses GAAP gross margin at this granularity.',
+      assessedBy: 'user',
+      contractFingerprint: exportPayload.assumptions[0].sourceAdequacy!.contractFingerprint,
     });
 
     const importedDecisions = handle.db.select().from(decisions).where(eq(decisions.thesisId, importResult.thesisId)).all();
@@ -188,8 +242,241 @@ describe('Decision Library & Import/Export persistence', () => {
     expect(importedDecisions[0].outcome).toBe('Update Thesis');
     expect(importedDecisions[0].action).toBe('Hold');
     expect(importedDecisions[0].rationale).toBe('Holding due to current valuation');
-    expect(JSON.parse(importedDecisions[0].evidenceIds)).toEqual(['evidence-1']);
+    // M015 6b. The stale exported id must not survive — it must resolve to
+    // the evidence row actually sitting in this database after import.
+    expect(JSON.parse(importedDecisions[0].evidenceIds)).toEqual([importedEvidence[0].id]);
     expect(JSON.parse(importedDecisions[0].alternatives)).toEqual(['Exit entirely instead of holding']);
+
+    // M015 6b / AC-M015-07. The behavioural check the acceptance criterion
+    // actually demands: the coverage ledger and verdict a real caller would
+    // see are identical before export and after import, computed from the
+    // imported (new-id) rows rather than asserted by field-count alone.
+    const panelAfterImport = await getResearchPanel(importResult.conversationId, { db: handle.db });
+    expect(panelAfterImport.coverage).toMatchObject({
+      totalAssumptions: panelBeforeExport.coverage!.totalAssumptions,
+      evidenced: panelBeforeExport.coverage!.evidenced,
+      unevidenced: panelBeforeExport.coverage!.unevidenced,
+      confidenceGate: panelBeforeExport.coverage!.confidenceGate,
+    });
+    expect(panelAfterImport.coverage!.unevidencedAssumptions).toMatchObject(
+      panelBeforeExport.coverage!.unevidencedAssumptions.map((row) => ({ reason: row.reason })),
+    );
+    expect(panelAfterImport.coverage!.unevidencedAssumptions[0].reason).toBe('no_source_identified');
+    expect(panelAfterImport.verdict?.level).toBe(panelBeforeExport.verdict?.level);
+  });
+
+  /**
+   * M015 6b, defect 1. `exportThesisData`'s evidence field map did not
+   * include `assuranceLevel` at all, so every re-imported row fell to the
+   * column default `'unknown'` regardless of what it had been audited as —
+   * the exact distinction `a2f766f` shipped to create. Isolated from the
+   * other two defects so a regression in one cannot hide behind a fix to
+   * another.
+   */
+  it('preserves evidence assuranceLevel across export/import', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get();
+
+    handle.db.insert(evidence).values({
+      id: 'assurance-evidence-1',
+      assumptionId: assumption!.id,
+      sourceFormat: 'pdf',
+      contentKind: 'text',
+      extractionMethod: 'pdf_text_layer',
+      verificationStatus: 'exact_verified',
+      sourceTier: 'official',
+      sourceName: 'SEC 10-Q',
+      publishDate: '2026-05-01',
+      documentHash: 'assurance-dochash',
+      sourceUrl: 'https://sec.gov/filing-assurance',
+      retrievalTimestamp: new Date().toISOString(),
+      content: 'gross margin of 81.3%, audited',
+      impactSummary: 'Supports target margin',
+      interpretationStatus: 'pending',
+      metadata: null,
+      assuranceLevel: 'audited',
+    }).run();
+
+    const exportPayload = await exportThesisData(thesisId, { db: handle.db });
+    expect(exportPayload.assumptions[0].evidence[0].assuranceLevel).toBe('audited');
+
+    const importResult = await importThesisData(exportPayload, { db: handle.db });
+    const importedAssumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, importResult.thesisId)).get();
+    const importedEvidence = handle.db.select().from(evidence).where(eq(evidence.assumptionId, importedAssumption!.id)).all();
+    expect(importedEvidence).toHaveLength(1);
+    expect(importedEvidence[0].assuranceLevel).toBe('audited');
+  });
+
+  /**
+   * M015 6b, defect 2. `exportThesisData` never selected
+   * `sourceAdequacyAssessments` at all, and there was no import counterpart —
+   * a classified 'C' (no public source exists for this contract) silently
+   * reverted to "never assessed" on re-import, which is a different claim
+   * than the user actually made.
+   */
+  it('preserves the source adequacy classification across export/import', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get();
+
+    await recordSourceAdequacy({
+      db: handle.db,
+      assumptionId: assumption!.id,
+      classification: 'C',
+      reasoning: 'No public source names this metric at this granularity.',
+      contract: PLTR_CONTRACT_SUBSTANCE,
+    });
+
+    const exportPayload = await exportThesisData(thesisId, { db: handle.db });
+    expect(exportPayload.assumptions[0].sourceAdequacy).toMatchObject({
+      classification: 'C',
+      reasoning: 'No public source names this metric at this granularity.',
+      assessedBy: 'user',
+    });
+
+    const importResult = await importThesisData(exportPayload, { db: handle.db });
+    const importedAssumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, importResult.thesisId)).get();
+    const importedAdequacy = handle.db
+      .select().from(sourceAdequacyAssessments)
+      .where(eq(sourceAdequacyAssessments.assumptionId, importedAssumption!.id))
+      .get();
+
+    expect(importedAdequacy).toBeDefined();
+    expect(importedAdequacy!.classification).toBe('C');
+    expect(importedAdequacy!.reasoning).toBe('No public source names this metric at this granularity.');
+    expect(importedAdequacy!.contractFingerprint).toBe(exportPayload.assumptions[0].sourceAdequacy!.contractFingerprint);
+  });
+
+  /**
+   * M015 6b, defect 3. Import minted a fresh `randomUUID()` for every
+   * evidence row while writing `decisions.evidenceIds` verbatim from the
+   * export — those ids came from the source database, so after import they
+   * resolved to nothing in the new one. The exported evidence object carried
+   * no `id` at all, so "remap on import" could not be written until export
+   * started including one.
+   */
+  it('remaps decision evidenceIds to the imported evidence rows, not the stale exported ids', async () => {
+    const { thesisId } = confirmDraft(conversationId, messageId, { db: handle.db });
+    const assumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, thesisId)).get();
+
+    handle.db.insert(evidence).values({
+      id: 'evidence-linkage-1',
+      assumptionId: assumption!.id,
+      sourceFormat: 'html',
+      contentKind: 'text',
+      extractionMethod: 'html_parser',
+      verificationStatus: 'exact_verified',
+      sourceTier: 'official',
+      sourceName: 'SEC Edgar',
+      publishDate: '2026-05-01',
+      documentHash: 'linkage-dochash',
+      sourceUrl: 'https://sec.gov/filing-linkage',
+      retrievalTimestamp: new Date().toISOString(),
+      content: 'gross margin of 81.3%',
+      impactSummary: 'Supports target margin',
+      interpretationStatus: 'pending',
+      metadata: null,
+    }).run();
+
+    await recordDecision(
+      thesisId, 'Update Thesis', 'Hold', 'Holding due to current valuation',
+      ['evidence-linkage-1'], [],
+      { db: handle.db },
+    );
+
+    const exportPayload = await exportThesisData(thesisId, { db: handle.db });
+    const importResult = await importThesisData(exportPayload, { db: handle.db });
+
+    const importedAssumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, importResult.thesisId)).get();
+    const importedEvidenceRows = handle.db.select().from(evidence).where(eq(evidence.assumptionId, importedAssumption!.id)).all();
+    const importedDecisionRow = handle.db.select().from(decisions).where(eq(decisions.thesisId, importResult.thesisId)).get();
+
+    const importedEvidenceIds = new Set(importedEvidenceRows.map((row) => row.id));
+    const decisionEvidenceIds: string[] = JSON.parse(importedDecisionRow!.evidenceIds);
+
+    expect(decisionEvidenceIds).toHaveLength(1);
+    expect(importedEvidenceIds.has(decisionEvidenceIds[0])).toBe(true);
+    expect(decisionEvidenceIds[0]).not.toBe('evidence-linkage-1');
+  });
+
+  /**
+   * M015 6b, DoD 4. `thesisExportSchema` follows its own documented posture
+   * for M011's `measurement` field: add later fields as `.optional()` so an
+   * export file written before they existed still imports. `id`,
+   * `assuranceLevel`, and `sourceAdequacy` all follow that posture — this
+   * proves a package with none of them still imports, defaults correctly,
+   * invents no adequacy judgment the user never made, and leaves a decision's
+   * unresolvable evidenceId exactly as it was (the dangling-by-design
+   * invariant `docs/CODEBASE_MAP.md` documents for `Decision.evidenceIds`).
+   */
+  it('imports an export file written before id/assuranceLevel/sourceAdequacy existed', async () => {
+    const oldShapedExport = {
+      version: 1,
+      thesis: {
+        ticker: 'OLD',
+        companyName: 'Legacy Co',
+        market: 'US',
+        coreBelief: 'Legacy pre-6b export.',
+        title: 'OLD — Legacy Co',
+        description: 'Legacy pre-6b export.',
+        status: 'active',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      assumptions: [{
+        statement: 'Legacy assumption with no id/assuranceLevel/sourceAdequacy fields.',
+        status: 'untested',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        evidence: [{
+          // No `id` field — pre-6b shape.
+          sourceTier: 'official',
+          sourceName: 'Old Source',
+          sourceUrl: 'https://example.com/old',
+          publishDate: null,
+          retrievalTimestamp: '2026-01-01T00:00:00.000Z',
+          exactQuote: 'Legacy quote text.',
+          impactSummary: 'Legacy summary.',
+          verificationStatus: 'exact_verified',
+          sourceFormat: 'html',
+          extractionMethod: 'html_parser',
+          pageNumber: null,
+          interpretationStatus: 'pending',
+          metadata: null,
+          // No `assuranceLevel` — must default to 'unknown'.
+        }],
+        // No `sourceAdequacy` at all.
+      }],
+      decisions: [{
+        outcome: 'No Change',
+        optionalAction: null,
+        userReasoning: 'Legacy decision.',
+        // An opaque id from the source database this old export cannot
+        // resolve against — must survive unchanged, not be dropped.
+        evidenceIds: ['old-opaque-evidence-id'],
+        alternatives: [],
+        timestamp: '2026-01-02T00:00:00.000Z',
+      }],
+    };
+
+    const parsed = thesisExportSchema.parse(oldShapedExport);
+    expect(parsed.assumptions[0].evidence[0].assuranceLevel).toBe('unknown');
+    expect(parsed.assumptions[0].sourceAdequacy).toBeUndefined();
+
+    const importResult = await importThesisData(parsed, { db: handle.db });
+
+    const importedAssumption = handle.db.select().from(assumptions).where(eq(assumptions.thesisId, importResult.thesisId)).get();
+    expect(importedAssumption).toBeDefined();
+
+    const importedEvidence = handle.db.select().from(evidence).where(eq(evidence.assumptionId, importedAssumption!.id)).all();
+    expect(importedEvidence).toHaveLength(1);
+    expect(importedEvidence[0].assuranceLevel).toBe('unknown');
+
+    const importedAdequacy = handle.db
+      .select().from(sourceAdequacyAssessments)
+      .where(eq(sourceAdequacyAssessments.assumptionId, importedAssumption!.id))
+      .get();
+    expect(importedAdequacy).toBeUndefined();
+
+    const importedDecision = handle.db.select().from(decisions).where(eq(decisions.thesisId, importResult.thesisId)).get();
+    expect(JSON.parse(importedDecision!.evidenceIds)).toEqual(['old-opaque-evidence-id']);
   });
 
   /**

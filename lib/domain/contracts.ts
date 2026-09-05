@@ -397,8 +397,23 @@ export const thesisExportSchema = z.object({
       // fields added after v1 (`sourceVariant`, `documentHash`, …): every
       // export file written before M011 must still import.
       measurement: measurementContractSchema.optional(),
+      // M015 6b. `.optional()` for the same reason `measurement` is: a
+      // pre-6b export carries no adequacy judgment, and this is 1:1 with the
+      // assumption (schema comment on `sourceAdequacyAssessments`), the same
+      // relationship `measurement` already has.
+      sourceAdequacy: z.object({
+        classification: z.enum(['A', 'B', 'C']),
+        reasoning: z.string(),
+        contractFingerprint: z.string(),
+        assessedBy: z.string(),
+        assessedAt: z.string(),
+      }).optional(),
       evidence: z.array(
         z.object({
+          // M015 6b. Optional so a pre-6b export (no `id` field at all)
+          // still parses; import falls back to the dangling-id behavior it
+          // already had when this is absent.
+          id: z.string().optional(),
           sourceTier: z.enum(['official', 'secondary']),
           sourceName: z.string(),
           sourceUrl: z.string(),
@@ -423,6 +438,10 @@ export const thesisExportSchema = z.object({
           polarity: evidencePolaritySchema.default('inconclusive'),
           deltaVsThreshold: z.number().nullable().optional(),
           polarityMethod: z.string().optional(),
+          // M015 6b. Defaults to the same value the `evidence.assurance_level`
+          // column defaults to, so a pre-6b export (no field at all) round-trips
+          // to exactly what it already meant: never classified.
+          assuranceLevel: z.enum(['audited', 'unaudited', 'unknown']).default('unknown'),
         })
       ),
     })

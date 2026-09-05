@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "f5e0a7d241f07448f8030f3b813c50781bfcdcefa45c9681bad62af3bef8078d",
+  "sourceDigest": "e223deb92327572f67a28588be7fed0a247043c0aa3e5cc8a7360c9b3b7cccc2",
   "roots": [
     "app",
     "components",
@@ -3141,6 +3141,10 @@
           "resolved": "lib/research/service.ts"
         },
         {
+          "specifier": "@/lib/research/source-adequacy",
+          "resolved": "lib/research/source-adequacy.ts"
+        },
+        {
           "specifier": "drizzle-orm",
           "resolved": null
         },
@@ -4725,7 +4729,8 @@
         "db/schema.ts",
         "lib/ai/adapters/mock.ts",
         "lib/domain/contracts.ts",
-        "lib/research/service.ts"
+        "lib/research/service.ts",
+        "lib/research/source-adequacy.ts"
       ]
     },
     {

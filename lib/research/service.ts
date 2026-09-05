@@ -1218,10 +1218,18 @@ export async function exportThesisData(
     ? await db.select().from(assumptionMeasurements).where(inArray(assumptionMeasurements.assumptionId, assumptionIds)).all()
     : [];
 
+  // M015 6b. Exported so a thesis round-trips with the user's own adequacy
+  // judgment intact — without it, a classified 'C' (no public source exists)
+  // silently reverts to "never assessed" on re-import.
+  const adequacyRows = assumptionIds.length
+    ? await db.select().from(sourceAdequacyAssessments).where(inArray(sourceAdequacyAssessments.assumptionId, assumptionIds)).all()
+    : [];
+
   const exportedAssumptions = assumptionRows.map((a) => {
     const aEvidence = evidenceRows
       .filter((e) => e.assumptionId === a.id)
       .map((e) => ({
+        id: e.id,
         sourceTier: e.sourceTier,
         sourceName: e.sourceName,
         sourceUrl: e.sourceUrl,
@@ -1243,15 +1251,24 @@ export async function exportThesisData(
         polarity: e.polarity,
         deltaVsThreshold: e.deltaVsThreshold,
         polarityMethod: e.polarityMethod,
+        assuranceLevel: e.assuranceLevel as 'audited' | 'unaudited' | 'unknown',
       }));
 
     const measurementRow = measurementRows.find((row) => row.assumptionId === a.id);
+    const adequacyRow = adequacyRows.find((row) => row.assumptionId === a.id);
 
     return {
       statement: a.statement,
       status: a.status,
       createdAt: a.createdAt,
       measurement: measurementRow ? toMeasurementContract(measurementRow) : undefined,
+      sourceAdequacy: adequacyRow ? {
+        classification: adequacyRow.classification,
+        reasoning: adequacyRow.reasoning,
+        contractFingerprint: adequacyRow.contractFingerprint,
+        assessedBy: adequacyRow.assessedBy,
+        assessedAt: adequacyRow.assessedAt,
+      } : undefined,
       evidence: aEvidence,
     };
   });
@@ -1361,11 +1378,41 @@ export async function importThesisData(
       sourceMode: 'mock',
     });
 
+    // M015 6b. A fresh id is still minted per row (reusing the exported id
+    // verbatim would collide when importing into the same database the
+    // export came from, which the round-trip tests do) — this map is what
+    // lets `decisions.evidenceIds` follow evidence to its new identity.
+    // Only ids present in this export get an entry: a pre-6b export carries
+    // no evidence `id` at all, so every decision from one has no entry to
+    // resolve against and passes through unchanged, which is the correct,
+    // already-existing dangling behavior for that shape of file.
+    const oldToNewEvidenceId = new Map<string, string>();
+
     importedAssumptions.forEach((a, index) => {
       const assumptionId = assumptionIds[index];
+
+      if (a.sourceAdequacy) {
+        tx.insert(sourceAdequacyAssessments).values({
+          assumptionId,
+          classification: a.sourceAdequacy.classification,
+          reasoning: a.sourceAdequacy.reasoning,
+          // M015 6b. Carried through rather than recomputed: this is the
+          // user's judgment against the contract as it stood when they made
+          // it, and `getLiveSourceAdequacy` is what decides whether it still
+          // applies to the imported assumption's (unchanged) contract — not
+          // this call.
+          contractFingerprint: a.sourceAdequacy.contractFingerprint,
+          assessedBy: a.sourceAdequacy.assessedBy,
+          assessedAt: a.sourceAdequacy.assessedAt,
+          updatedAt: now().toISOString(),
+        }).run();
+      }
+
       for (const e of a.evidence) {
+        const newEvidenceId = randomUUID();
+        if (e.id) oldToNewEvidenceId.set(e.id, newEvidenceId);
         tx.insert(evidence).values({
-          id: randomUUID(),
+          id: newEvidenceId,
           assumptionId,
           sourceFormat: e.sourceFormat,
           contentKind: e.contentKind ?? 'text',
@@ -1392,6 +1439,7 @@ export async function importThesisData(
           polarity: e.polarity,
           deltaVsThreshold: e.deltaVsThreshold ?? null,
           polarityMethod: e.polarityMethod ?? 'no_contract',
+          assuranceLevel: e.assuranceLevel,
         }).run();
       }
     });
@@ -1403,7 +1451,11 @@ export async function importThesisData(
         outcome: d.outcome,
         action: d.optionalAction,
         rationale: d.userReasoning,
-        evidenceIds: JSON.stringify(d.evidenceIds ?? []),
+        // M015 6b. `Decision.evidenceIds` is a point-in-time snapshot, not a
+        // foreign key (`docs/CODEBASE_MAP.md`), so an id this export cannot
+        // resolve is preserved unchanged rather than dropped — dropping it
+        // would erase the record of what the user was actually looking at.
+        evidenceIds: JSON.stringify((d.evidenceIds ?? []).map((id) => oldToNewEvidenceId.get(id) ?? id)),
         alternatives: JSON.stringify(d.alternatives ?? []),
         createdAt: d.timestamp,
       }).run();
